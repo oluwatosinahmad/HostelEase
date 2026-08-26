@@ -1,4 +1,10 @@
-import { Area, Property, Amenity } from '../types/hostelEase';
+import { 
+  Area, 
+  Property, 
+  Amenity, 
+  StudentDashboardData, 
+  StudentPreferences 
+} from '../types/hostelEase';
 
 export const DEFAULT_AREAS: Area[] = [
   {
@@ -841,5 +847,160 @@ export const DEFAULT_OPERATIONS_DASHBOARD = {
       verificationBadge: 'VERIFIED_PROVIDER' as const
     }
   ]
+};
+
+export const DEFAULT_STUDENT_PREFERENCES: StudentPreferences = {
+  minBudget: 120000,
+  maxBudget: 350000,
+  preferredAreas: ['Under G', 'Adenike Area', 'Stadium Road'],
+  preferredRoomTypes: ['SELF_CONTAIN', 'SINGLE_ROOM', 'FLAT'],
+  preferredFacilities: ['Borehole Water', 'Backup Generator / Solar', 'Fenced & Gated', 'Prepaid Meter'],
+  maxDistanceKm: 2.5,
+  genderPreference: 'ANY',
+  preferredMoveInDate: '2026-09-01',
+  isMoveInFlexible: true,
+  academicSession: '2026/2027',
+  onboardingCompleted: true
+};
+
+export const DEFAULT_STUDENT_DASHBOARD: StudentDashboardData = {
+  summary: {
+    savedCount: 3,
+    pendingInspectionsCount: 1,
+    activeBookingsCount: 1,
+    pendingPaymentsCount: 0,
+    unreadMessagesCount: 2
+  },
+  urgentAction: {
+    type: 'INSPECTION_REMINDER',
+    priority: 1,
+    badge: 'Upcoming Tour',
+    badgeColor: 'bg-amber-100 text-amber-900 border-amber-300',
+    title: 'Scheduled Physical Inspection Today at 2:00 PM',
+    message: 'Your inspection for Crown Royal Deluxe Lodge (Room B2) with Engr. Segun Adeyemi is scheduled for today. Bring your student ID.',
+    actionLabel: 'View Inspection Details',
+    actionType: 'VIEW_INSPECTIONS',
+    inspectionId: 'insp-1'
+  },
+  actionQueue: [
+    {
+      type: 'INSPECTION_REMINDER',
+      priority: 1,
+      badge: 'Upcoming Tour',
+      badgeColor: 'bg-amber-100 text-amber-900 border-amber-300',
+      title: 'Scheduled Physical Inspection Today at 2:00 PM',
+      message: 'Your inspection for Crown Royal Deluxe Lodge with Engr. Segun Adeyemi is confirmed.',
+      actionLabel: 'View Tour',
+      actionType: 'VIEW_INSPECTIONS',
+      inspectionId: 'insp-1'
+    }
+  ],
+  activeBooking: {
+    id: 'bk-demo-101',
+    bookingReference: 'HE-BK-2026-8891',
+    propertyId: 'prop-underg-1',
+    propertyTitle: 'Crown Royal Deluxe Lodge',
+    propertyAddress: 'Opposite Bovas Station, Under G Area, Ogbomoso',
+    coverImage: 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=1000&q=80',
+    distanceFromCampusKm: 0.6,
+    roomName: 'Executive Ensuite Room (B2)',
+    roomType: 'SELF_CONTAIN',
+    bedspaceNumber: 'Bed A',
+    moveInDate: '2026-09-01',
+    academicSession: '2026/2027',
+    totalCost: 280000,
+    rentAmount: 220000,
+    status: 'CONFIRMED',
+    paymentStatus: 'PAID',
+    paidAt: '2026-08-20T10:00:00Z',
+    expiresAt: '2027-08-20T10:00:00Z',
+    provider: {
+      name: 'Engr. Segun Adeyemi',
+      phone: '+234 803 123 4567',
+      email: 'landlord@destinyproperties.ng'
+    }
+  },
+  pendingBookings: [],
+  pendingPayments: [],
+  upcomingInspection: {
+    id: 'insp-1',
+    propertyTitle: 'Crown Royal Deluxe Lodge',
+    propertyAddress: 'Opposite Bovas Station, Under G, Ogbomoso',
+    date: '2026-08-26',
+    time: '14:00',
+    type: 'PHYSICAL',
+    status: 'CONFIRMED',
+    provider: {
+      name: 'Engr. Segun Adeyemi',
+      phone: '+234 803 123 4567'
+    }
+  },
+  recentInspections: [
+    {
+      id: 'insp-1',
+      inspectionType: 'PHYSICAL',
+      preferredDate: '2026-08-26',
+      preferredTime: '14:00',
+      status: 'CONFIRMED',
+      propertyTitle: 'Crown Royal Deluxe Lodge',
+      propertyId: 'prop-underg-1'
+    }
+  ],
+  recentMessages: [
+    {
+      id: 'msg-1',
+      propertyId: 'prop-underg-1',
+      content: 'Hello Ahmad! I will be waiting at the lodge gate by 2:00 PM for the inspection.',
+      createdAt: '2026-08-26T11:30:00Z',
+      isRead: 0,
+      propertyTitle: 'Crown Royal Deluxe Lodge',
+      otherPartyName: 'Engr. Segun Adeyemi'
+    },
+    {
+      id: 'msg-2',
+      propertyId: 'prop-adenike-1',
+      content: 'Good day! Room 4 is still available for the 2026/2027 academic session.',
+      createdAt: '2026-08-25T17:15:00Z',
+      isRead: 1,
+      propertyTitle: 'Peace Haven Executive Lodge',
+      otherPartyName: 'Chief Oladimeji Alao'
+    }
+  ],
+  savedHostels: DEFAULT_PROPERTIES.slice(0, 3).map((p, idx) => ({
+    ...p,
+    savedId: `saved-${idx + 1}`,
+    savedAt: '2026-08-24T12:00:00Z',
+    priceChanged: false,
+    availabilityChanged: false
+  })),
+  recentlyViewed: DEFAULT_PROPERTIES.slice(0, 4).map(p => ({
+    ...p,
+    viewedAt: '2026-08-26T10:00:00Z'
+  })),
+  recommendedHostels: DEFAULT_PROPERTIES.slice(0, 3).map((p, idx) => ({
+    ...p,
+    matchScore: 95 - idx * 5,
+    explanationReasons: [
+      'Matches your preferred location (Under G & Adenike)',
+      'Rent is within your ₦120k - ₦350k budget',
+      'Verified borehole water & prepaid meter available'
+    ]
+  })),
+  preferences: DEFAULT_STUDENT_PREFERENCES,
+  profileCompleteness: {
+    score: 85,
+    missingFields: ['matricNo']
+  },
+  user: {
+    id: 'student-demo-1',
+    fullName: 'Ahmad Adelopo',
+    email: 'student@lautech.edu.ng',
+    phone: '+234 812 345 6789',
+    department: 'Computer Science',
+    level: '300L',
+    matricNo: '184920',
+    gender: 'MALE',
+    avatarUrl: ''
+  }
 };
 

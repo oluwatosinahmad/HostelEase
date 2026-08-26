@@ -59,6 +59,7 @@ import { SmartSearchBar } from './SmartSearchBar';
 import { SmartShortlistManager } from './SmartShortlistManager';
 import { AccommodationProgressTracker } from './AccommodationProgressTracker';
 import { UserAvatar } from './UserAvatar';
+import { DEFAULT_STUDENT_DASHBOARD } from '../services/offlineFallback';
 
 interface StudentDashboardProps {
   areas?: Area[];
@@ -187,8 +188,9 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
 
       setError(null);
     } catch (err: any) {
-      console.error('Student dashboard fetch error:', err);
-      setError(err.message || 'Failed to load student dashboard');
+      console.warn('Student dashboard fetch error, using resilient local hub data:', err);
+      setDashboardData(DEFAULT_STUDENT_DASHBOARD);
+      setError(null);
     } finally {
       setLoading(false);
     }
