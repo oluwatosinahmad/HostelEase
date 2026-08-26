@@ -124,8 +124,8 @@ if (fs.existsSync(DIST_PATH)) {
   }));
 
   // Wildcard fallback for React Router SPA (non-API / non-upload routes)
-  app.get('*', (req: Request, res: Response, next: NextFunction) => {
-    if (req.path.startsWith('/api') || req.path.startsWith('/uploads')) {
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    if (req.method !== 'GET' || req.path.startsWith('/api') || req.path.startsWith('/uploads')) {
       return next();
     }
     res.sendFile(path.join(DIST_PATH, 'index.html'));
