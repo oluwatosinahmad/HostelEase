@@ -58,6 +58,7 @@ import { useAuth } from '../context/AuthContext';
 import { AdminFinancialDashboard } from './AdminFinancialDashboard';
 import { AdminSupplyDemandDashboard } from './AdminSupplyDemandDashboard';
 import { AdminCommunityModeration } from './AdminCommunityModeration';
+import { AdminOperationsDashboard } from './AdminOperationsDashboard';
 import { formatNaira, formatDistance } from '../utils/formatters';
 
 interface AdminPortalProps {
@@ -66,6 +67,7 @@ interface AdminPortalProps {
 }
 
 type AdminTab = 
+  | 'operations'
   | 'overview' 
   | 'users' 
   | 'providers' 
@@ -537,6 +539,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
             {
               category: 'OPERATIONS HUB',
               items: [
+                { id: 'operations', label: 'Phase 15 Operations', icon: Activity, badge: 'Live Ops', badgeColor: 'bg-emerald-500/20 text-emerald-300' },
                 { id: 'overview', label: 'Command Overview', icon: TrendingUp, badge: null },
                 { id: 'users', label: 'User Directory', icon: Users, badge: dashboardData?.stats.totalStudents },
                 { id: 'providers', label: 'Providers / Hosts', icon: Building2, badge: dashboardData?.stats.totalProviders },
@@ -635,6 +638,14 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
 
         {/* Main Content View */}
         <main className="flex-1 p-4 lg:p-8 overflow-y-auto space-y-6">
+          {/* PHASE 15: COMPLETE OPERATIONS DASHBOARD */}
+          {activeTab === 'operations' && (
+            <AdminOperationsDashboard 
+              onShowToast={onShowToast} 
+              onNavigateTab={(tab) => setActiveTab(tab as AdminTab)} 
+            />
+          )}
+
           {/* TAB 1: OVERVIEW & REAL STATISTICS */}
           {activeTab === 'overview' && dashboardData && (
             <div className="space-y-6">

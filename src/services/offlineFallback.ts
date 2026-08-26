@@ -627,3 +627,219 @@ export const DEFAULT_ROOMMATE_PROFILES = [
     matchScore: 92
   }
 ];
+
+// =========================================================================
+// PHASE 15: COMPLETE OPERATIONS FALLBACK DATA
+// =========================================================================
+export const DEFAULT_OPERATIONAL_TASKS = [
+  {
+    id: 'opt-1',
+    title: 'Physical Site Inspection for Emerald Heights (Under G)',
+    description: 'Verify 24/7 borehole pressure, gate security locks, and POP ceiling state.',
+    category: 'VERIFICATION' as const,
+    priority: 'HIGH' as const,
+    status: 'RESOLVED' as const,
+    assignedTo: 'Admin Officer (Ibrahim)',
+    relatedEntityType: 'HOSTEL',
+    relatedEntityId: 'prop-underg-1',
+    createdAt: '2026-08-25T10:00:00Z',
+    resolvedAt: '2026-08-25T16:00:00Z',
+    resolutionNotes: 'Field verification complete. 100% genuine LAUTECH listing.'
+  },
+  {
+    id: 'opt-2',
+    title: 'Move-In Checkin Audit for Peace Haven Room 104',
+    description: 'Student marked minor faucet leakage during move-in. Landlord dispatched plumber.',
+    category: 'MOVE_IN' as const,
+    priority: 'MEDIUM' as const,
+    status: 'IN_PROGRESS' as const,
+    assignedTo: 'Support Staff (Kemi)',
+    relatedEntityType: 'BOOKING',
+    relatedEntityId: 'book-102',
+    createdAt: '2026-08-26T08:30:00Z'
+  },
+  {
+    id: 'opt-3',
+    title: 'Process Provider Payout for Scholars Court',
+    description: 'Student checked in and verified key handover. Net payout ₦304,000 ready for bank disbursement.',
+    category: 'REFUND' as const,
+    priority: 'HIGH' as const,
+    status: 'PENDING' as const,
+    assignedTo: 'Finance Admin (Tayo)',
+    relatedEntityType: 'PAYOUT',
+    relatedEntityId: 'payout-101',
+    createdAt: '2026-08-26T11:00:00Z'
+  }
+];
+
+export const DEFAULT_PAYOUTS = [
+  {
+    id: 'payout-101',
+    providerId: 'user-provider-1',
+    providerName: 'Engr. Segun Adeyemi',
+    providerPhone: '+2348034567890',
+    bookingId: 'book-101',
+    hostelTitle: 'Emerald Heights Luxury Self-Contain',
+    roomName: 'Executive Self-Contain Room 1',
+    grossAmount: 350000,
+    platformFee: 17500,
+    cautionEscrow: 20000,
+    netPayout: 312500,
+    payoutStatus: 'PAID' as const,
+    payoutReference: 'PAYOUT-FLW-89382109',
+    bankName: 'First Bank Nigeria',
+    accountNumber: '3049281920',
+    accountName: 'Segun Adeyemi Enterprise',
+    processedBy: 'Finance Admin',
+    createdAt: '2026-08-25T14:00:00Z',
+    paidAt: '2026-08-25T15:30:00Z'
+  },
+  {
+    id: 'payout-102',
+    providerId: 'user-provider-2',
+    providerName: 'Chief Oladimeji Alao',
+    providerPhone: '+2348051239876',
+    bookingId: 'book-102',
+    hostelTitle: 'Peace Haven Executive Lodge',
+    roomName: 'Single Self-Contain A1',
+    grossAmount: 275000,
+    platformFee: 13750,
+    cautionEscrow: 15000,
+    netPayout: 246250,
+    payoutStatus: 'PROCESSING' as const,
+    payoutReference: 'PAYOUT-FLW-90182341',
+    bankName: 'GTBank',
+    accountNumber: '0129384756',
+    accountName: 'Oladimeji Alao',
+    processedBy: 'Finance Admin',
+    createdAt: '2026-08-26T09:00:00Z'
+  }
+];
+
+export const DEFAULT_NOTIFICATION_LOGS = [
+  {
+    id: 'notif-1',
+    userId: 'usr-student-1',
+    userName: 'Tunde Bakare',
+    channel: 'IN_APP' as const,
+    eventType: 'BOOKING_CONFIRMED',
+    recipient: 'tunde@lautech.edu.ng',
+    message: 'Your booking for Emerald Heights (Room 101) has been approved by the landlord.',
+    deliveryStatus: 'DELIVERED' as const,
+    readStatus: true,
+    createdAt: '2026-08-25T12:00:00Z'
+  },
+  {
+    id: 'notif-2',
+    userId: 'usr-student-1',
+    userName: 'Tunde Bakare',
+    channel: 'SMS' as const,
+    eventType: 'INSPECTION_REMINDER',
+    recipient: '+2348012345678',
+    message: 'Reminder: Your physical hostel inspection is scheduled for tomorrow at 2:00 PM (Under G Gate).',
+    deliveryStatus: 'DELIVERED' as const,
+    readStatus: false,
+    createdAt: '2026-08-25T18:00:00Z'
+  }
+];
+
+export const DEFAULT_OPERATIONS_DASHBOARD = {
+  todayBookingsCount: 3,
+  pendingBookingsCount: 2,
+  todayMoveInsCount: 1,
+  upcomingMoveInsCount: 4,
+  openComplaintsCount: 1,
+  openDisputesCount: 1,
+  pendingRefundsCount: 1,
+  paymentIssuesCount: 0,
+  pendingProviderVerificationsCount: 2,
+  pendingHostelVerificationsCount: 1,
+  unresolvedAccommodationIssuesCount: 2,
+  openSupportTicketsCount: 3,
+  urgentTasksCount: 1,
+  actionRequiredItems: [
+    {
+      id: 'act-1',
+      title: '2 Booking Requests Require Attention',
+      description: 'Students waiting for landlord reservation approval on Under G lodges.',
+      category: 'BOOKING',
+      priority: 'HIGH' as const,
+      actionUrl: '/admin/bookings'
+    },
+    {
+      id: 'act-2',
+      title: '2 Provider NIN & CAC Verifications Awaiting Review',
+      description: 'Review government documents before enabling new property submissions.',
+      category: 'VERIFICATION',
+      priority: 'HIGH' as const,
+      actionUrl: '/admin/providers'
+    },
+    {
+      id: 'act-3',
+      title: '1 Student Escrow Dispute Pending Mediation',
+      description: 'Student requested caution deposit verification review.',
+      category: 'DISPUTE',
+      priority: 'URGENT' as const,
+      actionUrl: '/admin/disputes'
+    }
+  ],
+  operationalTasks: DEFAULT_OPERATIONAL_TASKS,
+  recentPayouts: DEFAULT_PAYOUTS,
+  complaintPatterns: [
+    {
+      propertyId: 'prop-underg-1',
+      propertyTitle: 'Emerald Heights Luxury Self-Contain',
+      areaName: 'Under G',
+      providerName: 'Engr. Segun Adeyemi',
+      totalComplaints: 1,
+      electricityIssues: 0,
+      waterIssues: 1,
+      securityIssues: 0,
+      cleanlinessIssues: 0,
+      status: 'NORMAL' as const
+    },
+    {
+      propertyId: 'prop-adenike-1',
+      propertyTitle: 'Peace Haven Executive Lodge',
+      areaName: 'Adenike Area',
+      providerName: 'Chief Oladimeji Alao',
+      totalComplaints: 2,
+      electricityIssues: 1,
+      waterIssues: 1,
+      securityIssues: 0,
+      cleanlinessIssues: 0,
+      status: 'NORMAL' as const
+    }
+  ],
+  providerScorecards: [
+    {
+      providerId: 'user-provider-1',
+      providerName: 'Engr. Segun Adeyemi',
+      businessName: 'Destiny Properties LAUTECH',
+      totalHostels: 3,
+      totalBedspaces: 32,
+      occupiedBedspaces: 26,
+      occupancyRate: '81.2%',
+      bookingAcceptanceRate: '94.5%',
+      cancellationRate: '2.1%',
+      avgIssueResolutionHours: 4.2,
+      studentSatisfactionRating: 4.8,
+      verificationBadge: 'VERIFIED_PROVIDER' as const
+    },
+    {
+      providerId: 'user-provider-2',
+      providerName: 'Chief Oladimeji Alao',
+      businessName: 'Holy Light Real Estate',
+      totalHostels: 2,
+      totalBedspaces: 24,
+      occupiedBedspaces: 20,
+      occupancyRate: '83.3%',
+      bookingAcceptanceRate: '91.0%',
+      cancellationRate: '4.0%',
+      avgIssueResolutionHours: 8.5,
+      studentSatisfactionRating: 4.5,
+      verificationBadge: 'VERIFIED_PROVIDER' as const
+    }
+  ]
+};
+

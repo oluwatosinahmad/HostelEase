@@ -1755,5 +1755,148 @@ export interface AccommodationStay {
   depositRefundStatus?: string;
 }
 
+export interface OperationalTask {
+  id: string;
+  title: string;
+  description?: string;
+  category: 'VERIFICATION' | 'BOOKING' | 'MOVE_IN' | 'DISPUTE' | 'REFUND' | 'MAINTENANCE' | 'SUPPORT' | 'COMPLIANCE';
+  priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
+  status: 'PENDING' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED';
+  assignedTo?: string;
+  relatedEntityType?: string;
+  relatedEntityId?: string;
+  dueDate?: string;
+  resolvedAt?: string;
+  resolutionNotes?: string;
+  createdBy?: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface ProviderPayoutRecord {
+  id: string;
+  providerId: string;
+  providerName?: string;
+  providerPhone?: string;
+  bookingId: string;
+  hostelTitle?: string;
+  roomName?: string;
+  grossAmount: number;
+  platformFee: number;
+  cautionEscrow: number;
+  netPayout: number;
+  payoutStatus: 'PENDING' | 'PROCESSING' | 'PAID' | 'HELD' | 'FAILED';
+  payoutReference?: string;
+  bankName?: string;
+  accountNumber?: string;
+  accountName?: string;
+  processedBy?: string;
+  notes?: string;
+  createdAt: string;
+  paidAt?: string;
+}
+
+export interface PaymentReconciliationItem {
+  id: string;
+  paymentId: string;
+  bookingId?: string;
+  studentName?: string;
+  providerReference: string;
+  gatewayStatus: string;
+  expectedAmount: number;
+  settledAmount: number;
+  discrepancy: number;
+  reconciledBy?: string;
+  status: 'RECONCILED' | 'DISCREPANCY_FLAGGED' | 'REFUND_REQUIRED';
+  notes?: string;
+  createdAt: string;
+}
+
+export interface ListingRefreshItem {
+  id: string;
+  propertyId: string;
+  propertyTitle: string;
+  providerId: string;
+  providerName: string;
+  lastConfirmedAt: string;
+  status: 'CONFIRMED' | 'NEEDS_REVIEW' | 'EXPIRED';
+  nextReviewDue: string;
+  confirmedPrice: number;
+  confirmedAvailableRooms: number;
+  notes?: string;
+  createdAt: string;
+}
+
+export interface NotificationLogItem {
+  id: string;
+  userId: string;
+  userName?: string;
+  channel: 'IN_APP' | 'SMS' | 'EMAIL' | 'WHATSAPP';
+  eventType: string;
+  recipient: string;
+  message: string;
+  deliveryStatus: 'SENT' | 'DELIVERED' | 'FAILED' | 'PENDING';
+  readStatus: boolean;
+  errorDetails?: string;
+  createdAt: string;
+}
+
+export interface ComplaintPatternSummary {
+  propertyId: string;
+  propertyTitle: string;
+  areaName: string;
+  providerName: string;
+  totalComplaints: number;
+  electricityIssues: number;
+  waterIssues: number;
+  securityIssues: number;
+  cleanlinessIssues: number;
+  status: 'NORMAL' | 'ELEVATED' | 'CRITICAL_REVIEW';
+}
+
+export interface ProviderPerformanceScorecard {
+  providerId: string;
+  providerName: string;
+  businessName?: string;
+  totalHostels: number;
+  totalBedspaces: number;
+  occupiedBedspaces: number;
+  occupancyRate: string;
+  bookingAcceptanceRate: string;
+  cancellationRate: string;
+  avgIssueResolutionHours: number;
+  studentSatisfactionRating: number;
+  verificationBadge: 'VERIFIED_PROVIDER' | 'PENDING' | 'REJECTED';
+}
+
+export interface OperationsDashboardData {
+  todayBookingsCount: number;
+  pendingBookingsCount: number;
+  todayMoveInsCount: number;
+  upcomingMoveInsCount: number;
+  openComplaintsCount: number;
+  openDisputesCount: number;
+  pendingRefundsCount: number;
+  paymentIssuesCount: number;
+  pendingProviderVerificationsCount: number;
+  pendingHostelVerificationsCount: number;
+  unresolvedAccommodationIssuesCount: number;
+  openSupportTicketsCount: number;
+  urgentTasksCount: number;
+  actionRequiredItems: Array<{
+    id: string;
+    title: string;
+    description: string;
+    category: string;
+    priority: 'URGENT' | 'HIGH' | 'MEDIUM';
+    actionUrl?: string;
+    relatedEntityId?: string;
+  }>;
+  operationalTasks: OperationalTask[];
+  recentPayouts: ProviderPayoutRecord[];
+  complaintPatterns: ComplaintPatternSummary[];
+  providerScorecards: ProviderPerformanceScorecard[];
+}
+
 
 

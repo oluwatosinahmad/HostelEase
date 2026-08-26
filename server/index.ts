@@ -30,6 +30,7 @@ import moveInRoutes from './routes/moveInRoutes';
 import intelligenceRoutes from './routes/intelligenceRoutes';
 import communityRoutes from './routes/communityRoutes';
 import roommateRoutes from './routes/roommateRoutes';
+import operationsRoutes from './routes/operationsRoutes';
 
 dotenv.config();
 
@@ -97,6 +98,7 @@ app.use('/api/inspections', inspectionRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/provider', providerRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/admin/operations', operationsRoutes);
 app.use('/api/areas', areaRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/notifications', notificationRoutes);

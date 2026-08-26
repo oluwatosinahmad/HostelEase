@@ -2071,22 +2071,143 @@ Your caution deposit is refundable upon move-out provided no unauthorized struct
       );
     }
 
-    // Populate default student preferences for existing students if not present
-    const students = db.prepare("SELECT id FROM users WHERE role = 'STUDENT'").all() as Array<{ id: string }>;
-    for (const st of students) {
+    // =========================================================================
+    // PHASE 15: COMPLETE OPERATIONS TABLES
+    // =========================================================================
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS provider_payouts (
+        id TEXT PRIMARY KEY,
+        provider_id TEXT NOT NULL,
+        booking_id TEXT NOT NULL,
+        gross_amount REAL NOT NULL,
+        platform_fee REAL NOT NULL DEFAULT 0,
+        caution_escrow REAL NOT NULL DEFAULT 0,
+        net_payout REAL NOT NULL,
+        payout_status TEXT NOT NULL DEFAULT 'PENDING' CHECK(payout_status IN ('PENDING', 'PROCESSING', 'PAID', 'HELD', 'FAILED')),
+        payout_reference TEXT,
+        bank_name TEXT,
+        account_number TEXT,
+        account_name TEXT,
+        processed_by TEXT,
+        notes TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        paid_at TEXT,
+        FOREIGN KEY (provider_id) REFERENCES users(id),
+        FOREIGN KEY (booking_id) REFERENCES bookings(id)
+      );
+      CREATE INDEX IF NOT EXISTS idx_provider_payouts_provider ON provider_payouts(provider_id);
+      CREATE INDEX IF NOT EXISTS idx_provider_payouts_status ON provider_payouts(payout_status);
+
+      CREATE TABLE IF NOT EXISTS operational_tasks (
+        id TEXT PRIMARY KEY,
+        title TEXT NOT NULL,
+        description TEXT,
+        category TEXT NOT NULL CHECK(category IN ('VERIFICATION', 'BOOKING', 'MOVE_IN', 'DISPUTE', 'REFUND', 'MAINTENANCE', 'SUPPORT', 'COMPLIANCE')),
+        priority TEXT NOT NULL DEFAULT 'MEDIUM' CHECK(priority IN ('LOW', 'MEDIUM', 'HIGH', 'URGENT')),
+        status TEXT NOT NULL DEFAULT 'PENDING' CHECK(status IN ('PENDING', 'IN_PROGRESS', 'RESOLVED', 'CLOSED')),
+        assigned_to TEXT,
+        related_entity_type TEXT,
+        related_entity_id TEXT,
+        due_date TEXT,
+        resolved_at TEXT,
+        resolution_notes TEXT,
+        created_by TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+      CREATE INDEX IF NOT EXISTS idx_op_tasks_status ON operational_tasks(status);
+      CREATE INDEX IF NOT EXISTS idx_op_tasks_priority ON operational_tasks(priority);
+
+      CREATE TABLE IF NOT EXISTS listing_refreshes (
+        id TEXT PRIMARY KEY,
+        property_id TEXT NOT NULL,
+        provider_id TEXT NOT NULL,
+        last_confirmed_at TEXT NOT NULL DEFAULT (datetime('now')),
+        status TEXT NOT NULL DEFAULT 'CONFIRMED' CHECK(status IN ('CONFIRMED', 'NEEDS_REVIEW', 'EXPIRED')),
+        next_review_due TEXT NOT NULL,
+        confirmed_price REAL,
+        confirmed_available_rooms INTEGER,
+        notes TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        FOREIGN KEY (property_id) REFERENCES properties(id),
+        FOREIGN KEY (provider_id) REFERENCES users(id)
+      );
+      CREATE INDEX IF NOT EXISTS idx_listing_refreshes_status ON listing_refreshes(status);
+
+      CREATE TABLE IF NOT EXISTS payment_reconciliations (
+        id TEXT PRIMARY KEY,
+        payment_id TEXT NOT NULL,
+        provider_reference TEXT NOT NULL,
+        gateway_status TEXT NOT NULL,
+        expected_amount REAL NOT NULL,
+        settled_amount REAL NOT NULL,
+        discrepancy REAL NOT NULL DEFAULT 0,
+        reconciled_by TEXT,
+        status TEXT NOT NULL DEFAULT 'RECONCILED' CHECK(status IN ('RECONCILED', 'DISCREPANCY_FLAGGED', 'REFUND_REQUIRED')),
+        notes TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        FOREIGN KEY (payment_id) REFERENCES payments(id)
+      );
+
+      CREATE TABLE IF NOT EXISTS notification_logs (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        channel TEXT NOT NULL CHECK(channel IN ('IN_APP', 'SMS', 'EMAIL', 'WHATSAPP')),
+        event_type TEXT NOT NULL,
+        recipient TEXT NOT NULL,
+        message TEXT NOT NULL,
+        delivery_status TEXT NOT NULL DEFAULT 'DELIVERED' CHECK(delivery_status IN ('SENT', 'DELIVERED', 'FAILED', 'PENDING')),
+        read_status INTEGER NOT NULL DEFAULT 0,
+        error_details TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        FOREIGN KEY (user_id) REFERENCES users(id)
+      );
+      CREATE INDEX IF NOT EXISTS idx_notif_logs_user ON notification_logs(user_id);
+    `);
+
+    // Seed Initial Phase 15 Operational Tasks
+    const sampleOpTasks = [
+      {
+        id: 'opt-1',
+        title: 'Verify Physical Inspection for Emerald Heights',
+        description: 'Field officer visited Under G. Water borehole and dedicated prepaid meter confirmed.',
+        category: 'VERIFICATION',
+        priority: 'HIGH',
+        status: 'RESOLVED',
+        assigned_to: 'Admin Officer (Ibrahim)',
+        related_entity_type: 'HOSTEL',
+        related_entity_id: 'prop-underg-1'
+      },
+      {
+        id: 'opt-2',
+        title: 'Review Move-In Checkin for Peace Haven Room 104',
+        description: 'Student marked minor faucet leakage during Move-in. Landlord promised plumbing fix within 24h.',
+        category: 'MOVE_IN',
+        priority: 'MEDIUM',
+        status: 'IN_PROGRESS',
+        assigned_to: 'Support Staff (Kemi)',
+        related_entity_type: 'BOOKING',
+        related_entity_id: 'book-102'
+      },
+      {
+        id: 'opt-3',
+        title: 'Process Provider Payout for Scholars Court',
+        description: 'Student completed successful check-in. Net payout ₦304,000 cleared for disbursement.',
+        category: 'REFUND',
+        priority: 'MEDIUM',
+        status: 'PENDING',
+        assigned_to: 'Finance Admin (Tayo)',
+        related_entity_type: 'PAYOUT',
+        related_entity_id: 'payout-101'
+      }
+    ];
+
+    for (const t of sampleOpTasks) {
       db.prepare(`
-        INSERT OR IGNORE INTO student_preferences (
-          id, user_id, min_budget, max_budget, monthly_living_budget, payment_style_preference,
-          preferred_areas_json, preferred_room_types_json, max_distance_minutes,
-          ranked_priorities_json, importance_electricity, importance_water,
-          importance_security, importance_internet, importance_quietness
-        ) VALUES (
-          ?, ?, 100000, 200000, 35000, 'FULL_YEAR',
-          '["Under G", "Adenike", "Stadium"]', '["SINGLE", "SHARED_2"]', 15,
-          '["PRICE","DISTANCE","ELECTRICITY","SECURITY","WATER","INTERNET","QUIETNESS"]',
-          5, 4, 5, 3, 4
-        )
-      `).run(`sp-${st.id}`, st.id);
+        INSERT OR IGNORE INTO operational_tasks (
+          id, title, description, category, priority, status, assigned_to, related_entity_type, related_entity_id
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(t.id, t.title, t.description, t.category, t.priority, t.status, t.assigned_to, t.related_entity_type, t.related_entity_id);
     }
   })();
 
