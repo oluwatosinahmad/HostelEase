@@ -120,47 +120,84 @@ export const api = {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(data)
         });
-        if (res.ok) return await res.json();
-      } catch (err) {
+        if (res.ok) {
+          const json = await res.json();
+          localStorage.setItem('hostel_ease_token', json.token);
+          localStorage.setItem('hostel_ease_user', JSON.stringify(json.user));
+          return json;
+        }
+        if (res.status >= 400 && res.status < 500) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.error || errData.message || 'Registration failed');
+        }
+      } catch (err: any) {
+        if (err.message && !err.message.includes('fetch') && !err.message.includes('network') && !err.message.includes('Failed to fetch')) {
+          throw err;
+        }
         console.warn('Backend auth unreachable, using client session mode.');
       }
+
+      const role = data.role || 'STUDENT';
       const mockUser = {
         id: `usr-${Date.now()}`,
-        fullName: data.fullName || 'Student User',
+        fullName: data.fullName || (role === 'PROVIDER' ? 'Hostel Landlord' : 'Student User'),
         email: data.email,
-        role: data.role || 'STUDENT',
+        role: role,
         phone: data.phone || '08012345678',
-        isActive: 1
+        isActive: 1,
+        providerDetails: role === 'PROVIDER' ? { businessName: data.providerDetails?.businessName || 'Verified Accommodations' } : undefined,
+        studentDetails: role === 'STUDENT' ? { department: data.studentDetails?.department || 'Computer Science' } : undefined
       };
       localStorage.setItem('hostel_ease_token', 'mock_client_token');
       localStorage.setItem('hostel_ease_user', JSON.stringify(mockUser));
       return { message: 'Registration successful', token: 'mock_client_token', user: mockUser };
     },
 
-    async login(emailOrData: string | { email: string; password: string }, maybePassword?: string): Promise<{ message: string; token: string; user: any }> {
+    async login(emailOrData: string | { email: string; password: string; role?: string }, maybePassword?: string, selectedRole?: string): Promise<{ message: string; token: string; user: any }> {
       const payload = typeof emailOrData === 'string'
-        ? { email: emailOrData, password: maybePassword }
+        ? { email: emailOrData, password: maybePassword, role: selectedRole }
         : emailOrData;
+
       try {
         const res = await fetch(`${API_BASE}/auth/login`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
         });
-        if (res.ok) return await res.json();
-      } catch (err) {
+        if (res.ok) {
+          const json = await res.json();
+          localStorage.setItem('hostel_ease_token', json.token);
+          localStorage.setItem('hostel_ease_user', JSON.stringify(json.user));
+          return json;
+        }
+        if (res.status >= 400 && res.status < 500) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.error || errData.message || 'Invalid email or password');
+        }
+      } catch (err: any) {
+        if (err.message && !err.message.includes('fetch') && !err.message.includes('network') && !err.message.includes('Failed to fetch')) {
+          throw err;
+        }
         console.warn('Backend auth unreachable, using client session mode.');
       }
+
       const email = payload.email.toLowerCase();
-      let role: 'STUDENT' | 'PROVIDER' | 'ADMIN' = 'STUDENT';
+      let role: 'STUDENT' | 'PROVIDER' | 'ADMIN' = (payload.role as any) || (selectedRole as any) || 'STUDENT';
+      if (!payload.role && !selectedRole) {
+        if (email.includes('admin')) {
+          role = 'ADMIN';
+        } else if (email.includes('landlord') || email.includes('provider') || email.includes('segun') || email.includes('adeleke')) {
+          role = 'PROVIDER';
+        }
+      }
+
       let fullName = 'Tunde Bakare (LAUTECH 300L)';
-      if (email.includes('admin')) {
-        role = 'ADMIN';
+      if (role === 'ADMIN') {
         fullName = 'Hostel Ease Admin';
-      } else if (email.includes('landlord') || email.includes('provider') || email.includes('segun')) {
-        role = 'PROVIDER';
+      } else if (role === 'PROVIDER') {
         fullName = 'Engr. Segun Adeyemi';
       }
+
       const mockUser = {
         id: `usr-${role.toLowerCase()}`,
         fullName,
@@ -179,7 +216,13 @@ export const api = {
         const res = await fetch(`${API_BASE}/auth/me`, {
           headers: { ...getAuthHeader() }
         });
-        if (res.ok) return await res.json();
+        if (res.ok) {
+          const json = await res.json();
+          if (json.user) {
+            localStorage.setItem('hostel_ease_user', JSON.stringify(json.user));
+          }
+          return json;
+        }
       } catch (err) {
         // Silent fallback
       }

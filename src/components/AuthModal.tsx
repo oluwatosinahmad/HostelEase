@@ -19,7 +19,7 @@ interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
   defaultRole?: UserRole;
-  onSuccess?: () => void;
+  onSuccess?: (user?: any) => void;
 }
 
 export const AuthModal: React.FC<AuthModalProps> = ({
@@ -52,10 +52,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     setSubmitting(true);
 
     try {
+      let authedUser: any = null;
       if (mode === 'login') {
-        await login(email.trim(), password);
+        authedUser = await login(email.trim(), password, role);
       } else {
-        await register({
+        authedUser = await register({
           email: email.trim(),
           password,
           fullName: fullName.trim(),
@@ -69,12 +70,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       setIsLoggingIn(true);
       setTimeout(() => {
         setIsLoggingIn(false);
-        if (onSuccess) onSuccess();
+        setSubmitting(false);
+        if (onSuccess) onSuccess(authedUser);
         onClose();
-      }, 900);
+      }, 700);
     } catch (err: any) {
       setError(err.message || 'Authentication failed. Please check your credentials.');
       setSubmitting(false);
+      setIsLoggingIn(false);
     }
   };
 
@@ -82,16 +85,18 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     setSubmitting(true);
     setError(null);
     try {
-      await loginDemo(targetRole);
+      const demoUser = await loginDemo(targetRole);
       setIsLoggingIn(true);
       setTimeout(() => {
         setIsLoggingIn(false);
-        if (onSuccess) onSuccess();
+        setSubmitting(false);
+        if (onSuccess) onSuccess(demoUser);
         onClose();
-      }, 900);
+      }, 700);
     } catch (err: any) {
       setError(err.message || 'Demo login failed');
       setSubmitting(false);
+      setIsLoggingIn(false);
     }
   };
 
@@ -208,15 +213,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         {/* Form Body */}
         <div className="p-6 space-y-4">
           {/* Mode toggle (Login / Register) */}
-          {role !== 'ADMIN' && (
-            <div className="flex border-b border-slate-200 pb-2">
+          {role !== 'ADMIN' ? (
+            <div className="flex border-b border-slate-200 dark:border-slate-800 pb-2">
               <button
                 type="button"
                 onClick={() => setMode('login')}
                 className={`flex-1 text-center py-1.5 text-xs font-bold border-b-2 transition-colors ${
                   mode === 'login'
-                    ? 'border-emerald-600 text-emerald-700'
-                    : 'border-transparent text-slate-400 hover:text-slate-700'
+                    ? 'border-emerald-600 text-emerald-700 dark:text-emerald-400'
+                    : 'border-transparent text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
                 }`}
               >
                 Log In
@@ -226,12 +231,17 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 onClick={() => setMode('register')}
                 className={`flex-1 text-center py-1.5 text-xs font-bold border-b-2 transition-colors ${
                   mode === 'register'
-                    ? 'border-emerald-600 text-emerald-700'
-                    : 'border-transparent text-slate-400 hover:text-slate-700'
+                    ? 'border-emerald-600 text-emerald-700 dark:text-emerald-400'
+                    : 'border-transparent text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
                 }`}
               >
                 Create Account
               </button>
+            </div>
+          ) : (
+            <div className="p-3 bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800 rounded-xl text-purple-900 dark:text-purple-200 text-xs">
+              <span className="font-bold block">Administrator Access Portal</span>
+              <span className="text-[11px] text-purple-700 dark:text-purple-300">Enter your administrative credentials or use 1-Click Demo Admin above.</span>
             </div>
           )}
 

@@ -1064,23 +1064,17 @@ function MainApp() {
         isOpen={authModalOpen}
         onClose={() => setAuthModalOpen(false)}
         defaultRole={authModalDefaultRole}
-        onSuccess={() => {
+        onSuccess={(authedUser) => {
           showToast('Authenticated successfully. Welcome to Hostel Ease!', 'success');
-          const storedToken = localStorage.getItem('hostel_ease_token');
-          if (storedToken) {
-            api.auth.getMe().then(res => {
-              if (res.user?.role === 'STUDENT') {
-                setCurrentView('student-dashboard');
-              } else if (res.user?.role === 'PROVIDER') {
-                setCurrentView('provider-portal');
-              } else if (res.user?.role === 'ADMIN') {
-                setCurrentView('admin-portal');
-              }
-              window.scrollTo({ top: 0, behavior: 'smooth' });
-            }).catch(() => {
-              setCurrentView('student-dashboard');
-            });
+          const targetRole = authedUser?.role || (localStorage.getItem('hostel_ease_user') ? JSON.parse(localStorage.getItem('hostel_ease_user') || '{}')?.role : 'STUDENT');
+          if (targetRole === 'ADMIN') {
+            setCurrentView('admin-portal');
+          } else if (targetRole === 'PROVIDER') {
+            setCurrentView('provider-portal');
+          } else {
+            setCurrentView('student-dashboard');
           }
+          window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
       />
 

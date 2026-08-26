@@ -6,11 +6,11 @@ interface AuthContextType {
   user: User | null;
   token: string | null;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<void>;
-  register: (data: any) => Promise<void>;
+  login: (email: string, password: string, role?: UserRole) => Promise<User>;
+  register: (data: any) => Promise<User>;
   logout: () => void;
   updateProfile: (data: any) => Promise<void>;
-  loginDemo: (role: UserRole) => Promise<void>;
+  loginDemo: (role: UserRole) => Promise<User>;
   isAuthenticated: boolean;
   isStudent: boolean;
   isProvider: boolean;
@@ -46,25 +46,27 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     loadUser();
   }, []);
 
-  const login = async (email: string, password: string) => {
+  const login = async (email: string, password: string, role?: UserRole): Promise<User> => {
     setIsLoading(true);
     try {
-      const res = await api.auth.login({ email, password });
+      const res = await api.auth.login({ email, password, role });
       localStorage.setItem('hostel_ease_token', res.token);
       setToken(res.token);
       setUser(res.user);
+      return res.user;
     } finally {
       setIsLoading(false);
     }
   };
 
-  const register = async (data: any) => {
+  const register = async (data: any): Promise<User> => {
     setIsLoading(true);
     try {
       const res = await api.auth.register(data);
       localStorage.setItem('hostel_ease_token', res.token);
       setToken(res.token);
       setUser(res.user);
+      return res.user;
     } finally {
       setIsLoading(false);
     }
@@ -72,6 +74,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const logout = () => {
     localStorage.removeItem('hostel_ease_token');
+    localStorage.removeItem('hostel_ease_user');
     setToken(null);
     setUser(null);
   };
@@ -82,13 +85,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setUser(updatedUser);
   };
 
-  const loginDemo = async (role: UserRole) => {
+  const loginDemo = async (role: UserRole): Promise<User> => {
     if (role === 'STUDENT') {
-      await login('student@lautech.edu.ng', 'Student123!');
+      return await login('student@lautech.edu.ng', 'Student123!', 'STUDENT');
     } else if (role === 'PROVIDER') {
-      await login('provider@hostelease.ng', 'Provider123!');
-    } else if (role === 'ADMIN') {
-      await login('admin@hostelease.ng', 'Admin123!');
+      return await login('provider@hostelease.ng', 'Provider123!', 'PROVIDER');
+    } else {
+      return await login('admin@hostelease.ng', 'Admin123!', 'ADMIN');
     }
   };
 
