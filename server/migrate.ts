@@ -453,6 +453,11 @@ export function runMigrations() {
         db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
       }
     }
+
+    // Ensure audit_logs security columns exist
+    addColumnIfMissing('audit_logs', 'severity', "TEXT NOT NULL DEFAULT 'LOW'");
+    addColumnIfMissing('audit_logs', 'actor_email', 'TEXT');
+    addColumnIfMissing('audit_logs', 'user_agent', 'TEXT');
     // 24. Conversations table (Phase 4)
     db.exec(`
       CREATE TABLE IF NOT EXISTS conversations (

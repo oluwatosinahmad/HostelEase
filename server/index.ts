@@ -32,6 +32,11 @@ import communityRoutes from './routes/communityRoutes';
 import roommateRoutes from './routes/roommateRoutes';
 import operationsRoutes from './routes/operationsRoutes';
 
+import { securityHeaders } from './middleware/securityHeaders';
+import { sanitizeInputs } from './middleware/sanitize';
+import { authRateLimiter, paymentRateLimiter, bookingRateLimiter, generalApiRateLimiter } from './middleware/rateLimiter';
+import monitoringRoutes from './routes/monitoringRoutes';
+
 dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
@@ -42,10 +47,13 @@ runMigrations();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
-const NODE_ENV = process.env.NODE_ENV || 'development';
+const NODE_ENV = process.env.NODE_ENV || 'production';
 const SERVER_START_TIME = new Date();
 
-// CORS Configuration
+// 1. Production Security Headers
+app.use(securityHeaders);
+
+// 2. CORS Configuration
 const allowedOrigins = process.env.CORS_ORIGIN 
   ? process.env.CORS_ORIGIN.split(',').map(o => o.trim())
   : '*';
@@ -57,8 +65,18 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 }));
 
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// 3. XSS & Input Sanitization
+app.use(sanitizeInputs);
+
+// 4. Rate Limiting Middleware
+app.use('/api', generalApiRateLimiter);
+app.use('/api/auth/login', authRateLimiter);
+app.use('/api/auth/register', authRateLimiter);
+app.use('/api/payments/initiate', paymentRateLimiter);
+app.use('/api/bookings/create', bookingRateLimiter);
 
 // Ensure upload directory exists and serve uploaded accommodation media statically
 const UPLOAD_DIR = path.resolve(process.cwd(), 'uploads');
@@ -67,7 +85,8 @@ if (!fs.existsSync(UPLOAD_DIR)) {
 }
 app.use('/uploads', express.static(UPLOAD_DIR, { maxAge: '7d' }));
 
-// Health check endpoint (for load balancers, uptime monitors, and Kubernetes/PM2)
+// Health check and system monitoring
+app.use('/api/monitoring', monitoringRoutes);
 app.get('/api/health', (req: Request, res: Response) => {
   let dbStatus = 'healthy';
   try {
@@ -119,13 +138,11 @@ app.use('/api/roommates', roommateRoutes);
 // Production Static Serving: Unified React SPA delivery
 const DIST_PATH = path.resolve(process.cwd(), 'dist');
 if (fs.existsSync(DIST_PATH)) {
-  // Serve static assets with caching headers
   app.use(express.static(DIST_PATH, {
     maxAge: '1d',
     index: false
   }));
 
-  // Wildcard fallback for React Router SPA (non-API / non-upload routes)
   app.use((req: Request, res: Response, next: NextFunction) => {
     if (req.method !== 'GET' || req.path.startsWith('/api') || req.path.startsWith('/uploads')) {
       return next();
@@ -134,12 +151,24 @@ if (fs.existsSync(DIST_PATH)) {
   });
 }
 
-// Global Error Handler
+// Global Production-Safe Error Handler (Masks database traces and leaks)
 app.use((err: any, req: Request, res: Response, next: NextFunction) => {
-  console.error('[SERVER ERROR]', err);
-  res.status(err.status || 500).json({
-    error: err.message || 'Internal Server Error',
-    code: err.code || 'SERVER_ERROR'
+  const errorId = `ERR-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+  console.error(`[SERVER ERROR ${errorId}]`, err);
+
+  const isProd = NODE_ENV === 'production';
+  const statusCode = err.status || 500;
+  
+  // Safe client response without internal implementation or SQL leak
+  const clientMessage = isProd && statusCode === 500
+    ? 'An unexpected error occurred while processing your request. Please try again or contact Hostel Ease support.'
+    : (err.message || 'Internal Server Error');
+
+  res.status(statusCode).json({
+    error: clientMessage,
+    code: err.code || 'SERVER_ERROR',
+    errorId,
+    timestamp: new Date().toISOString()
   });
 });
 
