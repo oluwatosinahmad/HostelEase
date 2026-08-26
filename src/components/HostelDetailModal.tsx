@@ -330,8 +330,11 @@ export const HostelDetailModal: React.FC<HostelDetailModalProps> = ({
                     </div>
                   ) : (
                     <img
-                      src={currentMedia.url}
+                      src={currentMedia.url || 'https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?auto=format&fit=crop&w=1000&q=80'}
                       alt={currentMedia.caption || property.title}
+                      onError={(e) => {
+                        e.currentTarget.src = 'https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?auto=format&fit=crop&w=1000&q=80';
+                      }}
                       className="w-full h-full object-cover"
                     />
                   )}
@@ -381,7 +384,14 @@ export const HostelDetailModal: React.FC<HostelDetailModalProps> = ({
                             <Video className="w-5 h-5" />
                           </div>
                         ) : (
-                          <img src={m.url} alt="thumb" className="w-full h-full object-cover" />
+                          <img 
+                            src={m.url} 
+                            alt="thumb" 
+                            onError={(e) => {
+                              e.currentTarget.src = 'https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?auto=format&fit=crop&w=400&q=80';
+                            }}
+                            className="w-full h-full object-cover" 
+                          />
                         )}
                       </button>
                     ))}

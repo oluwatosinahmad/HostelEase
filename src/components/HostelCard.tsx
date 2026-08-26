@@ -96,9 +96,12 @@ export const HostelCard: React.FC<HostelCardProps> = ({
       {/* Property Cover Image with Badges */}
       <div className="relative aspect-[16/10] bg-slate-100 overflow-hidden">
         <img 
-          src={property.coverImage} 
+          src={property.coverImage || 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=800&q=80'} 
           alt={property.title}
           loading="lazy"
+          onError={(e) => {
+            e.currentTarget.src = 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=800&q=80';
+          }}
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
         />
 
