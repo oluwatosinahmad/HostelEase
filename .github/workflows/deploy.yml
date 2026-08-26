@@ -1,0 +1,54 @@
+name: Production Build & Deploy
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build_and_test:
+    name: Build & Verify Codebase
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Build Frontend Bundle (TypeScript & Vite)
+        run: npm run build
+
+      - name: Run Verification Test Suite
+        run: npm run test:phase14
+
+  deploy:
+    name: Deploy to Production VPS
+    needs: build_and_test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Deploy to Remote Server via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.PROD_HOST }}
+          username: ${{ secrets.PROD_USER }}
+          key: ${{ secrets.PROD_SSH_KEY }}
+          port: ${{ secrets.PROD_PORT || 22 }}
+          script: |
+            set -e
+            APP_DIR="${{ secrets.PROD_APP_PATH || '/var/www/hostel-ease' }}"
+            cd "$APP_DIR" || cd ~/hostel-ease
+            
+            # Execute automated deployment script
+            chmod +x scripts/deploy.sh
+            bash scripts/deploy.sh

@@ -1,0 +1,13 @@
+# https://www.robotstxt.org/robotstxt.html
+User-agent: *
+Allow: /
+Allow: /#listings-section
+Allow: /#zones-section
+
+# Disallow private admin and checkout endpoints
+Disallow: /admin
+Disallow: /admin/
+Disallow: /checkout/
+Disallow: /api/
+
+Sitemap: https://campusnest.ng/sitemap.xml

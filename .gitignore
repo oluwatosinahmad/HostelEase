@@ -1,0 +1,65 @@
+# ==============================================================================
+# HOSTEL EASE — GIT IGNORE RULES
+# ==============================================================================
+
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Production build outputs
+dist/
+dist-ssr/
+build/
+*.local
+
+# Environment variables & secrets (CRITICAL: NEVER COMMIT)
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.cert
+
+# Database & SQLite files
+data/*.db
+data/*.db-wal
+data/*.db-shm
+data/*.sqlite
+server/*.db
+server/*.db-wal
+server/*.db-shm
+server/*.sqlite
+*.sqlite
+*.sqlite3
+*.db
+*.db-wal
+*.db-shm
+backups/
+
+# Uploaded user content
+uploads/*
+!uploads/.gitkeep
+
+# Application logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Cloudflared binaries & caches
+*.exe
+*.zip
+.cloudflared/
+
+# Operating System & IDE Artifacts
+desktop.ini
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+config.yml

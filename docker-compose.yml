@@ -1,0 +1,33 @@
+services:
+  hostel-ease:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: hostel_ease_app
+    restart: always
+    ports:
+      - "5000:5000"
+    environment:
+      - NODE_ENV=production
+      - PORT=5000
+      - AUTH_JWT_SECRET=${AUTH_JWT_SECRET:-hostel_ease_prod_secret_change_me_2026}
+      - DATABASE_PATH=/app/data/hostel_ease.db
+      - CORS_ORIGIN=${CORS_ORIGIN:-*}
+      - APP_URL=${APP_URL:-http://localhost:5000}
+    volumes:
+      - hostel_ease_data:/app/data
+      - hostel_ease_uploads:/app/uploads
+      - hostel_ease_logs:/app/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  hostel_ease_data:
+    driver: local
+  hostel_ease_uploads:
+    driver: local
+  hostel_ease_logs:
+    driver: local
