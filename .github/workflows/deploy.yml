@@ -34,7 +34,7 @@ jobs:
     name: Deploy to Production VPS
     needs: build_and_test
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' && secrets.PROD_HOST != ''
 
     steps:
       - name: Deploy to Remote Server via SSH
