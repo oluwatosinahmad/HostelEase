@@ -51,8 +51,22 @@ export const Navbar: React.FC<NavbarProps> = ({
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const [unreadMsgCount, setUnreadMsgCount] = useState<number>(0);
+  const [isLoggingOut, setIsLoggingOut] = useState<boolean>(false);
 
   const profileMenuRef = useRef<HTMLDivElement>(null);
+
+  const handleLogout = () => {
+    setIsLoggingOut(true);
+    setProfileDropdownOpen(false);
+    setMobileMenuOpen(false);
+
+    setTimeout(() => {
+      logout();
+      setIsLoggingOut(false);
+      onNavigate('home');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }, 1200);
+  };
 
   // Close profile dropdown on outside click
   useEffect(() => {
@@ -422,10 +436,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                       {/* Log Out Button */}
                       <div className="pt-1 mt-1 border-t border-slate-100">
                         <button
-                          onClick={() => {
-                            logout();
-                            setProfileDropdownOpen(false);
-                          }}
+                          onClick={handleLogout}
                           className="w-full text-left px-4 py-2 text-xs font-bold text-rose-600 hover:bg-rose-50 flex items-center gap-2"
                         >
                           <LogOut className="w-4 h-4" />
@@ -619,7 +630,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           <div className="pt-2 border-t border-slate-100">
             {isAuthenticated ? (
               <button
-                onClick={() => { logout(); setMobileMenuOpen(false); }}
+                onClick={handleLogout}
                 className="w-full py-2 text-xs font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-xl transition-colors flex items-center justify-center gap-1.5"
               >
                 <LogOut className="w-4 h-4" />
@@ -641,6 +652,24 @@ export const Navbar: React.FC<NavbarProps> = ({
                 </button>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Logout Processing Loading Overlay */}
+      {isLoggingOut && (
+        <div className="fixed inset-0 z-[9999] bg-slate-950/80 backdrop-blur-sm flex flex-col items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl p-8 max-w-sm w-full text-center shadow-2xl border border-slate-100 space-y-4 animate-in zoom-in-95 duration-200">
+            <div className="w-16 h-16 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto shadow-inner">
+              <div className="w-8 h-8 border-3 border-emerald-600 border-t-transparent rounded-full animate-spin" />
+            </div>
+            <div className="space-y-1.5">
+              <h3 className="text-base font-black text-slate-900">Logging out...</h3>
+              <p className="text-xs text-slate-500">Securing your session and redirecting you to Home.</p>
+            </div>
+            <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+              <div className="bg-emerald-500 h-full w-2/3 animate-pulse rounded-full" />
+            </div>
           </div>
         </div>
       )}
