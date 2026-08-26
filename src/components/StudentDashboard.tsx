@@ -63,6 +63,7 @@ import { DEFAULT_STUDENT_DASHBOARD } from '../services/offlineFallback';
 
 interface StudentDashboardProps {
   areas?: Area[];
+  initialTab?: 'overview' | 'bookings' | 'inspections' | 'shortlist' | 'preferences' | 'search_history' | 'profile_security';
   onNavigateToSearch: () => void;
   onNavigateToSaved: () => void;
   onNavigateToInspections?: () => void;
@@ -81,6 +82,7 @@ interface StudentDashboardProps {
 
 export const StudentDashboard: React.FC<StudentDashboardProps> = ({
   areas = [],
+  initialTab,
   onNavigateToSearch,
   onNavigateToSaved,
   onNavigateToInspections,
@@ -100,7 +102,13 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
   
   // Dashboard Sub-tabs
   type SubTab = 'overview' | 'bookings' | 'inspections' | 'shortlist' | 'preferences' | 'search_history' | 'profile_security';
-  const [activeTab, setActiveTab] = useState<SubTab>('overview');
+  const [activeTab, setActiveTab] = useState<SubTab>(initialTab || 'overview');
+
+  useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab]);
 
   // Core Data
   const [dashboardData, setDashboardData] = useState<StudentDashboardData | null>(null);

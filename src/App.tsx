@@ -112,6 +112,7 @@ function MainApp() {
   const [authModalDefaultRole, setAuthModalDefaultRole] = useState<UserRole>('STUDENT');
   const [aiModalOpen, setAiModalOpen] = useState<boolean>(false);
   const [aiPropertyContext, setAiPropertyContext] = useState<Property | null>(null);
+  const [studentDashboardTab, setStudentDashboardTab] = useState<'overview' | 'bookings' | 'inspections' | 'shortlist' | 'preferences' | 'search_history' | 'profile_security'>('overview');
 
   const handleOpenAI = (property?: Property | null) => {
     setAiPropertyContext(property || null);
@@ -356,6 +357,7 @@ function MainApp() {
           setCurrentView(view);
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
+        onNavigateToDashboardTab={setStudentDashboardTab}
         onOpenAuth={handleOpenAuth}
         savedCount={savedProperties.length}
         onOpenAI={() => handleOpenAI()}
@@ -799,6 +801,7 @@ function MainApp() {
         {currentView === 'student-dashboard' && (
           <StudentDashboard
             areas={areas}
+            initialTab={studentDashboardTab}
             onNavigateToSearch={() => {
               setCurrentView('search');
               window.scrollTo({ top: 0, behavior: 'smooth' });

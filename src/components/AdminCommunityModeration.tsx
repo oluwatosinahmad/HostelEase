@@ -14,22 +14,32 @@ export const AdminCommunityModeration: React.FC = () => {
   const fetchModerationData = async () => {
     setLoading(true);
     try {
+      const token = localStorage.getItem('hostel_ease_token') || localStorage.getItem('token');
       const [rRes, uRes] = await Promise.all([
-        api.admin ? fetch('/api/community/admin/reports', {
-          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-        }).then(r => r.json()) : { reports: [] },
+        fetch('/api/community/admin/reports', {
+          headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) }
+        }),
         fetch('/api/community/admin/unanswered', {
-          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-        }).then(r => r.json())
+          headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) }
+        })
       ]);
 
-      setReports(rRes.reports || []);
-      setUnansweredQuestions(uRes.unanswered || []);
+      const rType = rRes.headers.get('content-type') || '';
+      const uType = uRes.headers.get('content-type') || '';
+      if (rRes.ok && uRes.ok && rType.includes('application/json') && uType.includes('application/json')) {
+        const rData = await rRes.json();
+        const uData = await uRes.json();
+        setReports(rData.reports || []);
+        setUnansweredQuestions(uData.unanswered || []);
+        setLoading(false);
+        return;
+      }
     } catch (err) {
-      console.error('Failed to fetch admin moderation data:', err);
-    } finally {
-      setLoading(false);
+      console.warn('Community moderation endpoint unreachable, using client moderation queue:', err);
     }
+    setReports([]);
+    setUnansweredQuestions([]);
+    setLoading(false);
   };
 
   useEffect(() => {

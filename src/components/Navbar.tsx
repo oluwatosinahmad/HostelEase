@@ -33,6 +33,7 @@ import { UserAvatar } from './UserAvatar';
 interface NavbarProps {
   activeView: AppView;
   onNavigate: (view: AppView) => void;
+  onNavigateToDashboardTab?: (tab: 'overview' | 'bookings' | 'inspections' | 'shortlist' | 'preferences' | 'search_history' | 'profile_security') => void;
   onOpenAuth: (defaultRole?: 'STUDENT' | 'PROVIDER' | 'ADMIN') => void;
   savedCount: number;
   onOpenAI?: () => void;
@@ -41,6 +42,7 @@ interface NavbarProps {
 export const Navbar: React.FC<NavbarProps> = ({
   activeView,
   onNavigate,
+  onNavigateToDashboardTab,
   onOpenAuth,
   savedCount,
   onOpenAI
@@ -298,6 +300,19 @@ export const Navbar: React.FC<NavbarProps> = ({
                             <button
                               onClick={() => {
                                 onNavigate('student-dashboard');
+                                if (onNavigateToDashboardTab) onNavigateToDashboardTab('overview');
+                                setProfileDropdownOpen(false);
+                              }}
+                              className="w-full text-left px-4 py-2 hover:bg-slate-50 flex items-center gap-2.5 font-bold text-slate-900"
+                            >
+                              <LayoutDashboard className="w-4 h-4 text-emerald-600" />
+                              <span>Student Dashboard</span>
+                            </button>
+
+                            <button
+                              onClick={() => {
+                                onNavigate('student-dashboard');
+                                if (onNavigateToDashboardTab) onNavigateToDashboardTab('preferences');
                                 setProfileDropdownOpen(false);
                               }}
                               className="w-full text-left px-4 py-2 hover:bg-slate-50 flex items-center gap-2.5"
