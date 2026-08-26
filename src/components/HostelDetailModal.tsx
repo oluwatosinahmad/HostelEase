@@ -171,15 +171,15 @@ export const HostelDetailModal: React.FC<HostelDetailModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-0 md:p-4 bg-slate-900/70 backdrop-blur-sm overflow-y-auto">
-      <div className="bg-white w-full max-w-5xl md:rounded-3xl shadow-2xl border border-slate-200 min-h-screen md:min-h-0 md:max-h-[92vh] flex flex-col overflow-hidden">
+      <div className="bg-white dark:bg-slate-900 w-full max-w-5xl md:rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 min-h-screen md:min-h-0 md:max-h-[92vh] flex flex-col overflow-hidden text-slate-900 dark:text-slate-100">
         {/* Sticky Header Bar */}
-        <div className="sticky top-0 z-30 bg-white/95 backdrop-blur border-b border-slate-200 px-4 md:px-6 py-3.5 flex items-center justify-between">
+        <div className="sticky top-0 z-30 bg-white/95 dark:bg-slate-900/95 backdrop-blur border-b border-slate-200 dark:border-slate-800 px-4 md:px-6 py-3.5 flex items-center justify-between">
           <div className="flex items-center gap-2 truncate">
-            <span className="font-extrabold text-xs text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded uppercase">
+            <span className="font-extrabold text-xs text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded uppercase">
               Hostel Ease Verified
             </span>
             <span className="text-xs text-slate-400">•</span>
-            <span className="text-xs font-semibold text-slate-700 truncate">
+            <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 truncate">
               {property?.area?.name || 'LAUTECH'}
             </span>
           </div>
@@ -187,7 +187,7 @@ export const HostelDetailModal: React.FC<HostelDetailModalProps> = ({
           <div className="flex items-center gap-2">
             <button
               onClick={handleShare}
-              className="p-2 rounded-full text-slate-600 hover:bg-slate-100 transition-colors"
+              className="p-2 rounded-full text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
               title="Share listing"
             >
               <Share2 className="w-4 h-4" />
@@ -195,7 +195,7 @@ export const HostelDetailModal: React.FC<HostelDetailModalProps> = ({
             <button
               onClick={handleSaveToggle}
               className={`p-2 rounded-full transition-all ${
-                isSaved ? 'text-rose-600 bg-rose-50' : 'text-slate-600 hover:bg-slate-100'
+                isSaved ? 'text-rose-600 bg-rose-50 dark:bg-rose-950/50' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
               }`}
               title={isSaved ? 'Remove from saved' : 'Save to shortlist'}
             >
@@ -203,14 +203,14 @@ export const HostelDetailModal: React.FC<HostelDetailModalProps> = ({
             </button>
             <button
               onClick={() => setReportModalOpen(true)}
-              className="p-2 rounded-full text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+              className="p-2 rounded-full text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 transition-colors"
               title="Report listing"
             >
               <Flag className="w-4 h-4" />
             </button>
             <button
               onClick={onClose}
-              className="p-2 rounded-full bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors ml-1"
+              className="p-2 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors ml-1"
             >
               <X className="w-5 h-5" />
             </button>
@@ -222,14 +222,35 @@ export const HostelDetailModal: React.FC<HostelDetailModalProps> = ({
           {loading && (
             <div className="py-20 text-center space-y-3">
               <div className="w-10 h-10 border-4 border-emerald-600 border-t-transparent rounded-full animate-spin mx-auto" />
-              <p className="text-sm font-medium text-slate-500">Loading verified hostel details...</p>
+              <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Loading verified hostel details...</p>
             </div>
           )}
 
           {error && (
-            <div className="p-4 bg-red-50 border border-red-200 rounded-2xl text-red-700 text-sm flex items-center gap-3">
-              <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
-              <span>{error}</span>
+            <div className="p-4 bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-900 rounded-2xl text-red-700 dark:text-red-300 text-sm flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
+                <span>{error}</span>
+              </div>
+              <button
+                onClick={() => {
+                  setLoading(true);
+                  setError(null);
+                  api.properties.getById(propertyId)
+                    .then(res => {
+                      setProperty(res.property);
+                      setIsSaved(Boolean(res.property.isSaved));
+                      setLoading(false);
+                    })
+                    .catch(err => {
+                      setError(err.message || 'Failed to load details');
+                      setLoading(false);
+                    });
+                }}
+                className="px-3 py-1 bg-red-600 text-white rounded-xl text-xs font-bold shadow"
+              >
+                Try Again
+              </button>
             </div>
           )}
 

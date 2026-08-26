@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { Property } from '../types/hostelEase';
 import { formatNaira, formatDistance, getAvailabilityBadgeInfo, getPropertyTypeLabel } from '../utils/formatters';
+import { OptimizedImage } from './OptimizedImage';
 
 interface HostelCardProps {
   property: Property;
@@ -87,21 +88,18 @@ export const HostelCard: React.FC<HostelCardProps> = ({
   return (
     <div 
       onClick={() => onViewDetails(property)}
-      className={`group bg-white rounded-3xl border shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden flex flex-col cursor-pointer ${
+      className={`group bg-white dark:bg-slate-900 rounded-3xl border shadow-xs hover:shadow-xl transition-all duration-300 overflow-hidden flex flex-col cursor-pointer ${
         isCompared 
           ? 'border-purple-500 ring-2 ring-purple-400/30' 
-          : 'border-slate-200 hover:border-emerald-300'
+          : 'border-slate-200/80 dark:border-slate-800 hover:border-emerald-300 dark:hover:border-emerald-700'
       }`}
     >
       {/* Property Cover Image with Badges */}
-      <div className="relative aspect-[16/10] bg-slate-100 overflow-hidden">
-        <img 
+      <div className="relative aspect-[16/10] bg-slate-100 dark:bg-slate-800 overflow-hidden">
+        <OptimizedImage 
           src={property.coverImage || 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=800&q=80'} 
           alt={property.title}
-          loading="lazy"
-          onError={(e) => {
-            e.currentTarget.src = 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=800&q=80';
-          }}
+          thumbnail={true}
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
         />
 

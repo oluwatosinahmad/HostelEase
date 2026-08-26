@@ -68,6 +68,25 @@ import {
 
 const API_BASE = '/api';
 
+const apiCache = new Map<string, { data: any; timestamp: number }>();
+const CACHE_TTL = 45000; // 45 seconds for public queries
+
+export async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutMs = 8000): Promise<Response> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { ...options, signal: controller.signal });
+    clearTimeout(timeoutId);
+    return res;
+  } catch (err: any) {
+    clearTimeout(timeoutId);
+    if (err.name === 'AbortError') {
+      throw new Error('Request timed out. Please check your network connection.');
+    }
+    throw err;
+  }
+}
+
 function getAuthHeader(): Record<string, string> {
   const token = localStorage.getItem('hostel_ease_token');
   return token ? { Authorization: `Bearer ${token}` } : {};
@@ -223,27 +242,45 @@ export const api = {
         if (filters.sortBy) params.append('sortBy', filters.sortBy);
         if (filters.page) params.append('page', filters.page.toString());
 
-        const res = await fetch(`${API_BASE}/properties?${params.toString()}`, {
+        const cacheKey = `properties_${params.toString()}`;
+        const cached = apiCache.get(cacheKey);
+        if (cached && (Date.now() - cached.timestamp < CACHE_TTL)) {
+          return cached.data;
+        }
+
+        const res = await fetchWithTimeout(`${API_BASE}/properties?${params.toString()}`, {
           headers: { ...getAuthHeader() }
-        });
+        }, 6000);
         if (res.ok) {
           const data = await res.json();
-          if (data.properties) return data;
+          if (data.properties) {
+            apiCache.set(cacheKey, { data, timestamp: Date.now() });
+            return data;
+          }
         }
       } catch (err) {
-        console.warn('Backend /api/properties unreachable, using verified LAUTECH hostel directory.');
+        console.warn('Backend /api/properties unreachable or timed out, using verified LAUTECH hostel directory.');
       }
       return filterFallbackProperties(filters);
     },
 
     async getById(id: string): Promise<{ property: Property }> {
       try {
-        const res = await fetch(`${API_BASE}/properties/${id}`, {
+        const cacheKey = `property_${id}`;
+        const cached = apiCache.get(cacheKey);
+        if (cached && (Date.now() - cached.timestamp < CACHE_TTL)) {
+          return cached.data;
+        }
+
+        const res = await fetchWithTimeout(`${API_BASE}/properties/${id}`, {
           headers: { ...getAuthHeader() }
-        });
+        }, 5000);
         if (res.ok) {
           const data = await res.json();
-          if (data.property) return data;
+          if (data.property) {
+            apiCache.set(cacheKey, { data, timestamp: Date.now() });
+            return data;
+          }
         }
       } catch (err) {
         console.warn(`Backend /api/properties/${id} unreachable, using fallback property.`);
@@ -254,10 +291,18 @@ export const api = {
 
     async getFeatured(): Promise<{ properties: Property[] }> {
       try {
-        const res = await fetch(`${API_BASE}/properties/featured`);
+        const cached = apiCache.get('featured_properties');
+        if (cached && (Date.now() - cached.timestamp < CACHE_TTL)) {
+          return cached.data;
+        }
+
+        const res = await fetchWithTimeout(`${API_BASE}/properties/featured`, {}, 5000);
         if (res.ok) {
           const data = await res.json();
-          if (data.properties && data.properties.length > 0) return data;
+          if (data.properties && data.properties.length > 0) {
+            apiCache.set('featured_properties', { data, timestamp: Date.now() });
+            return data;
+          }
         }
       } catch (err) {
         console.warn('Backend /api/properties/featured unreachable, using featured fallback.');
@@ -267,10 +312,18 @@ export const api = {
 
     async getRecent(): Promise<{ properties: Property[] }> {
       try {
-        const res = await fetch(`${API_BASE}/properties/recent`);
+        const cached = apiCache.get('recent_properties');
+        if (cached && (Date.now() - cached.timestamp < CACHE_TTL)) {
+          return cached.data;
+        }
+
+        const res = await fetchWithTimeout(`${API_BASE}/properties/recent`, {}, 5000);
         if (res.ok) {
           const data = await res.json();
-          if (data.properties && data.properties.length > 0) return data;
+          if (data.properties && data.properties.length > 0) {
+            apiCache.set('recent_properties', { data, timestamp: Date.now() });
+            return data;
+          }
         }
       } catch (err) {
         console.warn('Backend /api/properties/recent unreachable, using recent fallback.');

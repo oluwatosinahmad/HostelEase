@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { 
   Building2, 
   Search, 
@@ -35,27 +35,33 @@ import { Navbar } from './components/Navbar';
 import { HeroSection } from './components/HeroSection';
 import { HostelCard } from './components/HostelCard';
 import { HostelSearchFilters, ActiveFilterChips } from './components/HostelSearchFilters';
-import { CampusMapExplorer } from './components/CampusMapExplorer';
-import { HostelComparisonModal, ComparisonDock } from './components/HostelComparisonModal';
 import { SmartSearchBar } from './components/SmartSearchBar';
-import { HostelDetailModal } from './components/HostelDetailModal';
 import { SavedHostelsView } from './components/SavedHostelsView';
-import { StudentDashboard } from './components/StudentDashboard';
-import { StudentInspectionCenter } from './components/StudentInspectionCenter';
-import { StudentBookingDashboard } from './components/StudentBookingDashboard';
-import { ProviderBookingDashboard } from './components/ProviderBookingDashboard';
+import { ComparisonDock } from './components/ComparisonDock';
 import { BookingModal } from './components/BookingModal';
-import { StudentPaymentHistory } from './components/StudentPaymentHistory';
-import { MessagingCenter } from './components/MessagingCenter';
-import { ProviderPortal } from './components/ProviderPortal';
-import { AdminPortal } from './components/AdminPortal';
 import { AuthModal } from './components/AuthModal';
-import { AIAccommodationAssistantModal } from './components/AIAccommodationAssistantModal';
-import { MoveInCenter } from './components/MoveInCenter';
-import { AccommodationHistory } from './components/AccommodationHistory';
-import { CommunityHub } from './components/CommunityHub';
 import { Footer } from './components/Footer';
+import { MobileBottomNav } from './components/MobileBottomNav';
+import { NetworkStatusBanner } from './components/NetworkStatusBanner';
+import { HostelListSkeleton, DashboardSkeleton } from './components/SkeletonLoaders';
 import { formatNaira, formatDistance } from './utils/formatters';
+
+// Lazy Loaded Heavy Components for Fast Mobile Startup
+const CampusMapExplorer = lazy(() => import('./components/CampusMapExplorer').then(m => ({ default: m.CampusMapExplorer })));
+const HostelComparisonModal = lazy(() => import('./components/HostelComparisonModal').then(m => ({ default: m.HostelComparisonModal })));
+const HostelDetailModal = lazy(() => import('./components/HostelDetailModal').then(m => ({ default: m.HostelDetailModal })));
+const StudentDashboard = lazy(() => import('./components/StudentDashboard').then(m => ({ default: m.StudentDashboard })));
+const StudentInspectionCenter = lazy(() => import('./components/StudentInspectionCenter').then(m => ({ default: m.StudentInspectionCenter })));
+const StudentBookingDashboard = lazy(() => import('./components/StudentBookingDashboard').then(m => ({ default: m.StudentBookingDashboard })));
+const ProviderBookingDashboard = lazy(() => import('./components/ProviderBookingDashboard').then(m => ({ default: m.ProviderBookingDashboard })));
+const StudentPaymentHistory = lazy(() => import('./components/StudentPaymentHistory').then(m => ({ default: m.StudentPaymentHistory })));
+const MessagingCenter = lazy(() => import('./components/MessagingCenter').then(m => ({ default: m.MessagingCenter })));
+const ProviderPortal = lazy(() => import('./components/ProviderPortal').then(m => ({ default: m.ProviderPortal })));
+const AdminPortal = lazy(() => import('./components/AdminPortal').then(m => ({ default: m.AdminPortal })));
+const AIAccommodationAssistantModal = lazy(() => import('./components/AIAccommodationAssistantModal').then(m => ({ default: m.AIAccommodationAssistantModal })));
+const MoveInCenter = lazy(() => import('./components/MoveInCenter').then(m => ({ default: m.MoveInCenter })));
+const AccommodationHistory = lazy(() => import('./components/AccommodationHistory').then(m => ({ default: m.AccommodationHistory })));
+const CommunityHub = lazy(() => import('./components/CommunityHub').then(m => ({ default: m.CommunityHub })));
 
 const initialFilters: SearchFilterState = {
   search: '',
@@ -131,7 +137,7 @@ function MainApp() {
   };
 
   // Load Areas and Initial Data
-  useEffect(() => {
+  const loadInitialData = () => {
     api.areas.getAll()
       .then(res => setAreas(res.areas || []))
       .catch(err => console.error('Failed to load areas:', err));
@@ -143,6 +149,17 @@ function MainApp() {
     api.properties.getRecent()
       .then(res => setRecentProperties(res.properties || []))
       .catch(err => console.error('Failed to load recent:', err));
+
+    api.properties.search(filters)
+      .then(res => {
+        setProperties(res.properties || []);
+        setPagination(res.pagination || { page: 1, limit: 12, total: res.properties?.length || 0, totalPages: 1 });
+      })
+      .catch(() => {});
+  };
+
+  useEffect(() => {
+    loadInitialData();
   }, []);
 
   // Fetch Saved properties when authenticated
@@ -350,6 +367,9 @@ function MainApp() {
         ))}
       </div>
 
+      {/* Network Resilience Status Banner */}
+      <NetworkStatusBanner onRetry={loadInitialData} />
+
       {/* Main Navbar */}
       <Navbar
         activeView={currentView}
@@ -363,8 +383,9 @@ function MainApp() {
         onOpenAI={() => handleOpenAI()}
       />
 
-      {/* Content Body Router */}
-      <main className="flex-1 pb-24">
+      {/* Content Body Router with Lazy Suspense */}
+      <Suspense fallback={<DashboardSkeleton />}>
+        <main className="flex-1 pb-28 md:pb-24">
         {/* VIEW 1: HOME PAGE */}
         {currentView === 'home' && (
           <div className="space-y-12">
@@ -617,9 +638,12 @@ function MainApp() {
                 {/* Right Column: Search Results Grid */}
                 <div className="lg:col-span-3 space-y-4">
                   {searchLoading ? (
-                    <div className="py-24 text-center space-y-3 bg-white rounded-3xl border border-slate-200">
-                      <div className="w-8 h-8 border-4 border-emerald-600 border-t-transparent rounded-full animate-spin mx-auto" />
-                      <p className="text-xs text-slate-500 font-bold">Finding accommodations around LAUTECH...</p>
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-2 text-xs text-slate-500 font-bold px-1">
+                        <div className="w-4 h-4 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin" />
+                        <span>Finding matching verified hostels in Ogbomoso...</span>
+                      </div>
+                      <HostelListSkeleton count={6} />
                     </div>
                   ) : properties.length === 0 ? (
                     <div className="bg-white border border-slate-200 rounded-3xl p-8 sm:p-12 text-center space-y-4 shadow-sm">
@@ -929,6 +953,7 @@ function MainApp() {
           />
         )}
       </main>
+      </Suspense>
 
       {/* Floating Comparison Dock (Shown when 1 to 4 hostels are queued) */}
       <ComparisonDock
@@ -939,38 +964,44 @@ function MainApp() {
       />
 
       {/* 4-Hostel Comparison Modal */}
-      <HostelComparisonModal
-        comparedIds={comparedPropertyIds}
-        isOpen={comparisonModalOpen}
-        onClose={() => setComparisonModalOpen(false)}
-        onRemoveHostel={(id) => setComparedPropertyIds(prev => prev.filter(pId => pId !== id))}
-        onClearAll={() => {
-          setComparedPropertyIds([]);
-          setComparisonModalOpen(false);
-        }}
-        onSelectProperty={(id) => setSelectedPropertyId(id)}
-        onOpenAI={() => handleOpenAI()}
-      />
+      <Suspense fallback={null}>
+        {comparisonModalOpen && (
+          <HostelComparisonModal
+            comparedIds={comparedPropertyIds}
+            isOpen={comparisonModalOpen}
+            onClose={() => setComparisonModalOpen(false)}
+            onRemoveHostel={(id) => setComparedPropertyIds(prev => prev.filter(pId => pId !== id))}
+            onClearAll={() => {
+              setComparedPropertyIds([]);
+              setComparisonModalOpen(false);
+            }}
+            onSelectProperty={(id) => setSelectedPropertyId(id)}
+            onOpenAI={() => handleOpenAI()}
+          />
+        )}
+      </Suspense>
 
       {/* Hostel Detail Modal */}
-      {selectedPropertyId && (
-        <HostelDetailModal
-          propertyId={selectedPropertyId}
-          isOpen={Boolean(selectedPropertyId)}
-          onClose={() => setSelectedPropertyId(null)}
-          onToggleSave={handleToggleSave}
-          onToggleCompare={handleToggleCompare}
-          onOpenConversation={(propId) => {
-            setMessagingTargetPropertyId(propId);
-            setCurrentView('messages');
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-          }}
-          onOpenBookingModal={(prop) => handleOpenBookingModal(prop)}
-          onOpenAI={(prop) => handleOpenAI(prop)}
-          isCompared={comparedPropertyIds.includes(selectedPropertyId)}
-          onShowToast={showToast}
-        />
-      )}
+      <Suspense fallback={null}>
+        {selectedPropertyId && (
+          <HostelDetailModal
+            propertyId={selectedPropertyId}
+            isOpen={Boolean(selectedPropertyId)}
+            onClose={() => setSelectedPropertyId(null)}
+            onToggleSave={handleToggleSave}
+            onToggleCompare={handleToggleCompare}
+            onOpenConversation={(propId) => {
+              setMessagingTargetPropertyId(propId);
+              setCurrentView('messages');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            onOpenBookingModal={(prop) => handleOpenBookingModal(prop)}
+            onOpenAI={(prop) => handleOpenAI(prop)}
+            isCompared={comparedPropertyIds.includes(selectedPropertyId)}
+            onShowToast={showToast}
+          />
+        )}
+      </Suspense>
 
       {/* Room & Bedspace Booking Modal (Phase 5) */}
       {bookingTargetProperty && (
@@ -982,7 +1013,6 @@ function MainApp() {
             setBookingTargetProperty(null);
           }}
           onBookingSuccess={(bookingId, bookingRef) => {
-            // Option to navigate directly to bookings
             showToast(`Reservation #${bookingRef} created successfully!`, 'success');
           }}
           onOpenConversation={(propId) => {
@@ -995,35 +1025,39 @@ function MainApp() {
       )}
 
       {/* AI Accommodation Assistant Modal (Phase 8) */}
-      <AIAccommodationAssistantModal
-        isOpen={aiModalOpen}
-        onClose={() => {
-          setAiModalOpen(false);
-          setAiPropertyContext(null);
-        }}
-        initialPropertyContext={aiPropertyContext}
-        onSelectProperty={(id) => {
-          setAiModalOpen(false);
-          setSelectedPropertyId(id);
-        }}
-        onOpenComparison={() => {
-          setAiModalOpen(false);
-          setComparisonModalOpen(true);
-        }}
-        onApplyPreferencesToSearch={(prefs) => {
-          setAiModalOpen(false);
-          setFilters(prev => ({
-            ...prev,
-            minPrice: prefs.minBudget ? Number(prefs.minBudget) : prev.minPrice,
-            maxPrice: prefs.maxBudget ? Number(prefs.maxBudget) : prev.maxPrice,
-            maxDistance: prefs.maxDistanceKm ? Number(prefs.maxDistanceKm) : prev.maxDistance,
-            areaId: (prefs.preferredAreas && prefs.preferredAreas.length > 0) ? prefs.preferredAreas[0] : 'all'
-          }));
-          setCurrentView('search');
-          window.scrollTo({ top: 0, behavior: 'smooth' });
-        }}
-        onShowToast={showToast}
-      />
+      <Suspense fallback={null}>
+        {aiModalOpen && (
+          <AIAccommodationAssistantModal
+            isOpen={aiModalOpen}
+            onClose={() => {
+              setAiModalOpen(false);
+              setAiPropertyContext(null);
+            }}
+            initialPropertyContext={aiPropertyContext}
+            onSelectProperty={(id) => {
+              setAiModalOpen(false);
+              setSelectedPropertyId(id);
+            }}
+            onOpenComparison={() => {
+              setAiModalOpen(false);
+              setComparisonModalOpen(true);
+            }}
+            onApplyPreferencesToSearch={(prefs) => {
+              setAiModalOpen(false);
+              setFilters(prev => ({
+                ...prev,
+                minPrice: prefs.minBudget ? Number(prefs.minBudget) : prev.minPrice,
+                maxPrice: prefs.maxBudget ? Number(prefs.maxBudget) : prev.maxPrice,
+                maxDistance: prefs.maxDistanceKm ? Number(prefs.maxDistanceKm) : prev.maxDistance,
+                areaId: (prefs.preferredAreas && prefs.preferredAreas.length > 0) ? prefs.preferredAreas[0] : 'all'
+              }));
+              setCurrentView('search');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            onShowToast={showToast}
+          />
+        )}
+      </Suspense>
 
       {/* Auth Modal */}
       <AuthModal
@@ -1032,7 +1066,6 @@ function MainApp() {
         defaultRole={authModalDefaultRole}
         onSuccess={() => {
           showToast('Authenticated successfully. Welcome to Hostel Ease!', 'success');
-          // Retrieve user info and automatically navigate to their authorized dashboard
           const storedToken = localStorage.getItem('hostel_ease_token');
           if (storedToken) {
             api.auth.getMe().then(res => {
@@ -1055,6 +1088,17 @@ function MainApp() {
       <Footer 
         onNavigate={setCurrentView} 
         onOpenAuth={handleOpenAuth}
+      />
+
+      {/* Mobile-First Floating Bottom Navigation Bar */}
+      <MobileBottomNav
+        activeView={currentView}
+        onNavigate={(view) => {
+          setCurrentView(view);
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+        onOpenAuth={handleOpenAuth}
+        onOpenAI={handleOpenAI}
       />
     </div>
   );
