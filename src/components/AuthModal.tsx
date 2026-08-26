@@ -41,6 +41,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [department, setDepartment] = useState('Computer Science');
   const [businessName, setBusinessName] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   if (!isOpen) return null;
@@ -65,11 +66,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         });
       }
 
-      if (onSuccess) onSuccess();
-      onClose();
+      setIsLoggingIn(true);
+      setTimeout(() => {
+        setIsLoggingIn(false);
+        if (onSuccess) onSuccess();
+        onClose();
+      }, 900);
     } catch (err: any) {
       setError(err.message || 'Authentication failed. Please check your credentials.');
-    } finally {
       setSubmitting(false);
     }
   };
@@ -79,20 +83,43 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     setError(null);
     try {
       await loginDemo(targetRole);
-      if (onSuccess) onSuccess();
-      onClose();
+      setIsLoggingIn(true);
+      setTimeout(() => {
+        setIsLoggingIn(false);
+        if (onSuccess) onSuccess();
+        onClose();
+      }, 900);
     } catch (err: any) {
       setError(err.message || 'Demo login failed');
-    } finally {
       setSubmitting(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto">
-      <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl border border-slate-200 overflow-hidden animate-in zoom-in-95 duration-150 my-6">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-sm overflow-y-auto">
+      <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden animate-in zoom-in-95 duration-150 my-6 relative">
+        {/* Logging In Transition Overlay */}
+        {isLoggingIn && (
+          <div className="absolute inset-0 z-50 bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm flex flex-col items-center justify-center p-6 space-y-4 animate-in fade-in duration-150">
+            <div className="w-14 h-14 rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shadow-inner">
+              <div className="w-7 h-7 border-3 border-emerald-600 dark:border-emerald-400 border-t-transparent rounded-full animate-spin" />
+            </div>
+            <div className="text-center space-y-1">
+              <h3 className="text-base font-black text-slate-900 dark:text-white">
+                {mode === 'login' ? 'Logging You In...' : 'Account Created Successfully!'}
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Preparing your verified accommodation dashboard...
+              </p>
+            </div>
+            <div className="w-48 bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
+              <div className="bg-emerald-500 h-full w-3/4 animate-pulse rounded-full" />
+            </div>
+          </div>
+        )}
+
         {/* Header */}
-        <div className="bg-slate-900 text-white p-6 pb-5 relative">
+        <div className="bg-slate-900 dark:bg-black text-white p-6 pb-5 relative">
           <button
             onClick={onClose}
             className="absolute top-4 right-4 p-1.5 rounded-full text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
