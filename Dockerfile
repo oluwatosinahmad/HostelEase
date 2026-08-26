@@ -11,7 +11,7 @@ WORKDIR /app
 RUN apk add --no-cache python3 make g++
 
 COPY package*.json ./
-RUN npm ci
+RUN npm install
 
 COPY . .
 
@@ -32,7 +32,7 @@ ENV PORT=5000
 COPY package*.json ./
 
 # Install only production dependencies
-RUN npm ci --omit=dev
+RUN npm install --omit=dev
 
 # Copy build artifacts and server code
 COPY --from=builder /app/dist ./dist
@@ -53,4 +53,4 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD curl -f http://localhost:5000/api/health || exit 1
 
 # Start unified server
-CMD ["node", "--import", "tsx", "server/index.ts"]
+CMD ["npx", "tsx", "server/index.ts"]
