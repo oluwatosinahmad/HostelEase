@@ -150,6 +150,18 @@ export const Navbar: React.FC<NavbarProps> = ({
             </button>
 
             <button
+              onClick={() => onNavigate('student-dashboard')}
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                activeView === 'student-dashboard' 
+                  ? 'bg-emerald-50 text-emerald-800 font-bold' 
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+              }`}
+            >
+              <LayoutDashboard className="w-4 h-4 text-emerald-600" />
+              <span>Dashboard</span>
+            </button>
+
+            <button
               onClick={() => onNavigate('saved')}
               className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 relative ${
                 activeView === 'saved' 
@@ -484,7 +496,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-2 pb-2 border-b border-slate-100">
+          <div className="grid grid-cols-3 gap-2 pb-2 border-b border-slate-100">
             <button
               onClick={() => { onNavigate('home'); setMobileMenuOpen(false); }}
               className={`p-2.5 rounded-xl text-xs font-bold text-center flex flex-col items-center gap-1 ${
@@ -502,6 +514,15 @@ export const Navbar: React.FC<NavbarProps> = ({
             >
               <Search className="w-4 h-4" />
               <span>Find Hostels</span>
+            </button>
+            <button
+              onClick={() => { onNavigate('student-dashboard'); setMobileMenuOpen(false); }}
+              className={`p-2.5 rounded-xl text-xs font-bold text-center flex flex-col items-center gap-1 ${
+                activeView === 'student-dashboard' ? 'bg-emerald-50 text-emerald-800' : 'bg-slate-50 text-slate-700'
+              }`}
+            >
+              <LayoutDashboard className="w-4 h-4 text-emerald-600" />
+              <span>Dashboard</span>
             </button>
           </div>
 
