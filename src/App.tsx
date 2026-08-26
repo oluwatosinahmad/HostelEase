@@ -155,6 +155,19 @@ function MainApp() {
     }
   }, [isAuthenticated]);
 
+  // Role-based route guard (Strict authorization)
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      if (currentView === 'admin-portal' && user.role !== 'ADMIN') {
+        showToast('Access restricted to verified administrators. Redirected to Student Hub.', 'error');
+        setCurrentView('student-dashboard');
+      } else if (currentView === 'provider-portal' && user.role !== 'PROVIDER') {
+        showToast('Access restricted to verified hostel landlords. Redirected to Student Hub.', 'error');
+        setCurrentView('student-dashboard');
+      }
+    }
+  }, [currentView, isAuthenticated, user]);
+
   // Execute Search query when filters change or when search view is open
   useEffect(() => {
     if (currentView === 'search' || currentView === 'home') {
@@ -1014,7 +1027,25 @@ function MainApp() {
         isOpen={authModalOpen}
         onClose={() => setAuthModalOpen(false)}
         defaultRole={authModalDefaultRole}
-        onSuccess={() => showToast('Authenticated successfully', 'success')}
+        onSuccess={() => {
+          showToast('Authenticated successfully. Welcome to Hostel Ease!', 'success');
+          // Retrieve user info and automatically navigate to their authorized dashboard
+          const storedToken = localStorage.getItem('hostel_ease_token');
+          if (storedToken) {
+            api.auth.getMe().then(res => {
+              if (res.user?.role === 'STUDENT') {
+                setCurrentView('student-dashboard');
+              } else if (res.user?.role === 'PROVIDER') {
+                setCurrentView('provider-portal');
+              } else if (res.user?.role === 'ADMIN') {
+                setCurrentView('admin-portal');
+              }
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }).catch(() => {
+              setCurrentView('student-dashboard');
+            });
+          }
+        }}
       />
 
       {/* Global Footer */}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Building2, 
   Search, 
@@ -19,11 +19,16 @@ import {
   Receipt,
   CreditCard,
   Sparkles,
-  Users
+  Users,
+  ChevronDown,
+  HelpCircle,
+  Settings,
+  ShieldAlert
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { AppView } from '../types/hostelEase';
 import { api } from '../services/api';
+import { UserAvatar } from './UserAvatar';
 
 interface NavbarProps {
   activeView: AppView;
@@ -40,12 +45,25 @@ export const Navbar: React.FC<NavbarProps> = ({
   savedCount,
   onOpenAI
 }) => {
-  const { user, isAuthenticated, isStudent, isProvider, isAdmin, logout, loginDemo } = useAuth();
+  const { user, isAuthenticated, isStudent, isProvider, isAdmin, logout } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [demoDropdownOpen, setDemoDropdownOpen] = useState(false);
+  const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const [unreadMsgCount, setUnreadMsgCount] = useState<number>(0);
 
-  // Poll or fetch unread count on mount & when authenticated
+  const profileMenuRef = useRef<HTMLDivElement>(null);
+
+  // Close profile dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (profileMenuRef.current && !profileMenuRef.current.contains(e.target as Node)) {
+        setProfileDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Poll unread message count when authenticated
   useEffect(() => {
     if (isAuthenticated) {
       api.messages.getUnreadCount()
@@ -64,19 +82,19 @@ export const Navbar: React.FC<NavbarProps> = ({
   }, [isAuthenticated, activeView]);
 
   return (
-    <header className="sticky top-0 z-40 bg-white/95 backdrop-blur border-b border-slate-200 shadow-sm">
+    <header className="sticky top-0 z-40 bg-white/95 backdrop-blur border-b border-slate-200 shadow-xs">
       {/* LAUTECH Focus Announcement Bar */}
-      <div className="bg-emerald-800 text-emerald-50 px-4 py-1 text-xs font-medium flex items-center justify-between">
+      <div className="bg-emerald-950 text-emerald-50 px-4 py-1 text-xs font-medium flex items-center justify-between">
         <div className="flex items-center gap-2 truncate">
           <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-400 text-amber-950 uppercase tracking-wide">
             LAUTECH Edition
           </span>
-          <span className="truncate">Ogbomoso, Oyo State — Official Student Housing Directory</span>
+          <span className="truncate">Ogbomoso, Oyo State — Verified Student Accommodation Platform</span>
         </div>
         <div className="hidden md:flex items-center gap-3 text-[11px] text-emerald-200">
           <span>Search First. Visit Less.</span>
           <span>•</span>
-          <span className="text-amber-300 font-semibold">100% Verified Listings</span>
+          <span className="text-amber-300 font-semibold">100% Verified Lodges</span>
         </div>
       </div>
 
@@ -105,8 +123,8 @@ export const Navbar: React.FC<NavbarProps> = ({
             </div>
           </div>
 
-          {/* Desktop Navigation Links (Clean & Streamlined) */}
-          <nav className="hidden md:flex items-center gap-2">
+          {/* Desktop Navigation Links (Strictly Student Relevant) */}
+          <nav className="hidden md:flex items-center gap-1.5">
             <button
               onClick={() => onNavigate('home')}
               className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
@@ -116,7 +134,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               }`}
             >
               <Home className="w-4 h-4" />
-              Home
+              <span>Home</span>
             </button>
 
             <button
@@ -128,7 +146,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               }`}
             >
               <Search className="w-4 h-4" />
-              Find Hostels
+              <span>Find Hostels</span>
             </button>
 
             <button
@@ -140,13 +158,27 @@ export const Navbar: React.FC<NavbarProps> = ({
               }`}
             >
               <Bookmark className="w-4 h-4" />
-              Saved
+              <span>Saved</span>
               {savedCount > 0 && (
-                <span className="ml-1 px-1.5 py-0.2 bg-emerald-600 text-white text-[10px] font-black rounded-full">
+                <span className="ml-0.5 px-1.5 py-0.2 bg-emerald-600 text-white text-[10px] font-black rounded-full">
                   {savedCount}
                 </span>
               )}
             </button>
+
+            {isAuthenticated && isStudent && (
+              <button
+                onClick={() => onNavigate('bookings')}
+                className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                  activeView === 'bookings' 
+                    ? 'bg-emerald-50 text-emerald-800 font-bold' 
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                }`}
+              >
+                <Receipt className="w-4 h-4" />
+                <span>My Bookings</span>
+              </button>
+            )}
 
             <button
               onClick={() => onNavigate('community')}
@@ -157,14 +189,14 @@ export const Navbar: React.FC<NavbarProps> = ({
               }`}
             >
               <Users className="w-4 h-4 text-emerald-600" />
-              Community
+              <span>Community</span>
             </button>
 
             {/* Ask AI Assistant Button */}
             {onOpenAI && (
               <button
                 onClick={onOpenAI}
-                className="ml-1 px-3.5 py-2 rounded-xl text-xs font-black transition-all bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white shadow-xs flex items-center gap-1.5 group hover:scale-[1.02]"
+                className="ml-1 px-3 py-1.5 rounded-xl text-xs font-black transition-all bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white shadow-xs flex items-center gap-1.5 group hover:scale-[1.02]"
                 title="Ask Hostel Ease AI Accommodation Assistant"
               >
                 <Sparkles className="w-3.5 h-3.5 text-amber-300 fill-amber-300 animate-pulse" />
@@ -173,197 +205,221 @@ export const Navbar: React.FC<NavbarProps> = ({
             )}
           </nav>
 
-          {/* Desktop Right Side (Explicit Auth & User Controls) */}
+          {/* Desktop Right Side: Student Profile & Notifications */}
           <div className="hidden md:flex items-center gap-3">
             {isAuthenticated ? (
               <div className="flex items-center gap-3">
-                {/* Logged-In Status Pill */}
-                <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                  {user?.role === 'STUDENT' ? 'Student' : user?.role === 'PROVIDER' ? 'Landlord' : 'Admin'}
-                </span>
-
-                {/* Instant Demo Role Switcher for seamless testing */}
-                <div className="relative">
-                  <button
-                    onClick={() => setDemoDropdownOpen(!demoDropdownOpen)}
-                    className="px-2.5 py-1.5 rounded-lg border border-amber-300 bg-amber-50 text-amber-900 text-xs font-black flex items-center gap-1.5 hover:bg-amber-100 transition-colors shadow-xs"
-                    title="Switch between Student, Landlord, and Admin demo accounts"
-                  >
-                    <KeyRound className="w-3.5 h-3.5 text-amber-600" />
-                    <span>Switch Role ▾</span>
-                  </button>
-
-                  {demoDropdownOpen && (
-                    <div className="absolute right-0 mt-2 w-60 bg-white rounded-2xl shadow-2xl border border-slate-200 py-2 z-50 animate-in fade-in slide-in-from-top-2">
-                      <div className="px-3 py-1.5 border-b border-slate-100 text-[10px] font-black text-slate-400 uppercase tracking-wider">
-                        Switch Active Perspective
-                      </div>
-                      <button
-                        onClick={() => {
-                          loginDemo('STUDENT');
-                          setDemoDropdownOpen(false);
-                          onNavigate('student-dashboard');
-                        }}
-                        className={`w-full text-left px-3 py-2 text-xs flex items-center justify-between transition-colors ${
-                          user?.role === 'STUDENT' ? 'bg-emerald-50 text-emerald-900 font-bold' : 'text-slate-700 hover:bg-slate-50'
-                        }`}
-                      >
-                        <span className="font-semibold">🎓 Student (Tunde)</span>
-                        <span className="text-[10px] bg-emerald-100 text-emerald-800 font-black px-1.5 py-0.5 rounded">Student</span>
-                      </button>
-                      <button
-                        onClick={() => {
-                          loginDemo('PROVIDER');
-                          setDemoDropdownOpen(false);
-                          onNavigate('provider-portal');
-                        }}
-                        className={`w-full text-left px-3 py-2 text-xs flex items-center justify-between transition-colors ${
-                          user?.role === 'PROVIDER' ? 'bg-blue-50 text-blue-900 font-bold' : 'text-slate-700 hover:bg-slate-50'
-                        }`}
-                      >
-                        <span className="font-semibold">🏡 Landlord (Segun)</span>
-                        <span className="text-[10px] bg-blue-100 text-blue-800 font-black px-1.5 py-0.5 rounded">Landlord</span>
-                      </button>
-                      <button
-                        onClick={() => {
-                          loginDemo('ADMIN');
-                          setDemoDropdownOpen(false);
-                          onNavigate('admin-portal');
-                        }}
-                        className={`w-full text-left px-3 py-2 text-xs flex items-center justify-between transition-colors ${
-                          user?.role === 'ADMIN' ? 'bg-purple-50 text-purple-900 font-bold' : 'text-slate-700 hover:bg-slate-50'
-                        }`}
-                      >
-                        <span className="font-semibold">🛡️ Platform Admin</span>
-                        <span className="text-[10px] bg-purple-100 text-purple-800 font-black px-1.5 py-0.5 rounded">Admin</span>
-                      </button>
-                    </div>
-                  )}
-                </div>
-
-                {/* Role Portal / Dashboard Shortcut */}
+                {/* Messages Shortcut */}
                 {isStudent && (
                   <button
-                    onClick={() => onNavigate('student-dashboard')}
-                    className="text-xs font-bold px-3 py-1.5 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors flex items-center gap-1"
+                    onClick={() => onNavigate('messages')}
+                    className="p-2 text-slate-600 hover:text-emerald-700 hover:bg-slate-100 rounded-xl relative transition-all"
+                    title="Messages"
                   >
-                    <LayoutDashboard className="w-3.5 h-3.5" />
-                    <span>Dashboard</span>
+                    <MessageSquare className="w-4 h-4" />
+                    {unreadMsgCount > 0 && (
+                      <span className="absolute top-1 right-1 w-4 h-4 bg-rose-600 text-white text-[9px] font-black rounded-full flex items-center justify-center">
+                        {unreadMsgCount}
+                      </span>
+                    )}
                   </button>
                 )}
 
+                {/* Landlord Portal Quick Button (Only for Landlord account) */}
                 {isProvider && (
                   <button
                     onClick={() => onNavigate('provider-portal')}
-                    className="text-xs font-bold px-3 py-1.5 rounded-lg bg-emerald-100 text-emerald-800 hover:bg-emerald-200 transition-colors flex items-center gap-1"
+                    className="text-xs font-bold px-3 py-1.5 rounded-xl bg-emerald-100 text-emerald-800 hover:bg-emerald-200 transition-colors flex items-center gap-1"
                   >
                     <PlusCircle className="w-3.5 h-3.5" />
                     <span>Landlord Portal</span>
                   </button>
                 )}
 
+                {/* Admin Portal Quick Button (Only for Admin account) */}
                 {isAdmin && (
                   <button
                     onClick={() => onNavigate('admin-portal')}
-                    className="text-xs font-bold px-3 py-1.5 rounded-lg bg-purple-100 text-purple-800 hover:bg-purple-200 transition-colors flex items-center gap-1"
+                    className="text-xs font-bold px-3 py-1.5 rounded-xl bg-purple-100 text-purple-800 hover:bg-purple-200 transition-colors flex items-center gap-1"
                   >
                     <ShieldCheck className="w-3.5 h-3.5" />
                     <span>Admin Portal</span>
                   </button>
                 )}
 
-                {/* User Info & Log Out */}
-                <div className="flex items-center gap-2 pl-2 border-l border-slate-200">
-                  <div className="text-right">
-                    <p className="text-xs font-bold text-slate-900 leading-tight">
-                      {user?.fullName}
-                    </p>
-                    <p className="text-[10px] font-medium text-emerald-600">
-                      {user?.role === 'STUDENT' ? 'Student' : user?.role === 'PROVIDER' ? 'Hostel Landlord' : 'System Admin'}
-                    </p>
-                  </div>
-
+                {/* Clean Professional Profile Dropdown (Section 7) */}
+                <div className="relative" ref={profileMenuRef}>
                   <button
-                    onClick={logout}
-                    className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg transition-colors"
-                    title="Sign out of your account"
+                    onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
+                    className="flex items-center gap-2.5 p-1.5 pr-3 rounded-2xl hover:bg-slate-100 border border-slate-200/80 transition-all text-left group"
                   >
-                    <LogOut className="w-3.5 h-3.5" />
-                    <span>Log Out</span>
+                    <UserAvatar fullName={user?.fullName} avatarUrl={user?.avatarUrl} size="md" />
+                    <div className="hidden lg:block text-left">
+                      <p className="text-xs font-bold text-slate-900 leading-tight">
+                        {user?.fullName?.split(' ')[0]}
+                      </p>
+                      <p className="text-[10px] text-emerald-600 font-medium">
+                        {isStudent ? 'LAUTECH Student' : isProvider ? 'Hostel Landlord' : 'Admin'}
+                      </p>
+                    </div>
+                    <ChevronDown className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-700 transition-transform" />
                   </button>
+
+                  {profileDropdownOpen && (
+                    <div className="absolute right-0 mt-2 w-64 bg-white rounded-2xl shadow-2xl border border-slate-200 py-2 z-50 animate-in fade-in slide-in-from-top-2">
+                      {/* Profile Card Header */}
+                      <div className="px-4 py-3 border-b border-slate-100 flex items-center gap-3">
+                        <UserAvatar fullName={user?.fullName} avatarUrl={user?.avatarUrl} size="lg" />
+                        <div className="overflow-hidden">
+                          <p className="text-xs font-bold text-slate-900 truncate">{user?.fullName}</p>
+                          <p className="text-[11px] text-slate-400 truncate">{user?.email}</p>
+                          <span className="inline-block mt-0.5 text-[9px] font-black uppercase px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200">
+                            {isStudent ? '🎓 Student' : isProvider ? '🏡 Landlord' : '🛡️ Admin'}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Student Menu Items */}
+                      <div className="py-1 text-xs font-medium text-slate-700">
+                        {isStudent && (
+                          <>
+                            <button
+                              onClick={() => {
+                                onNavigate('student-dashboard');
+                                setProfileDropdownOpen(false);
+                              }}
+                              className="w-full text-left px-4 py-2 hover:bg-slate-50 flex items-center gap-2.5"
+                            >
+                              <UserIcon className="w-4 h-4 text-emerald-600" />
+                              <span>My Profile & Preferences</span>
+                            </button>
+
+                            <button
+                              onClick={() => {
+                                onNavigate('bookings');
+                                setProfileDropdownOpen(false);
+                              }}
+                              className="w-full text-left px-4 py-2 hover:bg-slate-50 flex items-center gap-2.5"
+                            >
+                              <Receipt className="w-4 h-4 text-emerald-600" />
+                              <span>My Bookings & Reservations</span>
+                            </button>
+
+                            <button
+                              onClick={() => {
+                                onNavigate('saved');
+                                setProfileDropdownOpen(false);
+                              }}
+                              className="w-full text-left px-4 py-2 hover:bg-slate-50 flex items-center justify-between"
+                            >
+                              <div className="flex items-center gap-2.5">
+                                <Bookmark className="w-4 h-4 text-emerald-600" />
+                                <span>Saved Hostels</span>
+                              </div>
+                              {savedCount > 0 && (
+                                <span className="px-1.5 py-0.2 bg-emerald-100 text-emerald-800 text-[10px] font-bold rounded-full">
+                                  {savedCount}
+                                </span>
+                              )}
+                            </button>
+
+                            <button
+                              onClick={() => {
+                                onNavigate('inspections');
+                                setProfileDropdownOpen(false);
+                              }}
+                              className="w-full text-left px-4 py-2 hover:bg-slate-50 flex items-center gap-2.5"
+                            >
+                              <Calendar className="w-4 h-4 text-emerald-600" />
+                              <span>My Inspections</span>
+                            </button>
+
+                            <button
+                              onClick={() => {
+                                onNavigate('move-in');
+                                setProfileDropdownOpen(false);
+                              }}
+                              className="w-full text-left px-4 py-2 hover:bg-slate-50 flex items-center gap-2.5"
+                            >
+                              <KeyRound className="w-4 h-4 text-emerald-600" />
+                              <span>Move-In Checklist & Hub</span>
+                            </button>
+
+                            <button
+                              onClick={() => {
+                                onNavigate('messages');
+                                setProfileDropdownOpen(false);
+                              }}
+                              className="w-full text-left px-4 py-2 hover:bg-slate-50 flex items-center justify-between"
+                            >
+                              <div className="flex items-center gap-2.5">
+                                <MessageSquare className="w-4 h-4 text-emerald-600" />
+                                <span>Messages</span>
+                              </div>
+                              {unreadMsgCount > 0 && (
+                                <span className="px-1.5 py-0.2 bg-rose-600 text-white text-[10px] font-bold rounded-full">
+                                  {unreadMsgCount}
+                                </span>
+                              )}
+                            </button>
+                          </>
+                        )}
+
+                        {isProvider && (
+                          <button
+                            onClick={() => {
+                              onNavigate('provider-portal');
+                              setProfileDropdownOpen(false);
+                            }}
+                            className="w-full text-left px-4 py-2 hover:bg-slate-50 flex items-center gap-2.5"
+                          >
+                            <LayoutDashboard className="w-4 h-4 text-emerald-600" />
+                            <span>Landlord Management Center</span>
+                          </button>
+                        )}
+
+                        {isAdmin && (
+                          <button
+                            onClick={() => {
+                              onNavigate('admin-portal');
+                              setProfileDropdownOpen(false);
+                            }}
+                            className="w-full text-left px-4 py-2 hover:bg-slate-50 flex items-center gap-2.5"
+                          >
+                            <ShieldCheck className="w-4 h-4 text-purple-600" />
+                            <span>Admin Command Portal</span>
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Log Out Button */}
+                      <div className="pt-1 mt-1 border-t border-slate-100">
+                        <button
+                          onClick={() => {
+                            logout();
+                            setProfileDropdownOpen(false);
+                          }}
+                          className="w-full text-left px-4 py-2 text-xs font-bold text-rose-600 hover:bg-rose-50 flex items-center gap-2"
+                        >
+                          <LogOut className="w-4 h-4" />
+                          <span>Log Out</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             ) : (
               <div className="flex items-center gap-2.5">
-                {/* Logged-Out Status Pill */}
-                <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-slate-100 text-slate-600 border border-slate-200">
-                  <span className="w-2 h-2 rounded-full bg-slate-400"></span>
-                  Logged Out
-                </span>
-
-                {/* Demo Switcher Pill */}
-                <div className="relative">
-                  <button
-                    onClick={() => setDemoDropdownOpen(!demoDropdownOpen)}
-                    className="px-2.5 py-1.5 rounded-lg border border-amber-300 bg-amber-50 text-amber-900 text-xs font-semibold flex items-center gap-1.5 hover:bg-amber-100 transition-colors"
-                    title="Quick demo access"
-                  >
-                    <KeyRound className="w-3.5 h-3.5 text-amber-600" />
-                    <span>Demo</span>
-                  </button>
-
-                  {demoDropdownOpen && (
-                    <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-xl border border-slate-200 py-2 z-50 animate-in fade-in slide-in-from-top-2">
-                      <div className="px-3 py-1.5 border-b border-slate-100 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
-                        Instant Demo Login
-                      </div>
-                      <button
-                        onClick={() => {
-                          loginDemo('STUDENT');
-                          setDemoDropdownOpen(false);
-                          onNavigate('search');
-                        }}
-                        className="w-full text-left px-3 py-2 text-xs text-slate-700 hover:bg-emerald-50 hover:text-emerald-800 flex items-center justify-between"
-                      >
-                        <span className="font-medium">🎓 Tunde Adeyemi</span>
-                        <span className="text-[10px] bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded">Student</span>
-                      </button>
-                      <button
-                        onClick={() => {
-                          loginDemo('PROVIDER');
-                          setDemoDropdownOpen(false);
-                          onNavigate('provider-portal');
-                        }}
-                        className="w-full text-left px-3 py-2 text-xs text-slate-700 hover:bg-blue-50 hover:text-blue-800 flex items-center justify-between"
-                      >
-                        <span className="font-medium">🏡 Engr. Segun Alabi</span>
-                        <span className="text-[10px] bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded">Landlord</span>
-                      </button>
-                      <button
-                        onClick={() => {
-                          loginDemo('ADMIN');
-                          setDemoDropdownOpen(false);
-                          onNavigate('admin-portal');
-                        }}
-                        className="w-full text-left px-3 py-2 text-xs text-slate-700 hover:bg-purple-50 hover:text-purple-800 flex items-center justify-between"
-                      >
-                        <span className="font-medium">🛡️ Verification Admin</span>
-                        <span className="text-[10px] bg-purple-100 text-purple-800 px-1.5 py-0.5 rounded">Admin</span>
-                      </button>
-                    </div>
-                  )}
-                </div>
-
                 <button
                   onClick={() => onOpenAuth('STUDENT')}
-                  className="px-3.5 py-1.5 text-xs font-semibold text-slate-700 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
+                  className="px-3.5 py-1.5 text-xs font-bold text-slate-700 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors"
                 >
                   Log In
                 </button>
                 <button
                   onClick={() => onOpenAuth('STUDENT')}
-                  className="px-4 py-1.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-sm hover:shadow transition-all"
+                  className="px-4 py-2 text-xs font-black text-slate-950 bg-emerald-400 hover:bg-emerald-300 rounded-xl shadow-sm transition-all"
                 >
                   Sign Up
                 </button>
@@ -373,7 +429,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           {/* Mobile Menu Button */}
           <div className="flex md:hidden items-center gap-2">
-            {isAuthenticated && (
+            {isAuthenticated && isStudent && (
               <button
                 onClick={() => onNavigate('messages')}
                 className="p-2 text-slate-600 relative"
@@ -403,7 +459,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="p-2 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+              className="p-2 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100"
               aria-label="Toggle navigation menu"
             >
               {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
@@ -412,208 +468,138 @@ export const Navbar: React.FC<NavbarProps> = ({
         </div>
       </div>
 
-      {/* Mobile Drawer Menu */}
+      {/* Mobile Drawer Menu (Student-Focused) */}
       {mobileMenuOpen && (
         <div className="md:hidden border-t border-slate-200 bg-white px-4 pt-3 pb-6 space-y-3 animate-in slide-in-from-top duration-200">
-          <div className="grid grid-cols-2 gap-2 pb-3 border-b border-slate-100">
+          {/* User Profile Header in Mobile Menu */}
+          {isAuthenticated && (
+            <div className="p-3 bg-slate-50 rounded-2xl flex items-center gap-3 border border-slate-200/80">
+              <UserAvatar fullName={user?.fullName} avatarUrl={user?.avatarUrl} size="lg" />
+              <div className="overflow-hidden">
+                <p className="text-xs font-bold text-slate-900 truncate">{user?.fullName}</p>
+                <p className="text-[10px] text-emerald-600 font-semibold">
+                  {isStudent ? 'LAUTECH Student' : isProvider ? 'Hostel Landlord' : 'Admin'}
+                </p>
+              </div>
+            </div>
+          )}
+
+          <div className="grid grid-cols-2 gap-2 pb-2 border-b border-slate-100">
             <button
               onClick={() => { onNavigate('home'); setMobileMenuOpen(false); }}
-              className={`p-2.5 rounded-xl text-xs font-semibold text-center flex flex-col items-center gap-1 ${
+              className={`p-2.5 rounded-xl text-xs font-bold text-center flex flex-col items-center gap-1 ${
                 activeView === 'home' ? 'bg-emerald-50 text-emerald-800' : 'bg-slate-50 text-slate-700'
               }`}
             >
               <Home className="w-4 h-4" />
-              Home
+              <span>Home</span>
             </button>
             <button
               onClick={() => { onNavigate('search'); setMobileMenuOpen(false); }}
-              className={`p-2.5 rounded-xl text-xs font-semibold text-center flex flex-col items-center gap-1 ${
+              className={`p-2.5 rounded-xl text-xs font-bold text-center flex flex-col items-center gap-1 ${
                 activeView === 'search' ? 'bg-emerald-50 text-emerald-800' : 'bg-slate-50 text-slate-700'
               }`}
             >
               <Search className="w-4 h-4" />
-              Search Hostels
+              <span>Find Hostels</span>
             </button>
           </div>
 
-          {onOpenAI && (
-            <button
-              onClick={() => { onOpenAI(); setMobileMenuOpen(false); }}
-              className="w-full py-2.5 px-4 bg-gradient-to-r from-emerald-600 to-teal-700 text-white rounded-xl text-xs font-black flex items-center justify-between shadow-sm"
-            >
-              <div className="flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-amber-300 fill-amber-300" />
-                <span>Ask Hostel Ease AI</span>
-              </div>
-              <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded-full font-bold">24/7 Guide</span>
-            </button>
-          )}
-
-          <div className="space-y-1">
-            {isAuthenticated && (
-              <button
-                onClick={() => { onNavigate('messages'); setMobileMenuOpen(false); }}
-                className="w-full flex items-center justify-between p-2.5 rounded-lg text-sm text-slate-700 hover:bg-slate-50"
-              >
-                <div className="flex items-center gap-2">
-                  <MessageSquare className="w-4 h-4 text-emerald-600" />
-                  <span>Hostel Messages</span>
-                </div>
-                {unreadMsgCount > 0 && (
-                  <span className="px-2 py-0.5 text-xs font-bold bg-rose-600 text-white rounded-full">
-                    {unreadMsgCount}
-                  </span>
-                )}
-              </button>
-            )}
-
+          <div className="space-y-1 text-xs font-medium text-slate-700">
             {isStudent && (
-              <button
-                onClick={() => { onNavigate('move-in'); setMobileMenuOpen(false); }}
-                className="w-full flex items-center gap-2 p-2.5 rounded-lg text-sm font-semibold text-emerald-800 bg-emerald-50 hover:bg-emerald-100"
-              >
-                <KeyRound className="w-4 h-4 text-emerald-600" />
-                <span>Move-In Center</span>
-              </button>
-            )}
+              <>
+                <button
+                  onClick={() => { onNavigate('student-dashboard'); setMobileMenuOpen(false); }}
+                  className="w-full flex items-center gap-2.5 p-2.5 rounded-xl hover:bg-slate-50"
+                >
+                  <UserIcon className="w-4 h-4 text-emerald-600" />
+                  <span>My Profile & Preferences</span>
+                </button>
 
-            {isStudent && (
-              <button
-                onClick={() => { onNavigate('inspections'); setMobileMenuOpen(false); }}
-                className="w-full flex items-center gap-2 p-2.5 rounded-lg text-sm text-slate-700 hover:bg-slate-50"
-              >
-                <Calendar className="w-4 h-4 text-emerald-600" />
-                <span>My Inspections</span>
-              </button>
-            )}
+                <button
+                  onClick={() => { onNavigate('bookings'); setMobileMenuOpen(false); }}
+                  className="w-full flex items-center gap-2.5 p-2.5 rounded-xl hover:bg-slate-50"
+                >
+                  <Receipt className="w-4 h-4 text-emerald-600" />
+                  <span>My Bookings</span>
+                </button>
 
-            {isAuthenticated && (
-              <button
-                onClick={() => { onNavigate('bookings'); setMobileMenuOpen(false); }}
-                className="w-full flex items-center gap-2 p-2.5 rounded-lg text-sm text-slate-700 hover:bg-slate-50"
-              >
-                <Receipt className="w-4 h-4 text-emerald-600" />
-                <span>{isStudent ? 'My Bookings' : 'Reservations'}</span>
-              </button>
-            )}
+                <button
+                  onClick={() => { onNavigate('saved'); setMobileMenuOpen(false); }}
+                  className="w-full flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-50"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <Bookmark className="w-4 h-4 text-emerald-600" />
+                    <span>Saved Hostels</span>
+                  </div>
+                  {savedCount > 0 && (
+                    <span className="px-2 py-0.5 text-xs font-bold bg-emerald-100 text-emerald-800 rounded-full">
+                      {savedCount}
+                    </span>
+                  )}
+                </button>
 
-            {isAuthenticated && isStudent && (
-              <button
-                onClick={() => { onNavigate('payments'); setMobileMenuOpen(false); }}
-                className="w-full flex items-center gap-2 p-2.5 rounded-lg text-sm text-slate-700 hover:bg-slate-50"
-              >
-                <CreditCard className="w-4 h-4 text-emerald-600" />
-                <span>My Payments & Receipts</span>
-              </button>
+                <button
+                  onClick={() => { onNavigate('inspections'); setMobileMenuOpen(false); }}
+                  className="w-full flex items-center gap-2.5 p-2.5 rounded-xl hover:bg-slate-50"
+                >
+                  <Calendar className="w-4 h-4 text-emerald-600" />
+                  <span>My Inspections</span>
+                </button>
+
+                <button
+                  onClick={() => { onNavigate('move-in'); setMobileMenuOpen(false); }}
+                  className="w-full flex items-center gap-2.5 p-2.5 rounded-xl hover:bg-slate-50 font-bold text-emerald-800"
+                >
+                  <KeyRound className="w-4 h-4 text-emerald-600" />
+                  <span>Move-In Center</span>
+                </button>
+              </>
             )}
 
             <button
               onClick={() => { onNavigate('community'); setMobileMenuOpen(false); }}
-              className="w-full flex items-center gap-2 p-2.5 rounded-lg text-sm text-slate-700 hover:bg-slate-50"
+              className="w-full flex items-center gap-2.5 p-2.5 rounded-xl hover:bg-slate-50"
             >
               <Users className="w-4 h-4 text-emerald-600" />
-              <span>Student Community</span>
+              <span>Student Community & Roommates</span>
             </button>
 
-            <button
-              onClick={() => { onNavigate('saved'); setMobileMenuOpen(false); }}
-              className="w-full flex items-center justify-between p-2.5 rounded-lg text-sm text-slate-700 hover:bg-slate-50"
-            >
-              <div className="flex items-center gap-2">
-                <Bookmark className="w-4 h-4 text-emerald-600" />
-                <span>My Saved Hostels</span>
-              </div>
-              {savedCount > 0 && (
-                <span className="px-2 py-0.5 text-xs font-bold bg-emerald-100 text-emerald-800 rounded-full">
-                  {savedCount}
-                </span>
-              )}
-            </button>
-
-            {isStudent && (
+            {onOpenAI && (
               <button
-                onClick={() => { onNavigate('student-dashboard'); setMobileMenuOpen(false); }}
-                className="w-full flex items-center gap-2 p-2.5 rounded-lg text-sm text-slate-700 hover:bg-slate-50"
+                onClick={() => { onOpenAI(); setMobileMenuOpen(false); }}
+                className="w-full py-2.5 px-3 bg-gradient-to-r from-emerald-600 to-teal-700 text-white rounded-xl text-xs font-bold flex items-center justify-between shadow-xs"
               >
-                <LayoutDashboard className="w-4 h-4 text-emerald-600" />
-                <span>Student Hub</span>
-              </button>
-            )}
-
-            {isProvider && (
-              <button
-                onClick={() => { onNavigate('provider-portal'); setMobileMenuOpen(false); }}
-                className="w-full flex items-center gap-2 p-2.5 rounded-lg text-sm text-slate-700 hover:bg-slate-50"
-              >
-                <PlusCircle className="w-4 h-4 text-emerald-600" />
-                <span>Landlord Listing Portal</span>
-              </button>
-            )}
-
-            {isAdmin && (
-              <button
-                onClick={() => { onNavigate('admin-portal'); setMobileMenuOpen(false); }}
-                className="w-full flex items-center gap-2 p-2.5 rounded-lg text-sm text-purple-700 hover:bg-purple-50"
-              >
-                <ShieldCheck className="w-4 h-4 text-purple-600" />
-                <span>Admin Moderation Portal</span>
-              </button>
-            )}
-          </div>
-
-          {/* Quick Demo Test Buttons for Mobile */}
-          <div className="pt-2 border-t border-slate-100">
-            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">
-              Quick Demo Accounts
-            </p>
-            <div className="grid grid-cols-3 gap-1.5">
-              <button
-                onClick={() => { loginDemo('STUDENT'); setMobileMenuOpen(false); }}
-                className="px-2 py-1.5 text-[11px] font-semibold bg-emerald-50 text-emerald-800 rounded-lg border border-emerald-200"
-              >
-                🎓 Student
-              </button>
-              <button
-                onClick={() => { loginDemo('PROVIDER'); setMobileMenuOpen(false); }}
-                className="px-2 py-1.5 text-[11px] font-semibold bg-blue-50 text-blue-800 rounded-lg border border-blue-200"
-              >
-                🏡 Landlord
-              </button>
-              <button
-                onClick={() => { loginDemo('ADMIN'); setMobileMenuOpen(false); }}
-                className="px-2 py-1.5 text-[11px] font-semibold bg-purple-50 text-purple-800 rounded-lg border border-purple-200"
-              >
-                🛡️ Admin
-              </button>
-            </div>
-          </div>
-
-          {/* Auth in Mobile Menu */}
-          <div className="pt-3 border-t border-slate-100">
-            {isAuthenticated ? (
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs font-bold text-slate-900">{user?.fullName}</p>
-                  <p className="text-[10px] text-emerald-600">{user?.role}</p>
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-amber-300 fill-amber-300" />
+                  <span>Ask Hostel Ease AI</span>
                 </div>
-                <button
-                  onClick={() => { logout(); setMobileMenuOpen(false); }}
-                  className="px-3 py-1.5 text-xs font-semibold text-red-600 bg-red-50 rounded-lg"
-                >
-                  Log out
-                </button>
-              </div>
+                <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded-full font-bold">24/7</span>
+              </button>
+            )}
+          </div>
+
+          {/* Auth Action in Mobile Menu */}
+          <div className="pt-2 border-t border-slate-100">
+            {isAuthenticated ? (
+              <button
+                onClick={() => { logout(); setMobileMenuOpen(false); }}
+                className="w-full py-2 text-xs font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-xl transition-colors flex items-center justify-center gap-1.5"
+              >
+                <LogOut className="w-4 h-4" />
+                <span>Log Out</span>
+              </button>
             ) : (
               <div className="grid grid-cols-2 gap-2">
                 <button
                   onClick={() => { onOpenAuth('STUDENT'); setMobileMenuOpen(false); }}
                   className="w-full py-2 text-xs font-bold text-slate-700 bg-slate-100 rounded-xl"
                 >
-                  Log in
+                  Log In
                 </button>
                 <button
                   onClick={() => { onOpenAuth('STUDENT'); setMobileMenuOpen(false); }}
-                  className="w-full py-2 text-xs font-bold text-white bg-emerald-600 rounded-xl shadow-sm"
+                  className="w-full py-2 text-xs font-black text-slate-950 bg-emerald-400 rounded-xl shadow-xs"
                 >
                   Sign Up
                 </button>

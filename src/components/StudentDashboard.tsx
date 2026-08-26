@@ -37,7 +37,8 @@ import {
   Plus,
   Bot,
   KeyRound,
-  Users
+  Users,
+  HelpCircle
 } from 'lucide-react';
 import { 
   StudentDashboardData, 
@@ -57,6 +58,7 @@ import { SmartMatchFeed } from './SmartMatchFeed';
 import { SmartSearchBar } from './SmartSearchBar';
 import { SmartShortlistManager } from './SmartShortlistManager';
 import { AccommodationProgressTracker } from './AccommodationProgressTracker';
+import { UserAvatar } from './UserAvatar';
 
 interface StudentDashboardProps {
   areas?: Area[];
@@ -109,6 +111,8 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
   const [selectedReceiptRef, setSelectedReceiptRef] = useState<string | null>(null);
   const [selectedBookingDetailId, setSelectedBookingDetailId] = useState<string | null>(null);
   const [onboardingModalOpen, setOnboardingModalOpen] = useState<boolean>(false);
+  const [showSupportModal, setShowSupportModal] = useState<boolean>(false);
+  const [headerSearchQuery, setHeaderSearchQuery] = useState<string>('');
 
   // Profile Edit State
   const [profileFullName, setProfileFullName] = useState<string>('');
@@ -366,68 +370,190 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
 
   const { summary, urgentAction, activeBooking, pendingPayments, savedHostels, recentlyViewed, recommendedHostels, preferences, profileCompleteness } = dashboardData!;
 
+  const studentFirstName = dashboardData?.user.fullName?.split(' ')[0] || user?.fullName?.split(' ')[0] || 'Student';
+  const isReturningStudent = (summary?.savedCount || 0) > 0 || (summary?.activeBookingsCount || 0) > 0 || Boolean(preferences?.onboardingCompleted);
+  const greetingSubtitle = isReturningStudent
+    ? `Welcome back, ${studentFirstName} 👋 Ready to continue your accommodation search?`
+    : `Welcome to Hostel Ease, ${studentFirstName} 👋 Let's help you find a place that feels right for you.`;
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-      {/* 1. TOP HERO GREETING & PROFILE COMPLETENESS */}
-      <div className="bg-gradient-to-r from-emerald-900 via-teal-900 to-slate-900 text-white rounded-3xl p-6 sm:p-8 shadow-xl relative overflow-hidden flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-        <div className="space-y-2 max-w-xl z-10">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-400 text-slate-950 uppercase tracking-wide">
-              LAUTECH Student Hub
-            </span>
-            <span className="text-[11px] text-emerald-200 font-medium">
-              Academic Session 2026/2027
-            </span>
+      {/* 1. TOP HERO GREETING & PROFILE BANNER */}
+      <div className="bg-gradient-to-r from-emerald-950 via-teal-950 to-slate-950 text-white rounded-3xl p-6 sm:p-8 shadow-xl relative overflow-hidden flex flex-col lg:flex-row lg:items-center justify-between gap-6 border border-emerald-500/20">
+        <div className="space-y-3 max-w-2xl z-10">
+          <div className="flex items-center gap-3">
+            <UserAvatar 
+              fullName={dashboardData?.user.fullName || user?.fullName} 
+              avatarUrl={dashboardData?.user.avatarUrl} 
+              size="xl" 
+              className="border-2 border-emerald-400 shadow-md ring-4 ring-emerald-500/20 shrink-0" 
+            />
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-400 text-slate-950 uppercase tracking-wide">
+                  LAUTECH Student
+                </span>
+                <span className="text-[11px] text-emerald-300 font-medium">
+                  {dashboardData?.user.department ? `${dashboardData.user.department} • ${dashboardData.user.level || 'Undergraduate'}` : 'Academic Session 2026/2027'}
+                </span>
+              </div>
+              <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white mt-0.5">
+                {getGreeting()}, {studentFirstName}! 👋
+              </h1>
+            </div>
           </div>
 
-          <h1 className="text-2xl sm:text-3xl font-black tracking-tight">
-            {getGreeting()}, {dashboardData?.user.fullName?.split(' ')[0] || 'Student'}! 👋
-          </h1>
-          <p className="text-xs sm:text-sm text-emerald-100/90 leading-relaxed">
-            Your centralized accommodation command center. Track shortlist, scheduled tours, space reservations, receipts, and personal preferences with zero hassle.
+          <p className="text-xs sm:text-sm text-emerald-100/90 leading-relaxed font-medium">
+            {greetingSubtitle}
           </p>
 
-          {/* Profile Completeness Bar */}
-          <div className="pt-2">
-            <div className="flex items-center justify-between text-xs mb-1">
-              <span className="text-emerald-200 font-semibold flex items-center gap-1.5">
-                <ShieldCheck className="w-4 h-4 text-emerald-400" />
-                Profile Completeness
-              </span>
-              <span className="font-black text-emerald-300">{profileCompleteness.score}%</span>
+          {/* Quick Search Directly in Hero */}
+          <div className="pt-1">
+            <div className="flex items-center gap-2 bg-white/10 backdrop-blur-md rounded-2xl p-1.5 border border-white/20 max-w-lg">
+              <Search className="w-4 h-4 text-emerald-300 ml-2 shrink-0" />
+              <input
+                type="text"
+                value={headerSearchQuery}
+                onChange={(e) => setHeaderSearchQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    onNavigateToSearch();
+                  }
+                }}
+                placeholder="Search for accommodation in Under G, Adenike, Stadium..."
+                className="bg-transparent text-white placeholder-emerald-200/70 text-xs outline-none flex-1 font-medium"
+              />
+              <button
+                onClick={onNavigateToSearch}
+                className="px-3.5 py-1.5 bg-emerald-400 hover:bg-emerald-300 text-slate-950 font-black text-xs rounded-xl transition shadow-sm"
+              >
+                Search
+              </button>
             </div>
-            <div className="w-full bg-white/20 h-2 rounded-full overflow-hidden">
+          </div>
+
+          {/* Profile Completeness Bar */}
+          <div className="pt-1 max-w-md">
+            <div className="flex items-center justify-between text-xs mb-1">
+              <span className="text-emerald-200 font-semibold flex items-center gap-1.5 text-[11px]">
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                Profile Progress: {profileCompleteness.score}% Complete
+              </span>
+              <span className="font-bold text-emerald-300 text-[10px]">
+                {profileCompleteness.score === 100 ? 'Verified 🛡️' : 'Basic Level'}
+              </span>
+            </div>
+            <div className="w-full bg-white/20 h-1.5 rounded-full overflow-hidden">
               <div 
                 className="bg-emerald-400 h-full rounded-full transition-all duration-500"
                 style={{ width: `${profileCompleteness.score}%` }}
               />
             </div>
-            {profileCompleteness.missingFields.length > 0 && (
-              <p className="text-[10px] text-emerald-300/80 mt-1">
-                Tip: Add {profileCompleteness.missingFields.join(', ')} to boost verification.
-              </p>
-            )}
           </div>
         </div>
 
         {/* Quick Action Buttons */}
-        <div className="flex items-center gap-2 flex-wrap z-10">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 z-10 shrink-0">
           <button
             onClick={() => setOnboardingModalOpen(true)}
-            className="px-4 py-2.5 bg-white/10 hover:bg-white/20 text-white text-xs font-bold rounded-xl border border-white/20 transition-all flex items-center gap-1.5 shadow-sm"
+            className="px-4 py-2.5 bg-white/10 hover:bg-white/20 text-white text-xs font-bold rounded-xl border border-white/20 transition-all flex items-center justify-center gap-1.5 shadow-sm"
           >
             <SlidersHorizontal className="w-3.5 h-3.5 text-emerald-300" />
-            Housing Preferences
+            <span>Preferences</span>
           </button>
           
           <button
             onClick={onNavigateToSearch}
-            className="px-5 py-2.5 bg-emerald-400 hover:bg-emerald-300 text-slate-950 text-xs font-black rounded-xl shadow-lg transition-all flex items-center gap-1.5"
+            className="px-5 py-2.5 bg-emerald-400 hover:bg-emerald-300 text-slate-950 text-xs font-black rounded-xl shadow-lg transition-all flex items-center justify-center gap-1.5"
           >
             <Search className="w-4 h-4" />
-            Find Hostels
+            <span>Find Accommodation</span>
           </button>
         </div>
+      </div>
+
+      {/* QUICK ACTIONS RIBBON (Section 12) */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
+        <button
+          onClick={onNavigateToSearch}
+          className="p-3 bg-white hover:bg-emerald-50/50 border border-slate-200 hover:border-emerald-300 rounded-2xl text-left flex items-center gap-2.5 transition group shadow-xs"
+        >
+          <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-black group-hover:scale-105 transition-transform">
+            <Search className="w-4 h-4" />
+          </div>
+          <div>
+            <span className="text-xs font-bold text-slate-900 block leading-tight">Find Hostels</span>
+            <span className="text-[10px] text-slate-400">Search zones</span>
+          </div>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('shortlist')}
+          className="p-3 bg-white hover:bg-rose-50/50 border border-slate-200 hover:border-rose-300 rounded-2xl text-left flex items-center gap-2.5 transition group shadow-xs"
+        >
+          <div className="w-8 h-8 rounded-xl bg-rose-100 text-rose-800 flex items-center justify-center font-black group-hover:scale-105 transition-transform">
+            <Bookmark className="w-4 h-4" />
+          </div>
+          <div>
+            <span className="text-xs font-bold text-slate-900 block leading-tight">Saved ({summary.savedCount})</span>
+            <span className="text-[10px] text-slate-400">Your shortlist</span>
+          </div>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('bookings')}
+          className="p-3 bg-white hover:bg-sky-50/50 border border-slate-200 hover:border-sky-300 rounded-2xl text-left flex items-center gap-2.5 transition group shadow-xs"
+        >
+          <div className="w-8 h-8 rounded-xl bg-sky-100 text-sky-800 flex items-center justify-center font-black group-hover:scale-105 transition-transform">
+            <Receipt className="w-4 h-4" />
+          </div>
+          <div>
+            <span className="text-xs font-bold text-slate-900 block leading-tight">My Bookings</span>
+            <span className="text-[10px] text-slate-400">{summary.activeBookingsCount} active</span>
+          </div>
+        </button>
+
+        <button
+          onClick={() => onNavigateToMessages ? onNavigateToMessages() : onOpenConversation ? onOpenConversation('') : null}
+          className="p-3 bg-white hover:bg-teal-50/50 border border-slate-200 hover:border-teal-300 rounded-2xl text-left flex items-center gap-2.5 transition group shadow-xs"
+        >
+          <div className="w-8 h-8 rounded-xl bg-teal-100 text-teal-800 flex items-center justify-center font-black group-hover:scale-105 transition-transform relative">
+            <MessageSquare className="w-4 h-4" />
+            {summary.unreadMessagesCount > 0 && (
+              <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-rose-600 rounded-full border-2 border-white" />
+            )}
+          </div>
+          <div>
+            <span className="text-xs font-bold text-slate-900 block leading-tight">Messages</span>
+            <span className="text-[10px] text-slate-400">{summary.unreadMessagesCount > 0 ? `${summary.unreadMessagesCount} unread` : 'Landlords'}</span>
+          </div>
+        </button>
+
+        <button
+          onClick={() => onNavigateToMoveIn ? onNavigateToMoveIn() : null}
+          className="p-3 bg-white hover:bg-amber-50/50 border border-slate-200 hover:border-amber-300 rounded-2xl text-left flex items-center gap-2.5 transition group shadow-xs"
+        >
+          <div className="w-8 h-8 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center font-black group-hover:scale-105 transition-transform">
+            <KeyRound className="w-4 h-4" />
+          </div>
+          <div>
+            <span className="text-xs font-bold text-slate-900 block leading-tight">Move-In Hub</span>
+            <span className="text-[10px] text-slate-400">Checklist & Key</span>
+          </div>
+        </button>
+
+        <button
+          onClick={() => setShowSupportModal(true)}
+          className="p-3 bg-white hover:bg-purple-50/50 border border-slate-200 hover:border-purple-300 rounded-2xl text-left flex items-center gap-2.5 transition group shadow-xs"
+        >
+          <div className="w-8 h-8 rounded-xl bg-purple-100 text-purple-800 flex items-center justify-center font-black group-hover:scale-105 transition-transform">
+            <HelpCircle className="w-4 h-4" />
+          </div>
+          <div>
+            <span className="text-xs font-bold text-slate-900 block leading-tight">Get Help</span>
+            <span className="text-[10px] text-slate-400">24/7 Support</span>
+          </div>
+        </button>
       </div>
 
       {/* 2. REAL SUMMARY METRICS RIBBON */}
@@ -544,9 +670,12 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
           {/* User Profile Mini Card */}
           <div className="bg-white rounded-3xl p-5 border border-slate-200 shadow-xs space-y-3">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-600 to-teal-800 text-white flex items-center justify-center font-black text-lg shadow-sm">
-                {dashboardData?.user.fullName ? dashboardData.user.fullName.charAt(0).toUpperCase() : user?.fullName ? user.fullName.charAt(0).toUpperCase() : 'S'}
-              </div>
+              <UserAvatar 
+                fullName={dashboardData?.user.fullName || user?.fullName} 
+                avatarUrl={dashboardData?.user.avatarUrl} 
+                size="lg" 
+                className="shrink-0 shadow-xs" 
+              />
               <div className="min-w-0 flex-1">
                 <h3 className="font-black text-sm text-slate-900 truncate">{dashboardData?.user.fullName || user?.fullName || 'Student'}</h3>
                 <p className="text-[11px] text-emerald-700 font-bold truncate">{dashboardData?.user.matricNo || 'LAUTECH Student'}</p>
@@ -640,7 +769,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                     <span>Move-In Hub</span>
                   </div>
                   <span className="text-[10px] bg-emerald-100 text-emerald-800 px-1.5 py-0.2 rounded-full font-black">
-                    Phase 12
+                    Checklist
                   </span>
                 </button>
 
@@ -729,7 +858,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                 >
                   <div className="flex items-center gap-2.5">
                     <Bookmark className={`w-4 h-4 ${activeTab === 'shortlist' ? 'text-white' : 'text-slate-400'}`} />
-                    <span>Saved & History</span>
+                    <span>Saved Hostels</span>
                   </div>
                   {summary.savedCount > 0 && (
                     <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
@@ -742,7 +871,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
               </div>
             </div>
 
-            {/* Group: Community & Roommates (Phase 14) */}
+            {/* Group: Community & Roommates */}
             <div className="border-t border-slate-100 pt-3">
               <p className="px-3 text-[10px] font-black tracking-wider text-slate-400 uppercase mb-1.5">
                 Community & Roommates
@@ -757,7 +886,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                     <span>Student Community</span>
                   </div>
                   <span className="text-[10px] bg-emerald-100 text-emerald-800 px-1.5 py-0.2 rounded-full font-black">
-                    Phase 14
+                    Live
                   </span>
                 </button>
               </div>
@@ -799,28 +928,6 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
               </div>
             </div>
 
-            {/* Quick Demo Switcher Widget */}
-            <div className="border-t border-slate-100 pt-3">
-              <p className="px-3 text-[10px] font-black tracking-wider text-slate-400 uppercase mb-1.5 flex items-center justify-between">
-                <span>Switch Perspective</span>
-                <span className="text-[9px] bg-amber-100 text-amber-900 font-bold px-1.5 py-0.2 rounded">Demo</span>
-              </p>
-              <div className="grid grid-cols-2 gap-1.5 px-1">
-                <button
-                  onClick={() => loginDemo('PROVIDER')}
-                  className="p-2 text-center rounded-xl bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-900 text-[11px] font-black transition-colors"
-                >
-                  🏡 Landlord
-                </button>
-                <button
-                  onClick={() => loginDemo('ADMIN')}
-                  className="p-2 text-center rounded-xl bg-purple-50 hover:bg-purple-100 border border-purple-200 text-purple-900 text-[11px] font-black transition-colors"
-                >
-                  🛡️ Admin
-                </button>
-              </div>
-            </div>
-
           </div>
         </div>
 
@@ -831,12 +938,119 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
           {/* SUB-TAB 1: HUB OVERVIEW                                                   */}
           {/* ========================================================================= */}
           {activeTab === 'overview' && (
-            <div className="space-y-8 animate-in fade-in">
+            <div className="space-y-6 animate-in fade-in">
               
               {/* 1. ACCOMMODATION JOURNEY TRACKER */}
               <AccommodationProgressTracker currentStage="SEARCHING" />
 
-              {/* 2. NATURAL LANGUAGE SMART SEARCH BAR */}
+              {/* FIRST-TIME STUDENT GUIDED SETUP CARD (Section 10) */}
+              {(!preferences?.onboardingCompleted || profileCompleteness.score < 60) && (
+                <div className="p-6 bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-200 rounded-3xl space-y-3 shadow-xs">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="w-5 h-5 text-emerald-700" />
+                      <h3 className="font-black text-sm text-emerald-950">Let's find the right accommodation for you</h3>
+                    </div>
+                    <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-200 text-emerald-900 uppercase tracking-wide">
+                      Personalized Match
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-600 leading-relaxed">
+                    Tell us your budget and preferred location around LAUTECH (Under G, Adenike, Stadium Road) to get personalized lodge recommendations tailored specifically to your needs.
+                  </p>
+                  <div className="flex items-center gap-3 text-xs font-semibold text-slate-700 flex-wrap pt-1">
+                    <span className="flex items-center gap-1.5 px-2.5 py-1 bg-white rounded-xl border border-emerald-100"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> 1. Budget</span>
+                    <span className="flex items-center gap-1.5 px-2.5 py-1 bg-white rounded-xl border border-emerald-100"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> 2. Preferred Area</span>
+                    <span className="flex items-center gap-1.5 px-2.5 py-1 bg-white rounded-xl border border-emerald-100"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> 3. Room Type</span>
+                    <span className="flex items-center gap-1.5 px-2.5 py-1 bg-white rounded-xl border border-emerald-100"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> 4. Move-In Date</span>
+                  </div>
+                  <div className="pt-1">
+                    <button
+                      onClick={() => setOnboardingModalOpen(true)}
+                      className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black rounded-xl shadow-sm transition flex items-center gap-2"
+                    >
+                      <span>Set Accommodation Preferences</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* 2. "WHAT CAN I DO HERE?" 4-CARD PRIMARY ACTION GRID (Section 8) */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {/* Card 1: Find Accommodation */}
+                <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-xs flex flex-col justify-between space-y-3">
+                  <div className="space-y-1.5">
+                    <div className="w-10 h-10 rounded-2xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold">
+                      <Search className="w-5 h-5" />
+                    </div>
+                    <h4 className="font-bold text-sm text-slate-900">Find Accommodation</h4>
+                    <p className="text-xs text-slate-500">Search verified hostels around LAUTECH campus.</p>
+                  </div>
+                  <button 
+                    onClick={onNavigateToSearch} 
+                    className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-xs transition flex items-center justify-center gap-1.5"
+                  >
+                    <span>Find a Hostel</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+
+                {/* Card 2: Saved Hostels */}
+                <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-xs flex flex-col justify-between space-y-3">
+                  <div className="space-y-1.5">
+                    <div className="w-10 h-10 rounded-2xl bg-rose-100 text-rose-800 flex items-center justify-center font-bold">
+                      <Bookmark className="w-5 h-5" />
+                    </div>
+                    <h4 className="font-bold text-sm text-slate-900">Saved Hostels</h4>
+                    <p className="text-xs text-slate-500">Quickly return to places you liked ({summary.savedCount} saved).</p>
+                  </div>
+                  <button 
+                    onClick={() => setActiveTab('shortlist')} 
+                    className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl shadow-xs transition"
+                  >
+                    View Saved
+                  </button>
+                </div>
+
+                {/* Card 3: Upcoming Booking */}
+                <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-xs flex flex-col justify-between space-y-3">
+                  <div className="space-y-1.5">
+                    <div className="w-10 h-10 rounded-2xl bg-sky-100 text-sky-800 flex items-center justify-center font-bold">
+                      <Receipt className="w-5 h-5" />
+                    </div>
+                    <h4 className="font-bold text-sm text-slate-900">Upcoming Booking</h4>
+                    <p className="text-xs text-slate-500 truncate">
+                      {activeBooking ? `${activeBooking.propertyTitle} (${activeBooking.roomName})` : 'No active booking. Schedule your first tour.'}
+                    </p>
+                  </div>
+                  <button 
+                    onClick={() => setActiveTab('bookings')} 
+                    className="w-full py-2.5 bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs rounded-xl shadow-xs transition"
+                  >
+                    {activeBooking ? 'View Booking' : 'Book a Tour'}
+                  </button>
+                </div>
+
+                {/* Card 4: Community */}
+                <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-xs flex flex-col justify-between space-y-3">
+                  <div className="space-y-1.5">
+                    <div className="w-10 h-10 rounded-2xl bg-teal-100 text-teal-800 flex items-center justify-center font-bold">
+                      <Users className="w-5 h-5" />
+                    </div>
+                    <h4 className="font-bold text-sm text-slate-900">Student Community</h4>
+                    <p className="text-xs text-slate-500">Connect with coursemates and read area guides.</p>
+                  </div>
+                  <button 
+                    onClick={() => onNavigateToCommunity ? onNavigateToCommunity() : null} 
+                    className="w-full py-2.5 bg-teal-700 hover:bg-teal-800 text-white font-bold text-xs rounded-xl shadow-xs transition"
+                  >
+                    Explore Community
+                  </button>
+                </div>
+              </div>
+
+              {/* 3. NATURAL LANGUAGE SMART SEARCH BAR */}
               <div className="bg-white rounded-3xl p-5 sm:p-6 border border-slate-200 shadow-xs space-y-3">
                 <div>
                   <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
@@ -1882,6 +2096,65 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
         onSavePreferences={handleSavePreferences}
         onShowToast={onShowToast}
       />
+
+      {/* STUDENT 24/7 SUPPORT & ASSISTANCE MODAL */}
+      {showSupportModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-6 max-w-lg w-full shadow-2xl space-y-5 animate-in zoom-in-95">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-purple-100 text-purple-800 flex items-center justify-center font-black">
+                  <HelpCircle className="w-4 h-4" />
+                </div>
+                <h3 className="text-base font-black text-slate-900">Student Accommodation Support</h3>
+              </div>
+              <button 
+                onClick={() => setShowSupportModal(false)}
+                className="p-1 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200/80 space-y-1">
+                <span className="font-bold text-emerald-900 block">📞 LAUTECH Campus Student Housing Desk</span>
+                <p className="text-emerald-800">Direct hotline for urgent lodge inquiries, payment verification, and check-in support.</p>
+                <p className="font-mono font-bold text-emerald-950 pt-1">+234 803 000 4321 / +234 812 000 8765</p>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-1.5">
+                <span className="font-bold text-slate-900 block">🛡️ Student Safety & Escrow Protection</span>
+                <p className="text-slate-600">
+                  Never make cash payments outside the platform. Your caution deposit and rent remain safely escrow-protected until keys and move-in inspection are complete.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 pt-1">
+                <button
+                  onClick={() => {
+                    setShowSupportModal(false);
+                    if (onOpenAI) onOpenAI();
+                  }}
+                  className="py-2.5 px-3 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl transition flex items-center justify-center gap-1.5"
+                >
+                  <Bot className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Ask AI Assistant</span>
+                </button>
+                <button
+                  onClick={() => {
+                    setShowSupportModal(false);
+                    onShowToast('Support ticket logged with LAUTECH desk', 'success');
+                  }}
+                  className="py-2.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl transition"
+                >
+                  Request Callback
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
