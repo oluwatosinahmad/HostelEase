@@ -182,35 +182,35 @@ export const HostelCard: React.FC<HostelCardProps> = ({
       </div>
 
       {/* Card Content */}
-      <div className="p-4 sm:p-5 flex-1 flex flex-col justify-between space-y-3">
+      <div className="p-4 sm:p-5 flex-1 flex flex-col justify-between space-y-3 text-slate-900 dark:text-slate-100">
         <div className="space-y-2">
           {/* Area & Distance from LAUTECH */}
-          <div className="flex items-center justify-between text-xs text-slate-500 gap-1">
-            <span className="font-bold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-xl flex items-center gap-1 truncate">
-              <MapPin className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />
+          <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 gap-1">
+            <span className="font-bold text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 px-2.5 py-1 rounded-xl flex items-center gap-1 truncate">
+              <MapPin className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
               <span className="truncate">{property.area.name}</span>
             </span>
-            <span className="flex items-center gap-1 font-bold text-slate-600 text-[11px] flex-shrink-0">
+            <span className="flex items-center gap-1 font-bold text-slate-600 dark:text-slate-300 text-[11px] flex-shrink-0">
               <Footprints className="w-3.5 h-3.5 text-slate-400" />
               {formatDistance(property.distanceFromCampusKm)} to gate
             </span>
           </div>
 
           {/* Hostel Name */}
-          <h3 className="font-black text-sm sm:text-base text-slate-900 group-hover:text-emerald-700 transition-colors line-clamp-1">
+          <h3 className="font-black text-sm sm:text-base text-slate-900 dark:text-white group-hover:text-emerald-700 dark:group-hover:text-emerald-400 transition-colors line-clamp-1">
             {property.title}
           </h3>
 
           {/* Match Score Reason Explanation (if present) */}
           {matchExplanation && (
-            <p className="text-[11px] text-purple-700 bg-purple-50 px-2.5 py-1 rounded-xl border border-purple-100 font-medium line-clamp-1">
+            <p className="text-[11px] text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/50 px-2.5 py-1 rounded-xl border border-purple-100 dark:border-purple-800 font-medium line-clamp-1">
               ✨ {matchExplanation}
             </p>
           )}
 
           {/* Landmark hint */}
           {property.nearbyLandmark && (
-            <p className="text-xs text-slate-500 line-clamp-1">
+            <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-1">
               📍 Near: {property.nearbyLandmark}
             </p>
           )}
@@ -221,14 +221,14 @@ export const HostelCard: React.FC<HostelCardProps> = ({
               {property.keyAmenities.slice(0, 3).map((am) => (
                 <span 
                   key={am.key}
-                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-semibold bg-slate-100 text-slate-700"
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300"
                 >
                   {renderAmenityIcon(am.icon)}
                   <span>{am.name.split(' ')[0]}</span>
                 </span>
               ))}
               {property.keyAmenities.length > 3 && (
-                <span className="px-1.5 py-0.5 rounded-lg text-[10px] font-semibold bg-slate-100 text-slate-500">
+                <span className="px-1.5 py-0.5 rounded-lg text-[10px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400">
                   +{property.keyAmenities.length - 3} more
                 </span>
               )}
@@ -237,20 +237,20 @@ export const HostelCard: React.FC<HostelCardProps> = ({
         </div>
 
         {/* Pricing & CTA */}
-        <div className="pt-3 border-t border-slate-100 flex items-end justify-between gap-2 mt-auto">
+        <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-end justify-between gap-2 mt-auto">
           <div>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+            <p className="text-[10px] font-bold text-slate-400 dark:text-slate-400 uppercase tracking-wider">
               Disclosed Rent
             </p>
             <div className="flex items-baseline gap-1">
-              <span className="text-base sm:text-lg font-black text-slate-900">
+              <span className="text-base sm:text-lg font-black text-slate-900 dark:text-white">
                 {formatNaira(property.priceSummary?.rentAmount)}
               </span>
-              <span className="text-[10px] text-slate-500 font-bold">/yr</span>
+              <span className="text-[10px] text-slate-500 dark:text-slate-400 font-bold">/yr</span>
             </div>
             {property.priceSummary?.totalMandatoryCost && property.priceSummary.totalMandatoryCost > property.priceSummary.rentAmount && (
-              <p className="text-[10px] text-emerald-800 font-semibold flex items-center gap-0.5 mt-0.5">
-                <Info className="w-2.5 h-2.5 text-emerald-600" />
+              <p className="text-[10px] text-emerald-800 dark:text-emerald-400 font-semibold flex items-center gap-0.5 mt-0.5">
+                <Info className="w-2.5 h-2.5 text-emerald-600 dark:text-emerald-400" />
                 Est. Total: {formatNaira(property.priceSummary.totalMandatoryCost)}
               </p>
             )}
@@ -263,17 +263,17 @@ export const HostelCard: React.FC<HostelCardProps> = ({
                   e.stopPropagation();
                   onOpenConversation(property.id);
                 }}
-                className="p-2 text-slate-600 hover:text-emerald-700 bg-slate-100 hover:bg-emerald-50 rounded-xl border border-slate-200 hover:border-emerald-200 transition-all flex items-center gap-1"
+                className="p-2 text-slate-600 dark:text-slate-300 hover:text-emerald-700 dark:hover:text-emerald-400 bg-slate-100 dark:bg-slate-800 hover:bg-emerald-50 dark:hover:bg-slate-700 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-emerald-200 transition-all flex items-center gap-1"
                 title="Chat with Landlord"
               >
-                <MessageSquare className="w-3.5 h-3.5 text-emerald-600" />
+                <MessageSquare className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                 <span className="text-xs font-bold hidden sm:inline">Chat</span>
               </button>
             )}
 
             <button
               onClick={() => onViewDetails(property)}
-              className="px-3 py-2 text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-600 hover:text-white rounded-xl border border-emerald-200 hover:border-emerald-600 transition-all flex items-center gap-1 shadow-sm"
+              className="px-3 py-2 text-xs font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-600 hover:text-white dark:hover:bg-emerald-600 dark:hover:text-white rounded-xl border border-emerald-200 dark:border-emerald-800 hover:border-emerald-600 transition-all flex items-center gap-1 shadow-sm"
             >
               <Eye className="w-3.5 h-3.5" />
               View

@@ -421,15 +421,15 @@ export const HostelDetailModal: React.FC<HostelDetailModalProps> = ({
               </div>
 
               {/* Main Content Grid: Description & Transparent Price Breakdown */}
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 pt-2">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 pt-2 text-slate-900 dark:text-slate-100">
                 {/* Left 2 Cols: Description, Facilities, Location, Provider */}
                 <div className="lg:col-span-2 space-y-6">
                   {/* About the Hostel */}
-                  <div className="bg-slate-50 rounded-2xl p-5 border border-slate-200">
-                    <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider mb-2">
+                  <div className="bg-slate-50 dark:bg-slate-800/80 rounded-2xl p-5 border border-slate-200 dark:border-slate-700">
+                    <h3 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider mb-2">
                       Accommodation Description
                     </h3>
-                    <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-line">
+                    <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-line">
                       {property.description}
                     </p>
                   </div>
@@ -437,22 +437,22 @@ export const HostelDetailModal: React.FC<HostelDetailModalProps> = ({
                   {/* Available Room Types */}
                   {property.rooms && property.rooms.length > 0 && (
                     <div className="space-y-3">
-                      <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
+                      <h3 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">
                         Available Room Configurations
                       </h3>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         {property.rooms.map(room => (
                           <div 
                             key={room.id}
-                            className="p-4 rounded-2xl border border-slate-200 bg-white hover:border-emerald-300 transition-colors space-y-2"
+                            className="p-4 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:border-emerald-300 dark:hover:border-emerald-600 transition-colors space-y-2"
                           >
                             <div className="flex items-center justify-between">
-                              <h4 className="font-bold text-sm text-slate-900">{room.name}</h4>
-                              <span className="text-xs font-semibold px-2 py-0.5 rounded bg-emerald-50 text-emerald-800">
+                              <h4 className="font-bold text-sm text-slate-900 dark:text-white">{room.name}</h4>
+                              <span className="text-xs font-semibold px-2 py-0.5 rounded bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300">
                                 {room.quantityAvailable} left
                               </span>
                             </div>
-                            <div className="text-xs text-slate-500 space-y-1">
+                            <div className="text-xs text-slate-500 dark:text-slate-400 space-y-1">
                               <p>• Max occupants: {room.maxOccupants} student{room.maxOccupants > 1 ? 's' : ''}</p>
                               <p>• Ensuite bathroom: {room.isEnsuite ? 'Yes (Private)' : 'Shared'}</p>
                               <p>• Furnishing: {room.isFurnished ? 'Furnished (Bed & Desk)' : 'Unfurnished'}</p>
@@ -466,7 +466,7 @@ export const HostelDetailModal: React.FC<HostelDetailModalProps> = ({
                   {/* Verified Facilities & Amenities */}
                   {property.amenities && property.amenities.length > 0 && (
                     <div className="space-y-3">
-                      <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
+                      <h3 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">
                         Verified Facilities & Amenities
                       </h3>
                       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
@@ -475,8 +475,8 @@ export const HostelDetailModal: React.FC<HostelDetailModalProps> = ({
                             key={am.id}
                             className={`p-2.5 rounded-xl border text-xs flex items-center gap-2.5 ${
                               am.isAvailable 
-                                ? 'bg-white border-slate-200 text-slate-800 font-medium' 
-                                : 'bg-slate-50 border-slate-200 text-slate-400 line-through'
+                                ? 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 font-medium' 
+                                : 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-400 dark:text-slate-500 line-through'
                             }`}
                           >
                             {renderAmenityIcon(am.icon)}
@@ -488,43 +488,43 @@ export const HostelDetailModal: React.FC<HostelDetailModalProps> = ({
                   )}
 
                   {/* Location & LAUTECH Proximity */}
-                  <div className="bg-slate-50 rounded-2xl p-5 border border-slate-200 space-y-3">
-                    <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
-                      <MapPin className="w-4 h-4 text-emerald-600" />
+                  <div className="bg-slate-50 dark:bg-slate-800/80 rounded-2xl p-5 border border-slate-200 dark:border-slate-700 space-y-3">
+                    <h3 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
+                      <MapPin className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                       LAUTECH Location & Navigation
                     </h3>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs text-slate-700">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs text-slate-700 dark:text-slate-300">
                       <div>
-                        <p className="text-slate-400 font-semibold uppercase text-[10px]">Area</p>
-                        <p className="font-bold text-sm text-slate-900">{property.area.name}</p>
+                        <p className="text-slate-400 dark:text-slate-400 font-semibold uppercase text-[10px]">Area</p>
+                        <p className="font-bold text-sm text-slate-900 dark:text-white">{property.area.name}</p>
                       </div>
                       <div>
-                        <p className="text-slate-400 font-semibold uppercase text-[10px]">Distance to Campus</p>
-                        <p className="font-bold text-sm text-emerald-700">{formatDistance(property.distanceFromCampusKm)}</p>
+                        <p className="text-slate-400 dark:text-slate-400 font-semibold uppercase text-[10px]">Distance to Campus</p>
+                        <p className="font-bold text-sm text-emerald-700 dark:text-emerald-400">{formatDistance(property.distanceFromCampusKm)}</p>
                       </div>
                       <div className="sm:col-span-2">
-                        <p className="text-slate-400 font-semibold uppercase text-[10px]">Landmark / Directions</p>
-                        <p className="font-medium">{property.nearbyLandmark || property.address}</p>
+                        <p className="text-slate-400 dark:text-slate-400 font-semibold uppercase text-[10px]">Landmark / Directions</p>
+                        <p className="font-medium text-slate-800 dark:text-slate-200">{property.nearbyLandmark || property.address}</p>
                       </div>
                     </div>
                   </div>
 
                   {/* Provider / Landlord Information Card */}
                   {property.provider && (
-                    <div className="bg-emerald-50/60 rounded-2xl p-5 border border-emerald-200 flex items-center justify-between gap-4 flex-wrap">
+                    <div className="bg-emerald-50/60 dark:bg-emerald-950/40 rounded-2xl p-5 border border-emerald-200 dark:border-emerald-800 flex items-center justify-between gap-4 flex-wrap">
                       <div className="flex items-center gap-3">
                         <div className="w-12 h-12 rounded-2xl bg-emerald-600 text-white flex items-center justify-center font-bold text-base shadow-md shadow-emerald-600/20">
                           {property.provider.name.charAt(0)}
                         </div>
                         <div>
-                          <p className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider">
+                          <p className="text-[10px] font-bold text-emerald-800 dark:text-emerald-300 uppercase tracking-wider">
                             Accommodation Provider
                           </p>
-                          <h4 className="font-bold text-sm text-slate-900">
+                          <h4 className="font-bold text-sm text-slate-900 dark:text-white">
                             {property.provider.name}
                           </h4>
                           {property.provider.businessName && (
-                            <p className="text-xs text-slate-600">{property.provider.businessName}</p>
+                            <p className="text-xs text-slate-600 dark:text-slate-400">{property.provider.businessName}</p>
                           )}
                         </div>
                       </div>
@@ -545,13 +545,13 @@ export const HostelDetailModal: React.FC<HostelDetailModalProps> = ({
                         {property.provider.id && (
                           <button
                             onClick={() => setProviderProfileModalOpen(true)}
-                            className="px-3 py-1.5 bg-white border border-emerald-300 text-emerald-900 text-xs font-bold rounded-xl hover:bg-emerald-100 flex items-center gap-1 shadow-sm"
+                            className="px-3 py-1.5 bg-white dark:bg-slate-800 border border-emerald-300 dark:border-emerald-700 text-emerald-900 dark:text-emerald-300 text-xs font-bold rounded-xl hover:bg-emerald-100 dark:hover:bg-slate-700 flex items-center gap-1 shadow-sm"
                           >
                             <UserCheck className="w-3.5 h-3.5" /> Profile
                           </button>
                         )}
-                        <span className="px-2.5 py-1 bg-emerald-100 text-emerald-800 text-xs font-bold rounded-lg flex items-center gap-1">
-                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                        <span className="px-2.5 py-1 bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 text-xs font-bold rounded-lg flex items-center gap-1">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                           Verified
                         </span>
                       </div>
@@ -563,17 +563,17 @@ export const HostelDetailModal: React.FC<HostelDetailModalProps> = ({
                 <div className="space-y-5">
                   {/* Price Transparency Card */}
                   {property.prices && property.prices.length > 0 && (
-                    <div className="bg-white rounded-3xl p-5 border-2 border-emerald-500/30 shadow-lg space-y-4 sticky top-20">
-                      <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                    <div className="bg-white dark:bg-slate-900 rounded-3xl p-5 border-2 border-emerald-500/30 dark:border-emerald-500/40 shadow-lg space-y-4 sticky top-20">
+                      <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
                         <div>
-                          <span className="text-[11px] font-bold text-emerald-700 uppercase tracking-wider">
+                          <span className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">
                             Transparent Pricing
                           </span>
-                          <h3 className="text-xs text-slate-500 font-medium">
+                          <h3 className="text-xs text-slate-500 dark:text-slate-400 font-medium">
                             Zero Hidden Charges
                           </h3>
                         </div>
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800">
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300">
                           100% DISCLOSED
                         </span>
                       </div>
@@ -582,46 +582,46 @@ export const HostelDetailModal: React.FC<HostelDetailModalProps> = ({
                       {property.prices.slice(0, 1).map(price => (
                         <div key={price.id} className="space-y-3">
                           <div className="space-y-2 text-xs">
-                            <div className="flex justify-between items-center text-slate-700">
+                            <div className="flex justify-between items-center text-slate-700 dark:text-slate-300">
                               <span>Annual Rent</span>
-                              <span className="font-bold text-slate-900">{formatNaira(price.rentAmount)}</span>
+                              <span className="font-bold text-slate-900 dark:text-white">{formatNaira(price.rentAmount)}</span>
                             </div>
 
                             {price.serviceCharge > 0 && (
-                              <div className="flex justify-between items-center text-slate-600">
+                              <div className="flex justify-between items-center text-slate-600 dark:text-slate-400">
                                 <span className="flex items-center gap-1">
                                   Service Charge
-                                  <span className="text-[9px] bg-slate-100 text-slate-600 px-1 rounded">MANDATORY</span>
+                                  <span className="text-[9px] bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-1 rounded">MANDATORY</span>
                                 </span>
-                                <span className="font-semibold text-slate-800">{formatNaira(price.serviceCharge)}</span>
+                                <span className="font-semibold text-slate-800 dark:text-slate-200">{formatNaira(price.serviceCharge)}</span>
                               </div>
                             )}
 
                             {price.agencyFee > 0 && (
-                              <div className="flex justify-between items-center text-slate-600">
+                              <div className="flex justify-between items-center text-slate-600 dark:text-slate-400">
                                 <span className="flex items-center gap-1">
                                   Agency / Agreement
-                                  <span className="text-[9px] bg-slate-100 text-slate-600 px-1 rounded">MANDATORY</span>
+                                  <span className="text-[9px] bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-1 rounded">MANDATORY</span>
                                 </span>
-                                <span className="font-semibold text-slate-800">{formatNaira(price.agencyFee)}</span>
+                                <span className="font-semibold text-slate-800 dark:text-slate-200">{formatNaira(price.agencyFee)}</span>
                               </div>
                             )}
 
                             {price.otherMandatoryCharges > 0 && (
-                              <div className="flex justify-between items-center text-slate-600">
+                              <div className="flex justify-between items-center text-slate-600 dark:text-slate-400">
                                 <span className="flex items-center gap-1">
                                   Security / Waste Levy
-                                  <span className="text-[9px] bg-slate-100 text-slate-600 px-1 rounded">MANDATORY</span>
+                                  <span className="text-[9px] bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-1 rounded">MANDATORY</span>
                                 </span>
-                                <span className="font-semibold text-slate-800">{formatNaira(price.otherMandatoryCharges)}</span>
+                                <span className="font-semibold text-slate-800 dark:text-slate-200">{formatNaira(price.otherMandatoryCharges)}</span>
                               </div>
                             )}
 
                             {price.cautionFee > 0 && (
-                              <div className="flex justify-between items-center text-emerald-800 bg-emerald-50/80 p-2 rounded-xl border border-emerald-200">
+                              <div className="flex justify-between items-center text-emerald-800 dark:text-emerald-300 bg-emerald-50/80 dark:bg-emerald-950/50 p-2 rounded-xl border border-emerald-200 dark:border-emerald-800">
                                 <span className="flex items-center gap-1">
                                   Caution Deposit
-                                  <span className="text-[9px] bg-emerald-200 text-emerald-950 font-bold px-1 rounded">REFUNDABLE</span>
+                                  <span className="text-[9px] bg-emerald-200 dark:bg-emerald-800 text-emerald-950 dark:text-emerald-100 font-bold px-1 rounded">REFUNDABLE</span>
                                 </span>
                                 <span className="font-bold">{formatNaira(price.cautionFee)}</span>
                               </div>
@@ -629,22 +629,22 @@ export const HostelDetailModal: React.FC<HostelDetailModalProps> = ({
                           </div>
 
                           {/* Total Estimated Cost */}
-                          <div className="pt-3 border-t-2 border-dashed border-slate-200 space-y-1">
+                          <div className="pt-3 border-t-2 border-dashed border-slate-200 dark:border-slate-800 space-y-1">
                             <div className="flex justify-between items-baseline">
-                              <span className="text-xs font-black text-slate-900 uppercase">
+                              <span className="text-xs font-black text-slate-900 dark:text-white uppercase">
                                 Total First Year Cost
                               </span>
-                              <span className="text-xl font-black text-emerald-700">
+                              <span className="text-xl font-black text-emerald-700 dark:text-emerald-400">
                                 {formatNaira(price.totalMandatoryCost + (price.cautionFee || 0))}
                               </span>
                             </div>
-                            <p className="text-[10px] text-slate-400">
+                            <p className="text-[10px] text-slate-400 dark:text-slate-400">
                               Includes rent + all mandatory fees + refundable caution deposit.
                             </p>
                           </div>
 
                           {price.notes && (
-                            <p className="text-[11px] text-slate-500 bg-slate-50 p-2.5 rounded-xl border border-slate-200 italic">
+                            <p className="text-[11px] text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800 p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 italic">
                               ℹ️ {price.notes}
                             </p>
                           )}
@@ -681,9 +681,9 @@ export const HostelDetailModal: React.FC<HostelDetailModalProps> = ({
 
                         <button
                           onClick={() => setInspectionModalOpen(true)}
-                          className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs rounded-2xl transition-all flex items-center justify-center gap-1.5"
+                          className="w-full py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold text-xs rounded-2xl transition-all flex items-center justify-center gap-1.5"
                         >
-                          <Calendar className="w-4 h-4 text-emerald-600" />
+                          <Calendar className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                           Request Hostel Inspection
                         </button>
 
@@ -693,7 +693,7 @@ export const HostelDetailModal: React.FC<HostelDetailModalProps> = ({
                               onClose();
                               onOpenConversation(property.id);
                             }}
-                            className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-2xl font-bold text-xs shadow transition-all flex items-center justify-center gap-1.5"
+                            className="w-full py-2.5 bg-slate-900 dark:bg-slate-800 hover:bg-slate-800 dark:hover:bg-slate-700 text-white rounded-2xl font-bold text-xs shadow transition-all flex items-center justify-center gap-1.5 border border-transparent dark:border-slate-700"
                           >
                             <MessageSquare className="w-3.5 h-3.5 text-emerald-400" />
                             Message Landlord / Inquire
@@ -704,8 +704,8 @@ export const HostelDetailModal: React.FC<HostelDetailModalProps> = ({
                           onClick={handleSaveToggle}
                           className={`w-full py-2.5 rounded-2xl font-bold text-xs border transition-all flex items-center justify-center gap-1.5 ${
                             isSaved 
-                              ? 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100' 
-                              : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                              ? 'bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800 hover:bg-rose-100 dark:hover:bg-rose-900/60' 
+                              : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700'
                           }`}
                         >
                           <Bookmark className={`w-3.5 h-3.5 ${isSaved ? 'fill-current' : ''}`} />
@@ -717,11 +717,11 @@ export const HostelDetailModal: React.FC<HostelDetailModalProps> = ({
                             onClick={() => onToggleCompare(property.id)}
                             className={`w-full py-2.5 rounded-2xl font-bold text-xs border transition-all flex items-center justify-center gap-1.5 ${
                               isCompared
-                                ? 'bg-purple-100 text-purple-900 border-purple-300'
-                                : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                                ? 'bg-purple-100 dark:bg-purple-950 text-purple-900 dark:text-purple-200 border-purple-300 dark:border-purple-800'
+                                : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700'
                             }`}
                           >
-                            <SlidersHorizontal className="w-3.5 h-3.5 text-purple-600" />
+                            <SlidersHorizontal className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
                             {isCompared ? 'Added to Comparison (Comparing)' : 'Compare with Other Hostels'}
                           </button>
                         )}

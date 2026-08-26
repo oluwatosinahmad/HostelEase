@@ -70,16 +70,16 @@ export const HostelSearchFilters: React.FC<HostelSearchFiltersProps> = ({
   };
 
   const content = (
-    <div className="space-y-6">
+    <div className="space-y-6 text-slate-900 dark:text-slate-100">
       {/* Header with Reset */}
-      <div className="flex items-center justify-between pb-3 border-b border-slate-200">
+      <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
         <div className="flex items-center gap-2">
-          <SlidersHorizontal className="w-4 h-4 text-emerald-600" />
-          <h3 className="font-bold text-slate-900 text-sm">Filter Accommodations</h3>
+          <SlidersHorizontal className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+          <h3 className="font-bold text-slate-900 dark:text-white text-sm">Filter Accommodations</h3>
         </div>
         <button
           onClick={onReset}
-          className="text-xs font-semibold text-slate-500 hover:text-emerald-700 flex items-center gap-1 transition-colors"
+          className="text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-emerald-700 dark:hover:text-emerald-400 flex items-center gap-1 transition-colors"
         >
           <RotateCcw className="w-3 h-3" />
           Reset All
@@ -109,7 +109,7 @@ export const HostelSearchFilters: React.FC<HostelSearchFiltersProps> = ({
 
       {/* 1. Quick Budget Presets */}
       <div>
-        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+        <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-2">
           Budget Presets
         </label>
         <div className="grid grid-cols-2 gap-1.5 text-xs font-semibold">
@@ -119,7 +119,7 @@ export const HostelSearchFilters: React.FC<HostelSearchFiltersProps> = ({
             className={`p-2 rounded-xl border text-center transition-all ${
               filters.maxPrice === 100000 && !filters.minPrice
                 ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
-                : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700'
             }`}
           >
             Under ₦100k
@@ -130,7 +130,7 @@ export const HostelSearchFilters: React.FC<HostelSearchFiltersProps> = ({
             className={`p-2 rounded-xl border text-center transition-all ${
               filters.minPrice === 100000 && filters.maxPrice === 180000
                 ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
-                : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700'
             }`}
           >
             ₦100k – ₦180k
@@ -141,7 +141,7 @@ export const HostelSearchFilters: React.FC<HostelSearchFiltersProps> = ({
             className={`p-2 rounded-xl border text-center transition-all ${
               filters.minPrice === 180000 && filters.maxPrice === 250000
                 ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
-                : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700'
             }`}
           >
             ₦180k – ₦250k
@@ -152,7 +152,7 @@ export const HostelSearchFilters: React.FC<HostelSearchFiltersProps> = ({
             className={`p-2 rounded-xl border text-center transition-all ${
               filters.minPrice === 250000 && !filters.maxPrice
                 ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
-                : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700'
             }`}
           >
             ₦250k+ (Luxury)
@@ -162,23 +162,23 @@ export const HostelSearchFilters: React.FC<HostelSearchFiltersProps> = ({
         {/* Custom Price Inputs */}
         <div className="grid grid-cols-2 gap-2 mt-2">
           <div>
-            <span className="text-[10px] text-slate-400 font-bold uppercase">Min (₦)</span>
+            <span className="text-[10px] text-slate-400 dark:text-slate-400 font-bold uppercase">Min (₦)</span>
             <input
               type="number"
               value={filters.minPrice}
               onChange={(e) => onChange({ ...filters, minPrice: e.target.value ? Number(e.target.value) : '', page: 1 })}
               placeholder="e.g. 80,000"
-              className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2 font-medium"
+              className="w-full text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-2 font-medium text-slate-900 dark:text-white"
             />
           </div>
           <div>
-            <span className="text-[10px] text-slate-400 font-bold uppercase">Max (₦)</span>
+            <span className="text-[10px] text-slate-400 dark:text-slate-400 font-bold uppercase">Max (₦)</span>
             <input
               type="number"
               value={filters.maxPrice}
               onChange={(e) => onChange({ ...filters, maxPrice: e.target.value ? Number(e.target.value) : '', page: 1 })}
               placeholder="e.g. 220,000"
-              className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2 font-medium"
+              className="w-full text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-2 font-medium text-slate-900 dark:text-white"
             />
           </div>
         </div>
@@ -186,7 +186,7 @@ export const HostelSearchFilters: React.FC<HostelSearchFiltersProps> = ({
 
       {/* 2. LAUTECH Proximity / Distance Radius */}
       <div>
-        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+        <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-2">
           Distance from LAUTECH Campus
         </label>
         <div className="grid grid-cols-4 gap-1">
@@ -203,7 +203,7 @@ export const HostelSearchFilters: React.FC<HostelSearchFiltersProps> = ({
               className={`py-1.5 px-1 rounded-xl text-xs font-semibold text-center border transition-all ${
                 filters.maxDistance === d.value
                   ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
-                  : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                  : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700'
               }`}
             >
               {d.label}
@@ -214,13 +214,13 @@ export const HostelSearchFilters: React.FC<HostelSearchFiltersProps> = ({
 
       {/* 3. LAUTECH Accommodation Area */}
       <div>
-        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+        <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-2">
           Accommodation Area
         </label>
         <select
           value={filters.areaId}
           onChange={(e) => onChange({ ...filters, areaId: e.target.value, page: 1 })}
-          className="w-full text-xs font-bold bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-800 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+          className="w-full text-xs font-bold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
         >
           <option value="all">All Areas around LAUTECH</option>
           {areas.map(a => (
@@ -233,7 +233,7 @@ export const HostelSearchFilters: React.FC<HostelSearchFiltersProps> = ({
 
       {/* 4. Room Type & Layout */}
       <div>
-        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+        <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-2">
           Room Layout
         </label>
         <div className="grid grid-cols-2 gap-1.5">
@@ -251,7 +251,7 @@ export const HostelSearchFilters: React.FC<HostelSearchFiltersProps> = ({
               className={`py-2 px-2.5 rounded-xl text-xs font-semibold text-center border transition-all ${
                 filters.roomType === opt.value
                   ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
-                  : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                  : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700'
               }`}
             >
               {opt.label}
@@ -262,7 +262,7 @@ export const HostelSearchFilters: React.FC<HostelSearchFiltersProps> = ({
 
       {/* 5. Gender Preference */}
       <div>
-        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+        <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-2">
           Gender Policy
         </label>
         <div className="grid grid-cols-3 gap-1">
@@ -278,7 +278,7 @@ export const HostelSearchFilters: React.FC<HostelSearchFiltersProps> = ({
               className={`py-1.5 px-1 rounded-xl text-xs font-semibold text-center border transition-all ${
                 filters.genderPreference === g.value
                   ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
-                  : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                  : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700'
               }`}
             >
               {g.label}
@@ -288,19 +288,19 @@ export const HostelSearchFilters: React.FC<HostelSearchFiltersProps> = ({
       </div>
 
       {/* 6. Trust & Availability Badges */}
-      <div className="space-y-2 pt-1 border-t border-slate-100">
-        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+      <div className="space-y-2 pt-1 border-t border-slate-100 dark:border-slate-800">
+        <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
           Trust & Freshness
         </label>
 
-        <label className="flex items-center gap-2 p-2.5 bg-emerald-50/70 rounded-xl border border-emerald-200 text-xs cursor-pointer font-bold text-emerald-950">
+        <label className="flex items-center gap-2 p-2.5 bg-emerald-50/70 dark:bg-emerald-950/50 rounded-xl border border-emerald-200 dark:border-emerald-800 text-xs cursor-pointer font-bold text-emerald-950 dark:text-emerald-300">
           <input
             type="checkbox"
             checked={filters.verifiedOnly}
             onChange={(e) => onChange({ ...filters, verifiedOnly: e.target.checked, page: 1 })}
             className="rounded text-emerald-600 focus:ring-emerald-500"
           />
-          <ShieldCheck className="w-4 h-4 text-emerald-600" />
+          <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
           <span>Hostel Ease Verified Only</span>
         </label>
 
@@ -311,7 +311,7 @@ export const HostelSearchFilters: React.FC<HostelSearchFiltersProps> = ({
             className={`flex-1 py-1.5 px-2 rounded-xl text-xs font-bold border transition-all ${
               filters.availability === 'AVAILABLE'
                 ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
-                : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700'
             }`}
           >
             ✓ Vacant Now
@@ -323,7 +323,7 @@ export const HostelSearchFilters: React.FC<HostelSearchFiltersProps> = ({
             className={`flex-1 py-1.5 px-2 rounded-xl text-xs font-bold border transition-all ${
               filters.availability === 'LIMITED'
                 ? 'bg-amber-600 text-white border-amber-600 shadow-sm'
-                : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700'
             }`}
           >
             ⏳ Limited
@@ -333,7 +333,7 @@ export const HostelSearchFilters: React.FC<HostelSearchFiltersProps> = ({
 
       {/* 7. Facilities & Utilities Checklist */}
       <div>
-        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+        <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-2">
           Essential Utilities & Amenities
         </label>
         <div className="space-y-1.5">
@@ -344,8 +344,8 @@ export const HostelSearchFilters: React.FC<HostelSearchFiltersProps> = ({
                 key={facility.key}
                 className={`flex items-center justify-between p-2 rounded-xl border text-xs cursor-pointer transition-all ${
                   isSelected 
-                    ? 'bg-emerald-50/80 border-emerald-300 text-emerald-950 font-bold' 
-                    : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                    ? 'bg-emerald-50/80 dark:bg-emerald-950/60 border-emerald-300 dark:border-emerald-700 text-emerald-950 dark:text-emerald-300 font-bold' 
+                    : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
                 }`}
               >
                 <div className="flex items-center gap-2">
@@ -369,22 +369,22 @@ export const HostelSearchFilters: React.FC<HostelSearchFiltersProps> = ({
   return (
     <>
       {/* Desktop Sticky Sidebar Filter Panel */}
-      <div className="hidden lg:block bg-white rounded-3xl p-6 border border-slate-200 shadow-sm sticky top-24 max-h-[85vh] overflow-y-auto">
+      <div className="hidden lg:block bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm sticky top-24 max-h-[85vh] overflow-y-auto">
         {content}
       </div>
 
       {/* Mobile Bottom Sheet Modal */}
       {isMobileOpen && (
         <div className="fixed inset-0 z-50 lg:hidden flex flex-col justify-end bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-white rounded-t-3xl p-5 max-h-[88vh] overflow-y-auto shadow-2xl space-y-4 animate-in slide-in-from-bottom duration-200">
-            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+          <div className="bg-white dark:bg-slate-900 rounded-t-3xl p-5 max-h-[88vh] overflow-y-auto shadow-2xl space-y-4 animate-in slide-in-from-bottom duration-200">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
               <div className="flex items-center gap-2">
-                <SlidersHorizontal className="w-5 h-5 text-emerald-600" />
-                <h3 className="font-black text-sm text-slate-900">Filters & Preferences</h3>
+                <SlidersHorizontal className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                <h3 className="font-black text-sm text-slate-900 dark:text-white">Filters & Preferences</h3>
               </div>
               <button
                 onClick={onCloseMobile}
-                className="p-1.5 text-slate-400 hover:text-slate-700 rounded-full"
+                className="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 rounded-full"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -393,10 +393,10 @@ export const HostelSearchFilters: React.FC<HostelSearchFiltersProps> = ({
             {content}
 
             {/* Mobile Sticky Action Bar */}
-            <div className="sticky bottom-0 pt-3 pb-1 bg-white border-t border-slate-100 flex gap-2">
+            <div className="sticky bottom-0 pt-3 pb-1 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 flex gap-2">
               <button
                 onClick={onReset}
-                className="flex-1 py-3 bg-slate-100 text-slate-700 font-bold text-xs rounded-2xl"
+                className="flex-1 py-3 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-bold text-xs rounded-2xl"
               >
                 Reset
               </button>
@@ -513,12 +513,12 @@ export const ActiveFilterChips: React.FC<ActiveFilterChipsProps> = ({
       {chips.map((chip, idx) => (
         <span
           key={idx}
-          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-emerald-50 text-emerald-900 border border-emerald-200 text-xs font-bold shadow-xs animate-in zoom-in-95"
+          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-900 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 text-xs font-bold shadow-xs animate-in zoom-in-95"
         >
           <span>{chip.label}</span>
           <button
             onClick={chip.onRemove}
-            className="p-0.5 hover:bg-emerald-200/60 rounded-full text-emerald-700 transition-colors"
+            className="p-0.5 hover:bg-emerald-200/60 dark:hover:bg-emerald-800 rounded-full text-emerald-700 dark:text-emerald-300 transition-colors"
           >
             <X className="w-3 h-3" />
           </button>
@@ -527,12 +527,12 @@ export const ActiveFilterChips: React.FC<ActiveFilterChipsProps> = ({
 
       <button
         onClick={onClearAll}
-        className="text-xs font-bold text-rose-600 hover:text-rose-800 hover:underline px-2 py-1 transition-colors"
+        className="text-xs font-bold text-rose-600 dark:text-rose-400 hover:text-rose-800 dark:hover:text-rose-300 hover:underline px-2 py-1 transition-colors"
       >
         Clear All
       </button>
 
-      <span className="text-xs text-slate-500 ml-auto font-semibold">
+      <span className="text-xs text-slate-500 dark:text-slate-400 ml-auto font-semibold">
         {totalCount} accommodations match
       </span>
     </div>

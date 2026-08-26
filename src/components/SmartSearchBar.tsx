@@ -162,7 +162,7 @@ export const SmartSearchBar: React.FC<SmartSearchBarProps> = ({
             value={query}
             onChange={(e) => updateQuery(e.target.value)}
             placeholder={placeholder}
-            className="w-full pl-12 pr-28 py-3.5 bg-white border-2 border-emerald-500/30 hover:border-emerald-500/60 focus:border-emerald-600 focus:ring-4 focus:ring-emerald-500/10 rounded-2xl text-sm font-medium text-slate-800 placeholder-slate-400 shadow-sm transition-all outline-none"
+            className="w-full pl-12 pr-28 py-3.5 bg-white dark:bg-slate-900 border-2 border-emerald-500/30 dark:border-emerald-500/40 hover:border-emerald-500/60 dark:hover:border-emerald-500/80 focus:border-emerald-600 focus:ring-4 focus:ring-emerald-500/10 rounded-2xl text-sm font-medium text-slate-800 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 shadow-sm transition-all outline-none"
           />
 
           {query && (
@@ -174,7 +174,7 @@ export const SmartSearchBar: React.FC<SmartSearchBarProps> = ({
                 setClarification(null);
                 if (onClearExplanation) onClearExplanation();
               }}
-              className="absolute right-24 text-slate-400 hover:text-slate-600 p-1"
+              className="absolute right-24 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1"
             >
               <X className="w-4 h-4" />
             </button>
@@ -183,7 +183,7 @@ export const SmartSearchBar: React.FC<SmartSearchBarProps> = ({
           <button
             type="submit"
             disabled={loading || !query.trim()}
-            className="absolute right-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 disabled:text-slate-400 text-white text-xs font-black rounded-xl transition-all flex items-center gap-1.5 shadow"
+            className="absolute right-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 dark:disabled:bg-slate-800 disabled:text-slate-400 dark:disabled:text-slate-600 text-white text-xs font-black rounded-xl transition-all flex items-center gap-1.5 shadow"
           >
             {loading ? (
               <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -199,7 +199,7 @@ export const SmartSearchBar: React.FC<SmartSearchBarProps> = ({
 
       {/* Query Suggestions Chips */}
       <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs no-scrollbar">
-        <span className="text-[11px] font-bold text-slate-400 flex items-center gap-1 flex-shrink-0">
+        <span className="text-[11px] font-bold text-slate-400 dark:text-slate-400 flex items-center gap-1 flex-shrink-0">
           <Filter className="w-3 h-3" />
           Suggestions:
         </span>
@@ -211,7 +211,7 @@ export const SmartSearchBar: React.FC<SmartSearchBarProps> = ({
               updateQuery(item);
               handleSearch(item);
             }}
-            className="px-3 py-1 bg-slate-100 hover:bg-emerald-50 hover:text-emerald-800 hover:border-emerald-300 border border-slate-200/80 rounded-full text-slate-600 text-[11px] font-medium transition-colors flex-shrink-0"
+            className="px-3 py-1 bg-slate-100 dark:bg-slate-800 hover:bg-emerald-50 dark:hover:bg-slate-700 hover:text-emerald-800 dark:hover:text-emerald-300 hover:border-emerald-300 dark:hover:border-emerald-600 border border-slate-200/80 dark:border-slate-700 rounded-full text-slate-600 dark:text-slate-300 text-[11px] font-medium transition-colors flex-shrink-0"
           >
             {item}
           </button>
@@ -220,9 +220,9 @@ export const SmartSearchBar: React.FC<SmartSearchBarProps> = ({
 
       {/* Parsed Search Feedback */}
       {(parsedFeedback || activeExplanation.length > 0) && (
-        <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between text-xs text-emerald-900 animate-in fade-in duration-150">
+        <div className="p-3 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 rounded-xl flex items-center justify-between text-xs text-emerald-900 dark:text-emerald-300 animate-in fade-in duration-150">
           <div className="flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
             <p className="font-medium">
               <strong>Interpreted:</strong> {parsedFeedback || activeExplanation.join(' • ')}
             </p>
@@ -232,7 +232,7 @@ export const SmartSearchBar: React.FC<SmartSearchBarProps> = ({
               setParsedFeedback(null);
               if (onClearExplanation) onClearExplanation();
             }}
-            className="text-emerald-700 hover:text-emerald-900 text-[10px] font-bold underline ml-2"
+            className="text-emerald-700 dark:text-emerald-400 hover:text-emerald-900 dark:hover:text-emerald-200 text-[10px] font-bold underline ml-2"
           >
             Clear
           </button>
@@ -241,12 +241,12 @@ export const SmartSearchBar: React.FC<SmartSearchBarProps> = ({
 
       {/* Clarification Dialog */}
       {clarification?.needed && (
-        <div className="p-4 bg-amber-50 border border-amber-300 rounded-2xl space-y-3 animate-in zoom-in-95 duration-150 shadow-sm">
+        <div className="p-4 bg-amber-50 dark:bg-amber-950/50 border border-amber-300 dark:border-amber-800 rounded-2xl space-y-3 animate-in zoom-in-95 duration-150 shadow-sm">
           <div className="flex items-start gap-2.5">
-            <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+            <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
             <div>
-              <h4 className="text-xs font-black text-amber-900 uppercase tracking-wider">Quick Clarification Needed</h4>
-              <p className="text-xs text-amber-800 mt-0.5 font-medium">{clarification.question}</p>
+              <h4 className="text-xs font-black text-amber-900 dark:text-amber-200 uppercase tracking-wider">Quick Clarification Needed</h4>
+              <p className="text-xs text-amber-800 dark:text-amber-300 mt-0.5 font-medium">{clarification.question}</p>
             </div>
           </div>
 
@@ -257,7 +257,7 @@ export const SmartSearchBar: React.FC<SmartSearchBarProps> = ({
               onChange={(e) => setClarificationAnswer(e.target.value)}
               placeholder="e.g. ₦180,000 maximum budget"
               autoFocus
-              className="flex-1 px-3.5 py-2 bg-white border border-amber-300 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
+              className="flex-1 px-3.5 py-2 bg-white dark:bg-slate-800 border border-amber-300 dark:border-amber-700 rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
             />
             <button
               type="submit"

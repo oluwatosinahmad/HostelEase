@@ -64,44 +64,44 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
             className="bg-white/10 backdrop-blur-md p-2.5 sm:p-3 rounded-2xl md:rounded-3xl border border-white/20 shadow-2xl space-y-2 sm:space-y-0 sm:flex sm:items-center sm:gap-2"
           >
             {/* Search Input */}
-            <div className="flex-1 relative flex items-center bg-white rounded-xl px-3 py-2 text-slate-800">
+            <div className="flex-1 relative flex items-center bg-white dark:bg-slate-900 rounded-xl px-3 py-2 text-slate-800 dark:text-white border border-transparent dark:border-slate-800">
               <Search className="w-4 h-4 text-slate-400 mr-2 flex-shrink-0" />
               <input
                 type="text"
                 placeholder="Search by hostel name, landmark, or street..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full text-xs sm:text-sm bg-transparent border-none outline-none font-medium placeholder:text-slate-400"
+                className="w-full text-xs sm:text-sm bg-transparent border-none outline-none font-medium text-slate-900 dark:text-white placeholder:text-slate-400"
               />
             </div>
 
             {/* Area Dropdown */}
-            <div className="sm:w-48 bg-white rounded-xl px-3 py-2 flex items-center text-slate-800">
+            <div className="sm:w-48 bg-white dark:bg-slate-900 rounded-xl px-3 py-2 flex items-center text-slate-800 dark:text-white border border-transparent dark:border-slate-800">
               <MapPin className="w-4 h-4 text-emerald-600 mr-1.5 flex-shrink-0" />
               <select
                 value={selectedArea}
                 onChange={(e) => setSelectedArea(e.target.value)}
-                className="w-full text-xs sm:text-sm bg-transparent border-none outline-none font-medium text-slate-700 cursor-pointer"
+                className="w-full text-xs sm:text-sm bg-transparent border-none outline-none font-medium text-slate-700 dark:text-slate-200 cursor-pointer"
               >
-                <option value="all">All LAUTECH Areas</option>
+                <option value="all" className="dark:bg-slate-900 dark:text-white">All LAUTECH Areas</option>
                 {areas.map(a => (
-                  <option key={a.id} value={a.id}>{a.name}</option>
+                  <option key={a.id} value={a.id} className="dark:bg-slate-900 dark:text-white">{a.name}</option>
                 ))}
               </select>
             </div>
 
             {/* Room Type */}
-            <div className="sm:w-40 bg-white rounded-xl px-3 py-2 flex items-center text-slate-800">
+            <div className="sm:w-40 bg-white dark:bg-slate-900 rounded-xl px-3 py-2 flex items-center text-slate-800 dark:text-white border border-transparent dark:border-slate-800">
               <select
                 value={selectedRoomType}
                 onChange={(e) => setSelectedRoomType(e.target.value)}
-                className="w-full text-xs sm:text-sm bg-transparent border-none outline-none font-medium text-slate-700 cursor-pointer"
+                className="w-full text-xs sm:text-sm bg-transparent border-none outline-none font-medium text-slate-700 dark:text-slate-200 cursor-pointer"
               >
-                <option value="all">Any Room Type</option>
-                <option value="SELF_CONTAIN">Self-Contain</option>
-                <option value="SINGLE_ROOM">Single Room</option>
-                <option value="FLAT">Flat / Apartment</option>
-                <option value="SHARED_BEDSPACE">Bedspace</option>
+                <option value="all" className="dark:bg-slate-900 dark:text-white">Any Room Type</option>
+                <option value="SELF_CONTAIN" className="dark:bg-slate-900 dark:text-white">Self-Contain</option>
+                <option value="SINGLE_ROOM" className="dark:bg-slate-900 dark:text-white">Single Room</option>
+                <option value="FLAT" className="dark:bg-slate-900 dark:text-white">Flat / Apartment</option>
+                <option value="SHARED_BEDSPACE" className="dark:bg-slate-900 dark:text-white">Bedspace</option>
               </select>
             </div>
 

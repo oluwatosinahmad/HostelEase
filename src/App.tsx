@@ -400,16 +400,16 @@ function MainApp() {
             <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-4">
               <div className="flex items-end justify-between">
                 <div>
-                  <span className="text-[11px] font-extrabold text-emerald-700 uppercase tracking-wider">
+                  <span className="text-[11px] font-extrabold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">
                     Neighborhood Guide
                   </span>
-                  <h2 className="text-xl sm:text-2xl font-black text-slate-900">
+                  <h2 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white">
                     Popular Areas Around LAUTECH
                   </h2>
                 </div>
                 <button
                   onClick={() => setCurrentView('search')}
-                  className="text-xs font-bold text-emerald-700 hover:text-emerald-800 flex items-center gap-1 transition-colors"
+                  className="text-xs font-bold text-emerald-700 dark:text-emerald-400 hover:text-emerald-800 dark:hover:text-emerald-300 flex items-center gap-1 transition-colors"
                 >
                   View all areas <ArrowRight className="w-3.5 h-3.5" />
                 </button>
@@ -420,19 +420,19 @@ function MainApp() {
                   <div
                     key={area.id}
                     onClick={() => handleSelectArea(area.id)}
-                    className="group bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md hover:border-emerald-400 transition-all cursor-pointer space-y-1.5 flex flex-col justify-between"
+                    className="group bg-white dark:bg-slate-900 p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md hover:border-emerald-400 dark:hover:border-emerald-500 transition-all cursor-pointer space-y-1.5 flex flex-col justify-between"
                   >
                     <div>
                       <span className="text-lg">📍</span>
-                      <h3 className="font-bold text-xs sm:text-sm text-slate-900 group-hover:text-emerald-700 transition-colors">
+                      <h3 className="font-bold text-xs sm:text-sm text-slate-900 dark:text-slate-100 group-hover:text-emerald-700 dark:group-hover:text-emerald-400 transition-colors">
                         {area.name}
                       </h3>
-                      <p className="text-[10px] text-slate-500 font-medium">
+                      <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">
                         {area.approxDistanceMinKm}-{area.approxDistanceMaxKm} km to Gate
                       </p>
                     </div>
-                    <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[10px]">
-                      <span className="font-bold text-emerald-800">{area.propertyCount || 0} Hostels</span>
+                    <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[10px]">
+                      <span className="font-bold text-emerald-800 dark:text-emerald-400">{area.propertyCount || 0} Hostels</span>
                       <ArrowRight className="w-3 h-3 text-slate-400 group-hover:text-emerald-600 transition-transform group-hover:translate-x-0.5" />
                     </div>
                   </div>
@@ -444,20 +444,20 @@ function MainApp() {
             <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-4">
               <div className="flex items-end justify-between">
                 <div>
-                  <span className="text-[11px] font-extrabold text-emerald-700 uppercase tracking-wider">
+                  <span className="text-[11px] font-extrabold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">
                     Audited Listings
                   </span>
-                  <h2 className="text-xl sm:text-2xl font-black text-slate-900">
+                  <h2 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white">
                     Featured Verified Hostels
                   </h2>
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
                     Inspected by the Hostel Ease verification team around LAUTECH campus.
                   </p>
                 </div>
 
                 <button
                   onClick={() => setCurrentView('search')}
-                  className="text-xs font-bold text-emerald-700 hover:text-emerald-800 flex items-center gap-1 transition-colors"
+                  className="text-xs font-bold text-emerald-700 dark:text-emerald-400 hover:text-emerald-800 dark:hover:text-emerald-300 flex items-center gap-1 transition-colors"
                 >
                   See all hostels <ArrowRight className="w-3.5 h-3.5" />
                 </button>
@@ -531,18 +531,18 @@ function MainApp() {
               />
 
               {/* View Mode (List vs Interactive Map) & Sorting Controls */}
-              <div className="bg-white rounded-2xl p-3.5 border border-slate-200 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3">
+              <div className="bg-white dark:bg-slate-900 rounded-2xl p-3.5 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3">
                 {/* List vs Map Switcher */}
-                <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-2xl w-full sm:w-auto">
+                <div className="flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-slate-800 rounded-2xl w-full sm:w-auto">
                   <button
                     onClick={() => setSearchViewMode('list')}
                     className={`flex-1 sm:flex-initial px-4 py-2 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 ${
                       searchViewMode === 'list'
-                        ? 'bg-white text-slate-900 shadow-sm'
-                        : 'text-slate-600 hover:text-slate-900'
+                        ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm'
+                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                     }`}
                   >
-                    <List className="w-4 h-4 text-emerald-600" />
+                    <List className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                     List View
                   </button>
 
@@ -551,7 +551,7 @@ function MainApp() {
                     className={`flex-1 sm:flex-initial px-4 py-2 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 ${
                       searchViewMode === 'map'
                         ? 'bg-emerald-600 text-white shadow-sm'
-                        : 'text-slate-600 hover:text-slate-900'
+                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                     }`}
                   >
                     <MapIcon className="w-4 h-4" />
@@ -563,18 +563,18 @@ function MainApp() {
                 <div className="flex items-center justify-between w-full sm:w-auto gap-2 text-xs">
                   <button
                     onClick={() => setMobileFiltersOpen(true)}
-                    className="lg:hidden px-3.5 py-2 bg-emerald-50 text-emerald-800 border border-emerald-200 font-bold rounded-xl flex items-center gap-1.5 shadow-sm"
+                    className="lg:hidden px-3.5 py-2 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 font-bold rounded-xl flex items-center gap-1.5 shadow-sm"
                   >
                     <SlidersHorizontal className="w-3.5 h-3.5" />
                     Filters {activeFiltersCount > 0 && `(${activeFiltersCount})`}
                   </button>
 
                   <div className="flex items-center gap-1.5">
-                    <span className="text-slate-500 font-bold hidden sm:inline">Sort:</span>
+                    <span className="text-slate-500 dark:text-slate-400 font-bold hidden sm:inline">Sort:</span>
                     <select
                       value={filters.sortBy}
                       onChange={(e) => setFilters({ ...filters, sortBy: e.target.value, page: 1 })}
-                      className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
+                      className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
                     >
                       <option value="recommended">Recommended (Verified & Closest)</option>
                       <option value="price_asc">Lowest Price (Budget Friendly)</option>

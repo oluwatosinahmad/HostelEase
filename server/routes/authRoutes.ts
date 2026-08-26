@@ -14,8 +14,8 @@ router.post('/register', (req, res: Response) => {
     return res.status(400).json({ error: 'Email, password, full name, and role are required' });
   }
 
-  if (!['STUDENT', 'PROVIDER'].includes(role)) {
-    return res.status(400).json({ error: 'Role must be STUDENT or PROVIDER' });
+  if (!['STUDENT', 'PROVIDER', 'ADMIN'].includes(role)) {
+    return res.status(400).json({ error: 'Role must be STUDENT, PROVIDER, or ADMIN' });
   }
 
   if (password.length < 6) {
