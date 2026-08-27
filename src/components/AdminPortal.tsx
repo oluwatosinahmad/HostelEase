@@ -42,7 +42,9 @@ import {
   ArrowUpRight,
   ArrowDownLeft,
   Camera,
-  Download
+  Download,
+  LogOut,
+  UserCheck
 } from 'lucide-react';
 import { 
   Area, 
@@ -110,7 +112,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
   areas,
   onShowToast
 }) => {
-  const { loginDemo } = useAuth();
+  const { user, logout, loginDemo } = useAuth();
   const [activeTab, setActiveTab] = useState<AdminTab>('overview');
   const [dashboardData, setDashboardData] = useState<AdminDashboardData | null>(null);
   const [revenueOverview, setRevenueOverview] = useState<RevenueOverviewResponse | null>(null);
@@ -644,6 +646,53 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
               </div>
             </div>
           ))}
+
+          {/* 👑 SINGLE OWNER ADMIN PROFILE CARD */}
+          <div className="border-t border-slate-800/80 pt-4 px-2 space-y-2">
+            <div className="bg-slate-900/90 border border-emerald-500/30 rounded-xl p-3 space-y-2 shadow-lg">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center text-emerald-400">
+                  <ShieldCheck className="w-4 h-4" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-black text-white truncate">
+                    {user?.fullName || dashboardData?.admin.fullName || 'Hostel Ease Owner'}
+                  </p>
+                  <p className="text-[10px] text-emerald-400 font-bold truncate">
+                    👑 Owner / Super Admin
+                  </p>
+                </div>
+              </div>
+
+              <div className="bg-slate-950/80 rounded-lg p-2 space-y-1 text-[10px]">
+                <div className="flex items-center justify-between text-slate-400">
+                  <span>Account:</span>
+                  <span className="font-semibold text-white truncate max-w-[120px]">
+                    {user?.email || dashboardData?.admin.email || 'admin@hostelease.ng'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-slate-400">
+                  <span>Status:</span>
+                  <span className="text-emerald-400 font-bold flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                    ACTIVE (Sole Owner)
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-slate-400">
+                  <span>Security:</span>
+                  <span className="text-slate-300 font-mono text-[9px]">Bcrypt • Rate Limited</span>
+                </div>
+              </div>
+
+              <button
+                onClick={logout}
+                className="w-full flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg bg-rose-950/40 hover:bg-rose-900/60 border border-rose-800/60 text-rose-300 text-[11px] font-bold transition-colors"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span>Log Out Admin</span>
+              </button>
+            </div>
+          </div>
 
           {/* Quick Perspective Switcher Widget */}
           <div className="border-t border-slate-800/80 pt-4">

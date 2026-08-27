@@ -1358,15 +1358,6 @@ export const api = {
       return handleResponse(res);
     },
 
-    async createAdminAccount(data: { email: string; password: string; fullName: string; phone?: string; adminRole?: string; permissions?: string[] }): Promise<{ message: string; admin: any }> {
-      const res = await fetch(`${API_BASE}/admin/create-admin-account`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
-        body: JSON.stringify(data)
-      });
-      return handleResponse(res);
-    },
-
     async getProviders(status?: string, search?: string): Promise<{ providers: AdminProviderItem[] }> {
       const params = new URLSearchParams();
       if (status && status !== 'all') params.append('status', status);

@@ -15,6 +15,8 @@
     "test:phase14": "tsx scripts/test_phase14.ts",
     "test:phase18": "tsx scripts/test_phase18_launch.ts",
     "test:revenue": "tsx scripts/test_admin_revenue.ts",
+    "setup:owner": "tsx scripts/setup_single_owner.ts",
+    "test:single-owner": "tsx scripts/test_single_owner_security.ts",
     "test:auth-roles": "tsx scripts/test_strict_auth_roles.ts",
     "test:live": "tsx scripts/verify_live_system.ts"
   },

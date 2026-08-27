@@ -80,10 +80,10 @@ async function runStrictAuthRoleTests() {
     assert(landlordReg.status === 201 && landlordRegData.user.role === 'PROVIDER', 'Landlord registers successfully with database role PROVIDER');
 
     // -------------------------------------------------------------------------
-    // 3. AUTHORIZED SUPER ADMIN PROVISIONS NEW ADMIN ACCOUNT
+    // 3. SINGLE AUTHORIZED OWNER AUTHENTICATION & ZERO ADMIN CREATION
     // -------------------------------------------------------------------------
-    console.log('\n--- 3. AUTHORIZED ADMIN PROVISIONING ---');
-    // Login as default super admin
+    console.log('\n--- 3. SINGLE AUTHORIZED OWNER & ZERO SECONDARY ADMINS ---');
+    // Login as single authorized owner admin
     const superAdminLogin = await fetch(`${BASE_URL}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -95,23 +95,22 @@ async function runStrictAuthRoleTests() {
     });
     const superAdminData = await superAdminLogin.json() as any;
     const superAdminToken = superAdminData.token;
-    assert(Boolean(superAdminToken), 'Super Admin authenticates with database role ADMIN');
+    assert(Boolean(superAdminToken) && superAdminData?.user?.role === 'ADMIN', 'Authorized Platform Owner authenticates with database role ADMIN');
 
-    // Super Admin creates a new admin account
+    // Verify /api/admin/create-admin-account is permanently disabled / not available
     const createAdminRes = await fetch(`${BASE_URL}/admin/create-admin-account`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${superAdminToken}` },
       body: JSON.stringify({
-        fullName: 'Ahmad Platform Manager',
+        fullName: 'Secondary Admin Attempt',
         email: testAdminEmail,
         password: testPassword,
         adminRole: 'ADMIN'
       })
     });
-    const createAdminData = await createAdminRes.json() as any;
-    assert(createAdminRes.status === 201 && createAdminData?.admin?.role === 'ADMIN', 'Super Admin creates verified Admin account in database');
+    assert(createAdminRes.status === 404 || createAdminRes.status === 403, 'Attempting to create second Admin via API is DISABLED (404/403)');
 
-    // Student attempts to call /api/admin/create-admin-account -> Blocked 403
+    // Student attempts to call /api/admin/create-admin-account -> Blocked 404/403
     const studentUnauthorizedCall = await fetch(`${BASE_URL}/admin/create-admin-account`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${studentRegData.token}` },
@@ -121,7 +120,7 @@ async function runStrictAuthRoleTests() {
         password: testPassword
       })
     });
-    assert(studentUnauthorizedCall.status === 403, 'Student cannot call /api/admin/create-admin-account (403 Forbidden)');
+    assert(studentUnauthorizedCall.status === 404 || studentUnauthorizedCall.status === 403, 'Student cannot call /api/admin/create-admin-account (404/403)');
 
     // -------------------------------------------------------------------------
     // 4. STRICT ROLE LOGIN SELECTION MATRIX (9 PERMUTATIONS)
@@ -180,25 +179,28 @@ async function runStrictAuthRoleTests() {
     });
     assert(landStud.status === 403, 'Landlord credentials + Student login → DENIED ❌ (403 Forbidden)');
 
-    // C. Admin credentials
+    // C. Single Owner Admin credentials
+    const ownerEmail = 'admin@hostelease.ng';
+    const ownerPassword = 'Admin123!';
+
     const adminAdmin = await fetch(`${BASE_URL}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: testAdminEmail, password: testPassword, requestedRole: 'ADMIN' })
+      body: JSON.stringify({ email: ownerEmail, password: ownerPassword, requestedRole: 'ADMIN' })
     });
     assert(adminAdmin.status === 200, 'Admin credentials + Admin login → ALLOWED ✅');
 
     const adminStud = await fetch(`${BASE_URL}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: testAdminEmail, password: testPassword, requestedRole: 'STUDENT' })
+      body: JSON.stringify({ email: ownerEmail, password: ownerPassword, requestedRole: 'STUDENT' })
     });
     assert(adminStud.status === 403, 'Admin credentials + Student login → DENIED ❌ (403 Forbidden)');
 
     const adminLand = await fetch(`${BASE_URL}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: testAdminEmail, password: testPassword, requestedRole: 'PROVIDER' })
+      body: JSON.stringify({ email: ownerEmail, password: ownerPassword, requestedRole: 'PROVIDER' })
     });
     assert(adminLand.status === 403, 'Admin credentials + Landlord login → DENIED ❌ (403 Forbidden)');
 
@@ -219,7 +221,7 @@ async function runStrictAuthRoleTests() {
     const adminLoginRes = await fetch(`${BASE_URL}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: testAdminEmail, password: testPassword, requestedRole: 'ADMIN' })
+      body: JSON.stringify({ email: ownerEmail, password: ownerPassword, requestedRole: 'ADMIN' })
     });
     const adminLoginData = await adminLoginRes.json() as any;
     const adminToken = adminLoginData.token;
