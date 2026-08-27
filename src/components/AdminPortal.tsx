@@ -104,6 +104,8 @@ type AdminTab =
   | 'announcements' 
   | 'analytics' 
   | 'supply_demand'
+  | 'agents'
+  | 'agent_leads'
   | 'system_health' 
   | 'ai_monitoring' 
   | 'audit';
@@ -161,7 +163,11 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
   const [disputeResolutionNotes, setDisputeResolutionNotes] = useState<string>('');
   const [disputeRefundAmount, setDisputeRefundAmount] = useState<number>(0);
 
-  // Modals & Action States
+  // Agent Network & Leads State
+  const [agentsList, setAgentsList] = useState<import('../types/hostelEase').AdminAgentItem[]>([]);
+  const [agentStatusFilter, setAgentStatusFilter] = useState<string>('all');
+  const [agentLeadsList, setAgentLeadsList] = useState<import('../types/hostelEase').AgentLead[]>([]);
+  const [agentLeadFilter, setAgentLeadFilter] = useState<string>('all');
   // 1. User Status Action Modal
   const [selectedUserForStatus, setSelectedUserForStatus] = useState<AdminUserItem | null>(null);
   const [userStatusToSet, setUserStatusToSet] = useState<'ACTIVE' | 'SUSPENDED' | 'RESTRICTED' | 'DEACTIVATED'>('SUSPENDED');
@@ -244,6 +250,10 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
       setDisputesList(disps.disputes || []);
       if (ai) setAiStats(ai);
 
+      // Fetch Agents & Agent Leads
+      api.admin.agents.getAll({ status: agentStatusFilter }).then(res => setAgentsList(res.agents || [])).catch(() => null);
+      api.admin.agents.getLeads().then(res => setAgentLeadsList(res.leads || [])).catch(() => null);
+
       // Also fetch financial reconciliation if on financials tab
       api.admin.getReconciliation().then(r => setReconciliationData(r)).catch(() => null);
     } catch (err) {
@@ -256,7 +266,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
 
   useEffect(() => {
     fetchAllAdminData();
-  }, [userRoleFilter, userStatusFilter, providerFilter, hostelFilter, hostelAreaFilter, reportStatusFilter, reviewStatusFilter, bookingStatusFilter, ticketStatusFilter]);
+  }, [userRoleFilter, userStatusFilter, providerFilter, hostelFilter, hostelAreaFilter, reportStatusFilter, reviewStatusFilter, bookingStatusFilter, ticketStatusFilter, agentStatusFilter, agentLeadFilter]);
 
   // Global Omnisearch Handler
   const handleGlobalSearch = async (term: string) => {
@@ -596,6 +606,13 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                 { id: 'finance_withdrawals', label: 'Withdrawals', icon: DollarSign, badge: null },
                 { id: 'finance_reports', label: 'Financial Reports', icon: Download, badge: '2026' },
                 { id: 'finance_settings', label: 'Revenue Settings', icon: Sliders, badge: null }
+              ]
+            },
+            {
+              category: '🤝 AGENT NETWORK',
+              items: [
+                { id: 'agents', label: 'Agent Management', icon: UserCheck, badge: agentsList.filter(a => a.verificationStatus === 'PENDING').length ? `${agentsList.filter(a => a.verificationStatus === 'PENDING').length} Pending` : 'Verified', badgeColor: agentsList.filter(a => a.verificationStatus === 'PENDING').length ? 'bg-amber-500/20 text-amber-300' : 'bg-teal-500/20 text-teal-300' },
+                { id: 'agent_leads', label: 'Hostel Leads', icon: Layers, badge: agentLeadsList.filter(l => l.status === 'PENDING_VERIFICATION').length ? `${agentLeadsList.filter(l => l.status === 'PENDING_VERIFICATION').length} New` : null, badgeColor: 'bg-amber-500/20 text-amber-300' }
               ]
             },
             {
@@ -1345,6 +1362,243 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                       </span>
                     </div>
                     <p className="text-xs text-slate-400">{srv.details}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* TAB: AGENT MANAGEMENT */}
+          {activeTab === 'agents' && (
+            <div className="space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-lg font-bold text-white">Vetted Accommodation Agents</h2>
+                  <p className="text-xs text-slate-400">Review agent applications, verify identity documents, and manage platform permissions</p>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <select
+                    value={agentStatusFilter}
+                    onChange={(e) => setAgentStatusFilter(e.target.value)}
+                    className="px-3 py-1.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white outline-none focus:border-emerald-500"
+                  >
+                    <option value="all">All Agent Statuses</option>
+                    <option value="PENDING">Pending Approval</option>
+                    <option value="APPROVED">Approved & Active</option>
+                    <option value="SUSPENDED">Suspended</option>
+                    <option value="REJECTED">Rejected</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {agentsList.map((agent) => (
+                  <div key={agent.id} className="bg-slate-950 border border-slate-800 rounded-2xl p-5 space-y-3 flex flex-col justify-between">
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-white">{agent.fullName}</span>
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                          agent.verificationStatus === 'APPROVED' 
+                            ? 'bg-emerald-950 text-emerald-300 border border-emerald-500/30'
+                            : agent.verificationStatus === 'PENDING'
+                            ? 'bg-amber-950 text-amber-300 border border-amber-500/30'
+                            : 'bg-rose-950 text-rose-300 border border-rose-500/30'
+                        }`}>
+                          {agent.verificationStatus}
+                        </span>
+                      </div>
+
+                      <div className="text-xs text-slate-400">
+                        <strong>Agency: </strong> {agent.businessName || 'Independent'}
+                      </div>
+
+                      <div className="text-xs text-slate-400">
+                        <strong>Contact: </strong> {agent.email} • {agent.phone || 'N/A'}
+                      </div>
+
+                      <div className="text-xs text-slate-300">
+                        <strong className="text-slate-400">Zones: </strong> {agent.operatingAreas?.join(', ') || 'Under G, Adenike'}
+                      </div>
+
+                      <div className="pt-2 border-t border-slate-900 grid grid-cols-3 gap-2 text-center text-xs">
+                        <div className="p-2 bg-slate-900 rounded-xl">
+                          <span className="text-[10px] text-slate-400 block">Rating</span>
+                          <span className="font-bold text-amber-400">{agent.rating || '5.0'} ★</span>
+                        </div>
+                        <div className="p-2 bg-slate-900 rounded-xl">
+                          <span className="text-[10px] text-slate-400 block">Assisted</span>
+                          <span className="font-bold text-white">{agent.totalPlacements || 0}</span>
+                        </div>
+                        <div className="p-2 bg-slate-900 rounded-xl">
+                          <span className="text-[10px] text-slate-400 block">Experience</span>
+                          <span className="font-bold text-emerald-400">{agent.experienceYears || 2} yrs</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="pt-3 border-t border-slate-900/80 flex items-center gap-2">
+                      {agent.verificationStatus === 'PENDING' && (
+                        <>
+                          <button
+                            onClick={async () => {
+                              try {
+                                await api.admin.agents.updateStatus(agent.id, 'APPROVED');
+                                onShowToast(`Agent ${agent.fullName} approved successfully!`, 'success');
+                                fetchAllAdminData();
+                              } catch (err: any) {
+                                onShowToast(err.message || 'Failed to approve agent', 'error');
+                              }
+                            }}
+                            className="flex-1 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl transition"
+                          >
+                            Approve Agent
+                          </button>
+                          <button
+                            onClick={async () => {
+                              try {
+                                await api.admin.agents.updateStatus(agent.id, 'REJECTED', 'Documentation insufficient');
+                                onShowToast(`Agent application rejected.`, 'info');
+                                fetchAllAdminData();
+                              } catch (err: any) {
+                                onShowToast(err.message || 'Failed to reject agent', 'error');
+                              }
+                            }}
+                            className="px-3 py-1.5 bg-rose-950/60 hover:bg-rose-900 text-rose-300 font-bold text-xs rounded-xl transition border border-rose-800/40"
+                          >
+                            Reject
+                          </button>
+                        </>
+                      )}
+
+                      {agent.verificationStatus === 'APPROVED' && (
+                        <button
+                          onClick={async () => {
+                            try {
+                              await api.admin.agents.updateStatus(agent.id, 'SUSPENDED', 'Policy breach investigation');
+                              onShowToast(`Agent suspended.`, 'info');
+                              fetchAllAdminData();
+                            } catch (err: any) {
+                              onShowToast(err.message || 'Failed to suspend agent', 'error');
+                            }
+                          }}
+                          className="w-full py-1.5 bg-rose-950/60 hover:bg-rose-900 text-rose-300 font-bold text-xs rounded-xl transition border border-rose-800/40"
+                        >
+                          Suspend Agent Permissions
+                        </button>
+                      )}
+
+                      {agent.verificationStatus === 'SUSPENDED' && (
+                        <button
+                          onClick={async () => {
+                            try {
+                              await api.admin.agents.updateStatus(agent.id, 'APPROVED');
+                              onShowToast(`Agent reactivated.`, 'success');
+                              fetchAllAdminData();
+                            } catch (err: any) {
+                              onShowToast(err.message || 'Failed to reactivate agent', 'error');
+                            }
+                          }}
+                          className="w-full py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl transition"
+                        >
+                          Reactivate Agent
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* TAB: AGENT HOSTEL LEADS */}
+          {activeTab === 'agent_leads' && (
+            <div className="space-y-4">
+              <div>
+                <h2 className="text-lg font-bold text-white">Agent-Submitted Hostel Leads</h2>
+                <p className="text-xs text-slate-400">Review unverified hostels submitted by agents prior to physical inspection & listing</p>
+              </div>
+
+              <div className="space-y-3">
+                {agentLeadsList.map((lead) => (
+                  <div key={lead.id} className="bg-slate-950 border border-slate-800 rounded-2xl p-5 space-y-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-900 pb-3">
+                      <div>
+                        <h3 className="font-bold text-sm text-white">{lead.hostelName}</h3>
+                        <p className="text-xs text-slate-400">
+                          Submitted by: <strong className="text-teal-400">{lead.agentName}</strong> ({lead.agentBusiness || 'Agent'}) • {new Date(lead.createdAt).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                        lead.status === 'PENDING_VERIFICATION'
+                          ? 'bg-amber-950 text-amber-300 border border-amber-500/30'
+                          : lead.status === 'APPROVED_LISTED'
+                          ? 'bg-emerald-950 text-emerald-300 border border-emerald-500/30'
+                          : 'bg-slate-800 text-slate-300'
+                      }`}>
+                        {lead.status}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                      <div className="p-3 bg-slate-900 rounded-xl">
+                        <span className="text-[10px] text-slate-400 block">Area Location</span>
+                        <span className="font-bold text-white">{lead.areaName || 'Under G'}</span>
+                      </div>
+                      <div className="p-3 bg-slate-900 rounded-xl">
+                        <span className="text-[10px] text-slate-400 block">Estimated Rent</span>
+                        <span className="font-bold text-emerald-400">₦{lead.estimatedRent?.toLocaleString()}/yr</span>
+                      </div>
+                      <div className="p-3 bg-slate-900 rounded-xl">
+                        <span className="text-[10px] text-slate-400 block">Landlord / Caretaker</span>
+                        <span className="font-bold text-white">{lead.landlordName || 'N/A'}</span>
+                      </div>
+                      <div className="p-3 bg-slate-900 rounded-xl">
+                        <span className="text-[10px] text-slate-400 block">Landlord Phone</span>
+                        <span className="font-bold text-slate-200">{lead.landlordPhone || 'N/A'}</span>
+                      </div>
+                    </div>
+
+                    {lead.notes && (
+                      <p className="text-xs text-slate-300 italic bg-slate-900/60 p-3 rounded-xl">
+                        <strong>Notes: </strong>{lead.notes}
+                      </p>
+                    )}
+
+                    <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-900/80">
+                      {lead.status === 'PENDING_VERIFICATION' && (
+                        <>
+                          <button
+                            onClick={async () => {
+                              try {
+                                await api.admin.agents.moderateLead(lead.id, 'CONTACTED');
+                                onShowToast('Lead marked as Contacted.', 'info');
+                                fetchAllAdminData();
+                              } catch (err: any) {
+                                onShowToast(err.message || 'Failed to update lead', 'error');
+                              }
+                            }}
+                            className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs rounded-xl transition"
+                          >
+                            Mark Landlord Contacted
+                          </button>
+                          <button
+                            onClick={async () => {
+                              try {
+                                await api.admin.agents.moderateLead(lead.id, 'APPROVED_LISTED');
+                                onShowToast('Lead verified and approved for catalog listing!', 'success');
+                                fetchAllAdminData();
+                              } catch (err: any) {
+                                onShowToast(err.message || 'Failed to approve lead', 'error');
+                              }
+                            }}
+                            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl transition"
+                          >
+                            Approve for Listing
+                          </button>
+                        </>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>

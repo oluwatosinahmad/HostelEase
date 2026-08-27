@@ -32,6 +32,7 @@ import communityRoutes from './routes/communityRoutes';
 import roommateRoutes from './routes/roommateRoutes';
 import operationsRoutes from './routes/operationsRoutes';
 import adminRevenueRoutes from './routes/adminRevenueRoutes';
+import agentRoutes from './routes/agentRoutes';
 
 import { securityHeaders } from './middleware/securityHeaders';
 import { sanitizeInputs } from './middleware/sanitize';
@@ -137,6 +138,7 @@ app.use('/api/move-in', moveInRoutes);
 app.use('/api/intelligence', intelligenceRoutes);
 app.use('/api/community', communityRoutes);
 app.use('/api/roommates', roommateRoutes);
+app.use('/api/agent', agentRoutes);
 
 // Production Static Serving: Unified React SPA delivery
 const DIST_PATH = path.resolve(process.cwd(), 'dist');

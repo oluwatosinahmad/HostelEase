@@ -1,5 +1,5 @@
-export type UserRole = 'STUDENT' | 'PROVIDER' | 'ADMIN';
-export type AppView = 'home' | 'search' | 'saved' | 'community' | 'student-dashboard' | 'provider-portal' | 'admin-portal' | 'messages' | 'inspections' | 'bookings' | 'payments' | 'move-in' | 'history';
+export type UserRole = 'STUDENT' | 'PROVIDER' | 'ADMIN' | 'AGENT';
+export type AppView = 'home' | 'search' | 'saved' | 'community' | 'student-dashboard' | 'provider-portal' | 'admin-portal' | 'agent-portal' | 'messages' | 'inspections' | 'bookings' | 'payments' | 'move-in' | 'history';
 
 export type PropertyType = 'SELF_CONTAIN' | 'SINGLE_ROOM' | 'FLAT' | 'SHARED_BEDSPACE';
 export type GenderPreference = 'ANY' | 'MALE_ONLY' | 'FEMALE_ONLY';
@@ -41,7 +41,7 @@ export interface User {
   role: UserRole;
   isActive: number;
   avatarUrl?: string;
-  profile?: StudentProfile | ProviderProfile | null;
+  profile?: StudentProfile | ProviderProfile | AgentProfile | null;
 }
 
 export interface StudentProfile {
@@ -2110,5 +2110,198 @@ export interface RevenueSettingItem {
   updated_at: string;
 }
 
+// =============================================================================
+// AGENT PORTAL & AGENT ROLE (4TH ROLE) INTERFACES
+// =============================================================================
 
+export type AgentVerificationStatus = 'PENDING' | 'UNDER_REVIEW' | 'APPROVED' | 'REJECTED' | 'SUSPENDED' | 'DEACTIVATED';
+export type AgentRequestStatus = 'OPEN' | 'ASSIGNED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+export type AgentEarningStatus = 'PENDING' | 'AVAILABLE' | 'PAID' | 'HELD';
+export type AgentPayoutStatus = 'PENDING' | 'ELIGIBLE' | 'PROCESSING' | 'PAID' | 'FAILED' | 'HELD';
+export type AgentLeadStatus = 'PENDING_VERIFICATION' | 'CONTACTED' | 'APPROVED_LISTED' | 'REJECTED';
 
+export interface AgentProfile {
+  id: string;
+  userId: string;
+  businessName: string;
+  operatingAreas: string[];
+  experienceYears: number;
+  bio?: string;
+  verificationStatus: AgentVerificationStatus;
+  idDocumentUrl?: string;
+  idDocumentType: string;
+  serviceFeeAmount: number;
+  rating: number;
+  reviewCount: number;
+  completedRequestsCount: number;
+  activeStudentsCount: number;
+  payoutBankName?: string;
+  payoutAccountNumber?: string;
+  payoutAccountName?: string;
+  adminFeedback?: string;
+  verifiedAt?: string;
+  termsAcceptedAt: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AgentRequest {
+  id: string;
+  studentId: string;
+  studentName: string;
+  studentEmail?: string;
+  studentPhone?: string;
+  studentAvatar?: string;
+  studentDepartment?: string;
+  studentLevel?: string;
+  agentId?: string;
+  agentName?: string;
+  propertyId?: string;
+  propertyTitle?: string;
+  propertyCoverImage?: string;
+  preferredAreas: string[];
+  budgetMin: number;
+  budgetMax: number;
+  roomType: string;
+  moveInDate?: string;
+  status: AgentRequestStatus;
+  notes?: string;
+  serviceFee: number;
+  feePaymentStatus: 'UNPAID' | 'ESCROW' | 'PAID' | 'REFUNDED';
+  suggestedHostels?: {
+    id: string;
+    title: string;
+    rentAmount: number;
+    areaName: string;
+    coverImage: string;
+    suggestedAt: string;
+  }[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AgentDashboardData {
+  agent: {
+    id: string;
+    fullName: string;
+    email: string;
+    businessName: string;
+    verificationStatus: AgentVerificationStatus;
+    rating: number;
+    reviewCount: number;
+    serviceFeeAmount: number;
+  };
+  metrics: {
+    activeRequests: number;
+    assignedStudents: number;
+    availableHostels: number;
+    pendingBookings: number;
+    completedBookings: number;
+    totalEarnings: number;
+    pendingEarnings: number;
+    availableBalance: number;
+  };
+  recentRequests: AgentRequest[];
+  assignedHostels: any[];
+  recentActivity: {
+    id: string;
+    action: string;
+    details: string;
+    timestamp: string;
+  }[];
+  notifications: {
+    id: string;
+    title: string;
+    message: string;
+    type: string;
+    createdAt: string;
+    isRead: boolean;
+  }[];
+}
+
+export interface AgentEarning {
+  id: string;
+  agentId: string;
+  bookingId?: string;
+  requestId?: string;
+  amount: number;
+  earningType: 'SERVICE_FEE' | 'COMMISSION' | 'BONUS';
+  status: AgentEarningStatus;
+  notes?: string;
+  createdAt: string;
+}
+
+export interface AgentPayout {
+  id: string;
+  payoutReference: string;
+  agentId: string;
+  amount: number;
+  bankName: string;
+  accountNumber: string;
+  accountName: string;
+  status: AgentPayoutStatus;
+  adminNotes?: string;
+  processedAt?: string;
+  createdAt: string;
+}
+
+export interface AgentLead {
+  id: string;
+  agentId: string;
+  agentName?: string;
+  agentBusiness?: string;
+  hostelName: string;
+  areaId: string;
+  areaName?: string;
+  landmark?: string;
+  estimatedRent: number;
+  roomTypes: string;
+  landlordName?: string;
+  landlordPhone?: string;
+  photos: string[];
+  notes?: string;
+  status: AgentLeadStatus;
+  adminFeedback?: string;
+  createdAt: string;
+}
+
+export interface AgentReview {
+  id: string;
+  agentId: string;
+  studentId: string;
+  studentName: string;
+  studentAvatar?: string;
+  requestId?: string;
+  rating: number;
+  reviewText: string;
+  isVerifiedAssistance: boolean;
+  createdAt: string;
+}
+
+export interface AdminAgentItem {
+  id: string;
+  userId: string;
+  fullName: string;
+  email: string;
+  phone: string;
+  avatarUrl?: string;
+  businessName: string;
+  operatingAreas: string[];
+  experienceYears: number;
+  bio?: string;
+  verificationStatus: AgentVerificationStatus;
+  idDocumentUrl?: string;
+  idDocumentType: string;
+  serviceFeeAmount: number;
+  rating: number;
+  reviewCount: number;
+  completedRequestsCount: number;
+  totalPlacements?: number;
+  activeStudentsCount: number;
+  payoutBankName?: string;
+  payoutAccountNumber?: string;
+  payoutAccountName?: string;
+  adminFeedback?: string;
+  verifiedAt?: string;
+  createdAt: string;
+}

@@ -651,19 +651,44 @@ export const HostelDetailModal: React.FC<HostelDetailModalProps> = ({
                         </div>
                       ))}
 
-                      {/* Primary Actions */}
+                      {/* Primary Actions: Dual Booking Options */}
                       <div className="space-y-2 pt-2">
                         {onOpenBookingModal && (
-                          <button
-                            onClick={() => {
-                              onClose();
-                              onOpenBookingModal(property);
-                            }}
-                            className="w-full py-3.5 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white font-black text-sm rounded-2xl shadow-lg shadow-emerald-600/30 transition-all flex items-center justify-center gap-2"
-                          >
-                            <Receipt className="w-4 h-4" />
-                            Reserve Space / Book Room
-                          </button>
+                          <div className="space-y-2">
+                            <button
+                              onClick={() => {
+                                onClose();
+                                onOpenBookingModal(property);
+                              }}
+                              className="w-full py-3.5 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white font-black text-sm rounded-2xl shadow-lg shadow-emerald-600/30 transition-all flex items-center justify-center gap-2"
+                            >
+                              <Receipt className="w-4 h-4" />
+                              Book Directly (Self-Reservation)
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                try {
+                                  await api.agent.requestAssistance({
+                                    propertyId: property.id,
+                                    preferredAreas: [property.area?.name || 'Under G'],
+                                    budgetMin: property.priceSummary?.rentAmount ? property.priceSummary.rentAmount - 50000 : 150000,
+                                    budgetMax: property.priceSummary?.rentAmount || 300000,
+                                    roomType: property.propertyType || 'SELF_CONTAIN',
+                                    notes: `Assistance requested for ${property.title}`
+                                  });
+                                  onShowToast('🤝 Agent assistance requested! A verified agent will contact you shortly.', 'success');
+                                } catch (err: any) {
+                                  onShowToast(err.message || 'Failed to request agent assistance', 'error');
+                                }
+                              }}
+                              className="w-full py-2.5 bg-teal-950/80 hover:bg-teal-900 border border-teal-500/40 text-teal-200 font-bold text-xs rounded-2xl transition-all flex items-center justify-center gap-2"
+                            >
+                              <UserCheck className="w-4 h-4 text-teal-400" />
+                              🤝 Get Agent Assistance <span className="px-2 py-0.5 rounded-full bg-teal-500/20 text-[10px] text-teal-300 font-semibold border border-teal-400/30">₦5,000 fee</span>
+                            </button>
+                          </div>
                         )}
 
                         {onOpenAI && property && (

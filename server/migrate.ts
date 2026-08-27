@@ -3,6 +3,8 @@ import db from './db.js';
 export function runMigrations() {
   console.log('🔄 Running Hostel Ease database migrations (Phase 1 & Phase 2)...');
 
+  db.pragma('foreign_keys = OFF');
+
   db.transaction(() => {
     // 1. Universities table
     db.exec(`
@@ -48,7 +50,7 @@ export function runMigrations() {
         password_hash TEXT NOT NULL,
         full_name TEXT NOT NULL,
         phone TEXT,
-        role TEXT NOT NULL CHECK(role IN ('STUDENT', 'PROVIDER', 'ADMIN')),
+        role TEXT NOT NULL CHECK(role IN ('STUDENT', 'PROVIDER', 'ADMIN', 'AGENT')),
         is_active INTEGER NOT NULL DEFAULT 1,
         avatar_url TEXT,
         created_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -2463,7 +2465,192 @@ Your caution deposit is refundable upon move-out provided no unauthorized struct
         )
       `).run(financeAdminUser.id);
     }
+
+    // =========================================================================
+    // 7. AGENT PORTAL & AGENT ROLE (4TH ROLE) SCHEMA MIGRATIONS
+    // =========================================================================
+    // Ensure 'AGENT' is supported in users table
+    try {
+      db.prepare("INSERT INTO users (id, email, password_hash, full_name, role) VALUES ('test-agent-role-chk', 'test-agent-chk@test.com', 'hash', 'Test', 'AGENT')").run();
+      db.prepare("DELETE FROM users WHERE id = 'test-agent-role-chk'").run();
+    } catch {
+      // Recreate users table to update CHECK constraint to include 'AGENT'
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS users_new (
+          id TEXT PRIMARY KEY,
+          email TEXT NOT NULL UNIQUE,
+          password_hash TEXT NOT NULL,
+          full_name TEXT NOT NULL,
+          phone TEXT,
+          role TEXT NOT NULL CHECK(role IN ('STUDENT', 'PROVIDER', 'ADMIN', 'AGENT')),
+          is_active INTEGER NOT NULL DEFAULT 1,
+          avatar_url TEXT,
+          account_status TEXT NOT NULL DEFAULT 'ACTIVE',
+          created_at TEXT NOT NULL DEFAULT (datetime('now')),
+          updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+        INSERT OR IGNORE INTO users_new (id, email, password_hash, full_name, phone, role, is_active, avatar_url, account_status, created_at, updated_at)
+        SELECT id, email, password_hash, full_name, phone, role, is_active, avatar_url, COALESCE(account_status, 'ACTIVE'), created_at, updated_at FROM users;
+        DROP TABLE users;
+        ALTER TABLE users_new RENAME TO users;
+        CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
+        CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+      `);
+    }
+
+    // Agent Profiles
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS agent_profiles (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL UNIQUE,
+        business_name TEXT,
+        operating_areas_json TEXT NOT NULL DEFAULT '["Under G", "Adenike"]',
+        experience_years INTEGER NOT NULL DEFAULT 1,
+        bio TEXT,
+        verification_status TEXT NOT NULL DEFAULT 'PENDING' CHECK(verification_status IN ('PENDING', 'UNDER_REVIEW', 'APPROVED', 'REJECTED', 'SUSPENDED', 'DEACTIVATED')),
+        id_document_url TEXT,
+        id_document_type TEXT NOT NULL DEFAULT 'NIN_CARD',
+        service_fee_amount INTEGER NOT NULL DEFAULT 5000,
+        rating REAL NOT NULL DEFAULT 5.0,
+        review_count INTEGER NOT NULL DEFAULT 0,
+        completed_requests_count INTEGER NOT NULL DEFAULT 0,
+        active_students_count INTEGER NOT NULL DEFAULT 0,
+        payout_bank_name TEXT,
+        payout_account_number TEXT,
+        payout_account_name TEXT,
+        admin_feedback TEXT,
+        verified_at TEXT,
+        terms_accepted_at TEXT NOT NULL DEFAULT (datetime('now')),
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      );
+      CREATE INDEX IF NOT EXISTS idx_agent_profiles_verif ON agent_profiles(verification_status);
+    `);
+
+    // Agent Student Requests
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS agent_requests (
+        id TEXT PRIMARY KEY,
+        student_id TEXT NOT NULL,
+        agent_id TEXT,
+        property_id TEXT,
+        preferred_areas_json TEXT NOT NULL DEFAULT '["Under G"]',
+        budget_min INTEGER NOT NULL DEFAULT 150000,
+        budget_max INTEGER NOT NULL DEFAULT 350000,
+        room_type TEXT NOT NULL DEFAULT 'SELF_CONTAIN',
+        move_in_date TEXT,
+        status TEXT NOT NULL DEFAULT 'OPEN' CHECK(status IN ('OPEN', 'ASSIGNED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED')),
+        notes TEXT,
+        service_fee INTEGER NOT NULL DEFAULT 5000,
+        fee_payment_status TEXT NOT NULL DEFAULT 'UNPAID' CHECK(fee_payment_status IN ('UNPAID', 'ESCROW', 'PAID', 'REFUNDED')),
+        suggested_hostels_json TEXT NOT NULL DEFAULT '[]',
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+        FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (agent_id) REFERENCES users(id) ON DELETE SET NULL,
+        FOREIGN KEY (property_id) REFERENCES properties(id) ON DELETE SET NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_agent_requests_agent ON agent_requests(agent_id);
+      CREATE INDEX IF NOT EXISTS idx_agent_requests_student ON agent_requests(student_id);
+      CREATE INDEX IF NOT EXISTS idx_agent_requests_status ON agent_requests(status);
+    `);
+
+    // Agent Hostel Representation Authorizations
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS agent_hostel_authorizations (
+        id TEXT PRIMARY KEY,
+        provider_id TEXT NOT NULL,
+        agent_id TEXT NOT NULL,
+        property_id TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'ACTIVE' CHECK(status IN ('ACTIVE', 'REVOKED', 'PENDING')),
+        commission_percentage REAL NOT NULL DEFAULT 5.0,
+        notes TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        FOREIGN KEY (provider_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (agent_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (property_id) REFERENCES properties(id) ON DELETE CASCADE
+      );
+    `);
+
+    // Agent Earnings Ledger
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS agent_earnings (
+        id TEXT PRIMARY KEY,
+        agent_id TEXT NOT NULL,
+        booking_id TEXT,
+        request_id TEXT,
+        amount INTEGER NOT NULL,
+        earning_type TEXT NOT NULL DEFAULT 'SERVICE_FEE' CHECK(earning_type IN ('SERVICE_FEE', 'COMMISSION', 'BONUS')),
+        status TEXT NOT NULL DEFAULT 'AVAILABLE' CHECK(status IN ('PENDING', 'AVAILABLE', 'PAID', 'HELD')),
+        notes TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        FOREIGN KEY (agent_id) REFERENCES users(id) ON DELETE CASCADE
+      );
+      CREATE INDEX IF NOT EXISTS idx_agent_earnings_agent ON agent_earnings(agent_id);
+    `);
+
+    // Agent Payout Requests
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS agent_payouts (
+        id TEXT PRIMARY KEY,
+        payout_reference TEXT NOT NULL UNIQUE,
+        agent_id TEXT NOT NULL,
+        amount INTEGER NOT NULL,
+        bank_name TEXT NOT NULL,
+        account_number TEXT NOT NULL,
+        account_name TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'PENDING' CHECK(status IN ('PENDING', 'ELIGIBLE', 'PROCESSING', 'PAID', 'FAILED', 'HELD')),
+        admin_notes TEXT,
+        processed_at TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        FOREIGN KEY (agent_id) REFERENCES users(id) ON DELETE CASCADE
+      );
+      CREATE INDEX IF NOT EXISTS idx_agent_payouts_agent ON agent_payouts(agent_id);
+    `);
+
+    // Agent Hostel Leads (Unverified Hostels submitted by Agents)
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS agent_leads (
+        id TEXT PRIMARY KEY,
+        agent_id TEXT NOT NULL,
+        hostel_name TEXT NOT NULL,
+        area_id TEXT NOT NULL,
+        landmark TEXT,
+        estimated_rent INTEGER NOT NULL DEFAULT 200000,
+        room_types TEXT NOT NULL DEFAULT 'Self-Contain',
+        landlord_name TEXT,
+        landlord_phone TEXT,
+        photos_json TEXT NOT NULL DEFAULT '[]',
+        notes TEXT,
+        status TEXT NOT NULL DEFAULT 'PENDING_VERIFICATION' CHECK(status IN ('PENDING_VERIFICATION', 'CONTACTED', 'APPROVED_LISTED', 'REJECTED')),
+        admin_feedback TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        FOREIGN KEY (agent_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (area_id) REFERENCES areas(id) ON DELETE RESTRICT
+      );
+      CREATE INDEX IF NOT EXISTS idx_agent_leads_agent ON agent_leads(agent_id);
+    `);
+
+    // Agent Reviews
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS agent_reviews (
+        id TEXT PRIMARY KEY,
+        agent_id TEXT NOT NULL,
+        student_id TEXT NOT NULL,
+        request_id TEXT,
+        rating INTEGER NOT NULL CHECK(rating >= 1 AND rating <= 5),
+        review_text TEXT NOT NULL,
+        is_verified_assistance INTEGER NOT NULL DEFAULT 1,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        FOREIGN KEY (agent_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE
+      );
+      CREATE INDEX IF NOT EXISTS idx_agent_reviews_agent ON agent_reviews(agent_id);
+    `);
   })();
+
+  db.pragma('foreign_keys = ON');
 
   console.log('✅ Hostel Ease database migrations completed successfully.');
 }

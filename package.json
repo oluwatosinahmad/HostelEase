@@ -18,6 +18,7 @@
     "setup:owner": "tsx scripts/setup_single_owner.ts",
     "test:single-owner": "tsx scripts/test_single_owner_security.ts",
     "test:auth-roles": "tsx scripts/test_strict_auth_roles.ts",
+    "test:agent": "tsx scripts/test_agent_portal.ts",
     "test:live": "tsx scripts/verify_live_system.ts"
   },
   "dependencies": {

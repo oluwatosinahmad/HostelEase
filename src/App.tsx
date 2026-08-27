@@ -58,6 +58,7 @@ const ProviderBookingDashboard = lazy(() => import('./components/ProviderBooking
 const StudentPaymentHistory = lazy(() => import('./components/StudentPaymentHistory').then(m => ({ default: m.StudentPaymentHistory })));
 const MessagingCenter = lazy(() => import('./components/MessagingCenter').then(m => ({ default: m.MessagingCenter })));
 const ProviderPortal = lazy(() => import('./components/ProviderPortal').then(m => ({ default: m.ProviderPortal })));
+const AgentPortal = lazy(() => import('./components/AgentPortal').then(m => ({ default: m.AgentPortal })));
 const AdminPortal = lazy(() => import('./components/AdminPortal').then(m => ({ default: m.AdminPortal })));
 const AIAccommodationAssistantModal = lazy(() => import('./components/AIAccommodationAssistantModal').then(m => ({ default: m.AIAccommodationAssistantModal })));
 const MoveInCenter = lazy(() => import('./components/MoveInCenter').then(m => ({ default: m.MoveInCenter })));
@@ -86,7 +87,7 @@ interface Toast {
 }
 
 function MainApp() {
-  const { user, isAuthenticated, isStudent, isProvider, isAdmin } = useAuth();
+  const { user, isAuthenticated, isStudent, isProvider, isAgent, isAdmin } = useAuth();
 
   // Navigation & View State
   const [currentView, setCurrentView] = useState<AppView>('home');
@@ -961,6 +962,35 @@ function MainApp() {
                 className="w-full py-3 bg-slate-900 hover:bg-slate-800 dark:bg-emerald-600 dark:hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow transition-colors"
               >
                 Return to Login / Home
+              </button>
+            </div>
+          )
+        )}
+
+        {/* VIEW: AGENT PORTAL (4TH ROLE) */}
+        {currentView === 'agent-portal' && (
+          isAgent ? (
+            <AgentPortal />
+          ) : (
+            <div className="max-w-md mx-auto my-20 p-8 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-xl text-center space-y-4">
+              <div className="w-16 h-16 rounded-2xl bg-teal-50 dark:bg-teal-950/60 text-teal-600 dark:text-teal-400 flex items-center justify-center mx-auto border border-teal-200 dark:border-teal-800 shadow-inner">
+                <ShieldAlert className="w-8 h-8" />
+              </div>
+              <h2 className="text-xl font-black text-slate-900 dark:text-white">🔒 Access Restricted</h2>
+              <p className="text-xs text-slate-600 dark:text-slate-300">
+                This account is not authorized to access the Agent Portal. You must be a verified Hostel Ease Agent.
+              </p>
+              <p className="text-[11px] text-slate-400 dark:text-slate-500">
+                Agent status requires administrative review of verification documents.
+              </p>
+              <button
+                onClick={() => {
+                  setCurrentView('home');
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+                className="w-full py-3 bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs rounded-xl shadow transition-colors"
+              >
+                Return to Home
               </button>
             </div>
           )

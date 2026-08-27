@@ -364,6 +364,231 @@ function generateOfflineFallbackResponse(url?: string): any {
     return { roommates: DEFAULT_ROOMMATE_PROFILES || [], profiles: DEFAULT_ROOMMATE_PROFILES || [] };
   }
 
+  // Agent Portal Fallbacks
+  if (cleanUrl.includes('/agent/dashboard')) {
+    return {
+      agent: {
+        id: 'user-agent-1',
+        fullName: 'Bamidele Olatunji',
+        email: 'agent1@hostelease.ng',
+        businessName: 'Bamidele Student Relocations',
+        verificationStatus: 'APPROVED',
+        rating: 4.9,
+        reviewCount: 18,
+        serviceFeeAmount: 5000,
+        operatingAreas: ['Under G', 'Adenike', 'Stadium Road']
+      },
+      metrics: {
+        activeRequests: 3,
+        assignedStudents: 3,
+        availableHostels: DEFAULT_PROPERTIES.length,
+        pendingBookings: 1,
+        completedBookings: 18,
+        totalEarnings: 90000,
+        pendingEarnings: 10000,
+        availableBalance: 45000
+      },
+      recentRequests: [
+        {
+          id: 'req-seed-1',
+          studentId: 'user-student-1',
+          studentName: 'Tunde Adeyemi',
+          studentEmail: 'student@lautech.edu.ng',
+          studentPhone: '+2348031234567',
+          preferredAreas: ['Under G', 'Adenike'],
+          budgetMin: 200000,
+          budgetMax: 300000,
+          roomType: 'SELF_CONTAIN',
+          moveInDate: '2026-09-15',
+          status: 'IN_PROGRESS',
+          notes: 'Need clean ensuite self-contain with steady water and prepaid meter.',
+          serviceFee: 5000,
+          feePaymentStatus: 'ESCROW',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        }
+      ],
+      assignedHostels: DEFAULT_PROPERTIES.slice(0, 2),
+      recentActivity: [
+        { id: 'act-1', action: 'Assistance Accepted', details: 'Assisting student searching for Under G self-contain suite', timestamp: new Date().toISOString() },
+        { id: 'act-2', action: 'Service Fee Credited', details: '₦5,000 service fee credited to available balance', timestamp: new Date(Date.now() - 86400000).toISOString() }
+      ],
+      notifications: [
+        { id: 'notif-1', title: 'New Student Accommodation Request', message: 'A student requested agent assistance for Under G.', type: 'REQUEST', createdAt: new Date().toISOString(), isRead: false }
+      ]
+    };
+  }
+  if (cleanUrl.includes('/agent/requests')) {
+    return {
+      requests: [
+        {
+          id: 'req-seed-1',
+          studentId: 'user-student-1',
+          studentName: 'Tunde Adeyemi',
+          studentEmail: 'student@lautech.edu.ng',
+          studentPhone: '+2348031234567',
+          studentDepartment: 'Computer Science',
+          studentLevel: '400L',
+          preferredAreas: ['Under G', 'Adenike'],
+          budgetMin: 200000,
+          budgetMax: 300000,
+          roomType: 'SELF_CONTAIN',
+          moveInDate: '2026-09-15',
+          status: 'IN_PROGRESS',
+          notes: 'Need clean ensuite self-contain with steady water and prepaid meter.',
+          serviceFee: 5000,
+          feePaymentStatus: 'ESCROW',
+          suggestedHostels: [],
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        }
+      ]
+    };
+  }
+  if (cleanUrl.includes('/agent/students')) {
+    return {
+      students: [
+        {
+          id: 'user-student-1',
+          fullName: 'Tunde Adeyemi',
+          department: 'Computer Science',
+          level: '400L',
+          gender: 'MALE',
+          requestId: 'req-seed-1',
+          requestStatus: 'IN_PROGRESS',
+          budgetMax: 300000,
+          roomType: 'SELF_CONTAIN',
+          phone: '+2348031234567',
+          email: 'student@lautech.edu.ng',
+          requestDate: new Date().toISOString()
+        }
+      ]
+    };
+  }
+  if (cleanUrl.includes('/agent/hostels')) {
+    return { hostels: DEFAULT_PROPERTIES };
+  }
+  if (cleanUrl.includes('/agent/leads')) {
+    return {
+      leads: [
+        {
+          id: 'lead-seed-1',
+          agentId: 'user-agent-1',
+          hostelName: 'Harmony Student Villa',
+          areaId: 'area-under-g',
+          areaName: 'Under G',
+          landmark: 'Opposite Bovas Petrol Station',
+          estimatedRent: 220000,
+          roomTypes: 'Self-Contain & Single Rooms',
+          landlordName: 'Pa Adeyemi',
+          landlordPhone: '08023456789',
+          photos: [],
+          notes: 'Brand new 16-room hostel with perimeter fencing and clean borehole.',
+          status: 'PENDING_VERIFICATION',
+          createdAt: new Date().toISOString()
+        }
+      ]
+    };
+  }
+  if (cleanUrl.includes('/agent/earnings')) {
+    return {
+      summary: { totalEarnings: 90000, availableBalance: 45000, pendingEarnings: 10000, completedPayouts: 35000 },
+      earnings: [
+        { id: 'ern-seed-1', agentId: 'user-agent-1', amount: 5000, earningType: 'SERVICE_FEE', status: 'AVAILABLE', notes: 'Completed student assistance placement', createdAt: new Date().toISOString() }
+      ],
+      payouts: []
+    };
+  }
+  if (cleanUrl.includes('/agent/reviews')) {
+    return {
+      reviews: [
+        {
+          id: 'rev-1',
+          agentId: 'user-agent-1',
+          studentId: 'user-student-1',
+          studentName: 'Tunde Adeyemi',
+          rating: 5,
+          reviewText: 'Agent Bamidele helped me secure a secure self-contain in Under G within 48 hours without any hidden fees.',
+          isVerifiedAssistance: true,
+          createdAt: new Date().toISOString()
+        }
+      ]
+    };
+  }
+  if (cleanUrl.includes('/admin/agents')) {
+    return {
+      agents: [
+        {
+          id: 'ap-1',
+          userId: 'user-agent-1',
+          fullName: 'Bamidele Olatunji',
+          email: 'agent1@hostelease.ng',
+          phone: '+2348039876543',
+          businessName: 'Bamidele Student Relocations',
+          operatingAreas: ['Under G', 'Adenike', 'Stadium Road'],
+          experienceYears: 4,
+          bio: 'Certified student lodge specialist with 4+ years assisting LAUTECH students.',
+          verificationStatus: 'APPROVED',
+          idDocumentType: 'NIN_CARD',
+          serviceFeeAmount: 5000,
+          rating: 4.9,
+          reviewCount: 18,
+          completedRequestsCount: 18,
+          activeStudentsCount: 3,
+          payoutBankName: 'Guaranty Trust Bank',
+          payoutAccountNumber: '0123984756',
+          payoutAccountName: 'Bamidele Olatunji',
+          verifiedAt: new Date().toISOString(),
+          createdAt: new Date().toISOString()
+        },
+        {
+          id: 'ap-2',
+          userId: 'user-agent-2',
+          fullName: 'Sadiq Abubakar',
+          email: 'agent2@hostelease.ng',
+          phone: '+2348076543210',
+          businessName: 'Ogbomoso Campus Connect',
+          operatingAreas: ['College Road', 'General Area'],
+          experienceYears: 2,
+          bio: 'Helping medical and nursing students locate quiet lodges.',
+          verificationStatus: 'PENDING',
+          idDocumentType: 'VOTERS_CARD',
+          serviceFeeAmount: 5000,
+          rating: 5.0,
+          reviewCount: 0,
+          completedRequestsCount: 0,
+          activeStudentsCount: 0,
+          createdAt: new Date().toISOString()
+        }
+      ]
+    };
+  }
+  if (cleanUrl.includes('/admin/agent-leads')) {
+    return {
+      leads: [
+        {
+          id: 'lead-seed-1',
+          agentId: 'user-agent-1',
+          agentName: 'Bamidele Olatunji',
+          agentEmail: 'agent1@hostelease.ng',
+          agentPhone: '+2348039876543',
+          hostelName: 'Harmony Student Villa',
+          areaId: 'area-under-g',
+          areaName: 'Under G',
+          landmark: 'Opposite Bovas Petrol Station',
+          estimatedRent: 220000,
+          roomTypes: 'Self-Contain & Single Rooms',
+          landlordName: 'Pa Adeyemi',
+          landlordPhone: '08023456789',
+          photos: [],
+          notes: 'Brand new 16-room hostel with perimeter fencing and clean borehole.',
+          status: 'PENDING_VERIFICATION',
+          createdAt: new Date().toISOString()
+        }
+      ]
+    };
+  }
+
   // Move-in & Disputes
   if (cleanUrl.includes('/move-in')) {
     return {
@@ -1673,6 +1898,185 @@ export const api = {
         });
         return handleResponse(res);
       }
+    },
+
+    // Agent Management
+    agents: {
+      async getAll(params?: { status?: string; search?: string }): Promise<{ agents: import('../types/hostelEase').AdminAgentItem[] }> {
+        const query = new URLSearchParams();
+        if (params?.status && params.status !== 'all') query.append('status', params.status);
+        if (params?.search) query.append('search', params.search);
+        const res = await fetch(`${API_BASE}/admin/agents?${query.toString()}`, {
+          headers: { ...getAuthHeader() }
+        });
+        return handleResponse(res);
+      },
+      async getById(id: string): Promise<{ agent: any; requests: any[]; earnings: any[]; leads: any[] }> {
+        const res = await fetch(`${API_BASE}/admin/agents/${id}`, {
+          headers: { ...getAuthHeader() }
+        });
+        return handleResponse(res);
+      },
+      async updateStatus(id: string, status: string, adminFeedback?: string): Promise<{ message: string }> {
+        const res = await fetch(`${API_BASE}/admin/agents/${id}/status`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+          body: JSON.stringify({ status, adminFeedback })
+        });
+        return handleResponse(res);
+      },
+      async getLeads(): Promise<{ leads: import('../types/hostelEase').AgentLead[] }> {
+        const res = await fetch(`${API_BASE}/admin/agent-leads`, {
+          headers: { ...getAuthHeader() }
+        });
+        return handleResponse(res);
+      },
+      async moderateLead(id: string, status: string, adminFeedback?: string): Promise<{ message: string }> {
+        const res = await fetch(`${API_BASE}/admin/agent-leads/${id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+          body: JSON.stringify({ status, adminFeedback })
+        });
+        return handleResponse(res);
+      },
+      async getRequests(): Promise<{ requests: import('../types/hostelEase').AgentRequest[] }> {
+        const res = await fetch(`${API_BASE}/admin/agent-requests`, {
+          headers: { ...getAuthHeader() }
+        });
+        return handleResponse(res);
+      }
+    }
+  },
+
+  // =========================================================================
+  // 4TH ROLE: AGENT PORTAL API
+  // =========================================================================
+  agent: {
+    async getDashboard(): Promise<import('../types/hostelEase').AgentDashboardData> {
+      const res = await fetch(`${API_BASE}/agent/dashboard`, {
+        headers: { ...getAuthHeader() }
+      });
+      return handleResponse(res);
+    },
+
+    async getRequests(status?: string): Promise<{ requests: import('../types/hostelEase').AgentRequest[] }> {
+      const query = status ? `?status=${encodeURIComponent(status)}` : '';
+      const res = await fetch(`${API_BASE}/agent/requests${query}`, {
+        headers: { ...getAuthHeader() }
+      });
+      return handleResponse(res);
+    },
+
+    async acceptRequest(id: string): Promise<{ message: string }> {
+      const res = await fetch(`${API_BASE}/agent/requests/${id}/accept`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeader() }
+      });
+      return handleResponse(res);
+    },
+
+    async suggestHostels(id: string, propertyIds: string[]): Promise<{ message: string; suggestedHostels: any[] }> {
+      const res = await fetch(`${API_BASE}/agent/requests/${id}/suggest-hostels`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+        body: JSON.stringify({ propertyIds })
+      });
+      return handleResponse(res);
+    },
+
+    async completeRequest(id: string): Promise<{ message: string }> {
+      const res = await fetch(`${API_BASE}/agent/requests/${id}/complete`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeader() }
+      });
+      return handleResponse(res);
+    },
+
+    async getStudents(): Promise<{ students: any[] }> {
+      const res = await fetch(`${API_BASE}/agent/students`, {
+        headers: { ...getAuthHeader() }
+      });
+      return handleResponse(res);
+    },
+
+    async getHostels(filters?: { area?: string; roomType?: string; maxPrice?: number; search?: string }): Promise<{ hostels: any[] }> {
+      const query = new URLSearchParams();
+      if (filters?.area) query.append('area', filters.area);
+      if (filters?.roomType) query.append('roomType', filters.roomType);
+      if (filters?.maxPrice) query.append('maxPrice', String(filters.maxPrice));
+      if (filters?.search) query.append('search', filters.search);
+
+      const res = await fetch(`${API_BASE}/agent/hostels?${query.toString()}`, {
+        headers: { ...getAuthHeader() }
+      });
+      return handleResponse(res);
+    },
+
+    async submitLead(data: {
+      hostelName: string;
+      areaId: string;
+      landmark?: string;
+      estimatedRent: number;
+      roomTypes: string;
+      landlordName?: string;
+      landlordPhone?: string;
+      photos?: string[];
+      notes?: string;
+    }): Promise<{ message: string; leadId: string }> {
+      const res = await fetch(`${API_BASE}/agent/leads`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+        body: JSON.stringify(data)
+      });
+      return handleResponse(res);
+    },
+
+    async getLeads(): Promise<{ leads: import('../types/hostelEase').AgentLead[] }> {
+      const res = await fetch(`${API_BASE}/agent/leads`, {
+        headers: { ...getAuthHeader() }
+      });
+      return handleResponse(res);
+    },
+
+    async getEarnings(): Promise<{ summary: any; earnings: import('../types/hostelEase').AgentEarning[]; payouts: import('../types/hostelEase').AgentPayout[] }> {
+      const res = await fetch(`${API_BASE}/agent/earnings`, {
+        headers: { ...getAuthHeader() }
+      });
+      return handleResponse(res);
+    },
+
+    async requestPayout(data: { amount: number; bankName: string; accountNumber: string; accountName: string }): Promise<{ message: string; payoutReference: string }> {
+      const res = await fetch(`${API_BASE}/agent/payouts`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+        body: JSON.stringify(data)
+      });
+      return handleResponse(res);
+    },
+
+    async getReviews(): Promise<{ reviews: import('../types/hostelEase').AgentReview[] }> {
+      const res = await fetch(`${API_BASE}/agent/reviews`, {
+        headers: { ...getAuthHeader() }
+      });
+      return handleResponse(res);
+    },
+
+    async requestAssistance(data: {
+      propertyId?: string;
+      preferredAreas?: string[];
+      budgetMin?: number;
+      budgetMax?: number;
+      roomType?: string;
+      moveInDate?: string;
+      notes?: string;
+      agentId?: string;
+    }): Promise<{ message: string; requestId: string; serviceFee: number }> {
+      const res = await fetch(`${API_BASE}/agent/request-assistance`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+        body: JSON.stringify(data)
+      });
+      return handleResponse(res);
     }
   },
 

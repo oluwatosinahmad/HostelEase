@@ -25,7 +25,8 @@ import {
   Settings,
   ShieldAlert,
   Sun,
-  Moon
+  Moon,
+  UserCheck
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
@@ -50,7 +51,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   savedCount,
   onOpenAI
 }) => {
-  const { user, isAuthenticated, isStudent, isProvider, isAdmin, logout } = useAuth();
+  const { user, isAuthenticated, isStudent, isProvider, isAgent, isAdmin, logout } = useAuth();
   const { theme, isDark, toggleTheme } = useTheme();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
@@ -274,6 +275,17 @@ export const Navbar: React.FC<NavbarProps> = ({
                   </button>
                 )}
 
+                {/* Agent Portal Quick Button (Only for Agent account) */}
+                {isAgent && (
+                  <button
+                    onClick={() => onNavigate('agent-portal')}
+                    className="text-xs font-bold px-3 py-1.5 rounded-xl bg-teal-100 text-teal-800 hover:bg-teal-200 transition-colors flex items-center gap-1"
+                  >
+                    <UserCheck className="w-3.5 h-3.5" />
+                    <span>Agent Portal</span>
+                  </button>
+                )}
+
                 {/* Admin Portal Quick Button (Only for Admin account) */}
                 {isAdmin && (
                   <button
@@ -297,7 +309,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                         {user?.fullName?.split(' ')[0]}
                       </p>
                       <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
-                        {isStudent ? 'LAUTECH Student' : isProvider ? 'Hostel Landlord' : 'Admin'}
+                        {isStudent ? 'LAUTECH Student' : isProvider ? 'Hostel Landlord' : isAgent ? 'Verified Agent' : 'Admin'}
                       </p>
                     </div>
                     <ChevronDown className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-200 transition-transform" />
@@ -312,10 +324,26 @@ export const Navbar: React.FC<NavbarProps> = ({
                           <p className="text-xs font-bold text-slate-900 dark:text-white truncate">{user?.fullName}</p>
                           <p className="text-[11px] text-slate-400 truncate">{user?.email}</p>
                           <span className="inline-block mt-0.5 text-[9px] font-black uppercase px-2 py-0.5 rounded bg-emerald-50 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
-                            {isStudent ? '🎓 Student' : isProvider ? '🏡 Landlord' : '🛡️ Admin'}
+                            {isStudent ? '🎓 Student' : isProvider ? '🏡 Landlord' : isAgent ? '🤝 Agent' : '🛡️ Admin'}
                           </span>
                         </div>
                       </div>
+
+                      {/* Agent Menu Items */}
+                      {isAgent && (
+                        <div className="py-1 border-b border-slate-100 dark:border-slate-800">
+                          <button
+                            onClick={() => {
+                              onNavigate('agent-portal');
+                              setProfileDropdownOpen(false);
+                            }}
+                            className="w-full px-4 py-2 text-left text-xs font-bold text-teal-700 dark:text-teal-400 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2"
+                          >
+                            <LayoutDashboard className="w-4 h-4 text-teal-600" />
+                            Agent Portal Dashboard
+                          </button>
+                        </div>
+                      )}
 
                       {/* Student Menu Items */}
                       <div className="py-1 text-xs font-medium text-slate-700 dark:text-slate-300">

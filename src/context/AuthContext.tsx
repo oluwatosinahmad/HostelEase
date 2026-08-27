@@ -14,6 +14,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isStudent: boolean;
   isProvider: boolean;
+  isAgent: boolean;
   isAdmin: boolean;
 }
 
@@ -90,6 +91,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       return await login('student@lautech.edu.ng', 'Student123!', 'STUDENT');
     } else if (role === 'PROVIDER') {
       return await login('provider@hostelease.ng', 'Provider123!', 'PROVIDER');
+    } else if (role === 'AGENT') {
+      return await login('agent1@hostelease.ng', 'Agent123!', 'AGENT');
     } else {
       return await login('admin@hostelease.ng', 'Admin123!', 'ADMIN');
     }
@@ -107,6 +110,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     isAuthenticated: Boolean(user),
     isStudent: user?.role === 'STUDENT',
     isProvider: user?.role === 'PROVIDER',
+    isAgent: user?.role === 'AGENT',
     isAdmin: user?.role === 'ADMIN'
   };
 

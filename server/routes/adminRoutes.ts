@@ -1234,6 +1234,296 @@ router.get(
   }
 );
 
+// =============================================================================
+// AGENT PORTAL MANAGEMENT & VERIFICATION (ADMIN CONTROL)
+// =============================================================================
+
+// 1. Get All Agents
+router.get(
+  '/agents',
+  authenticate,
+  requireRole('ADMIN'),
+  (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { status, search } = req.query;
+
+      let query = `
+        SELECT ap.*, u.full_name as fullName, u.email, u.phone, u.avatar_url as avatarUrl, u.created_at as userCreatedAt
+        FROM agent_profiles ap
+        JOIN users u ON ap.user_id = u.id
+        WHERE 1=1
+      `;
+      const params: any[] = [];
+
+      if (status && status !== 'all') {
+        query += ` AND ap.verification_status = ?`;
+        params.push(status);
+      }
+
+      if (search) {
+        query += ` AND (u.full_name LIKE ? OR u.email LIKE ? OR ap.business_name LIKE ?)`;
+        const s = `%${search}%`;
+        params.push(s, s, s);
+      }
+
+      query += ` ORDER BY ap.created_at DESC`;
+
+      const rows = db.prepare(query).all(...params) as any[];
+
+      const agents = rows.map(r => ({
+        id: r.id,
+        userId: r.user_id,
+        fullName: r.fullName,
+        email: r.email,
+        phone: r.phone,
+        avatarUrl: r.avatarUrl,
+        businessName: r.business_name,
+        operatingAreas: JSON.parse(r.operating_areas_json || '[]'),
+        experienceYears: r.experience_years,
+        bio: r.bio,
+        verificationStatus: r.verification_status,
+        idDocumentUrl: r.id_document_url,
+        idDocumentType: r.id_document_type,
+        serviceFeeAmount: r.service_fee_amount,
+        rating: r.rating,
+        reviewCount: r.review_count,
+        completedRequestsCount: r.completed_requests_count,
+        activeStudentsCount: r.active_students_count,
+        payoutBankName: r.payout_bank_name,
+        payoutAccountNumber: r.payout_account_number,
+        payoutAccountName: r.payout_account_name,
+        adminFeedback: r.admin_feedback,
+        verifiedAt: r.verified_at,
+        createdAt: r.created_at
+      }));
+
+      res.json({ agents });
+    } catch (err: any) {
+      console.error('Admin get agents error:', err);
+      res.status(500).json({ error: 'Failed to fetch agents.' });
+    }
+  }
+);
+
+// 2. Get Single Agent Details
+router.get(
+  '/agents/:id',
+  authenticate,
+  requireRole('ADMIN'),
+  (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+
+      const agent = db.prepare(`
+        SELECT ap.*, u.full_name as fullName, u.email, u.phone, u.avatar_url as avatarUrl, u.created_at as userCreatedAt
+        FROM agent_profiles ap
+        JOIN users u ON ap.user_id = u.id
+        WHERE ap.id = ? OR ap.user_id = ?
+      `).get(id, id) as any;
+
+      if (!agent) {
+        return res.status(404).json({ error: 'Agent profile not found.' });
+      }
+
+      const requests = db.prepare(`
+        SELECT ar.*, u.full_name as student_name
+        FROM agent_requests ar
+        JOIN users u ON ar.student_id = u.id
+        WHERE ar.agent_id = ?
+        ORDER BY ar.created_at DESC
+      `).all(agent.user_id);
+
+      const earnings = db.prepare(`
+        SELECT * FROM agent_earnings WHERE agent_id = ? ORDER BY created_at DESC
+      `).all(agent.user_id);
+
+      const leads = db.prepare(`
+        SELECT * FROM agent_leads WHERE agent_id = ? ORDER BY created_at DESC
+      `).all(agent.user_id);
+
+      res.json({
+        agent: {
+          ...agent,
+          operatingAreas: JSON.parse(agent.operating_areas_json || '[]')
+        },
+        requests,
+        earnings,
+        leads
+      });
+    } catch (err: any) {
+      console.error('Admin get agent detail error:', err);
+      res.status(500).json({ error: 'Failed to fetch agent details.' });
+    }
+  }
+);
+
+// 3. Update Agent Verification Status (Approve, Reject, Suspend, Deactivate)
+router.patch(
+  '/agents/:id/status',
+  authenticate,
+  requireRole('ADMIN'),
+  (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { status, adminFeedback } = req.body;
+      const adminId = req.user!.id;
+
+      if (!status || !['PENDING', 'UNDER_REVIEW', 'APPROVED', 'REJECTED', 'SUSPENDED', 'DEACTIVATED'].includes(status)) {
+        return res.status(400).json({ error: 'Invalid agent verification status.' });
+      }
+
+      const agent = db.prepare('SELECT * FROM agent_profiles WHERE id = ? OR user_id = ?').get(id, id) as any;
+      if (!agent) {
+        return res.status(404).json({ error: 'Agent profile not found.' });
+      }
+
+      db.transaction(() => {
+        db.prepare(`
+          UPDATE agent_profiles
+          SET verification_status = ?,
+              admin_feedback = COALESCE(?, admin_feedback),
+              verified_at = CASE WHEN ? = 'APPROVED' THEN datetime('now') ELSE verified_at END,
+              updated_at = datetime('now')
+          WHERE id = ?
+        `).run(status, adminFeedback || null, status, agent.id);
+
+        // Audit Log
+        db.prepare(`
+          INSERT INTO audit_logs (id, actor_id, actor_role, action, entity_type, entity_id, details)
+          VALUES (?, ?, 'ADMIN', 'UPDATE_AGENT_STATUS', 'AGENT', ?, ?)
+        `).run(
+          `aud-${crypto.randomUUID()}`,
+          adminId,
+          agent.user_id,
+          JSON.stringify({ previousStatus: agent.verification_status, newStatus: status, feedback: adminFeedback })
+        );
+      })();
+
+      res.json({ message: `Agent status successfully updated to ${status}.` });
+    } catch (err: any) {
+      console.error('Update agent status error:', err);
+      res.status(500).json({ error: 'Failed to update agent status.' });
+    }
+  }
+);
+
+// 4. Get Agent Hostel Leads
+router.get(
+  '/agent-leads',
+  authenticate,
+  requireRole('ADMIN'),
+  (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const leads = db.prepare(`
+        SELECT al.*, a.name as area_name, u.full_name as agent_name, u.email as agent_email, u.phone as agent_phone
+        FROM agent_leads al
+        LEFT JOIN areas a ON al.area_id = a.id
+        JOIN users u ON al.agent_id = u.id
+        ORDER BY al.created_at DESC
+      `).all() as any[];
+
+      const formatted = leads.map(l => ({
+        id: l.id,
+        agentId: l.agent_id,
+        agentName: l.agent_name,
+        agentEmail: l.agent_email,
+        agentPhone: l.agent_phone,
+        hostelName: l.hostel_name,
+        areaId: l.area_id,
+        areaName: l.area_name,
+        landmark: l.landmark,
+        estimatedRent: l.estimated_rent,
+        roomTypes: l.room_types,
+        landlordName: l.landlord_name,
+        landlordPhone: l.landlord_phone,
+        photos: JSON.parse(l.photos_json || '[]'),
+        notes: l.notes,
+        status: l.status,
+        adminFeedback: l.admin_feedback,
+        createdAt: l.created_at
+      }));
+
+      res.json({ leads: formatted });
+    } catch (err: any) {
+      console.error('Admin get agent leads error:', err);
+      res.status(500).json({ error: 'Failed to fetch agent leads.' });
+    }
+  }
+);
+
+// 5. Moderate Agent Hostel Lead
+router.patch(
+  '/agent-leads/:id',
+  authenticate,
+  requireRole('ADMIN'),
+  (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { status, adminFeedback } = req.body;
+
+      if (!status || !['PENDING_VERIFICATION', 'CONTACTED', 'APPROVED_LISTED', 'REJECTED'].includes(status)) {
+        return res.status(400).json({ error: 'Invalid lead status.' });
+      }
+
+      db.prepare(`
+        UPDATE agent_leads
+        SET status = ?, admin_feedback = COALESCE(?, admin_feedback)
+        WHERE id = ?
+      `).run(status, adminFeedback || null, id);
+
+      res.json({ message: `Agent lead status updated to ${status}.` });
+    } catch (err: any) {
+      console.error('Moderate lead error:', err);
+      res.status(500).json({ error: 'Failed to moderate lead.' });
+    }
+  }
+);
+
+// 6. Get All Student Agent Requests
+router.get(
+  '/agent-requests',
+  authenticate,
+  requireRole('ADMIN'),
+  (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const requests = db.prepare(`
+        SELECT ar.*, s.full_name as student_name, s.email as student_email,
+               a.full_name as agent_name, a.email as agent_email
+        FROM agent_requests ar
+        JOIN users s ON ar.student_id = s.id
+        LEFT JOIN users a ON ar.agent_id = a.id
+        ORDER BY ar.created_at DESC
+      `).all() as any[];
+
+      const formatted = requests.map(r => ({
+        id: r.id,
+        studentId: r.student_id,
+        studentName: r.student_name,
+        studentEmail: r.student_email,
+        agentId: r.agent_id,
+        agentName: r.agent_name,
+        agentEmail: r.agent_email,
+        propertyId: r.property_id,
+        preferredAreas: JSON.parse(r.preferred_areas_json || '[]'),
+        budgetMin: r.budget_min,
+        budgetMax: r.budget_max,
+        roomType: r.room_type,
+        moveInDate: r.move_in_date,
+        status: r.status,
+        notes: r.notes,
+        serviceFee: r.service_fee,
+        feePaymentStatus: r.fee_payment_status,
+        createdAt: r.created_at
+      }));
+
+      res.json({ requests: formatted });
+    } catch (err: any) {
+      console.error('Admin get agent requests error:', err);
+      res.status(500).json({ error: 'Failed to fetch agent requests.' });
+    }
+  }
+);
+
 // System Health Telemetry
 router.get(
   '/system-health',
@@ -1247,6 +1537,7 @@ router.get(
         api: 'HEALTHY',
         concurrencyEngine: 'ACTIVE',
         financialLedger: 'ACTIVE',
+        agentPortalEngine: 'ACTIVE',
         aiAssistant: 'ACTIVE',
         moveInEngine: 'ACTIVE'
       },
