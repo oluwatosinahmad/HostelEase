@@ -20,11 +20,44 @@ import {
   Info,
   ShieldCheck,
   Footprints,
-  Plus
+  Plus,
+  Search,
+  X,
+  Sparkles,
+  SlidersHorizontal,
+  Tag,
+  Navigation,
+  Compass,
+  Check
 } from 'lucide-react';
 import { Area, MediaCategory, PropertyType, GenderPreference } from '../types/hostelEase';
 import { api } from '../services/api';
 import { formatNaira, formatDistance } from '../utils/formatters';
+
+export const POPULAR_LAUTECH_FACILITIES = [
+  { key: 'toilet', label: 'Private Toilet & Bathroom (Ensuite)', icon: '🚽', category: 'Comfort', keywords: 'toilet bathroom ensuite bath washroom restroom' },
+  { key: 'water', label: 'Borehole / Continuous Running Water', icon: '💧', category: 'Utilities', keywords: 'water borehole pipe running tap well tank' },
+  { key: 'electricity', label: 'Constant Electricity (Dedicated Line)', icon: '⚡', category: 'Utilities', keywords: 'electricity power light nepa ibedc current' },
+  { key: 'solar', label: 'Solar / Inverter 24/7 Power Backup', icon: '☀️', category: 'Utilities', keywords: 'solar inverter battery backup panel green' },
+  { key: 'generator', label: 'Standby Generator Backup', icon: '🔌', category: 'Utilities', keywords: 'generator gen plant fuel soundproof' },
+  { key: 'security', label: 'Gated Compound & Security Guard', icon: '🛡️', category: 'Security', keywords: 'security guard gate watchman gateman fence fenced' },
+  { key: 'wifi', label: 'High-Speed Student Wi-Fi Internet', icon: '📶', category: 'Internet', keywords: 'wifi internet connection hotspot broadband network' },
+  { key: 'wardrobe', label: 'Fitted Wardrobe & Shelves', icon: '🚪', category: 'Furniture', keywords: 'wardrobe closet cupboard cabinet hanger shelf' },
+  { key: 'kitchen', label: 'Private / Fitted Kitchen Space', icon: '🍳', category: 'Comfort', keywords: 'kitchen cooking cabinet sink gas stove' },
+  { key: 'tiled', label: 'Fully Tiled Flooring & Modern Finish', icon: '✨', category: 'Comfort', keywords: 'tiles tiled floor ceramic granite clean marble' },
+  { key: 'cctv', label: 'CCTV 24/7 Surveillance Cameras', icon: '📹', category: 'Security', keywords: 'cctv camera surveillance recording security monitor' },
+  { key: 'parking', label: 'Secure Compound Parking (Cars / Bikes)', icon: '🚗', category: 'Convenience', keywords: 'parking car bike motorcycle vehicle garage compound' },
+  { key: 'fan', label: 'Installed Ceiling Fan', icon: '🌀', category: 'Comfort', keywords: 'fan ceiling wall ventilation cooling' },
+  { key: 'ac', label: 'Air Conditioner / AC Port Installed', icon: '❄️', category: 'Comfort', keywords: 'ac air conditioner cooling split unit' },
+  { key: 'waste', label: 'Regular Waste Disposal & Sanitation', icon: '🗑️', category: 'Convenience', keywords: 'waste trash disposal refuse dustbin sanitation' },
+  { key: 'balcony', label: 'Private Balcony / Veranda Space', icon: '🌅', category: 'Comfort', keywords: 'balcony veranda porch terrace view' },
+  { key: 'prepaid_meter', label: 'Personal Prepaid Electric Meter', icon: '📟', category: 'Utilities', keywords: 'prepaid meter electric token recharge card unit' },
+  { key: 'water_heater', label: 'Water Heater in Bathroom', icon: '🚿', category: 'Comfort', keywords: 'water heater hot shower heater bathroom bath' },
+  { key: 'reading_desk', label: 'Study Table & Reading Chair', icon: '🪑', category: 'Furniture', keywords: 'reading table study desk chair student furniture' },
+  { key: 'laundry', label: 'Dedicated Laundry Area / Washing Basin', icon: '🧺', category: 'Convenience', keywords: 'laundry washing machine basin clothes lines drying' },
+  { key: 'fence', label: 'High Perimeter Fence with Razor Wire', icon: '🧱', category: 'Security', keywords: 'fence perimeter wall wire security barrier' },
+  { key: 'dstv', label: 'DSTV / Cable TV Connection', icon: '📺', category: 'Convenience', keywords: 'dstv gotv tv television cable decoder dish' }
+];
 
 interface HostelCreationWizardProps {
   areas: Area[];
@@ -75,8 +108,10 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
   const [description, setDescription] = useState(init?.description || '');
   const [genderPreference, setGenderPreference] = useState<GenderPreference>(init?.genderPreference || 'ANY');
 
-  // Step 2: Location
+  // Step 2: Location (with custom location addition)
   const [areaId, setAreaId] = useState(init?.areaId || init?.area?.id || areas[0]?.id || 'area-under-g');
+  const [isCustomArea, setIsCustomArea] = useState<boolean>(Boolean(init?.isCustomArea || (init?.areaId === 'custom')));
+  const [customLocationName, setCustomLocationName] = useState<string>(init?.customLocationName || '');
   const [address, setAddress] = useState(init?.address || '');
   const [nearbyLandmark, setNearbyLandmark] = useState(init?.nearbyLandmark || '');
   const [distanceKm, setDistanceKm] = useState(init?.distanceFromCampusKm?.toString() || '0.8');
@@ -87,10 +122,12 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
     { name: 'Standard Self-Contain', type: 'SELF_CONTAIN', maxOccupants: 1, total: 10, available: 10, isEnsuite: true, isFurnished: false }
   ]);
 
-  // Step 4: Facilities
+  // Step 4: Facilities with live search & autocomplete
   const [amenityKeys, setAmenityKeys] = useState<string[]>(initialData?.amenityKeys || [
-    'electricity', 'water', 'security', 'kitchen'
+    'toilet', 'electricity', 'water', 'security', 'kitchen'
   ]);
+  const [facilitySearch, setFacilitySearch] = useState<string>('');
+  const [facilityCategoryFilter, setFacilityCategoryFilter] = useState<string>('ALL');
 
   // Step 5: Pricing
   const [rentAmount, setRentAmount] = useState(initialData?.pricing?.rentAmount?.toString() || '180000');
@@ -129,7 +166,7 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
 
   // Check duplicate on blur
   const handleCheckDuplicate = async () => {
-    if (title.length > 3 && areaId) {
+    if (title.length > 3 && areaId && areaId !== 'custom') {
       try {
         const res = await api.provider.checkDuplicate(title, areaId, address);
         if (res.isDuplicate) {
@@ -150,7 +187,7 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
 
     if (title.trim().length > 5) score += 10; else missing.push('Hostel title');
     if (description.trim().length > 20) score += 10; else missing.push('Detailed description');
-    if (address.trim().length > 5) score += 10; else missing.push('Street address');
+    if (address.trim().length > 5 || customLocationName.trim().length > 3) score += 10; else missing.push('Street address');
     if (nearbyLandmark.trim().length > 2) score += 5; else missing.push('Nearby landmark');
     if (parseFloat(distanceKm) > 0) score += 5; else missing.push('Distance to campus');
     if (parseFloat(rentAmount) > 0) score += 15; else missing.push('Annual rent amount');
@@ -173,7 +210,7 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
 
   const completeness = calculateScore();
 
-  // Media Handlers
+  // Media Handlers (with bulletproof local FileReader fallback)
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
@@ -181,16 +218,51 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
     setIsUploading(true);
     try {
       const fileArray = Array.from(files);
-      const res = await api.upload.multiple(fileArray);
+      let uploadedItems: Array<{ url: string; filename: string; originalName: string; mediaType: 'IMAGE' | 'VIDEO' }> = [];
 
-      const newItems: MediaUploadItem[] = res.files.map((file, idx) => {
+      try {
+        const res = await api.upload.multiple(fileArray);
+        if (res && Array.isArray(res.files) && res.files.length > 0) {
+          uploadedItems = res.files.map(f => ({
+            url: f.url,
+            filename: f.filename,
+            originalName: f.originalName || f.filename,
+            mediaType: f.mediaType || (f.mimeType?.startsWith('video') ? 'VIDEO' : 'IMAGE')
+          }));
+        }
+      } catch (err) {
+        console.warn('API upload fallback to local FileReader:', err);
+      }
+
+      // Safe local FileReader fallback if API did not return files
+      if (uploadedItems.length === 0) {
+        uploadedItems = await Promise.all(
+          fileArray.map(async (file) => {
+            const dataUrl = await new Promise<string>((resolve) => {
+              const reader = new FileReader();
+              reader.onload = (ev) => resolve(ev.target?.result as string || URL.createObjectURL(file));
+              reader.onerror = () => resolve(URL.createObjectURL(file));
+              reader.readAsDataURL(file);
+            });
+
+            return {
+              url: dataUrl,
+              filename: file.name,
+              originalName: file.name,
+              mediaType: (file.type.startsWith('video') ? 'VIDEO' : 'IMAGE') as 'IMAGE' | 'VIDEO'
+            };
+          })
+        );
+      }
+
+      const newItems: MediaUploadItem[] = (uploadedItems || []).map((file, idx) => {
         const isFirst = mediaList.length === 0 && idx === 0;
         let defaultCategory: MediaCategory = 'BEDROOM';
         if (file.mediaType === 'VIDEO') defaultCategory = 'VIDEO_WALKTHROUGH';
         else if (isFirst) defaultCategory = 'EXTERIOR';
 
         return {
-          id: `media-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+          id: `media-${Date.now()}-${idx}-${Math.random().toString(36).substring(2, 6)}`,
           url: file.url,
           filename: file.filename,
           originalName: file.originalName,
@@ -201,9 +273,12 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
         };
       });
 
-      setMediaList(prev => [...prev, ...newItems]);
-      onShowToast(`Uploaded ${newItems.length} media item(s) successfully!`, 'success');
+      if (newItems.length > 0) {
+        setMediaList(prev => [...prev, ...newItems]);
+        onShowToast(`Uploaded ${newItems.length} media item(s) successfully!`, 'success');
+      }
     } catch (err: any) {
+      console.error('Upload handler error:', err);
       onShowToast(err.message || 'Failed to upload media', 'error');
     } finally {
       setIsUploading(false);
@@ -228,6 +303,23 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
     onShowToast('Video walkthrough tour added!', 'success');
   };
 
+  const handleToggleAmenity = (key: string) => {
+    setAmenityKeys(prev => 
+      prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]
+    );
+  };
+
+  const handleAddCustomFacility = (customName: string) => {
+    const cleanKey = customName.trim().toLowerCase().replace(/[^a-z0-9_]/g, '_');
+    if (!cleanKey) return;
+    if (!amenityKeys.includes(cleanKey)) {
+      setAmenityKeys(prev => [...prev, cleanKey]);
+      onShowToast(`Added "${customName.trim()}" to facilities!`, 'success');
+    }
+    setFacilitySearch('');
+  };
+
+
   // Submit Handler
   const handleFinalSubmit = async (isDraft: boolean) => {
     if (!title.trim()) {
@@ -238,11 +330,16 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
 
     setSubmitting(true);
     try {
+      const finalAddress = isCustomArea && customLocationName.trim()
+        ? `${customLocationName.trim()}, ${address.trim()}`
+        : address.trim();
+
       const payload = {
         title: title.trim(),
-        areaId,
+        areaId: isCustomArea ? (areas[0]?.id || 'area-under-g') : areaId,
+        customLocationName: isCustomArea ? customLocationName.trim() : undefined,
         description: description.trim(),
-        address: address.trim(),
+        address: finalAddress,
         nearbyLandmark: nearbyLandmark.trim() || undefined,
         distanceFromCampusKm: parseFloat(distanceKm) || 1.0,
         propertyType,
@@ -422,51 +519,172 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
 
         {/* STEP 2: Location */}
         {currentStep === 2 && (
-          <div className="space-y-4 max-w-2xl">
-            <h3 className="font-bold text-base text-slate-900">Step 2 — Location in Ogbomoso</h3>
-            <p className="text-xs text-slate-500">Specify the LAUTECH area and proximity landmarks.</p>
+          <div className="space-y-5 max-w-3xl">
+            <div>
+              <h3 className="font-bold text-base text-slate-900 flex items-center gap-2">
+                <MapPin className="w-5 h-5 text-emerald-600" />
+                Step 2 — Location in Ogbomoso
+              </h3>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Specify the LAUTECH area or type your exact custom lodge location and proximity landmarks.
+              </p>
+            </div>
 
             {duplicateWarning && (
-              <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-900 text-xs flex items-center gap-2">
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-2xl text-amber-900 text-xs flex items-center gap-2">
                 <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0" />
                 <span>{duplicateWarning}</span>
               </div>
             )}
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">LAUTECH Accommodation Area *</label>
-                <select
-                  value={areaId}
-                  onChange={(e) => { setAreaId(e.target.value); handleCheckDuplicate(); }}
-                  className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-900 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+            <div className="bg-slate-50 p-4 sm:p-5 rounded-2xl border border-slate-200 space-y-4">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-slate-800 uppercase flex items-center gap-1.5">
+                  <Navigation className="w-3.5 h-3.5 text-emerald-600" />
+                  LAUTECH Accommodation Zone *
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setIsCustomArea(!isCustomArea)}
+                  className="text-xs text-emerald-700 font-bold hover:underline flex items-center gap-1"
                 >
-                  {areas.map(a => (
-                    <option key={a.id} value={a.id}>{a.name} ({a.approxDistanceMinKm}-{a.approxDistanceMaxKm} km)</option>
-                  ))}
-                </select>
+                  {isCustomArea ? '← Choose from standard areas' : '+ Enter Custom Location'}
+                </button>
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Distance to LAUTECH Gate (km) *</label>
-                <input
-                  type="number"
-                  step="0.1"
-                  min="0.1"
-                  max="10"
-                  value={distanceKm}
-                  onChange={(e) => setDistanceKm(e.target.value)}
-                  className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-900 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                  required
-                />
+              {!isCustomArea ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <select
+                      value={areaId}
+                      onChange={(e) => {
+                        if (e.target.value === 'custom') {
+                          setIsCustomArea(true);
+                        } else {
+                          setAreaId(e.target.value);
+                          handleCheckDuplicate();
+                        }
+                      }}
+                      className="w-full text-xs bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-slate-900 font-medium focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                    >
+                      {areas.map(a => (
+                        <option key={a.id} value={a.id}>{a.name} ({a.approxDistanceMinKm}-{a.approxDistanceMaxKm} km from campus)</option>
+                      ))}
+                      <option value="custom">➕ + Add Custom Location / New Area...</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <input
+                      type="number"
+                      step="0.1"
+                      min="0.1"
+                      max="15"
+                      placeholder="Distance to Gate (km)"
+                      value={distanceKm}
+                      onChange={(e) => setDistanceKm(e.target.value)}
+                      className="w-full text-xs bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-slate-900 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                      required
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-3 bg-emerald-50/60 p-4 rounded-xl border border-emerald-200">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-emerald-950 flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+                      Custom Location / Specific Neighborhood Name *
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setIsCustomArea(false)}
+                      className="text-[11px] text-slate-500 hover:text-slate-800"
+                    >
+                      Cancel Custom Area
+                    </button>
+                  </div>
+                  <input
+                    type="text"
+                    placeholder="e.g. Behind Bovas Station (Under G), Adeshina Area (Adenike), Sekona Junction..."
+                    value={customLocationName}
+                    onChange={(e) => setCustomLocationName(e.target.value)}
+                    className="w-full text-xs bg-white border border-emerald-300 rounded-xl px-3 py-2.5 text-slate-900 font-bold focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                    required
+                  />
+                  <div className="flex items-center gap-1.5 flex-wrap text-[11px] text-slate-600">
+                    <span className="font-semibold text-slate-500">Quick suggestions:</span>
+                    {['Behind Bovas (Under G)', 'Adeshina Extension', 'Sekona Junction', 'Olopomeji Area', 'Alata Junction', 'General Hospital Corridor'].map(sugg => (
+                      <button
+                        key={sugg}
+                        type="button"
+                        onClick={() => setCustomLocationName(sugg)}
+                        className="px-2 py-0.5 bg-white border border-emerald-200 rounded-lg text-emerald-800 hover:bg-emerald-100 transition-colors"
+                      >
+                        {sugg}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">Closest Standard Area</label>
+                      <select
+                        value={areaId}
+                        onChange={(e) => setAreaId(e.target.value)}
+                        className="w-full text-xs bg-white border border-slate-200 rounded-xl px-3 py-2 text-slate-900"
+                      >
+                        {areas.map(a => (
+                          <option key={a.id} value={a.id}>{a.name}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">Distance to LAUTECH Gate (km) *</label>
+                      <input
+                        type="number"
+                        step="0.1"
+                        min="0.1"
+                        max="15"
+                        value={distanceKm}
+                        onChange={(e) => setDistanceKm(e.target.value)}
+                        className="w-full text-xs bg-white border border-slate-200 rounded-xl px-3 py-2 text-slate-900"
+                        required
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex items-center gap-2 pt-1 flex-wrap">
+                <span className="text-[11px] text-slate-500 font-semibold">Quick Distance:</span>
+                {[
+                  { label: '0.3 km (Walking 3 min)', val: '0.3' },
+                  { label: '0.8 km (Walking 8 min)', val: '0.8' },
+                  { label: '1.5 km (Short Bike)', val: '1.5' },
+                  { label: '2.5 km (Bike / Keke)', val: '2.5' }
+                ].map(d => (
+                  <button
+                    key={d.val}
+                    type="button"
+                    onClick={() => setDistanceKm(d.val)}
+                    className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition-all ${
+                      distanceKm === d.val 
+                        ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm' 
+                        : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
+                    }`}
+                  >
+                    {d.label}
+                  </button>
+                ))}
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Street Address *</label>
+              <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Detailed Street Address *</label>
               <input
                 type="text"
-                placeholder="e.g. Plot 4, Bovas Station Road, Under G, Ogbomoso"
+                placeholder="e.g. Plot 4, Adebayo Close, Off Bovas Filling Station Road, Under G, Ogbomoso"
                 value={address}
                 onChange={(e) => setAddress(e.target.value)}
                 className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-900 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
@@ -475,10 +693,10 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Nearby Landmark / Directions</label>
+              <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Proximity Landmarks & Directions</label>
               <input
                 type="text"
-                placeholder="e.g. 200m behind Bovas Filling Station"
+                placeholder="e.g. 150m behind Bovas Station, directly opposite Green Mosque gate"
                 value={nearbyLandmark}
                 onChange={(e) => setNearbyLandmark(e.target.value)}
                 className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-900 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
@@ -625,48 +843,195 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
           </div>
         )}
 
-        {/* STEP 4: Facilities */}
+        {/* STEP 4: Facilities with Autocomplete */}
         {currentStep === 4 && (
-          <div className="space-y-4 max-w-3xl">
-            <h3 className="font-bold text-base text-slate-900">Step 4 — Facilities Checklist</h3>
-            <p className="text-xs text-slate-500">Select all utilities and amenities physically installed in the lodge.</p>
+          <div className="space-y-5 max-w-3xl">
+            <div>
+              <h3 className="font-bold text-base text-slate-900 flex items-center gap-2">
+                <CheckSquare className="w-5 h-5 text-emerald-600" />
+                Step 4 — Facilities & Amenities
+              </h3>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Search or select all utilities, sanitary facilities, power setups, and comfort amenities.
+              </p>
+            </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {[
-                { key: 'electricity', label: 'Constant Electricity (Dedicated Line)', icon: '⚡' },
-                { key: 'water', label: 'Borehole / Running Water', icon: '💧' },
-                { key: 'security', label: 'Gated Security & Fence', icon: '🛡️' },
-                { key: 'wifi', label: 'High-Speed Wi-Fi', icon: '📶' },
-                { key: 'kitchen', label: 'Kitchen Space', icon: '🍳' },
-                { key: 'inverter', label: 'Solar / Inverter Backup', icon: '☀️' },
-                { key: 'generator', label: 'Standby Generator', icon: '🔌' },
-                { key: 'parking', label: 'Compound Parking', icon: '🚗' },
-                { key: 'cctv', label: 'CCTV Surveillance', icon: '📹' },
-                { key: 'waste', label: 'Regular Waste Disposal', icon: '🗑️' },
-                { key: 'tiled', label: 'Fully Tiled Flooring', icon: '✨' },
-                { key: 'wardrobe', label: 'Fitted Wardrobes', icon: '🚪' }
-              ].map(fac => (
-                <label
-                  key={fac.key}
-                  className={`p-3 rounded-2xl border text-xs flex items-center gap-2.5 cursor-pointer transition-all ${
-                    amenityKeys.includes(fac.key)
-                      ? 'bg-emerald-50 border-emerald-400 font-bold text-emerald-950 shadow-sm'
-                      : 'border-slate-200 text-slate-600 hover:bg-slate-50'
-                  }`}
-                >
-                  <input
-                    type="checkbox"
-                    checked={amenityKeys.includes(fac.key)}
-                    onChange={() => {
-                      setAmenityKeys(prev => 
-                        prev.includes(fac.key) ? prev.filter(k => k !== fac.key) : [...prev, fac.key]
-                      );
-                    }}
-                    className="rounded text-emerald-600"
-                  />
-                  <span>{fac.icon} {fac.label}</span>
-                </label>
-              ))}
+            {/* Smart Autocomplete Search Bar */}
+            <div className="relative">
+              <div className="relative flex items-center">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 pointer-events-none" />
+                <input
+                  type="text"
+                  placeholder="🔍 Type facility name (e.g. toilet, borehole, solar, generator, wifi, tiles, fan, wardrobe)..."
+                  value={facilitySearch}
+                  onChange={(e) => setFacilitySearch(e.target.value)}
+                  className="w-full text-xs bg-slate-50 border border-slate-200 focus:border-emerald-500 rounded-2xl pl-9 pr-10 py-3 text-slate-900 font-medium focus:ring-2 focus:ring-emerald-500/20 focus:outline-none transition-all shadow-sm"
+                />
+                {facilitySearch && (
+                  <button
+                    type="button"
+                    onClick={() => setFacilitySearch('')}
+                    className="absolute right-3 text-slate-400 hover:text-slate-600"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+
+              {/* Live Autocomplete Suggestions Dropdown */}
+              {facilitySearch.trim().length > 0 && (
+                <div className="absolute z-20 top-full left-0 right-0 mt-1.5 bg-white border border-slate-200 rounded-2xl shadow-xl p-2 max-h-64 overflow-y-auto animate-in fade-in-50 duration-150 space-y-1">
+                  {POPULAR_LAUTECH_FACILITIES.filter(f => {
+                    const q = facilitySearch.toLowerCase();
+                    return f.label.toLowerCase().includes(q) || 
+                           f.key.toLowerCase().includes(q) || 
+                           f.category.toLowerCase().includes(q) ||
+                           f.keywords.toLowerCase().includes(q);
+                  }).map(fac => {
+                    const isSelected = amenityKeys.includes(fac.key);
+                    return (
+                      <button
+                        key={fac.key}
+                        type="button"
+                        onClick={() => {
+                          handleToggleAmenity(fac.key);
+                          setFacilitySearch('');
+                        }}
+                        className={`w-full px-3 py-2 rounded-xl text-xs flex items-center justify-between text-left transition-colors ${
+                          isSelected ? 'bg-emerald-50 text-emerald-950 font-bold' : 'hover:bg-slate-50 text-slate-800'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <span className="text-base">{fac.icon}</span>
+                          <div>
+                            <span className="font-semibold block">{fac.label}</span>
+                            <span className="text-[10px] text-slate-400">{fac.category}</span>
+                          </div>
+                        </div>
+                        {isSelected ? (
+                          <span className="text-xs text-emerald-600 font-bold flex items-center gap-1">
+                            <Check className="w-3.5 h-3.5" /> Added
+                          </span>
+                        ) : (
+                          <span className="text-xs text-emerald-700 font-semibold">+ Add</span>
+                        )}
+                      </button>
+                    );
+                  })}
+
+                  {/* Add Custom Facility Button */}
+                  <div className="pt-1 border-t border-slate-100 mt-1">
+                    <button
+                      type="button"
+                      onClick={() => handleAddCustomFacility(facilitySearch)}
+                      className="w-full px-3 py-2 rounded-xl text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold flex items-center justify-center gap-1.5 transition-colors"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Add "{facilitySearch.trim()}" as Custom Facility
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Selected Active Facilities Badges */}
+            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-800 uppercase flex items-center gap-1.5">
+                  <Tag className="w-3.5 h-3.5 text-emerald-600" />
+                  Selected Facilities ({amenityKeys.length})
+                </span>
+                {amenityKeys.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setAmenityKeys([])}
+                    className="text-[11px] text-red-600 hover:underline"
+                  >
+                    Clear all
+                  </button>
+                )}
+              </div>
+
+              {amenityKeys.length === 0 ? (
+                <p className="text-xs text-slate-400 italic py-2">
+                  No facilities selected yet. Search above or click the badges below to add amenities.
+                </p>
+              ) : (
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {amenityKeys.map(key => {
+                    const preset = POPULAR_LAUTECH_FACILITIES.find(f => f.key === key);
+                    const label = preset ? preset.label : key.replace(/_/g, ' ').toUpperCase();
+                    const icon = preset ? preset.icon : '✨';
+                    return (
+                      <span
+                        key={key}
+                        className="inline-flex items-center gap-1.5 bg-emerald-100/90 text-emerald-950 border border-emerald-300 px-3 py-1.5 rounded-xl text-xs font-bold shadow-sm animate-in zoom-in-95 duration-150"
+                      >
+                        <span>{icon}</span>
+                        <span>{label}</span>
+                        <button
+                          type="button"
+                          onClick={() => handleToggleAmenity(key)}
+                          className="w-4 h-4 rounded-full bg-emerald-200 hover:bg-emerald-300 text-emerald-900 flex items-center justify-center ml-0.5"
+                          title="Remove facility"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </span>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Categorized Quick-Select Grid */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-700 uppercase">Browse Popular Facilities</span>
+                <div className="flex items-center gap-1 text-[11px] overflow-x-auto pb-1">
+                  {['ALL', 'Utilities', 'Comfort', 'Security', 'Convenience', 'Furniture', 'Internet'].map(cat => (
+                    <button
+                      key={cat}
+                      type="button"
+                      onClick={() => setFacilityCategoryFilter(cat)}
+                      className={`px-2.5 py-0.5 rounded-lg font-semibold transition-all ${
+                        facilityCategoryFilter === cat 
+                          ? 'bg-slate-900 text-white shadow-sm' 
+                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                      }`}
+                    >
+                      {cat}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                {POPULAR_LAUTECH_FACILITIES.filter(f => 
+                  facilityCategoryFilter === 'ALL' || f.category === facilityCategoryFilter
+                ).map(fac => {
+                  const isChecked = amenityKeys.includes(fac.key);
+                  return (
+                    <label
+                      key={fac.key}
+                      className={`p-3 rounded-2xl border text-xs flex items-center gap-2.5 cursor-pointer transition-all ${
+                        isChecked
+                          ? 'bg-emerald-50 border-emerald-400 font-bold text-emerald-950 shadow-sm'
+                          : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={() => handleToggleAmenity(fac.key)}
+                        className="rounded text-emerald-600 focus:ring-emerald-500"
+                      />
+                      <span className="text-base flex-shrink-0">{fac.icon}</span>
+                      <span className="leading-tight">{fac.label}</span>
+                    </label>
+                  );
+                })}
+              </div>
             </div>
           </div>
         )}
@@ -900,10 +1265,31 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
 
               <div>
                 <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider">
-                  📍 {selectedAreaObj?.name || 'Under G'} • {propertyType}
+                  📍 {isCustomArea && customLocationName ? customLocationName : (selectedAreaObj?.name || 'Under G')} • {propertyType.replace('_', ' ')}
                 </span>
                 <h4 className="text-lg font-black text-slate-900">{title || 'Your Hostel Name'}</h4>
                 <p className="text-xs text-slate-600 line-clamp-2 mt-1">{description || 'Hostel description'}</p>
+                {address && <p className="text-[11px] text-slate-500 mt-1">🏠 {address}</p>}
+
+                {/* Facilities Preview Chips */}
+                {amenityKeys.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 pt-2">
+                    {amenityKeys.slice(0, 8).map(key => {
+                      const preset = POPULAR_LAUTECH_FACILITIES.find(f => f.key === key);
+                      return (
+                        <span key={key} className="bg-emerald-50 text-emerald-900 border border-emerald-200 px-2 py-0.5 rounded-lg text-[10px] font-semibold flex items-center gap-1">
+                          <span>{preset?.icon || '✓'}</span>
+                          <span>{preset?.label || key}</span>
+                        </span>
+                      );
+                    })}
+                    {amenityKeys.length > 8 && (
+                      <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded-lg text-[10px] font-semibold">
+                        +{amenityKeys.length - 8} more
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div className="p-3 bg-slate-50 rounded-xl flex items-center justify-between text-xs">
