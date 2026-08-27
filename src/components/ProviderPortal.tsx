@@ -952,35 +952,35 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
                 </div>
               ) : (
                 <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {properties.slice(0, 6).map(prop => (
-                    <div key={prop.id} className="border border-gray-200 rounded-xl p-4 hover:border-emerald-300 transition-all">
+                  {properties.slice(0, 6).map((prop, idx) => (
+                    <div key={prop?.id || `dash-prop-${idx}`} className="border border-gray-200 rounded-xl p-4 hover:border-emerald-300 transition-all">
                       <div className="flex items-start justify-between gap-2">
-                        <h4 className="text-sm font-bold text-gray-900 truncate">{prop.title}</h4>
+                        <h4 className="text-sm font-bold text-gray-900 truncate">{prop?.title || 'Hostel'}</h4>
                         <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                          prop.availabilityStatus === 'AVAILABLE' ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'
+                          (prop?.availabilityStatus || 'AVAILABLE') === 'AVAILABLE' ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'
                         }`}>
-                          {prop.availabilityStatus}
+                          {prop?.availabilityStatus || 'AVAILABLE'}
                         </span>
                       </div>
-                      <p className="text-xs text-gray-500 mt-1">{prop.address || 'LAUTECH Off-Campus'}</p>
+                      <p className="text-xs text-gray-500 mt-1">{prop?.address || 'LAUTECH Off-Campus'}</p>
                       
                       <div className="flex items-center justify-between text-xs mt-3 pt-3 border-t border-gray-100">
-                        <span className="font-bold text-gray-900">{formatNaira(prop.priceSummary?.rentAmount || 0)} / yr</span>
-                        <span className="text-gray-500 font-semibold">{prop.totalRooms || 1} Rooms</span>
+                        <span className="font-bold text-gray-900">{formatNaira(prop?.priceSummary?.rentAmount || prop?.pricing?.rentAmount || prop?.rentAmount || 0)} / yr</span>
+                        <span className="text-gray-500 font-semibold">{prop?.totalRooms || 1} Rooms</span>
                       </div>
 
                       {/* Completeness Bar */}
                       <div className="mt-2.5">
                         <div className="flex items-center justify-between text-[10px] font-semibold text-gray-500 mb-1">
                           <span>Listing Completeness</span>
-                          <span className={prop.completenessScore >= 80 ? 'text-emerald-700' : 'text-amber-700'}>
-                            {prop.completenessScore}%
+                          <span className={(prop?.completenessScore ?? 80) >= 80 ? 'text-emerald-700' : 'text-amber-700'}>
+                            {prop?.completenessScore ?? 80}%
                           </span>
                         </div>
                         <div className="h-1.5 w-full bg-gray-100 rounded-full overflow-hidden">
                           <div
-                            className={`h-full rounded-full ${prop.completenessScore >= 80 ? 'bg-emerald-600' : 'bg-amber-500'}`}
-                            style={{ width: `${prop.completenessScore}%` }}
+                            className={`h-full rounded-full ${(prop?.completenessScore ?? 80) >= 80 ? 'bg-emerald-600' : 'bg-amber-500'}`}
+                            style={{ width: `${prop?.completenessScore ?? 80}%` }}
                           />
                         </div>
                       </div>
@@ -1098,105 +1098,134 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
                   setEditingProperty(null);
                   setActiveTab('wizard');
                 }}
-                className="px-4 py-2 bg-emerald-800 hover:bg-emerald-900 text-white text-xs font-bold rounded-xl shadow-xs flex items-center gap-1.5"
+                className="px-4 py-2 bg-emerald-800 hover:bg-emerald-900 text-white text-xs font-bold rounded-xl shadow-xs flex items-center gap-1.5 cursor-pointer transition-colors"
               >
                 <PlusCircle className="w-4 h-4" />
                 Add New Hostel
               </button>
             </div>
 
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {properties.map(prop => (
-                <div key={prop.id} className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-xs hover:shadow-md transition-all">
-                  <div className="h-44 relative bg-gray-100">
-                    <img
-                      src={prop.coverImage}
-                      alt={prop.title}
-                      className="w-full h-full object-cover"
-                    />
-                    <span className={`absolute top-3 right-3 text-[10px] font-bold px-2.5 py-1 rounded-full shadow-xs ${
-                      prop.verificationStatus === 'APPROVED' ? 'bg-emerald-600 text-white' :
-                      prop.verificationStatus === 'DRAFT' ? 'bg-gray-700 text-white' : 'bg-amber-500 text-white'
-                    }`}>
-                      {prop.verificationStatus === 'APPROVED' ? '✓ Verified' : prop.verificationStatus}
-                    </span>
-                  </div>
-
-                  <div className="p-5 space-y-3">
-                    <div>
-                      <h3 className="text-base font-bold text-gray-900">{prop.title}</h3>
-                      <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
-                        <MapPin className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-                        {prop.address} • {prop.distanceFromCampusKm}km from gate
-                      </p>
-                    </div>
-
-                    <div className="p-3 bg-gray-50 rounded-xl space-y-1 text-xs">
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">Annual Rent:</span>
-                        <span className="font-bold text-gray-900">{formatNaira(prop.priceSummary?.rentAmount || 0)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">Total Move-in:</span>
-                        <span className="font-bold text-emerald-800">{formatNaira(prop.priceSummary?.totalMandatoryCost || 0)}</span>
-                      </div>
-                    </div>
-
-                    {/* Completeness Progress */}
-                    <div>
-                      <div className="flex items-center justify-between text-[11px] font-semibold text-gray-600 mb-1">
-                        <span>Listing Score</span>
-                        <span className="font-bold">{prop.completenessScore}%</span>
-                      </div>
-                      <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
-                        <div
-                          className={`h-full rounded-full ${prop.completenessScore >= 80 ? 'bg-emerald-600' : 'bg-amber-500'}`}
-                          style={{ width: `${prop.completenessScore}%` }}
-                        />
-                      </div>
-                    </div>
-
-                    {/* Action Buttons */}
-                    <div className="pt-2 flex items-center gap-2 border-t border-gray-100">
-                      <button
-                        onClick={() => {
-                          setEditingProperty(prop);
-                          setActiveTab('wizard');
-                        }}
-                        className="flex-1 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold rounded-xl transition-colors text-center"
-                      >
-                        Edit Details
-                      </button>
-
-                      <button
-                        onClick={() => handleViewPriceHistory(prop)}
-                        className="p-2 border border-gray-200 hover:bg-gray-100 text-gray-600 rounded-xl"
-                        title="View Price History"
-                      >
-                        <History className="w-4 h-4" />
-                      </button>
-
-                      <button
-                        onClick={() => handleUpdateAvailability(prop.id, prop.availabilityStatus === 'AVAILABLE' ? 'UNAVAILABLE' : 'AVAILABLE')}
-                        className={`p-2 rounded-xl text-xs font-bold border transition-colors ${
-                          prop.availabilityStatus === 'AVAILABLE'
-                            ? 'border-emerald-200 text-emerald-700 hover:bg-emerald-50'
-                            : 'border-red-200 text-red-700 hover:bg-red-50'
-                        }`}
-                        title={prop.availabilityStatus === 'AVAILABLE' ? 'Pause Listing' : 'Activate Listing'}
-                      >
-                        {prop.availabilityStatus === 'AVAILABLE' ? 'Active' : 'Paused'}
-                      </button>
-                    </div>
-
-                    {/* Listing Quality & Improvement Tips */}
-                    <div className="pt-2">
-                      <ListingQualityCard propertyId={prop.id} />
-                    </div>
-                  </div>
+            {(!properties || properties.length === 0) ? (
+              <div className="bg-white rounded-3xl p-12 border border-gray-200 text-center space-y-4 shadow-xs">
+                <div className="w-16 h-16 bg-emerald-50 text-emerald-800 rounded-3xl flex items-center justify-center mx-auto shadow-xs">
+                  <Building2 className="w-8 h-8" />
                 </div>
-              ))}
-            </div>
+                <div className="space-y-1">
+                  <h3 className="text-lg font-bold text-gray-900">No Hostels Registered Yet</h3>
+                  <p className="text-xs text-gray-500 max-w-md mx-auto leading-relaxed">
+                    You haven't listed any hostel accommodation yet. Register your property around LAUTECH to receive student inquiries, schedule inspection tours, and accept secure bookings.
+                  </p>
+                </div>
+                <button
+                  onClick={() => {
+                    setEditingProperty(null);
+                    setActiveTab('wizard');
+                  }}
+                  className="px-5 py-2.5 bg-emerald-800 hover:bg-emerald-900 text-white text-xs font-bold rounded-xl shadow-xs inline-flex items-center gap-2 cursor-pointer transition-colors"
+                >
+                  <PlusCircle className="w-4 h-4" />
+                  <span>+ List Your First Hostel</span>
+                </button>
+              </div>
+            ) : (
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                {properties.map((prop, idx) => (
+                  <div key={prop?.id || `prop-${idx}`} className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-xs hover:shadow-md transition-all">
+                    <div className="h-44 relative bg-gray-100">
+                      <img
+                        src={prop?.coverImage || 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=600&q=80'}
+                        alt={prop?.title || 'Hostel'}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=600&q=80';
+                        }}
+                      />
+                      <span className={`absolute top-3 right-3 text-[10px] font-bold px-2.5 py-1 rounded-full shadow-xs ${
+                        prop?.verificationStatus === 'APPROVED' ? 'bg-emerald-600 text-white' :
+                        prop?.verificationStatus === 'DRAFT' ? 'bg-gray-700 text-white' : 'bg-amber-500 text-white'
+                      }`}>
+                        {prop?.verificationStatus === 'APPROVED' ? '✓ Verified' : (prop?.verificationStatus || 'DRAFT')}
+                      </span>
+                    </div>
+
+                    <div className="p-5 space-y-3">
+                      <div>
+                        <h3 className="text-base font-bold text-gray-900">{prop?.title || 'Hostel Accommodation'}</h3>
+                        <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
+                          <MapPin className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                          {prop?.address || 'LAUTECH Area'} • {prop?.distanceFromCampusKm || 0.8}km from campus
+                        </p>
+                      </div>
+
+                      <div className="p-3 bg-gray-50 rounded-xl space-y-1 text-xs">
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Annual Rent:</span>
+                          <span className="font-bold text-gray-900">{formatNaira(prop?.priceSummary?.rentAmount || prop?.pricing?.rentAmount || prop?.rentAmount || 0)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Total Move-in:</span>
+                          <span className="font-bold text-emerald-800">{formatNaira(prop?.priceSummary?.totalMandatoryCost || prop?.pricing?.totalFirstYearCost || prop?.totalCost || 0)}</span>
+                        </div>
+                      </div>
+
+                      {/* Completeness Progress */}
+                      <div>
+                        <div className="flex items-center justify-between text-[11px] font-semibold text-gray-600 mb-1">
+                          <span>Listing Score</span>
+                          <span className="font-bold">{prop?.completenessScore ?? 80}%</span>
+                        </div>
+                        <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
+                          <div
+                            className={`h-full rounded-full ${(prop?.completenessScore ?? 80) >= 80 ? 'bg-emerald-600' : 'bg-amber-500'}`}
+                            style={{ width: `${prop?.completenessScore ?? 80}%` }}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Action Buttons */}
+                      <div className="pt-2 flex items-center gap-2 border-t border-gray-100">
+                        <button
+                          onClick={() => {
+                            setEditingProperty(prop);
+                            setActiveTab('wizard');
+                          }}
+                          className="flex-1 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold rounded-xl transition-colors text-center cursor-pointer"
+                        >
+                          Edit Details
+                        </button>
+
+                        <button
+                          onClick={() => handleViewPriceHistory(prop)}
+                          className="p-2 border border-gray-200 hover:bg-gray-100 text-gray-600 rounded-xl cursor-pointer"
+                          title="View Price History"
+                        >
+                          <History className="w-4 h-4" />
+                        </button>
+
+                        <button
+                          onClick={() => handleUpdateAvailability(prop?.id, (prop?.availabilityStatus || 'AVAILABLE') === 'AVAILABLE' ? 'UNAVAILABLE' : 'AVAILABLE')}
+                          className={`p-2 rounded-xl text-xs font-bold border transition-colors cursor-pointer ${
+                            (prop?.availabilityStatus || 'AVAILABLE') === 'AVAILABLE'
+                              ? 'border-emerald-200 text-emerald-700 hover:bg-emerald-50'
+                              : 'border-red-200 text-red-700 hover:bg-red-50'
+                          }`}
+                          title={(prop?.availabilityStatus || 'AVAILABLE') === 'AVAILABLE' ? 'Pause Listing' : 'Activate Listing'}
+                        >
+                          {(prop?.availabilityStatus || 'AVAILABLE') === 'AVAILABLE' ? 'Active' : 'Paused'}
+                        </button>
+                      </div>
+
+                      {/* Listing Quality & Improvement Tips */}
+                      {prop?.id && (
+                        <div className="pt-2">
+                          <ListingQualityCard propertyId={prop.id} />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
@@ -1210,19 +1239,24 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
               </div>
 
               <div className="flex items-center gap-3">
-                <select
-                  value={selectedRoomPropertyId}
-                  onChange={e => setSelectedRoomPropertyId(e.target.value)}
-                  className="text-xs font-bold text-gray-800 bg-gray-50 border border-gray-300 rounded-xl px-3 py-2"
-                >
-                  {properties.map(p => (
-                    <option key={p.id} value={p.id}>{p.title}</option>
-                  ))}
-                </select>
+                {properties.length > 0 ? (
+                  <select
+                    value={selectedRoomPropertyId}
+                    onChange={e => setSelectedRoomPropertyId(e.target.value)}
+                    className="text-xs font-bold text-gray-800 bg-gray-50 border border-gray-300 rounded-xl px-3 py-2 cursor-pointer"
+                  >
+                    {properties.map(p => (
+                      <option key={p.id} value={p.id}>{p.title}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <span className="text-xs text-gray-400">No registered hostels</span>
+                )}
 
                 <button
                   onClick={() => setAddRoomModalOpen(true)}
-                  className="px-4 py-2 bg-emerald-800 hover:bg-emerald-900 text-white text-xs font-bold rounded-xl shadow-xs flex items-center gap-1.5"
+                  disabled={properties.length === 0}
+                  className="px-4 py-2 bg-emerald-800 hover:bg-emerald-900 disabled:opacity-50 text-white text-xs font-bold rounded-xl shadow-xs flex items-center gap-1.5 cursor-pointer"
                 >
                   <PlusCircle className="w-4 h-4" />
                   + Add Room
@@ -1231,53 +1265,76 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
             </div>
 
             {/* Room List with Bedspaces */}
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
-              {propertyRooms.map(room => (
-                <div key={room.id} className="bg-white rounded-2xl border border-gray-200 p-5 shadow-xs space-y-4">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <h4 className="text-sm font-bold text-gray-900">{room.roomName}</h4>
-                      <p className="text-xs text-gray-500">{getPropertyTypeLabel(room.roomType)} • Max: {room.maxOccupants} Occupants</p>
+            {(!propertyRooms || propertyRooms.length === 0) ? (
+              <div className="bg-white rounded-2xl p-10 border border-gray-200 text-center space-y-3 shadow-xs">
+                <Layers className="w-10 h-10 text-gray-300 mx-auto" />
+                <h4 className="text-sm font-bold text-gray-700">No Rooms Configured Yet</h4>
+                <p className="text-xs text-gray-500 max-w-sm mx-auto">
+                  {properties.length === 0 
+                    ? 'Register your hostel first to configure individual rooms and bedspaces.' 
+                    : 'Click "+ Add Room" to configure single rooms, self-contains, or bedspaces for this hostel.'}
+                </p>
+                {properties.length === 0 && (
+                  <button
+                    onClick={() => {
+                      setEditingProperty(null);
+                      setActiveTab('wizard');
+                    }}
+                    className="px-4 py-2 bg-emerald-800 hover:bg-emerald-900 text-white text-xs font-bold rounded-xl shadow-xs"
+                  >
+                    + Add Hostel First
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                {propertyRooms.map(room => (
+                  <div key={room.id} className="bg-white rounded-2xl border border-gray-200 p-5 shadow-xs space-y-4">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <h4 className="text-sm font-bold text-gray-900">{room.roomName}</h4>
+                        <p className="text-xs text-gray-500">{getPropertyTypeLabel(room.roomType)} • Max: {room.maxOccupants} Occupants</p>
+                      </div>
+                      <button
+                        onClick={() => handleDeleteRoom(room.id)}
+                        className="p-1.5 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50 cursor-pointer"
+                        title="Delete Room"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     </div>
-                    <button
-                      onClick={() => handleDeleteRoom(room.id)}
-                      className="p-1.5 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50"
-                      title="Delete Room"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
 
-                  <div className="flex items-center gap-2 text-[11px] font-semibold text-gray-600">
-                    {room.isEnsuite && <span className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded-md">En-suite Bathroom</span>}
-                    {room.isFurnished && <span className="px-2 py-0.5 bg-amber-50 text-amber-700 rounded-md">Furnished</span>}
-                  </div>
+                    <div className="flex items-center gap-2 text-[11px] font-semibold text-gray-600">
+                      {room.isEnsuite && <span className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded-md">En-suite Bathroom</span>}
+                      {room.isFurnished && <span className="px-2 py-0.5 bg-amber-50 text-amber-700 rounded-md">Furnished</span>}
+                    </div>
 
-                  {/* Bedspaces Interactive Grid */}
-                  <div className="border-t border-gray-100 pt-3">
-                    <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider block mb-2">
-                      Bedspaces ({room.quantityAvailable} Available / {room.quantityTotal} Total)
-                    </span>
-                    <div className="grid grid-cols-2 gap-2">
-                      {room.bedspaces?.map((bed: any) => (
-                        <button
-                          key={bed.id}
-                          onClick={() => handleToggleBedspace(room.id, bed.id, bed.status)}
-                          className={`p-2 rounded-xl text-left border text-xs transition-all ${
-                            bed.status === 'AVAILABLE'
-                              ? 'border-emerald-300 bg-emerald-50 text-emerald-900 hover:bg-emerald-100'
-                              : 'border-red-200 bg-red-50 text-red-800 hover:bg-red-100'
-                          }`}
-                        >
-                          <div className="font-bold">{bed.bedspaceNumber}</div>
-                          <div className="text-[10px] font-semibold opacity-80">{bed.status} (Click to toggle)</div>
-                        </button>
-                      ))}
+                    {/* Bedspaces Interactive Grid */}
+                    <div className="border-t border-gray-100 pt-3">
+                      <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider block mb-2">
+                        Bedspaces ({room.quantityAvailable || 0} Available / {room.quantityTotal || 1} Total)
+                      </span>
+                      <div className="grid grid-cols-2 gap-2">
+                        {room.bedspaces?.map((bed: any) => (
+                          <button
+                            key={bed.id}
+                            onClick={() => handleToggleBedspace(room.id, bed.id, bed.status)}
+                            className={`p-2 rounded-xl text-left border text-xs transition-all cursor-pointer ${
+                              bed.status === 'AVAILABLE'
+                                ? 'border-emerald-300 bg-emerald-50 text-emerald-900 hover:bg-emerald-100'
+                                : 'border-red-200 bg-red-50 text-red-800 hover:bg-red-100'
+                            }`}
+                          >
+                            <div className="font-bold">{bed.bedspaceNumber}</div>
+                            <div className="text-[10px] font-semibold opacity-80">{bed.status} (Click to toggle)</div>
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 

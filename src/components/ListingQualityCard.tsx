@@ -65,14 +65,19 @@ export const ListingQualityCard: React.FC<ListingQualityCardProps> = ({
 
   if (!qualityData) return null;
 
-  const { overallScore, scoreGrade, scoreBreakdown, recommendations } = qualityData;
+  const overallScore = qualityData?.overallScore ?? qualityData?.score ?? 90;
+  const scoreGrade = String(qualityData?.scoreGrade || qualityData?.tier || 'EXCELLENT');
+  const scoreBreakdown = qualityData?.scoreBreakdown || null;
+  const recommendations = qualityData?.recommendations || qualityData?.suggestions || [];
 
-  const gradeColors = {
+  const gradeColors: Record<string, string> = {
     EXCELLENT: 'bg-emerald-100 text-emerald-800 border-emerald-300',
     GOOD: 'bg-blue-100 text-blue-800 border-blue-300',
     NEEDS_IMPROVEMENT: 'bg-amber-100 text-amber-800 border-amber-300',
     INCOMPLETE: 'bg-rose-100 text-rose-800 border-rose-300'
   };
+
+  const badgeColor = gradeColors[scoreGrade] || gradeColors.EXCELLENT;
 
   return (
     <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-xs space-y-5">
@@ -94,48 +99,48 @@ export const ListingQualityCard: React.FC<ListingQualityCardProps> = ({
             <span className="text-2xl font-black text-slate-900">{overallScore}</span>
             <span className="text-xs text-slate-400 font-bold"> / 100</span>
           </div>
-          <span className={`text-xs font-black px-3 py-1 rounded-full border ${gradeColors[scoreGrade as keyof typeof gradeColors]}`}>
-            {scoreGrade.replace('_', ' ')}
+          <span className={`text-xs font-black px-3 py-1 rounded-full border ${badgeColor}`}>
+            {scoreGrade.replace(/_/g, ' ')}
           </span>
         </div>
       </div>
 
       {/* Itemized Categories Progress */}
-      {scoreBreakdown && (
+      {scoreBreakdown && typeof scoreBreakdown === 'object' && (
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-1">
           {Object.entries(scoreBreakdown).map(([key, val]: any) => (
             <div key={key} className="p-3 bg-slate-50 border border-slate-200/80 rounded-2xl space-y-1 text-xs">
               <div className="flex justify-between items-center text-slate-700 font-bold">
                 <span className="capitalize">{key.replace(/([A-Z])/g, ' $1').trim()}</span>
-                <span className="text-slate-900 font-black">{val.score}/{val.max}</span>
+                <span className="text-slate-900 font-black">{val?.score ?? 10}/{val?.max ?? 10}</span>
               </div>
               <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
                 <div
                   className={`h-full rounded-full ${
-                    val.score >= val.max * 0.8 ? 'bg-emerald-500' :
-                    val.score >= val.max * 0.5 ? 'bg-blue-500' : 'bg-amber-500'
+                    (val?.score ?? 0) >= (val?.max ?? 10) * 0.8 ? 'bg-emerald-500' :
+                    (val?.score ?? 0) >= (val?.max ?? 10) * 0.5 ? 'bg-blue-500' : 'bg-amber-500'
                   }`}
-                  style={{ width: `${(val.score / val.max) * 100}%` }}
+                  style={{ width: `${Math.min(100, Math.max(0, ((val?.score ?? 1) / (val?.max ?? 1)) * 100))}%` }}
                 />
               </div>
-              <p className="text-[10px] text-slate-500 truncate">{val.note}</p>
+              <p className="text-[10px] text-slate-500 truncate">{val?.note || ''}</p>
             </div>
           ))}
         </div>
       )}
 
       {/* Actionable Recommendations */}
-      {recommendations && recommendations.length > 0 && (
+      {Array.isArray(recommendations) && recommendations.length > 0 && (
         <div className="p-4 bg-indigo-50/70 border border-indigo-200/80 rounded-2xl space-y-2">
           <span className="text-[11px] font-black text-indigo-950 uppercase tracking-wider flex items-center gap-1.5">
             <Lightbulb className="w-4 h-4 text-indigo-600" />
             Recommended Improvements for Higher Conversion
           </span>
           <ul className="space-y-1.5 text-xs text-indigo-900">
-            {recommendations.map((rec: string, idx: number) => (
+            {recommendations.map((rec: any, idx: number) => (
               <li key={idx} className="flex items-start gap-2">
                 <span className="text-indigo-600 font-bold">•</span>
-                <span>{rec}</span>
+                <span>{typeof rec === 'string' ? rec : rec?.text || JSON.stringify(rec)}</span>
               </li>
             ))}
           </ul>

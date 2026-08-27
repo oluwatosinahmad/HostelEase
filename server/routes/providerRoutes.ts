@@ -432,7 +432,7 @@ router.get(
              (SELECT SUM(quantity_available) FROM rooms WHERE property_id = p.id) as available_spaces,
              (SELECT SUM(quantity_total) FROM rooms WHERE property_id = p.id) as total_capacity
       FROM properties p
-      JOIN areas a ON a.id = p.area_id
+      LEFT JOIN areas a ON a.id = p.area_id
       LEFT JOIN prices pr ON pr.property_id = p.id
       WHERE p.provider_id = ?
       ORDER BY p.created_at DESC

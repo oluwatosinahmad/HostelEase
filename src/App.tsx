@@ -920,15 +920,17 @@ function MainApp() {
         {/* VIEW 7: PROVIDER / LANDLORD PORTAL */}
         {currentView === 'provider-portal' && (
           isProvider ? (
-            <ProviderPortal
-              areas={areas}
-              onOpenConversation={(propId, studentId) => {
-                setMessagingTargetPropertyId(propId);
-                setCurrentView('messages');
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-              }}
-              onShowToast={showToast}
-            />
+            <ErrorBoundary>
+              <ProviderPortal
+                areas={areas}
+                onOpenConversation={(propId, studentId) => {
+                  setMessagingTargetPropertyId(propId);
+                  setCurrentView('messages');
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+                onShowToast={showToast}
+              />
+            </ErrorBoundary>
           ) : (
             <div className="max-w-md mx-auto my-20 p-8 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-xl text-center space-y-4">
               <div className="w-16 h-16 rounded-2xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center mx-auto border border-amber-200 dark:border-amber-800 shadow-inner">
