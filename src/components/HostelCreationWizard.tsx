@@ -403,9 +403,9 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
   const selectedAreaObj = areas.find(a => a.id === areaId);
 
   return (
-    <div className="bg-white rounded-3xl border border-slate-200 shadow-xl overflow-hidden animate-in fade-in-50 duration-200">
+    <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden animate-in fade-in-50 duration-200 text-slate-900 dark:text-slate-100">
       {/* Header with Progress Steps */}
-      <div className="bg-slate-900 text-white p-6 pb-4">
+      <div className="bg-slate-950 text-white p-6 pb-4 border-b border-slate-800">
         <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
           <div>
             <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 uppercase tracking-wide">
@@ -458,29 +458,29 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
         {/* STEP 1: Basic Info */}
         {currentStep === 1 && (
           <div className="space-y-4 max-w-2xl">
-            <h3 className="font-bold text-base text-slate-900">Step 1 — Basic Information</h3>
-            <p className="text-xs text-slate-500">Provide the title, accommodation type, and general description.</p>
+            <h3 className="font-bold text-base text-slate-900 dark:text-white">Step 1 — Basic Information</h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400">Provide the title, accommodation type, and general description.</p>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Hostel / Lodge Name *</label>
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">Hostel / Lodge Name *</label>
               <input
                 type="text"
                 placeholder="e.g. Adeleke Royal Villa"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 onBlur={handleCheckDuplicate}
-                className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-900 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                className="w-full text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                 required
               />
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Accommodation Type *</label>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">Accommodation Type *</label>
                 <select
                   value={propertyType}
                   onChange={(e) => setPropertyType(e.target.value as PropertyType)}
-                  className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-900 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                  className="w-full text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:outline-none cursor-pointer"
                 >
                   <option value="SELF_CONTAIN">Self-Contain</option>
                   <option value="SINGLE_ROOM">Single Room</option>
@@ -490,11 +490,11 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Gender Policy</label>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">Gender Policy</label>
                 <select
                   value={genderPreference}
                   onChange={(e) => setGenderPreference(e.target.value as GenderPreference)}
-                  className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-900 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                  className="w-full text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:outline-none cursor-pointer"
                 >
                   <option value="ANY">Co-ed / Any Gender</option>
                   <option value="FEMALE_ONLY">Female Only Lodge</option>
@@ -504,13 +504,13 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Description & House Rules *</label>
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">Description & House Rules *</label>
               <textarea
                 rows={4}
                 placeholder="Describe power supply schedule, borehole water setup, gate lock times, reading space, peaceful atmosphere..."
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-900 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                className="w-full text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                 required
               />
             </div>
@@ -521,104 +521,123 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
         {currentStep === 2 && (
           <div className="space-y-5 max-w-3xl">
             <div>
-              <h3 className="font-bold text-base text-slate-900 flex items-center gap-2">
+              <h3 className="font-bold text-base text-slate-900 dark:text-white flex items-center gap-2">
                 <MapPin className="w-5 h-5 text-emerald-600" />
                 Step 2 — Location in Ogbomoso
               </h3>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Specify the LAUTECH area or type your exact custom lodge location and proximity landmarks.
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                Specify your exact LAUTECH hostel location. Choose a standard campus zone or type your custom neighborhood.
               </p>
             </div>
 
             {duplicateWarning && (
-              <div className="p-3 bg-amber-50 border border-amber-200 rounded-2xl text-amber-900 text-xs flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0" />
+              <div className="p-3 bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800 rounded-2xl text-amber-900 dark:text-amber-200 text-xs flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 flex-shrink-0" />
                 <span>{duplicateWarning}</span>
               </div>
             )}
 
-            <div className="bg-slate-50 p-4 sm:p-5 rounded-2xl border border-slate-200 space-y-4">
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-bold text-slate-800 uppercase flex items-center gap-1.5">
-                  <Navigation className="w-3.5 h-3.5 text-emerald-600" />
-                  LAUTECH Accommodation Zone *
-                </label>
-                <button
-                  type="button"
-                  onClick={() => setIsCustomArea(!isCustomArea)}
-                  className="text-xs text-emerald-700 font-bold hover:underline flex items-center gap-1"
-                >
-                  {isCustomArea ? '← Choose from standard areas' : '+ Enter Custom Location'}
-                </button>
-              </div>
+            {/* Clear Mode Switcher */}
+            <div className="flex rounded-2xl bg-slate-100 dark:bg-slate-800 p-1 gap-1 border border-slate-200 dark:border-slate-700">
+              <button
+                type="button"
+                onClick={() => setIsCustomArea(false)}
+                className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${
+                  !isCustomArea
+                    ? 'bg-white dark:bg-slate-900 text-emerald-800 dark:text-emerald-400 shadow-sm border border-slate-200 dark:border-slate-700'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                <Navigation className="w-3.5 h-3.5" />
+                Choose Standard LAUTECH Area
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsCustomArea(true)}
+                className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${
+                  isCustomArea
+                    ? 'bg-emerald-600 text-white shadow-sm'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                + Enter Custom Location / Neighborhood
+              </button>
+            </div>
 
+            <div className="bg-slate-50 dark:bg-slate-800/80 p-4 sm:p-5 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-4">
               {!isCustomArea ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <select
-                      value={areaId}
-                      onChange={(e) => {
-                        if (e.target.value === 'custom') {
-                          setIsCustomArea(true);
-                        } else {
-                          setAreaId(e.target.value);
-                          handleCheckDuplicate();
-                        }
-                      }}
-                      className="w-full text-xs bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-slate-900 font-medium focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                    >
-                      {areas.map(a => (
-                        <option key={a.id} value={a.id}>{a.name} ({a.approxDistanceMinKm}-{a.approxDistanceMaxKm} km from campus)</option>
-                      ))}
-                      <option value="custom">➕ + Add Custom Location / New Area...</option>
-                    </select>
-                  </div>
+                <div className="space-y-4">
+                  <label className="block text-xs font-bold text-slate-800 dark:text-slate-200 uppercase">
+                    Select Nearest LAUTECH Area *
+                  </label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <select
+                        value={areaId}
+                        onChange={(e) => {
+                          if (e.target.value === 'custom') {
+                            setIsCustomArea(true);
+                          } else {
+                            setAreaId(e.target.value);
+                            handleCheckDuplicate();
+                          }
+                        }}
+                        className="w-full text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 text-slate-900 dark:text-white font-medium focus:ring-2 focus:ring-emerald-500 focus:outline-none cursor-pointer"
+                      >
+                        {areas.map(a => (
+                          <option key={a.id} value={a.id}>{a.name} ({a.approxDistanceMinKm}-{a.approxDistanceMaxKm} km from campus)</option>
+                        ))}
+                        <option value="custom">➕ + Add Custom Location / New Area...</option>
+                      </select>
+                    </div>
 
-                  <div>
-                    <input
-                      type="number"
-                      step="0.1"
-                      min="0.1"
-                      max="15"
-                      placeholder="Distance to Gate (km)"
-                      value={distanceKm}
-                      onChange={(e) => setDistanceKm(e.target.value)}
-                      className="w-full text-xs bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-slate-900 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                      required
-                    />
+                    <div>
+                      <input
+                        type="number"
+                        step="0.1"
+                        min="0.1"
+                        max="15"
+                        placeholder="Distance to Gate (km)"
+                        value={distanceKm}
+                        onChange={(e) => setDistanceKm(e.target.value)}
+                        className="w-full text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                        required
+                      />
+                    </div>
                   </div>
                 </div>
               ) : (
-                <div className="space-y-3 bg-emerald-50/60 p-4 rounded-xl border border-emerald-200">
+                <div className="space-y-3 bg-emerald-50/70 dark:bg-emerald-950/40 p-4 sm:p-5 rounded-2xl border border-emerald-300 dark:border-emerald-700/80">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-emerald-950 flex items-center gap-1.5">
-                      <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
-                      Custom Location / Specific Neighborhood Name *
+                    <span className="text-xs font-bold text-emerald-950 dark:text-emerald-300 flex items-center gap-1.5">
+                      <Sparkles className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                      Type Your Custom Location / Specific Neighborhood Name *
                     </span>
                     <button
                       type="button"
                       onClick={() => setIsCustomArea(false)}
-                      className="text-[11px] text-slate-500 hover:text-slate-800"
+                      className="text-[11px] text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white underline"
                     >
-                      Cancel Custom Area
+                      Use Standard Areas
                     </button>
                   </div>
                   <input
                     type="text"
-                    placeholder="e.g. Behind Bovas Station (Under G), Adeshina Area (Adenike), Sekona Junction..."
+                    placeholder="e.g. Behind Bovas Station (Under G), Adeshina Area (Adenike), Sekona Junction, Olopomeji..."
                     value={customLocationName}
                     onChange={(e) => setCustomLocationName(e.target.value)}
-                    className="w-full text-xs bg-white border border-emerald-300 rounded-xl px-3 py-2.5 text-slate-900 font-bold focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                    className="w-full text-sm bg-white dark:bg-slate-900 border border-emerald-400 dark:border-emerald-600 rounded-xl px-3.5 py-3 text-slate-900 dark:text-white font-bold focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                     required
                   />
-                  <div className="flex items-center gap-1.5 flex-wrap text-[11px] text-slate-600">
-                    <span className="font-semibold text-slate-500">Quick suggestions:</span>
-                    {['Behind Bovas (Under G)', 'Adeshina Extension', 'Sekona Junction', 'Olopomeji Area', 'Alata Junction', 'General Hospital Corridor'].map(sugg => (
+                  <div className="flex items-center gap-1.5 flex-wrap text-[11px] text-slate-600 dark:text-slate-300">
+                    <span className="font-semibold text-slate-500 dark:text-slate-400">Quick suggestions:</span>
+                    {['Behind Bovas (Under G)', 'Adeshina Extension', 'Sekona Junction', 'Olopomeji Area', 'Alata Junction', 'General Hospital Corridor', 'Papa Gate'].map(sugg => (
                       <button
                         key={sugg}
                         type="button"
                         onClick={() => setCustomLocationName(sugg)}
-                        className="px-2 py-0.5 bg-white border border-emerald-200 rounded-lg text-emerald-800 hover:bg-emerald-100 transition-colors"
+                        className="px-2.5 py-1 bg-white dark:bg-slate-800 border border-emerald-200 dark:border-emerald-700 rounded-lg text-emerald-800 dark:text-emerald-300 font-semibold hover:bg-emerald-100 dark:hover:bg-emerald-900/60 transition-colors shadow-xs"
                       >
                         {sugg}
                       </button>
@@ -627,11 +646,11 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
                     <div>
-                      <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">Closest Standard Area</label>
+                      <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">Closest Standard Area</label>
                       <select
                         value={areaId}
                         onChange={(e) => setAreaId(e.target.value)}
-                        className="w-full text-xs bg-white border border-slate-200 rounded-xl px-3 py-2 text-slate-900"
+                        className="w-full text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-slate-900 dark:text-white cursor-pointer"
                       >
                         {areas.map(a => (
                           <option key={a.id} value={a.id}>{a.name}</option>
@@ -640,7 +659,7 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
                     </div>
 
                     <div>
-                      <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">Distance to LAUTECH Gate (km) *</label>
+                      <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">Distance to LAUTECH Gate (km) *</label>
                       <input
                         type="number"
                         step="0.1"
@@ -648,7 +667,7 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
                         max="15"
                         value={distanceKm}
                         onChange={(e) => setDistanceKm(e.target.value)}
-                        className="w-full text-xs bg-white border border-slate-200 rounded-xl px-3 py-2 text-slate-900"
+                        className="w-full text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-slate-900 dark:text-white"
                         required
                       />
                     </div>
@@ -657,7 +676,7 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
               )}
 
               <div className="flex items-center gap-2 pt-1 flex-wrap">
-                <span className="text-[11px] text-slate-500 font-semibold">Quick Distance:</span>
+                <span className="text-[11px] text-slate-500 dark:text-slate-400 font-semibold">Quick Distance:</span>
                 {[
                   { label: '0.3 km (Walking 3 min)', val: '0.3' },
                   { label: '0.8 km (Walking 8 min)', val: '0.8' },
@@ -671,7 +690,7 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
                     className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition-all ${
                       distanceKm === d.val 
                         ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm' 
-                        : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
+                        : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
                     }`}
                   >
                     {d.label}
@@ -681,25 +700,25 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Detailed Street Address *</label>
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">Detailed Street Address *</label>
               <input
                 type="text"
                 placeholder="e.g. Plot 4, Adebayo Close, Off Bovas Filling Station Road, Under G, Ogbomoso"
                 value={address}
                 onChange={(e) => setAddress(e.target.value)}
-                className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-900 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                className="w-full text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                 required
               />
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Proximity Landmarks & Directions</label>
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">Proximity Landmarks & Directions</label>
               <input
                 type="text"
                 placeholder="e.g. 150m behind Bovas Station, directly opposite Green Mosque gate"
                 value={nearbyLandmark}
                 onChange={(e) => setNearbyLandmark(e.target.value)}
-                className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-900 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                className="w-full text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
               />
             </div>
           </div>
@@ -710,8 +729,8 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
           <div className="space-y-4 max-w-3xl">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="font-bold text-base text-slate-900">Step 3 — Room Configurations & Spaces</h3>
-                <p className="text-xs text-slate-500">Define the room units, occupants capacity, and available spaces.</p>
+                <h3 className="font-bold text-base text-slate-900 dark:text-white">Step 3 — Room Configurations & Spaces</h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400">Define the room units, occupants capacity, and available spaces.</p>
               </div>
               <button
                 type="button"
@@ -724,7 +743,7 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
                   isEnsuite: true,
                   isFurnished: false
                 }])}
-                className="px-3 py-1.5 bg-emerald-100 text-emerald-800 font-bold text-xs rounded-xl flex items-center gap-1 hover:bg-emerald-200"
+                className="px-3 py-1.5 bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300 font-bold text-xs rounded-xl flex items-center gap-1 hover:bg-emerald-200 dark:hover:bg-emerald-800"
               >
                 <Plus className="w-3.5 h-3.5" /> Add Room Type
               </button>
@@ -732,14 +751,14 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
 
             <div className="space-y-3">
               {roomsList.map((room, idx) => (
-                <div key={idx} className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-3">
+                <div key={idx} className="bg-slate-50 dark:bg-slate-800/80 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-3">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-emerald-800 uppercase">Room #{idx + 1}</span>
+                    <span className="text-xs font-bold text-emerald-800 dark:text-emerald-400 uppercase">Room #{idx + 1}</span>
                     {roomsList.length > 1 && (
                       <button
                         type="button"
                         onClick={() => setRoomsList(roomsList.filter((_, i) => i !== idx))}
-                        className="text-xs text-red-600 hover:underline"
+                        className="text-xs text-red-600 dark:text-red-400 hover:underline"
                       >
                         Remove
                       </button>
@@ -748,7 +767,7 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
 
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                     <div>
-                      <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">Room Label</label>
+                      <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">Room Label</label>
                       <input
                         type="text"
                         value={room.name}
@@ -757,12 +776,12 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
                           updated[idx].name = e.target.value;
                           setRoomsList(updated);
                         }}
-                        className="w-full text-xs bg-white border border-slate-200 rounded-xl px-2.5 py-2"
+                        className="w-full text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-2.5 py-2 text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">Total Rooms</label>
+                      <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">Total Rooms</label>
                       <input
                         type="number"
                         min="1"
@@ -772,12 +791,12 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
                           updated[idx].total = parseInt(e.target.value, 10) || 1;
                           setRoomsList(updated);
                         }}
-                        className="w-full text-xs bg-white border border-slate-200 rounded-xl px-2.5 py-2"
+                        className="w-full text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-2.5 py-2 text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">Available Spaces</label>
+                      <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">Available Spaces</label>
                       <input
                         type="number"
                         min="0"
@@ -788,12 +807,12 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
                           updated[idx].available = parseInt(e.target.value, 10) || 0;
                           setRoomsList(updated);
                         }}
-                        className="w-full text-xs bg-white border border-slate-200 rounded-xl px-2.5 py-2"
+                        className="w-full text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-2.5 py-2 text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">Max Occupants</label>
+                      <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">Max Occupants</label>
                       <input
                         type="number"
                         min="1"
@@ -803,12 +822,12 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
                           updated[idx].maxOccupants = parseInt(e.target.value, 10) || 1;
                           setRoomsList(updated);
                         }}
-                        className="w-full text-xs bg-white border border-slate-200 rounded-xl px-2.5 py-2"
+                        className="w-full text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-2.5 py-2 text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                       />
                     </div>
                   </div>
 
-                  <div className="flex gap-4 text-xs font-semibold text-slate-700">
+                  <div className="flex gap-4 text-xs font-semibold text-slate-700 dark:text-slate-300">
                     <label className="flex items-center gap-1.5 cursor-pointer">
                       <input
                         type="checkbox"
@@ -818,7 +837,7 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
                           updated[idx].isEnsuite = e.target.checked;
                           setRoomsList(updated);
                         }}
-                        className="rounded text-emerald-600"
+                        className="rounded text-emerald-600 focus:ring-emerald-500"
                       />
                       <span>Ensuite Bathroom</span>
                     </label>
@@ -832,7 +851,7 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
                           updated[idx].isFurnished = e.target.checked;
                           setRoomsList(updated);
                         }}
-                        className="rounded text-emerald-600"
+                        className="rounded text-emerald-600 focus:ring-emerald-500"
                       />
                       <span>Furnished (Bed / Wardrobe)</span>
                     </label>
@@ -847,11 +866,11 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
         {currentStep === 4 && (
           <div className="space-y-5 max-w-3xl">
             <div>
-              <h3 className="font-bold text-base text-slate-900 flex items-center gap-2">
+              <h3 className="font-bold text-base text-slate-900 dark:text-white flex items-center gap-2">
                 <CheckSquare className="w-5 h-5 text-emerald-600" />
                 Step 4 — Facilities & Amenities
               </h3>
-              <p className="text-xs text-slate-500 mt-0.5">
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                 Search or select all utilities, sanitary facilities, power setups, and comfort amenities.
               </p>
             </div>
@@ -865,13 +884,13 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
                   placeholder="🔍 Type facility name (e.g. toilet, borehole, solar, generator, wifi, tiles, fan, wardrobe)..."
                   value={facilitySearch}
                   onChange={(e) => setFacilitySearch(e.target.value)}
-                  className="w-full text-xs bg-slate-50 border border-slate-200 focus:border-emerald-500 rounded-2xl pl-9 pr-10 py-3 text-slate-900 font-medium focus:ring-2 focus:ring-emerald-500/20 focus:outline-none transition-all shadow-sm"
+                  className="w-full text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:border-emerald-500 rounded-2xl pl-9 pr-10 py-3 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 font-medium focus:ring-2 focus:ring-emerald-500/20 focus:outline-none transition-all shadow-sm"
                 />
                 {facilitySearch && (
                   <button
                     type="button"
                     onClick={() => setFacilitySearch('')}
-                    className="absolute right-3 text-slate-400 hover:text-slate-600"
+                    className="absolute right-3 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
                   >
                     <X className="w-4 h-4" />
                   </button>
@@ -880,7 +899,7 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
 
               {/* Live Autocomplete Suggestions Dropdown */}
               {facilitySearch.trim().length > 0 && (
-                <div className="absolute z-20 top-full left-0 right-0 mt-1.5 bg-white border border-slate-200 rounded-2xl shadow-xl p-2 max-h-64 overflow-y-auto animate-in fade-in-50 duration-150 space-y-1">
+                <div className="absolute z-20 top-full left-0 right-0 mt-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-xl p-2 max-h-64 overflow-y-auto animate-in fade-in-50 duration-150 space-y-1">
                   {POPULAR_LAUTECH_FACILITIES.filter(f => {
                     const q = facilitySearch.toLowerCase();
                     return f.label.toLowerCase().includes(q) || 
@@ -898,29 +917,29 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
                           setFacilitySearch('');
                         }}
                         className={`w-full px-3 py-2 rounded-xl text-xs flex items-center justify-between text-left transition-colors ${
-                          isSelected ? 'bg-emerald-50 text-emerald-950 font-bold' : 'hover:bg-slate-50 text-slate-800'
+                          isSelected ? 'bg-emerald-50 dark:bg-emerald-900/50 text-emerald-950 dark:text-emerald-200 font-bold' : 'hover:bg-slate-50 dark:hover:bg-slate-700/70 text-slate-800 dark:text-slate-200'
                         }`}
                       >
                         <div className="flex items-center gap-2.5">
                           <span className="text-base">{fac.icon}</span>
                           <div>
                             <span className="font-semibold block">{fac.label}</span>
-                            <span className="text-[10px] text-slate-400">{fac.category}</span>
+                            <span className="text-[10px] text-slate-400 dark:text-slate-500">{fac.category}</span>
                           </div>
                         </div>
                         {isSelected ? (
-                          <span className="text-xs text-emerald-600 font-bold flex items-center gap-1">
+                          <span className="text-xs text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1">
                             <Check className="w-3.5 h-3.5" /> Added
                           </span>
                         ) : (
-                          <span className="text-xs text-emerald-700 font-semibold">+ Add</span>
+                          <span className="text-xs text-emerald-700 dark:text-emerald-400 font-semibold">+ Add</span>
                         )}
                       </button>
                     );
                   })}
 
                   {/* Add Custom Facility Button */}
-                  <div className="pt-1 border-t border-slate-100 mt-1">
+                  <div className="pt-1 border-t border-slate-100 dark:border-slate-700 mt-1">
                     <button
                       type="button"
                       onClick={() => handleAddCustomFacility(facilitySearch)}
@@ -935,9 +954,9 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
             </div>
 
             {/* Selected Active Facilities Badges */}
-            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-2.5">
+            <div className="bg-slate-50 dark:bg-slate-800/80 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-2.5">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-800 uppercase flex items-center gap-1.5">
+                <span className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase flex items-center gap-1.5">
                   <Tag className="w-3.5 h-3.5 text-emerald-600" />
                   Selected Facilities ({amenityKeys.length})
                 </span>
@@ -945,7 +964,7 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
                   <button
                     type="button"
                     onClick={() => setAmenityKeys([])}
-                    className="text-[11px] text-red-600 hover:underline"
+                    className="text-[11px] text-red-600 dark:text-red-400 hover:underline"
                   >
                     Clear all
                   </button>
@@ -953,7 +972,7 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
               </div>
 
               {amenityKeys.length === 0 ? (
-                <p className="text-xs text-slate-400 italic py-2">
+                <p className="text-xs text-slate-400 dark:text-slate-500 italic py-2">
                   No facilities selected yet. Search above or click the badges below to add amenities.
                 </p>
               ) : (
@@ -965,14 +984,14 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
                     return (
                       <span
                         key={key}
-                        className="inline-flex items-center gap-1.5 bg-emerald-100/90 text-emerald-950 border border-emerald-300 px-3 py-1.5 rounded-xl text-xs font-bold shadow-sm animate-in zoom-in-95 duration-150"
+                        className="inline-flex items-center gap-1.5 bg-emerald-100/90 dark:bg-emerald-950/80 text-emerald-950 dark:text-emerald-200 border border-emerald-300 dark:border-emerald-700 px-3 py-1.5 rounded-xl text-xs font-bold shadow-sm animate-in zoom-in-95 duration-150"
                       >
                         <span>{icon}</span>
                         <span>{label}</span>
                         <button
                           type="button"
                           onClick={() => handleToggleAmenity(key)}
-                          className="w-4 h-4 rounded-full bg-emerald-200 hover:bg-emerald-300 text-emerald-900 flex items-center justify-center ml-0.5"
+                          className="w-4 h-4 rounded-full bg-emerald-200 dark:bg-emerald-800 hover:bg-emerald-300 dark:hover:bg-emerald-700 text-emerald-900 dark:text-emerald-100 flex items-center justify-center ml-0.5"
                           title="Remove facility"
                         >
                           <X className="w-3 h-3" />
@@ -987,7 +1006,7 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
             {/* Categorized Quick-Select Grid */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-700 uppercase">Browse Popular Facilities</span>
+                <span className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase">Browse Popular Facilities</span>
                 <div className="flex items-center gap-1 text-[11px] overflow-x-auto pb-1">
                   {['ALL', 'Utilities', 'Comfort', 'Security', 'Convenience', 'Furniture', 'Internet'].map(cat => (
                     <button
@@ -996,8 +1015,8 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
                       onClick={() => setFacilityCategoryFilter(cat)}
                       className={`px-2.5 py-0.5 rounded-lg font-semibold transition-all ${
                         facilityCategoryFilter === cat 
-                          ? 'bg-slate-900 text-white shadow-sm' 
-                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                          ? 'bg-slate-900 dark:bg-emerald-600 text-white shadow-sm' 
+                          : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
                       }`}
                     >
                       {cat}
@@ -1016,8 +1035,8 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
                       key={fac.key}
                       className={`p-3 rounded-2xl border text-xs flex items-center gap-2.5 cursor-pointer transition-all ${
                         isChecked
-                          ? 'bg-emerald-50 border-emerald-400 font-bold text-emerald-950 shadow-sm'
-                          : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                          ? 'bg-emerald-50 dark:bg-emerald-950/60 border-emerald-400 dark:border-emerald-600 font-bold text-emerald-950 dark:text-emerald-200 shadow-sm'
+                          : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
                       }`}
                     >
                       <input
@@ -1039,77 +1058,77 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
         {/* STEP 5: Pricing Breakdown */}
         {currentStep === 5 && (
           <div className="space-y-4 max-w-3xl">
-            <h3 className="font-bold text-base text-slate-900">Step 5 — Transparent Pricing Breakdown</h3>
-            <p className="text-xs text-slate-500">
+            <h3 className="font-bold text-base text-slate-900 dark:text-white">Step 5 — Transparent Pricing Breakdown</h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
               Disclose all mandatory fees upfront so students know the true cost before visiting.
             </p>
 
-            <div className="p-5 bg-emerald-50/70 border border-emerald-200 rounded-2xl space-y-4">
+            <div className="p-5 bg-emerald-50/70 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-2xl space-y-4">
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">
+                  <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
                     Annual Rent (₦) *
                   </label>
                   <input
                     type="number"
                     value={rentAmount}
                     onChange={(e) => setRentAmount(e.target.value)}
-                    className="w-full text-xs bg-white border border-slate-300 rounded-xl px-3 py-2"
+                    className="w-full text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                     required
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">
+                  <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
                     Service Charge (₦)
                   </label>
                   <input
                     type="number"
                     value={serviceCharge}
                     onChange={(e) => setServiceCharge(e.target.value)}
-                    className="w-full text-xs bg-white border border-slate-300 rounded-xl px-3 py-2"
+                    className="w-full text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">
+                  <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
                     Agency / Agreement (₦)
                   </label>
                   <input
                     type="number"
                     value={agencyFee}
                     onChange={(e) => setAgencyFee(e.target.value)}
-                    className="w-full text-xs bg-white border border-slate-300 rounded-xl px-3 py-2"
+                    className="w-full text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">
+                  <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
                     Caution Deposit (₦ - Refundable)
                   </label>
                   <input
                     type="number"
                     value={cautionFee}
                     onChange={(e) => setCautionFee(e.target.value)}
-                    className="w-full text-xs bg-white border border-slate-300 rounded-xl px-3 py-2"
+                    className="w-full text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">
+                  <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
                     Other Mandatory Levies (₦)
                   </label>
                   <input
                     type="number"
                     value={otherCharges}
                     onChange={(e) => setOtherCharges(e.target.value)}
-                    className="w-full text-xs bg-white border border-slate-300 rounded-xl px-3 py-2"
+                    className="w-full text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                   />
                 </div>
 
-                <div className="bg-white p-3 rounded-xl border border-emerald-300 flex flex-col justify-center">
-                  <span className="text-[10px] font-bold text-slate-500 uppercase">Calculated Total Mandatory Cost</span>
-                  <span className="text-base font-black text-emerald-800">{formatNaira(totalMandatory)}</span>
+                <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-emerald-300 dark:border-emerald-700 flex flex-col justify-center">
+                  <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase">Calculated Total Mandatory Cost</span>
+                  <span className="text-base font-black text-emerald-800 dark:text-emerald-400">{formatNaira(totalMandatory)}</span>
                 </div>
               </div>
             </div>
@@ -1121,8 +1140,8 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
           <div className="space-y-4 max-w-3xl">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="font-bold text-base text-slate-900">Step 6 — Photos & Video Walkthrough</h3>
-                <p className="text-xs text-slate-500">Upload authentic photos and video tours.</p>
+                <h3 className="font-bold text-base text-slate-900 dark:text-white">Step 6 — Photos & Video Walkthrough</h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400">Upload authentic photos and video tours.</p>
               </div>
 
               <div>
@@ -1153,12 +1172,12 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
                 placeholder="Or paste online video tour URL (YouTube, Vimeo, Cloud)..."
                 value={customVideoUrl}
                 onChange={(e) => setCustomVideoUrl(e.target.value)}
-                className="flex-1 text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2"
+                className="flex-1 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
               />
               <button
                 type="button"
                 onClick={handleAddVideoTour}
-                className="px-3 py-2 bg-slate-800 text-white font-bold text-xs rounded-xl"
+                className="px-3 py-2 bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs rounded-xl"
               >
                 Add Video Tour
               </button>
@@ -1167,8 +1186,8 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
             {/* Uploaded Media Items */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
               {mediaList.map(item => (
-                <div key={item.id} className="bg-slate-50 p-3 rounded-2xl border border-slate-200 flex gap-3 items-start">
-                  <div className="w-16 h-16 rounded-xl overflow-hidden bg-slate-200 flex-shrink-0 relative">
+                <div key={item.id} className="bg-slate-50 dark:bg-slate-800/80 p-3 rounded-2xl border border-slate-200 dark:border-slate-700 flex gap-3 items-start">
+                  <div className="w-16 h-16 rounded-xl overflow-hidden bg-slate-200 dark:bg-slate-700 flex-shrink-0 relative">
                     {item.mediaType === 'VIDEO' ? (
                       <div className="w-full h-full bg-slate-900 text-emerald-400 flex flex-col items-center justify-center">
                         <Video className="w-5 h-5" />
@@ -1192,7 +1211,7 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
                           const updated = mediaList.map(m => m.id === item.id ? { ...m, category: e.target.value as MediaCategory } : m);
                           setMediaList(updated);
                         }}
-                        className="text-[10px] font-bold bg-white rounded border border-slate-200 px-1.5 py-0.5"
+                        className="text-[10px] font-bold bg-white dark:bg-slate-900 text-slate-900 dark:text-white rounded border border-slate-200 dark:border-slate-700 px-1.5 py-0.5 cursor-pointer"
                       >
                         <option value="EXTERIOR">Exterior</option>
                         <option value="BEDROOM">Bedroom</option>
@@ -1206,7 +1225,7 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
                       <button
                         type="button"
                         onClick={() => setMediaList(mediaList.filter(m => m.id !== item.id))}
-                        className="text-slate-400 hover:text-red-600"
+                        className="text-slate-400 hover:text-red-600 dark:hover:text-red-400"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
@@ -1220,7 +1239,7 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
                         setMediaList(updated);
                       }}
                       placeholder="Add caption..."
-                      className="w-full text-[10px] bg-white border border-slate-200 rounded px-1.5 py-0.5"
+                      className="w-full text-[10px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded px-1.5 py-0.5 text-slate-900 dark:text-white placeholder:text-slate-400"
                     />
 
                     {item.mediaType === 'IMAGE' && !item.isCover && (
@@ -1230,7 +1249,7 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
                           const updated = mediaList.map(m => ({ ...m, isCover: m.id === item.id }));
                           setMediaList(updated);
                         }}
-                        className="text-[10px] text-emerald-700 font-bold flex items-center gap-1"
+                        className="text-[10px] text-emerald-700 dark:text-emerald-400 font-bold flex items-center gap-1"
                       >
                         <Star className="w-3 h-3" /> Set Cover
                       </button>
@@ -1245,11 +1264,11 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
         {/* STEP 7: Live Student Preview */}
         {currentStep === 7 && (
           <div className="space-y-4 max-w-2xl">
-            <h3 className="font-bold text-base text-slate-900">Step 7 — Student Preview</h3>
-            <p className="text-xs text-slate-500">Here is exactly how your accommodation will appear to LAUTECH students.</p>
+            <h3 className="font-bold text-base text-slate-900 dark:text-white">Step 7 — Student Preview</h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400">Here is exactly how your accommodation will appear to LAUTECH students.</p>
 
-            <div className="bg-white rounded-3xl border border-slate-200 p-5 shadow-lg space-y-4">
-              <div className="relative h-48 rounded-2xl overflow-hidden bg-slate-100">
+            <div className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-200 dark:border-slate-700 p-5 shadow-lg space-y-4">
+              <div className="relative h-48 rounded-2xl overflow-hidden bg-slate-100 dark:bg-slate-900">
                 <img
                   src={mediaList.find(m => m.isCover)?.url || mediaList[0]?.url || 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=800&q=80'}
                   alt="preview"
@@ -1264,12 +1283,12 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
               </div>
 
               <div>
-                <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider">
+                <span className="text-[10px] font-bold text-emerald-800 dark:text-emerald-400 uppercase tracking-wider">
                   📍 {isCustomArea && customLocationName ? customLocationName : (selectedAreaObj?.name || 'Under G')} • {propertyType.replace('_', ' ')}
                 </span>
-                <h4 className="text-lg font-black text-slate-900">{title || 'Your Hostel Name'}</h4>
-                <p className="text-xs text-slate-600 line-clamp-2 mt-1">{description || 'Hostel description'}</p>
-                {address && <p className="text-[11px] text-slate-500 mt-1">🏠 {address}</p>}
+                <h4 className="text-lg font-black text-slate-900 dark:text-white">{title || 'Your Hostel Name'}</h4>
+                <p className="text-xs text-slate-600 dark:text-slate-300 line-clamp-2 mt-1">{description || 'Hostel description'}</p>
+                {address && <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">🏠 {address}</p>}
 
                 {/* Facilities Preview Chips */}
                 {amenityKeys.length > 0 && (
@@ -1277,14 +1296,14 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
                     {amenityKeys.slice(0, 8).map(key => {
                       const preset = POPULAR_LAUTECH_FACILITIES.find(f => f.key === key);
                       return (
-                        <span key={key} className="bg-emerald-50 text-emerald-900 border border-emerald-200 px-2 py-0.5 rounded-lg text-[10px] font-semibold flex items-center gap-1">
+                        <span key={key} className="bg-emerald-50 dark:bg-emerald-950/80 text-emerald-900 dark:text-emerald-200 border border-emerald-200 dark:border-emerald-700 px-2 py-0.5 rounded-lg text-[10px] font-semibold flex items-center gap-1">
                           <span>{preset?.icon || '✓'}</span>
                           <span>{preset?.label || key}</span>
                         </span>
                       );
                     })}
                     {amenityKeys.length > 8 && (
-                      <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded-lg text-[10px] font-semibold">
+                      <span className="bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 px-2 py-0.5 rounded-lg text-[10px] font-semibold">
                         +{amenityKeys.length - 8} more
                       </span>
                     )}
@@ -1292,14 +1311,14 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
                 )}
               </div>
 
-              <div className="p-3 bg-slate-50 rounded-xl flex items-center justify-between text-xs">
+              <div className="p-3 bg-slate-50 dark:bg-slate-900/80 rounded-xl flex items-center justify-between text-xs">
                 <div>
-                  <span className="text-[10px] text-slate-500 block">Annual Rent</span>
-                  <span className="font-bold text-slate-900 text-sm">{formatNaira(parseFloat(rentAmount) || 0)}/yr</span>
+                  <span className="text-[10px] text-slate-500 dark:text-slate-400 block">Annual Rent</span>
+                  <span className="font-bold text-slate-900 dark:text-white text-sm">{formatNaira(parseFloat(rentAmount) || 0)}/yr</span>
                 </div>
                 <div className="text-right">
-                  <span className="text-[10px] text-slate-500 block">Est. Total First Year</span>
-                  <span className="font-black text-emerald-800 text-sm">{formatNaira(totalMandatory)}</span>
+                  <span className="text-[10px] text-slate-500 dark:text-slate-400 block">Est. Total First Year</span>
+                  <span className="font-black text-emerald-800 dark:text-emerald-400 text-sm">{formatNaira(totalMandatory)}</span>
                 </div>
               </div>
             </div>
@@ -1309,15 +1328,15 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
         {/* STEP 8: Submit & Completeness Review */}
         {currentStep === 8 && (
           <div className="space-y-6 max-w-2xl">
-            <h3 className="font-bold text-base text-slate-900">Step 8 — Review & Submission</h3>
+            <h3 className="font-bold text-base text-slate-900 dark:text-white">Step 8 — Review & Submission</h3>
 
-            <div className="p-5 bg-slate-50 border border-slate-200 rounded-2xl space-y-3">
+            <div className="p-5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-700">Listing Completeness Score</span>
-                <span className="text-sm font-black text-emerald-700">{completeness.score}%</span>
+                <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Listing Completeness Score</span>
+                <span className="text-sm font-black text-emerald-700 dark:text-emerald-400">{completeness.score}%</span>
               </div>
 
-              <div className="w-full bg-slate-200 h-2.5 rounded-full overflow-hidden">
+              <div className="w-full bg-slate-200 dark:bg-slate-700 h-2.5 rounded-full overflow-hidden">
                 <div
                   className={`h-full ${completeness.score >= 80 ? 'bg-emerald-500' : 'bg-amber-500'}`}
                   style={{ width: `${completeness.score}%` }}
@@ -1325,22 +1344,22 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
               </div>
 
               {completeness.missing.length > 0 ? (
-                <div className="pt-2 text-xs text-slate-600 space-y-1">
-                  <p className="font-bold text-slate-700">Recommended additions before submitting:</p>
-                  <ul className="list-disc list-inside text-[11px] text-slate-500 space-y-0.5">
+                <div className="pt-2 text-xs text-slate-600 dark:text-slate-300 space-y-1">
+                  <p className="font-bold text-slate-700 dark:text-slate-200">Recommended additions before submitting:</p>
+                  <ul className="list-disc list-inside text-[11px] text-slate-500 dark:text-slate-400 space-y-0.5">
                     {completeness.missing.map((item, i) => (
                       <li key={i}>{item}</li>
                     ))}
                   </ul>
                 </div>
               ) : (
-                <p className="text-xs font-bold text-emerald-700 flex items-center gap-1.5">
+                <p className="text-xs font-bold text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5">
                   <CheckCircle2 className="w-4 h-4" /> Listing is 100% complete and ready for instant audit!
                 </p>
               )}
             </div>
 
-            <div className="p-4 bg-emerald-50/60 border border-emerald-200 rounded-2xl text-xs text-emerald-900 space-y-1">
+            <div className="p-4 bg-emerald-50/60 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-2xl text-xs text-emerald-900 dark:text-emerald-200 space-y-1">
               <p className="font-bold">What happens next?</p>
               <p className="text-[11px] leading-relaxed">
                 When you click <strong>"Submit for Verification"</strong>, our LAUTECH campus team will audit your pricing and photos. Once approved, your lodge receives the <strong>"Hostel Ease Verified"</strong> badge and appears on student search.
@@ -1351,11 +1370,11 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
       </div>
 
       {/* Footer Controls */}
-      <div className="bg-slate-50 p-6 border-t border-slate-200 flex items-center justify-between flex-wrap gap-3">
+      <div className="bg-slate-50 dark:bg-slate-900 p-6 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between flex-wrap gap-3">
         <button
           type="button"
           onClick={onCancel}
-          className="px-4 py-2.5 text-xs font-semibold text-slate-600 hover:bg-slate-200 rounded-xl"
+          className="px-4 py-2.5 text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-xl transition-colors"
         >
           Cancel
         </button>
@@ -1365,7 +1384,7 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
             <button
               type="button"
               onClick={() => setCurrentStep(prev => prev - 1)}
-              className="px-4 py-2.5 bg-white border border-slate-200 text-xs font-bold text-slate-700 rounded-xl hover:bg-slate-100 flex items-center gap-1"
+              className="px-4 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-1 transition-colors"
             >
               <ChevronLeft className="w-4 h-4" /> Back
             </button>
@@ -1376,7 +1395,7 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
             type="button"
             disabled={submitting}
             onClick={() => handleFinalSubmit(true)}
-            className="px-4 py-2.5 bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold rounded-xl shadow flex items-center gap-1.5 disabled:opacity-50"
+            className="px-4 py-2.5 bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold rounded-xl shadow flex items-center gap-1.5 disabled:opacity-50 transition-colors"
           >
             <Save className="w-3.5 h-3.5" /> Save Draft
           </button>
@@ -1385,7 +1404,7 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
             <button
               type="button"
               onClick={() => setCurrentStep(prev => prev + 1)}
-              className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow flex items-center gap-1"
+              className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow flex items-center gap-1 transition-colors"
             >
               Next <ChevronRight className="w-4 h-4" />
             </button>
@@ -1394,7 +1413,7 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
               type="button"
               disabled={submitting}
               onClick={() => handleFinalSubmit(false)}
-              className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black rounded-xl shadow-lg flex items-center gap-1.5 disabled:opacity-50"
+              className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black rounded-xl shadow-lg flex items-center gap-1.5 disabled:opacity-50 transition-colors"
             >
               <Send className="w-3.5 h-3.5" />
               {submitting ? 'Submitting...' : 'Submit for Verification'}

@@ -1408,16 +1408,39 @@ export const api = {
   // Universities & Areas
   areas: {
     async getAll(): Promise<{ areas: Area[] }> {
+      let customAreas: Area[] = [];
+      try {
+        const saved = localStorage.getItem('hostel_ease_custom_areas');
+        if (saved) {
+          customAreas = JSON.parse(saved);
+        }
+      } catch {}
+
       try {
         const res = await fetch(`${API_BASE}/areas`);
         if (res.ok) {
           const data = await res.json();
-          if (data.areas && data.areas.length > 0) return data;
+          if (data.areas && data.areas.length > 0) {
+            const combined = [...data.areas];
+            customAreas.forEach(ca => {
+              if (!combined.some(a => a.id === ca.id || a.name.toLowerCase() === ca.name.toLowerCase())) {
+                combined.push(ca);
+              }
+            });
+            return { areas: combined };
+          }
         }
       } catch (err) {
         console.warn('Backend /api/areas unreachable, using verified LAUTECH area catalog.');
       }
-      return { areas: DEFAULT_AREAS };
+
+      const combined = [...DEFAULT_AREAS];
+      customAreas.forEach(ca => {
+        if (!combined.some(a => a.id === ca.id || a.name.toLowerCase() === ca.name.toLowerCase())) {
+          combined.push(ca);
+        }
+      });
+      return { areas: combined };
     }
   },
 
@@ -2195,6 +2218,32 @@ export const api = {
       const caution = Number(data.pricing?.cautionFee) || 0;
       const other = Number(data.pricing?.otherMandatoryCharges) || 0;
 
+      const matchedArea = DEFAULT_AREAS.find(a => a.id === data.areaId);
+      const customLoc = data.customLocationName?.trim();
+      const areaName = customLoc || matchedArea?.name || 'Under G';
+      const areaSlug = areaName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+      const areaId = customLoc ? `area-${areaSlug}` : (data.areaId || 'area-under-g');
+
+      if (customLoc) {
+        try {
+          const saved = localStorage.getItem('hostel_ease_custom_areas');
+          const customList: Area[] = saved ? JSON.parse(saved) : [];
+          if (!customList.some(a => a.name.toLowerCase() === customLoc.toLowerCase())) {
+            customList.push({
+              id: areaId,
+              universityId: 'uni-lautech',
+              name: customLoc,
+              slug: areaSlug,
+              description: `Custom accommodation neighborhood near ${matchedArea?.name || 'LAUTECH'}`,
+              landmark: data.nearbyLandmark || 'LAUTECH Off-Campus Area',
+              approxDistanceMinKm: Number(data.distanceFromCampusKm) || 0.8,
+              approxDistanceMaxKm: (Number(data.distanceFromCampusKm) || 0.8) + 0.5
+            });
+            localStorage.setItem('hostel_ease_custom_areas', JSON.stringify(customList));
+          }
+        } catch {}
+      }
+
       const newProp: Property = {
         id: propertyId,
         slug,
@@ -2202,12 +2251,12 @@ export const api = {
         propertyType: data.propertyType || 'SELF_CONTAIN',
         genderPreference: data.genderPreference || 'ANY',
         description: data.description || 'Modern student accommodation with steady water and electricity.',
-        address: data.address || 'LAUTECH Off-Campus Area',
+        address: data.address || `${areaName}, Ogbomoso`,
         area: {
-          id: data.areaId || 'area-under-g',
-          name: data.customLocationName || 'Under G',
-          slug: (data.customLocationName || 'under-g').toLowerCase().replace(/[^a-z0-9]+/g, '-'),
-          landmark: data.nearbyLandmark || 'LAUTECH Area'
+          id: areaId,
+          name: areaName,
+          slug: areaSlug,
+          landmark: data.nearbyLandmark || `${areaName} Area`
         },
         nearbyLandmark: data.nearbyLandmark || '',
         distanceFromCampusKm: Number(data.distanceFromCampusKm) || 0.8,
