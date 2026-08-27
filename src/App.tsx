@@ -62,6 +62,7 @@ import { AIAccommodationAssistantModal } from './components/AIAccommodationAssis
 import { MoveInCenter } from './components/MoveInCenter';
 import { AccommodationHistory } from './components/AccommodationHistory';
 import { CommunityHub } from './components/CommunityHub';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 const initialFilters: SearchFilterState = {
   search: '',
@@ -88,7 +89,20 @@ function MainApp() {
   const { user, isAuthenticated, isStudent, isProvider, isAgent, isAdmin, login, logout, loginDemo } = useAuth();
 
   // Navigation & View State
-  const [currentView, setCurrentView] = useState<AppView>('home');
+  const [currentView, setCurrentView] = useState<AppView>(() => {
+    try {
+      const saved = localStorage.getItem('hostel_ease_current_view') as AppView;
+      if (saved) return saved;
+    } catch {}
+    return 'home';
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('hostel_ease_current_view', currentView);
+    } catch {}
+  }, [currentView]);
+
   const [searchViewMode, setSearchViewMode] = useState<'list' | 'map'>('list');
   const [messagingTargetPropertyId, setMessagingTargetPropertyId] = useState<string | null>(null);
 
@@ -737,11 +751,13 @@ function MainApp() {
 
         {/* VIEW: COMMUNITY & ROOMMATES (Phase 14) */}
         {currentView === 'community' && (
-          <CommunityHub
-            isAuthenticated={isAuthenticated}
-            onShowToast={showToast}
-            onOpenAuthModal={() => setAuthModalOpen(true)}
-          />
+          <ErrorBoundary>
+            <CommunityHub
+              isAuthenticated={isAuthenticated}
+              onShowToast={showToast}
+              onOpenAuthModal={() => setAuthModalOpen(true)}
+            />
+          </ErrorBoundary>
         )}
 
         {/* VIEW 4: STUDENT INSPECTION CENTER (Phase 4) */}
@@ -938,10 +954,12 @@ function MainApp() {
         {/* VIEW 8: ADMIN PORTAL */}
         {currentView === 'admin-portal' && (
           isAdmin ? (
-            <AdminPortal
-              areas={areas}
-              onShowToast={showToast}
-            />
+            <ErrorBoundary>
+              <AdminPortal
+                areas={areas}
+                onShowToast={showToast}
+              />
+            </ErrorBoundary>
           ) : (
             <div className="max-w-lg mx-auto my-12 p-8 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl text-center space-y-6 animate-in zoom-in-95 duration-150">
               <div className="w-16 h-16 rounded-2xl bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 flex items-center justify-center mx-auto border border-purple-200 dark:border-purple-800 shadow-inner">

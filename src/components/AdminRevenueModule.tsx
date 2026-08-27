@@ -381,7 +381,7 @@ export const AdminRevenueModule: React.FC<AdminRevenueModuleProps> = ({
                   Platform Owner Revenue Breakdown
                 </span>
                 <h2 className="text-2xl sm:text-3xl font-black text-white mt-2">
-                  Net Platform Earnings: <span className="text-emerald-400">{formatNaira(overviewData.ownerRevenue.netPlatformRevenue)}</span>
+                  Net Platform Earnings: <span className="text-emerald-400">{formatNaira(overviewData?.ownerRevenue?.netPlatformRevenue ?? 0)}</span>
                 </h2>
                 <p className="text-xs text-slate-400 mt-1">
                   Total revenue generated across all booking fees, subscriptions, promotions, and add-on services.
@@ -390,7 +390,7 @@ export const AdminRevenueModule: React.FC<AdminRevenueModuleProps> = ({
 
               <div className="text-right">
                 <p className="text-xs font-bold text-slate-400 uppercase">Gross Platform Volume</p>
-                <p className="text-xl font-black text-white">{formatNaira(overviewData.ownerRevenue.totalGrossRevenue)}</p>
+                <p className="text-xl font-black text-white">{formatNaira(overviewData?.ownerRevenue?.totalGrossRevenue ?? 0)}</p>
               </div>
             </div>
 
@@ -398,37 +398,37 @@ export const AdminRevenueModule: React.FC<AdminRevenueModuleProps> = ({
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
               <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-3.5 space-y-1">
                 <p className="text-[10px] font-bold text-slate-400 uppercase">Total Revenue</p>
-                <p className="text-base font-black text-white">{formatNaira(overviewData.ownerRevenue.totalGrossRevenue)}</p>
+                <p className="text-base font-black text-white">{formatNaira(overviewData?.ownerRevenue?.totalGrossRevenue ?? 0)}</p>
                 <p className="text-[9px] text-emerald-400">Gross inflows</p>
               </div>
 
               <div className="bg-slate-900/90 border border-emerald-900/40 rounded-xl p-3.5 space-y-1">
                 <p className="text-[10px] font-bold text-emerald-400 uppercase">Booking Commission</p>
-                <p className="text-base font-black text-emerald-300">{formatNaira(overviewData.ownerRevenue.bookingCommission)}</p>
+                <p className="text-base font-black text-emerald-300">{formatNaira(overviewData?.ownerRevenue?.bookingCommission ?? 0)}</p>
                 <p className="text-[9px] text-slate-400">7.5% platform fee</p>
               </div>
 
               <div className="bg-slate-900/90 border border-blue-900/40 rounded-xl p-3.5 space-y-1">
                 <p className="text-[10px] font-bold text-blue-400 uppercase">Provider Subscriptions</p>
-                <p className="text-base font-black text-blue-300">{formatNaira(overviewData.ownerRevenue.providerSubscriptions)}</p>
+                <p className="text-base font-black text-blue-300">{formatNaira(overviewData?.ownerRevenue?.providerSubscriptions ?? 0)}</p>
                 <p className="text-[9px] text-slate-400">Pro & Enterprise</p>
               </div>
 
               <div className="bg-slate-900/90 border border-amber-900/40 rounded-xl p-3.5 space-y-1">
                 <p className="text-[10px] font-bold text-amber-400 uppercase">Featured Listings</p>
-                <p className="text-base font-black text-amber-300">{formatNaira(overviewData.ownerRevenue.featuredListings)}</p>
+                <p className="text-base font-black text-amber-300">{formatNaira(overviewData?.ownerRevenue?.featuredListings ?? 0)}</p>
                 <p className="text-[9px] text-slate-400">Search spotlights</p>
               </div>
 
               <div className="bg-slate-900/90 border border-purple-900/40 rounded-xl p-3.5 space-y-1">
                 <p className="text-[10px] font-bold text-purple-400 uppercase">Digital Services</p>
-                <p className="text-base font-black text-purple-300">{formatNaira(overviewData.ownerRevenue.digitalServices)}</p>
+                <p className="text-base font-black text-purple-300">{formatNaira(overviewData?.ownerRevenue?.digitalServices ?? 0)}</p>
                 <p className="text-[9px] text-slate-400">Photos & 3D tours</p>
               </div>
 
               <div className="bg-slate-900/90 border border-rose-900/40 rounded-xl p-3.5 space-y-1">
                 <p className="text-[10px] font-bold text-rose-400 uppercase">Refunds Issued</p>
-                <p className="text-base font-black text-rose-400">-{formatNaira(overviewData.ownerRevenue.refunds)}</p>
+                <p className="text-base font-black text-rose-400">-{formatNaira(overviewData?.ownerRevenue?.refunds ?? 0)}</p>
                 <p className="text-[9px] text-rose-400/80">Disputes reversed</p>
               </div>
             </div>
@@ -438,38 +438,38 @@ export const AdminRevenueModule: React.FC<AdminRevenueModuleProps> = ({
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
             <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-1">
               <p className="text-[10px] font-bold text-slate-400 uppercase">This Month</p>
-              <p className="text-xl font-black text-emerald-400">{formatNaira(overviewData.dashboardSummary.thisMonth)}</p>
+              <p className="text-xl font-black text-emerald-400">{formatNaira(overviewData?.dashboardSummary?.thisMonth ?? 0)}</p>
               <p className="text-[10px] text-slate-500">Current calendar month</p>
             </div>
 
             <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-1">
               <p className="text-[10px] font-bold text-slate-400 uppercase">Pending Revenue</p>
-              <p className="text-xl font-black text-amber-400">{formatNaira(overviewData.dashboardSummary.pendingRevenue)}</p>
+              <p className="text-xl font-black text-amber-400">{formatNaira(overviewData?.dashboardSummary?.pendingRevenue ?? 0)}</p>
               <p className="text-[10px] text-slate-500">Awaiting bank verification</p>
             </div>
 
             <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-1">
               <p className="text-[10px] font-bold text-slate-400 uppercase">Successful Bookings</p>
-              <p className="text-xl font-black text-white">{overviewData.dashboardSummary.successfulBookings}</p>
+              <p className="text-xl font-black text-white">{overviewData?.dashboardSummary?.successfulBookings ?? 0}</p>
               <p className="text-[10px] text-emerald-400">Completed reservations</p>
             </div>
 
             <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-1">
               <p className="text-[10px] font-bold text-slate-400 uppercase">Provider Revenue</p>
-              <p className="text-xl font-black text-cyan-400">{formatNaira(overviewData.dashboardSummary.providerRevenue)}</p>
+              <p className="text-xl font-black text-cyan-400">{formatNaira(overviewData?.dashboardSummary?.providerRevenue ?? 0)}</p>
               <p className="text-[10px] text-slate-500">Net landlord payouts</p>
             </div>
 
             <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-1">
               <p className="text-[10px] font-bold text-slate-400 uppercase">Platform Commission</p>
-              <p className="text-xl font-black text-indigo-400">{formatNaira(overviewData.dashboardSummary.platformCommission)}</p>
+              <p className="text-xl font-black text-indigo-400">{formatNaira(overviewData?.dashboardSummary?.platformCommission ?? 0)}</p>
               <p className="text-[10px] text-slate-500">Fee retained</p>
             </div>
 
             <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-1">
               <p className="text-[10px] font-bold text-slate-400 uppercase">Pending Payouts</p>
-              <p className="text-xl font-black text-rose-400">{formatNaira(overviewData.dashboardSummary.pendingPayouts)}</p>
-              <p className="text-[10px] text-slate-500">{overviewData.dashboardSummary.pendingPayoutsCount} requests in queue</p>
+              <p className="text-xl font-black text-rose-400">{formatNaira(overviewData?.dashboardSummary?.pendingPayouts ?? 0)}</p>
+              <p className="text-[10px] text-slate-500">{overviewData?.dashboardSummary?.pendingPayoutsCount ?? 0} requests in queue</p>
             </div>
           </div>
 
@@ -483,12 +483,12 @@ export const AdminRevenueModule: React.FC<AdminRevenueModuleProps> = ({
                   <span>Monetization Stream Contribution</span>
                 </h3>
                 <span className="text-[10px] font-bold text-slate-400 bg-slate-900 px-2 py-0.5 rounded">
-                  4 Active Streams
+                  {(overviewData?.streams || []).length} Active Streams
                 </span>
               </div>
 
               <div className="space-y-3.5">
-                {overviewData.streams.map((s) => (
+                {(overviewData?.streams || []).map((s) => (
                   <div key={s.name} className="space-y-1.5">
                     <div className="flex justify-between items-center text-xs">
                       <span className="font-semibold text-slate-300">{s.name}</span>
@@ -518,7 +518,7 @@ export const AdminRevenueModule: React.FC<AdminRevenueModuleProps> = ({
               </div>
 
               <div className="space-y-2.5">
-                {overviewData.areaRevenue.slice(0, 5).map((a) => (
+                {(overviewData?.areaRevenue || []).slice(0, 5).map((a) => (
                   <div key={a.areaName} className="flex items-center justify-between p-2.5 rounded-xl bg-slate-900/60 border border-slate-800/80 text-xs">
                     <div>
                       <p className="font-bold text-white">{a.areaName}</p>

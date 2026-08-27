@@ -639,13 +639,13 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
             {
               category: '💰 FINANCE / REVENUE',
               items: [
-                { id: 'finance_revenue', label: 'Revenue Overview', icon: TrendingUp, badge: revenueOverview ? formatNaira(revenueOverview.ownerRevenue.netPlatformRevenue) : null, badgeColor: 'bg-emerald-500/20 text-emerald-300' },
+                { id: 'finance_revenue', label: 'Revenue Overview', icon: TrendingUp, badge: revenueOverview?.ownerRevenue ? formatNaira(revenueOverview.ownerRevenue.netPlatformRevenue) : null, badgeColor: 'bg-emerald-500/20 text-emerald-300' },
                 { id: 'finance_transactions', label: 'Transactions', icon: CreditCard, badge: null },
                 { id: 'finance_commissions', label: 'Booking Commissions', icon: Receipt, badge: '7.5%', badgeColor: 'bg-indigo-500/20 text-indigo-300' },
-                { id: 'finance_subscriptions', label: 'Provider Subscriptions', icon: ShieldCheck, badge: revenueOverview?.dashboardSummary.activeSubscribers || null },
-                { id: 'finance_featured', label: 'Featured Listings', icon: Sparkles, badge: revenueOverview?.dashboardSummary.activeFeatured || null, badgeColor: 'bg-amber-500/20 text-amber-300' },
-                { id: 'finance_services', label: 'Provider Services', icon: Camera, badge: revenueOverview?.dashboardSummary.completedServices || null },
-                { id: 'finance_payouts', label: 'Payouts', icon: ArrowUpRight, badge: revenueOverview?.dashboardSummary.pendingPayoutsCount ? `${revenueOverview.dashboardSummary.pendingPayoutsCount} Pending` : null, badgeColor: 'bg-rose-500/20 text-rose-300' },
+                { id: 'finance_subscriptions', label: 'Provider Subscriptions', icon: ShieldCheck, badge: revenueOverview?.dashboardSummary?.activeSubscribers || null },
+                { id: 'finance_featured', label: 'Featured Listings', icon: Sparkles, badge: revenueOverview?.dashboardSummary?.activeFeatured || null, badgeColor: 'bg-amber-500/20 text-amber-300' },
+                { id: 'finance_services', label: 'Provider Services', icon: Camera, badge: revenueOverview?.dashboardSummary?.completedServices || null },
+                { id: 'finance_payouts', label: 'Payouts', icon: ArrowUpRight, badge: revenueOverview?.dashboardSummary?.pendingPayoutsCount ? `${revenueOverview.dashboardSummary.pendingPayoutsCount} Pending` : null, badgeColor: 'bg-rose-500/20 text-rose-300' },
                 { id: 'finance_refunds', label: 'Refunds', icon: ArrowDownLeft, badge: null },
                 { id: 'finance_invoices', label: 'Invoices', icon: FileText, badge: null },
                 { id: 'finance_withdrawals', label: 'Withdrawals', icon: DollarSign, badge: null },

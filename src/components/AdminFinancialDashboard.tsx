@@ -113,10 +113,10 @@ export const AdminFinancialDashboard: React.FC<AdminFinancialDashboardProps> = (
             Gross Volume (GMV)
           </span>
           <p className="text-2xl font-black text-slate-900">
-            {loading ? '...' : formatNaira(data?.metrics.totalGmv || 0)}
+            {loading ? '...' : formatNaira(data?.metrics?.totalGmv || 0)}
           </p>
           <span className="text-[11px] text-slate-500 mt-1 block">
-            {data?.metrics.successCount || 0} Successful Transactions
+            {data?.metrics?.successCount || 0} Successful Transactions
           </span>
         </div>
 
@@ -125,7 +125,7 @@ export const AdminFinancialDashboard: React.FC<AdminFinancialDashboardProps> = (
             Platform Fees Earned
           </span>
           <p className="text-2xl font-black text-emerald-600">
-            {loading ? '...' : formatNaira(data?.metrics.totalPlatformFees || 0)}
+            {loading ? '...' : formatNaira(data?.metrics?.totalPlatformFees || 0)}
           </p>
           <span className="text-[11px] text-emerald-700 font-semibold mt-1 block">
             Hostel Ease Revenue
@@ -137,7 +137,7 @@ export const AdminFinancialDashboard: React.FC<AdminFinancialDashboardProps> = (
             Provider Payouts Due
           </span>
           <p className="text-2xl font-black text-indigo-600">
-            {loading ? '...' : formatNaira(data?.metrics.totalProviderEarnings || 0)}
+            {loading ? '...' : formatNaira(data?.metrics?.totalProviderEarnings || 0)}
           </p>
           <span className="text-[11px] text-slate-500 mt-1 block">
             Escrow Net Payable
@@ -149,10 +149,10 @@ export const AdminFinancialDashboard: React.FC<AdminFinancialDashboardProps> = (
             Total Refunded
           </span>
           <p className="text-2xl font-black text-rose-600">
-            {loading ? '...' : formatNaira(data?.metrics.totalRefunded || 0)}
+            {loading ? '...' : formatNaira(data?.metrics?.totalRefunded || 0)}
           </p>
           <span className="text-[11px] text-rose-700 font-semibold mt-1 block">
-            {data?.metrics.refundedCount || 0} Refund Actions
+            {data?.metrics?.refundedCount || 0} Refund Actions
           </span>
         </div>
 

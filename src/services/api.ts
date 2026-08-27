@@ -63,7 +63,21 @@ import {
   DEFAULT_PAYOUTS,
   DEFAULT_NOTIFICATION_LOGS,
   DEFAULT_STUDENT_DASHBOARD,
-  DEFAULT_STUDENT_PREFERENCES
+  DEFAULT_STUDENT_PREFERENCES,
+  DEFAULT_REVENUE_OVERVIEW,
+  DEFAULT_ADMIN_FINANCIALS,
+  DEFAULT_COMMISSIONS_LIST,
+  DEFAULT_SUBSCRIPTIONS_LIST,
+  DEFAULT_FEATURED_LISTINGS_LIST,
+  DEFAULT_SERVICES_LIST,
+  DEFAULT_PAYOUTS_LIST,
+  DEFAULT_INVOICES_LIST,
+  DEFAULT_WITHDRAWALS_LIST,
+  DEFAULT_REPORT_ROWS,
+  DEFAULT_REVENUE_SETTINGS,
+  DEFAULT_ADMIN_USERS,
+  DEFAULT_ADMIN_DISPUTES,
+  DEFAULT_ADMIN_AUDIT_LOGS
 } from './offlineFallback';
 
 const API_BASE = '/api';
@@ -183,6 +197,9 @@ function generateOfflineFallbackResponse(url?: string): any {
   }
 
   // Payments
+  if (cleanUrl.includes('/payments/admin-financials') || cleanUrl.includes('/payments/admin')) {
+    return DEFAULT_ADMIN_FINANCIALS;
+  }
   if (cleanUrl.includes('/payments/initialize') || cleanUrl.includes('/payments/initialize-flutterwave')) {
     return {
       message: 'Payment initialized',
@@ -277,72 +294,65 @@ function generateOfflineFallbackResponse(url?: string): any {
     return {
       overallStatus: 'OPERATIONAL',
       services: [
-        { name: 'Database (SQLite)', status: 'HEALTHY', latencyMs: 2 },
-        { name: 'Payment Escrow Engine', status: 'HEALTHY', latencyMs: 5 },
-        { name: 'Authentication RBAC', status: 'HEALTHY', latencyMs: 1 }
+        { name: 'Database (SQLite / Edge)', status: 'HEALTHY', latencyMs: 2, details: '100% Query Uptime' },
+        { name: 'Payment Escrow Engine', status: 'HEALTHY', latencyMs: 5, details: 'Paystack & Flutterwave Connected' },
+        { name: 'Authentication RBAC', status: 'HEALTHY', latencyMs: 1, details: 'Bcrypt & Role Guard Active' }
       ]
     };
   }
   if (cleanUrl.includes('/admin/revenue/overview')) {
-    return {
-      success: true,
-      overview: {
-        totalRevenue: 8450000,
-        netPlatformRevenue: 633750,
-        bookingCommissions: 420000,
-        providerSubscriptions: 150000,
-        featuredListingsRevenue: 45000,
-        providerServicesRevenue: 18750,
-        pendingPayouts: 320000,
-        completedPayouts: 7500000,
-        monthRevenue: 1250000
-      }
-    };
+    return DEFAULT_REVENUE_OVERVIEW;
   }
   if (cleanUrl.includes('/admin/revenue/transactions')) {
-    return { success: true, transactions: [], total: 0 };
+    return { success: true, transactions: DEFAULT_COMMISSIONS_LIST, total: DEFAULT_COMMISSIONS_LIST.length };
   }
   if (cleanUrl.includes('/admin/revenue/commissions')) {
-    return { success: true, commissions: [], total: 0 };
+    return { success: true, commissions: DEFAULT_COMMISSIONS_LIST, total: DEFAULT_COMMISSIONS_LIST.length };
   }
   if (cleanUrl.includes('/admin/revenue/subscriptions')) {
-    return { success: true, subscriptions: [], total: 0 };
+    return { success: true, subscriptions: DEFAULT_SUBSCRIPTIONS_LIST, total: DEFAULT_SUBSCRIPTIONS_LIST.length };
   }
   if (cleanUrl.includes('/admin/revenue/featured-listings')) {
-    return { success: true, featuredListings: [], total: 0 };
+    return { success: true, featuredListings: DEFAULT_FEATURED_LISTINGS_LIST, total: DEFAULT_FEATURED_LISTINGS_LIST.length };
   }
   if (cleanUrl.includes('/admin/revenue/provider-services')) {
-    return { success: true, providerServices: [], total: 0 };
+    return { success: true, providerServices: DEFAULT_SERVICES_LIST, total: DEFAULT_SERVICES_LIST.length };
   }
   if (cleanUrl.includes('/admin/revenue/payouts')) {
-    return { success: true, payouts: [], total: 0 };
+    return { success: true, payouts: DEFAULT_PAYOUTS_LIST, total: DEFAULT_PAYOUTS_LIST.length };
   }
   if (cleanUrl.includes('/admin/revenue/refunds')) {
     return { success: true, refunds: [], total: 0 };
   }
   if (cleanUrl.includes('/admin/revenue/invoices')) {
-    return { success: true, invoices: [], total: 0 };
+    return { success: true, invoices: DEFAULT_INVOICES_LIST, total: DEFAULT_INVOICES_LIST.length };
   }
   if (cleanUrl.includes('/admin/revenue/withdrawals')) {
-    return { success: true, withdrawals: [], total: 0 };
+    return { success: true, withdrawals: DEFAULT_WITHDRAWALS_LIST, total: DEFAULT_WITHDRAWALS_LIST.length };
   }
   if (cleanUrl.includes('/admin/revenue/financial-reports')) {
-    return { success: true, reports: [] };
+    return { success: true, reports: DEFAULT_REPORT_ROWS };
   }
   if (cleanUrl.includes('/admin/revenue/settings')) {
-    return { success: true, settings: [] };
+    return { success: true, settings: DEFAULT_REVENUE_SETTINGS };
   }
   if (cleanUrl.includes('/admin/users')) {
-    return { users: [], total: 0 };
+    return { users: DEFAULT_ADMIN_USERS, total: DEFAULT_ADMIN_USERS.length };
   }
   if (cleanUrl.includes('/admin/hostels')) {
     return { hostels: DEFAULT_PROPERTIES };
+  }
+  if (cleanUrl.includes('/admin/audit-logs')) {
+    return { logs: DEFAULT_ADMIN_AUDIT_LOGS };
   }
   if (cleanUrl.includes('/admin/announcements')) {
     return { announcements: [] };
   }
   if (cleanUrl.includes('/admin/operations/dashboard') || cleanUrl.includes('/admin/operations')) {
     return DEFAULT_OPERATIONS_DASHBOARD;
+  }
+  if (cleanUrl.includes('/disputes')) {
+    return { disputes: DEFAULT_ADMIN_DISPUTES, total: DEFAULT_ADMIN_DISPUTES.length };
   }
   if (cleanUrl.includes('/admin/dashboard') || cleanUrl.endsWith('/admin')) {
     return {

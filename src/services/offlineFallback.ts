@@ -3,7 +3,21 @@ import {
   Property, 
   Amenity, 
   StudentDashboardData, 
-  StudentPreferences 
+  StudentPreferences,
+  RevenueOverviewResponse,
+  AdminFinancialsData,
+  BookingCommissionItem,
+  ProviderSubscriptionItem,
+  FeaturedListingItem,
+  ProviderDigitalServiceItem,
+  PayoutRequestItem,
+  PlatformInvoiceItem,
+  PlatformWithdrawalItem,
+  FinancialReportRow,
+  RevenueSettingItem,
+  AdminUserItem,
+  AdminProviderItem,
+  AdminAuditLogItem
 } from '../types/hostelEase';
 
 export const DEFAULT_AREAS: Area[] = [
@@ -1003,4 +1017,394 @@ export const DEFAULT_STUDENT_DASHBOARD: StudentDashboardData = {
     avatarUrl: ''
   }
 };
+
+export const DEFAULT_REVENUE_OVERVIEW: RevenueOverviewResponse = {
+  success: true,
+  ownerRevenue: {
+    totalGrossRevenue: 4500000,
+    bookingCommission: 337500,
+    providerSubscriptions: 180000,
+    featuredListings: 60000,
+    digitalServices: 45000,
+    refunds: 0,
+    netPlatformRevenue: 622500
+  },
+  dashboardSummary: {
+    totalRevenue: 4500000,
+    thisMonth: 850000,
+    pendingRevenue: 280000,
+    successfulBookings: 18,
+    providerRevenue: 3877500,
+    platformCommission: 622500,
+    activeSubscribers: 8,
+    activeFeatured: 4,
+    completedServices: 6,
+    pendingPayouts: 180000,
+    pendingPayoutsCount: 2,
+    totalOwnerWithdrawn: 400000
+  },
+  streams: [
+    { name: '7.5% Booking Commissions', amount: 337500, percentage: 54.2, color: '#10B981', icon: 'Receipt' },
+    { name: 'Provider Subscriptions', amount: 180000, percentage: 28.9, color: '#3B82F6', icon: 'ShieldCheck' },
+    { name: 'Featured Listings Boost', amount: 60000, percentage: 9.6, color: '#F59E0B', icon: 'Sparkles' },
+    { name: 'Photography & Digital Services', amount: 45000, percentage: 7.3, color: '#8B5CF6', icon: 'Camera' }
+  ],
+  areaRevenue: [
+    { areaName: 'Under G', areaSlug: 'under-g', paymentsCount: 8, grossAmount: 2200000, commissionEarned: 165000 },
+    { areaName: 'Adenike Area', areaSlug: 'adenike', paymentsCount: 5, grossAmount: 1250000, commissionEarned: 93750 },
+    { areaName: 'Stadium Road', areaSlug: 'stadium-road', paymentsCount: 3, grossAmount: 700000, commissionEarned: 52500 },
+    { areaName: 'College Road', areaSlug: 'college-road', paymentsCount: 2, grossAmount: 350000, commissionEarned: 26250 }
+  ],
+  monthlyHistory: [
+    { month: '2026-05', bookingCommission: 45000, grossTransactionVolume: 600000, transactionsCount: 3 },
+    { month: '2026-06', bookingCommission: 90000, grossTransactionVolume: 1200000, transactionsCount: 5 },
+    { month: '2026-07', bookingCommission: 135000, grossTransactionVolume: 1800000, transactionsCount: 7 },
+    { month: '2026-08', bookingCommission: 67500, grossTransactionVolume: 900000, transactionsCount: 3 }
+  ]
+};
+
+export const DEFAULT_ADMIN_FINANCIALS: AdminFinancialsData = {
+  metrics: {
+    totalGmv: 4500000,
+    totalPlatformFees: 337500,
+    totalProviderEarnings: 3877500,
+    totalRefunded: 0,
+    successCount: 18,
+    pendingCount: 2,
+    failedCount: 0,
+    refundedCount: 0,
+    totalTransactions: 20
+  },
+  ledgerStream: [
+    {
+      id: 'led-1',
+      entryType: 'PAYMENT_RECEIVED',
+      amount: 280000,
+      currency: 'NGN',
+      debitAccount: 'STUDENT_PAYMENT_GATEWAY',
+      creditAccount: 'ESCROW_HOLDING_ACCOUNT',
+      description: 'Hostel Booking Payment for Crown Royal Deluxe Lodge',
+      createdAt: '2026-08-20T10:00:00Z',
+      paymentReference: 'HE-PAY-2026-8891',
+      bookingReference: 'HE-BK-2026-8891'
+    },
+    {
+      id: 'led-2',
+      entryType: 'PLATFORM_FEE_DEDUCTED',
+      amount: 21000,
+      currency: 'NGN',
+      debitAccount: 'ESCROW_HOLDING_ACCOUNT',
+      creditAccount: 'PLATFORM_REVENUE_ACCOUNT',
+      description: '7.5% Platform Commission for Booking HE-BK-2026-8891',
+      createdAt: '2026-08-20T10:00:05Z',
+      paymentReference: 'HE-PAY-2026-8891',
+      bookingReference: 'HE-BK-2026-8891'
+    }
+  ],
+  disputes: [
+    {
+      id: 'disp-101',
+      disputeReference: 'DISP-2026-091',
+      reason: 'Water pump maintenance delay reported prior to move-in date',
+      status: 'UNDER_REVIEW',
+      createdAt: '2026-08-25T14:30:00Z',
+      bookingReference: 'HE-BK-2026-7712',
+      studentName: 'Ahmad Adelopo',
+      providerName: 'Engr. Segun Adeyemi',
+      paymentAmount: 240000
+    }
+  ]
+};
+
+export const DEFAULT_COMMISSIONS_LIST: BookingCommissionItem[] = [
+  {
+    paymentId: 'pay-1',
+    paymentReference: 'HE-PAY-2026-8891',
+    grossRentPaid: 280000,
+    commissionEarned: 21000,
+    providerNet: 259000,
+    status: 'COMPLETED',
+    paidAt: '2026-08-20T10:00:00Z',
+    createdAt: '2026-08-20T09:45:00Z',
+    bookingReference: 'HE-BK-2026-8891',
+    hostelTitle: 'Crown Royal Deluxe Lodge',
+    areaName: 'Under G',
+    studentName: 'Ahmad Adelopo',
+    providerName: 'Engr. Segun Adeyemi',
+    commissionRatePercent: 7.5
+  },
+  {
+    paymentId: 'pay-2',
+    paymentReference: 'HE-PAY-2026-7712',
+    grossRentPaid: 240000,
+    commissionEarned: 18000,
+    providerNet: 222000,
+    status: 'COMPLETED',
+    paidAt: '2026-08-18T15:20:00Z',
+    createdAt: '2026-08-18T15:00:00Z',
+    bookingReference: 'HE-BK-2026-7712',
+    hostelTitle: 'Peace Haven Executive Lodge',
+    areaName: 'Adenike Area',
+    studentName: 'Bolanle Olamide',
+    providerName: 'Chief Oladimeji Alao',
+    commissionRatePercent: 7.5
+  }
+];
+
+export const DEFAULT_SUBSCRIPTIONS_LIST: ProviderSubscriptionItem[] = [
+  {
+    id: 'sub-1',
+    provider_id: 'user-provider-1',
+    providerName: 'Engr. Segun Adeyemi',
+    providerEmail: 'provider@hostelease.ng',
+    providerPhone: '+234 803 123 4567',
+    businessName: 'Destiny Properties LAUTECH',
+    plan_name: 'PRO_LANDLORD',
+    amount: 15000,
+    billing_cycle: 'MONTHLY',
+    max_listings: 10,
+    features_json: JSON.stringify(['Instant SMS Leads', 'Verified Badge', 'Direct Tenant Chat', 'Priority Placement']),
+    status: 'ACTIVE',
+    start_date: '2026-08-01',
+    end_date: '2026-08-31',
+    payment_reference: 'HE-SUB-2026-001',
+    created_at: '2026-08-01T00:00:00Z'
+  },
+  {
+    id: 'sub-2',
+    provider_id: 'user-provider-2',
+    providerName: 'Chief Oladimeji Alao',
+    providerEmail: 'alao@holylightproperties.ng',
+    providerPhone: '+234 802 987 6543',
+    businessName: 'Holy Light Real Estate',
+    plan_name: 'ENTERPRISE_ESTATE',
+    amount: 35000,
+    billing_cycle: 'MONTHLY',
+    max_listings: 30,
+    features_json: JSON.stringify(['Unlimited Listings', '3D Walkthrough Tours', 'Dedicated Account Manager', 'Verified Badge']),
+    status: 'ACTIVE',
+    start_date: '2026-08-01',
+    end_date: '2026-08-31',
+    payment_reference: 'HE-SUB-2026-002',
+    created_at: '2026-08-01T00:00:00Z'
+  }
+];
+
+export const DEFAULT_FEATURED_LISTINGS_LIST: FeaturedListingItem[] = [
+  {
+    id: 'feat-1',
+    property_id: 'prop-underg-1',
+    propertyTitle: 'Crown Royal Deluxe Lodge',
+    propertyAddress: 'Opposite Bovas Station, Under G, Ogbomoso',
+    propertySlug: 'crown-royal-deluxe-lodge',
+    areaName: 'Under G',
+    provider_id: 'user-provider-1',
+    providerName: 'Engr. Segun Adeyemi',
+    providerPhone: '+234 803 123 4567',
+    feature_tier: 'HOMEPAGE_SPOTLIGHT',
+    amount: 25000,
+    duration_days: 30,
+    impressions_count: 1420,
+    clicks_count: 310,
+    status: 'ACTIVE',
+    start_date: '2026-08-01',
+    end_date: '2026-08-31',
+    payment_reference: 'HE-FEAT-2026-01',
+    created_at: '2026-08-01T00:00:00Z'
+  }
+];
+
+export const DEFAULT_SERVICES_LIST: ProviderDigitalServiceItem[] = [
+  {
+    id: 'serv-1',
+    provider_id: 'user-provider-1',
+    providerName: 'Engr. Segun Adeyemi',
+    property_id: 'prop-underg-1',
+    propertyTitle: 'Crown Royal Deluxe Lodge',
+    service_type: 'PROFESSIONAL_PHOTOGRAPHY',
+    service_name: 'HD Wide-Angle Room & Exterior Photography',
+    amount: 15000,
+    status: 'COMPLETED',
+    assigned_agent: 'Bamidele Olatunji (Verified Media Agent)',
+    delivery_notes: '12 high-resolution photos uploaded and approved for listing.',
+    payment_reference: 'HE-SERV-2026-01',
+    created_at: '2026-08-10T11:00:00Z',
+    completed_at: '2026-08-12T16:00:00Z'
+  }
+];
+
+export const DEFAULT_PAYOUTS_LIST: PayoutRequestItem[] = [
+  {
+    id: 'pay-req-1',
+    payout_reference: 'HE-PO-2026-901',
+    provider_id: 'user-provider-1',
+    providerName: 'Engr. Segun Adeyemi',
+    providerEmail: 'provider@hostelease.ng',
+    providerPhone: '+234 803 123 4567',
+    businessName: 'Destiny Properties LAUTECH',
+    amount: 259000,
+    bank_name: 'First Bank of Nigeria',
+    account_number: '3049182740',
+    account_name: 'Segun Adeyemi',
+    status: 'PAID',
+    processed_at: '2026-08-20T14:30:00Z',
+    processed_by: 'Oluwatosin Ahmad (Admin)',
+    created_at: '2026-08-20T12:00:00Z'
+  },
+  {
+    id: 'pay-req-2',
+    payout_reference: 'HE-PO-2026-902',
+    provider_id: 'user-provider-2',
+    providerName: 'Chief Oladimeji Alao',
+    providerEmail: 'alao@holylightproperties.ng',
+    providerPhone: '+234 802 987 6543',
+    businessName: 'Holy Light Real Estate',
+    amount: 222000,
+    bank_name: 'Guaranty Trust Bank (GTBank)',
+    account_number: '0129481726',
+    account_name: 'Oladimeji Alao',
+    status: 'PROCESSING',
+    created_at: '2026-08-22T09:00:00Z'
+  }
+];
+
+export const DEFAULT_INVOICES_LIST: PlatformInvoiceItem[] = [
+  {
+    id: 'inv-1',
+    invoice_number: 'HE-INV-2026-001',
+    user_id: 'user-provider-1',
+    user_role: 'PROVIDER',
+    user_name: 'Engr. Segun Adeyemi',
+    user_email: 'provider@hostelease.ng',
+    item_type: 'SUBSCRIPTION',
+    item_description: 'Pro Landlord Subscription (August 2026)',
+    subtotal: 15000,
+    tax_amount: 0,
+    total_amount: 15000,
+    status: 'PAID',
+    due_date: '2026-08-05',
+    paid_at: '2026-08-01T10:00:00Z',
+    created_at: '2026-08-01T00:00:00Z'
+  }
+];
+
+export const DEFAULT_WITHDRAWALS_LIST: PlatformWithdrawalItem[] = [
+  {
+    id: 'wdr-1',
+    withdrawal_reference: 'HE-WDR-2026-01',
+    admin_id: 'user-admin-1',
+    adminName: 'Oluwatosin Ahmad',
+    adminEmail: 'admin@hostelease.ng',
+    amount: 200000,
+    destination_bank: 'First Bank of Nigeria',
+    destination_account_number: '3049182740',
+    destination_account_name: 'Oluwatosin Ahmad',
+    status: 'COMPLETED',
+    purpose: 'Platform Commission Profit Distribution',
+    created_at: '2026-08-15T10:00:00Z'
+  }
+];
+
+export const DEFAULT_REPORT_ROWS: FinancialReportRow[] = [
+  {
+    monthPeriod: 'August 2026',
+    paidBookings: 18,
+    grossBookingVolume: 4500000,
+    bookingCommission: 337500,
+    subscriptionRevenue: 180000,
+    featuredRevenue: 60000,
+    digitalServiceRevenue: 45000,
+    totalPlatformGross: 622500,
+    refundsTotal: 0,
+    netPlatformEarnings: 622500,
+    providerDisbursements: 3877500
+  }
+];
+
+export const DEFAULT_REVENUE_SETTINGS: RevenueSettingItem[] = [
+  { id: 'set-1', setting_key: 'commission_rate_percent', setting_value: '7.5', category: 'COMMISSION', description: 'Percentage charged per successful booking', updated_at: '2026-08-20T00:00:00Z' },
+  { id: 'set-2', setting_key: 'min_payout_threshold', setting_value: '10000', category: 'PAYOUT', description: 'Minimum amount required to request a payout', updated_at: '2026-08-20T00:00:00Z' },
+  { id: 'set-3', setting_key: 'caution_fee_retention_days', setting_value: '7', category: 'ESCROW', description: 'Days caution fee is held in escrow post move-in', updated_at: '2026-08-20T00:00:00Z' }
+];
+
+export const DEFAULT_ADMIN_USERS: AdminUserItem[] = [
+  {
+    id: 'user-admin-1',
+    email: 'admin@hostelease.ng',
+    fullName: 'Oluwatosin Ahmad',
+    phone: '+234 800 000 0001',
+    role: 'ADMIN',
+    isActive: true,
+    accountStatus: 'ACTIVE',
+    createdAt: '2026-01-01T00:00:00Z',
+    studentBookingsCount: 0,
+    providerHostelsCount: 0
+  },
+  {
+    id: 'user-student-1',
+    email: 'student@lautech.edu.ng',
+    fullName: 'Ahmad Adelopo',
+    phone: '+234 812 345 6789',
+    role: 'STUDENT',
+    isActive: true,
+    accountStatus: 'ACTIVE',
+    createdAt: '2026-02-15T10:00:00Z',
+    studentBookingsCount: 1,
+    providerHostelsCount: 0
+  },
+  {
+    id: 'user-provider-1',
+    email: 'provider@hostelease.ng',
+    fullName: 'Engr. Segun Adeyemi',
+    phone: '+234 803 123 4567',
+    role: 'PROVIDER',
+    isActive: true,
+    accountStatus: 'ACTIVE',
+    createdAt: '2026-01-10T14:00:00Z',
+    studentBookingsCount: 0,
+    providerHostelsCount: 3
+  }
+];
+
+export const DEFAULT_ADMIN_DISPUTES = [
+  {
+    id: 'disp-101',
+    disputeCode: 'DISP-2026-091',
+    bookingReference: 'HE-BK-2026-7712',
+    category: 'MAINTENANCE_ISSUE',
+    subject: 'Borehole Water Pump Maintenance Delay',
+    description: 'Student reported water supply maintenance taking longer than 48 hours. Landlord has engaged a technician.',
+    status: 'UNDER_REVIEW',
+    totalCost: 240000,
+    studentName: 'Ahmad Adelopo',
+    propertyTitle: 'Crown Royal Deluxe Lodge',
+    providerName: 'Engr. Segun Adeyemi',
+    createdAt: '2026-08-25T14:30:00Z'
+  }
+];
+
+export const DEFAULT_ADMIN_AUDIT_LOGS: AdminAuditLogItem[] = [
+  {
+    id: 'audit-1',
+    actorId: 'user-admin-1',
+    actorName: 'Oluwatosin Ahmad (Admin)',
+    actorRole: 'SUPER_ADMIN',
+    action: 'VERIFY_HOSTEL',
+    entityType: 'PROPERTY',
+    entityId: 'prop-underg-1',
+    details: 'Awarded 8-point physical verification badge to Crown Royal Deluxe Lodge',
+    createdAt: '2026-08-20T10:30:00Z'
+  },
+  {
+    id: 'audit-2',
+    actorId: 'user-admin-1',
+    actorName: 'Oluwatosin Ahmad (Admin)',
+    actorRole: 'SUPER_ADMIN',
+    action: 'AUTHORIZE_PAYOUT',
+    entityType: 'PAYOUT',
+    entityId: 'pay-req-1',
+    details: 'Approved provider disbursement of ₦259,000 to Engr. Segun Adeyemi',
+    createdAt: '2026-08-20T14:30:00Z'
+  }
+];
 
