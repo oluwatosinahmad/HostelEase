@@ -127,54 +127,24 @@ export const api = {
           return json;
         }
 
-        // If email already exists, try logging the user in directly with provided credentials
-        if (res.status === 409) {
-          try {
-            const loginRes = await api.auth.login({
-              email: data.email,
-              password: data.password,
-              role: data.role
-            });
-            return loginRes;
-          } catch {
-            throw new Error('An account with this email already exists. Please switch to "Log In" tab.');
-          }
-        }
-
-        const contentType = res.headers.get('content-type') || '';
-        if (contentType.includes('application/json')) {
-          const errData = await res.json().catch(() => ({}));
-          if (errData.error || errData.message) {
-            throw new Error(errData.error || errData.message);
-          }
-        }
+        const errData = await res.json().catch(() => ({}));
+        const err: any = new Error(errData.message || errData.error || `Registration failed (HTTP ${res.status})`);
+        err.code = errData.code || errData.error;
+        err.status = res.status;
+        throw err;
       } catch (err: any) {
-        if (err.message && !err.message.includes('fetch') && !err.message.includes('network') && !err.message.includes('Failed to fetch') && !err.message.includes('Unexpected end of JSON')) {
-          throw err;
-        }
-        console.warn('Backend auth unreachable, using client session mode.');
+        throw err;
       }
-
-      const role = data.role || 'STUDENT';
-      const mockUser = {
-        id: `usr-${Date.now()}`,
-        fullName: data.fullName || (role === 'PROVIDER' ? 'Hostel Landlord' : role === 'ADMIN' ? 'Platform Administrator' : 'Student User'),
-        email: data.email,
-        role: role,
-        phone: data.phone || '08012345678',
-        isActive: 1,
-        providerDetails: role === 'PROVIDER' ? { businessName: data.providerDetails?.businessName || 'Verified Accommodations' } : undefined,
-        studentDetails: role === 'STUDENT' ? { department: data.studentDetails?.department || 'Computer Science' } : undefined
-      };
-      localStorage.setItem('hostel_ease_token', 'mock_client_token');
-      localStorage.setItem('hostel_ease_user', JSON.stringify(mockUser));
-      return { message: 'Registration successful', token: 'mock_client_token', user: mockUser };
     },
 
-    async login(emailOrData: string | { email: string; password: string; role?: string }, maybePassword?: string, selectedRole?: string): Promise<{ message: string; token: string; user: any }> {
+    async login(emailOrData: string | { email: string; password: string; role?: string; requestedRole?: string }, maybePassword?: string, selectedRole?: string): Promise<{ message: string; token: string; user: any }> {
       const payload = typeof emailOrData === 'string'
-        ? { email: emailOrData, password: maybePassword, role: selectedRole }
-        : emailOrData;
+        ? { email: emailOrData, password: maybePassword, requestedRole: selectedRole }
+        : {
+            email: emailOrData.email,
+            password: emailOrData.password,
+            requestedRole: emailOrData.requestedRole || emailOrData.role || selectedRole
+          };
 
       try {
         const res = await fetch(`${API_BASE}/auth/login`, {
@@ -182,54 +152,22 @@ export const api = {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
         });
+
         if (res.ok) {
           const json = await res.json();
           localStorage.setItem('hostel_ease_token', json.token);
           localStorage.setItem('hostel_ease_user', JSON.stringify(json.user));
           return json;
         }
-        const contentType = res.headers.get('content-type') || '';
-        if (contentType.includes('application/json')) {
-          const errData = await res.json().catch(() => ({}));
-          if (errData.error || errData.message) {
-            throw new Error(errData.error || errData.message);
-          }
-        }
+
+        const errData = await res.json().catch(() => ({}));
+        const err: any = new Error(errData.message || errData.error || `Authentication failed (HTTP ${res.status})`);
+        err.code = errData.code || errData.error;
+        err.status = res.status;
+        throw err;
       } catch (err: any) {
-        if (err.message && !err.message.includes('fetch') && !err.message.includes('network') && !err.message.includes('Failed to fetch') && !err.message.includes('Unexpected end of JSON')) {
-          throw err;
-        }
-        console.warn('Backend auth unreachable, using client session mode.');
+        throw err;
       }
-
-      const email = payload.email.toLowerCase();
-      let role: 'STUDENT' | 'PROVIDER' | 'ADMIN' = (payload.role as any) || (selectedRole as any) || 'STUDENT';
-      if (!payload.role && !selectedRole) {
-        if (email.includes('admin')) {
-          role = 'ADMIN';
-        } else if (email.includes('landlord') || email.includes('provider') || email.includes('segun') || email.includes('adeleke')) {
-          role = 'PROVIDER';
-        }
-      }
-
-      let fullName = 'Tunde Bakare (LAUTECH 300L)';
-      if (role === 'ADMIN') {
-        fullName = 'Hostel Ease Admin';
-      } else if (role === 'PROVIDER') {
-        fullName = 'Engr. Segun Adeyemi';
-      }
-
-      const mockUser = {
-        id: `usr-${role.toLowerCase()}`,
-        fullName,
-        email: payload.email,
-        role,
-        phone: '08034567890',
-        isActive: 1
-      };
-      localStorage.setItem('hostel_ease_token', 'mock_client_token');
-      localStorage.setItem('hostel_ease_user', JSON.stringify(mockUser));
-      return { message: 'Login successful', token: 'mock_client_token', user: mockUser };
     },
 
     async getMe(): Promise<{ user: any }> {
@@ -977,6 +915,15 @@ export const api = {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
         body: JSON.stringify({ status, reason })
+      });
+      return handleResponse(res);
+    },
+
+    async createAdminAccount(data: { email: string; password: string; fullName: string; phone?: string; adminRole?: string; permissions?: string[] }): Promise<{ message: string; admin: any }> {
+      const res = await fetch(`${API_BASE}/admin/create-admin-account`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+        body: JSON.stringify(data)
       });
       return handleResponse(res);
     },

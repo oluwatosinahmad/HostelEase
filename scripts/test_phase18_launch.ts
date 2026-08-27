@@ -112,20 +112,17 @@ async function runPhase18LaunchAudit() {
 
     // 4. ADMIN PLATFORM AUDIT & SECURITY CHECK
     console.log('\n--- 4. ADMIN PORTAL & ROLE-BASED ACCESS CONTROL ---');
-    const adminEmail = `admin_launch_${timestamp}@hostelease.ng`;
-    const regAdminRes = await fetch(`${BASE_URL}/auth/register`, {
+    const regAdminRes = await fetch(`${BASE_URL}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        fullName: 'Operations Super Admin',
-        email: adminEmail,
-        password: 'Password123!',
-        phone: '08039990000',
-        role: 'ADMIN'
+        email: 'admin@hostelease.ng',
+        password: 'Admin123!',
+        requestedRole: 'ADMIN'
       })
     });
     const regAdminData = await regAdminRes.json() as any;
-    assert(regAdminRes.status === 201 && Boolean(regAdminData.token), 'Admin creates verified platform management account');
+    assert(regAdminRes.status === 200 && Boolean(regAdminData.token), 'Admin authenticates with database-verified credentials');
     adminToken = regAdminData.token;
     adminId = regAdminData.user.id;
 

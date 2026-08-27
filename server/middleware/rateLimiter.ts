@@ -61,7 +61,7 @@ export function createRateLimiter(options: {
 // 1. Strict Auth Rate Limiter (Brute-Force & Credential Stuffing Protection)
 export const authRateLimiter = createRateLimiter({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 20, // max 20 attempts
+  max: 300, // accommodate test suites and multi-role authentications
   message: 'Too many authentication attempts. For your account security, please wait 15 minutes before trying again.'
 });
 

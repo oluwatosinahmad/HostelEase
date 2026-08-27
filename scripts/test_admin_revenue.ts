@@ -20,22 +20,19 @@ async function runRevenueTests() {
   }
 
   try {
-    // 1. Authenticate Admin User
-    const adminEmail = `admin_rev_${Date.now()}@hostelease.lautech.edu.ng`;
-    const adminReg = await fetch(`${BASE_URL}/auth/register`, {
+    // 1. Authenticate Authorized Admin User
+    const adminLogin = await fetch(`${BASE_URL}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        fullName: 'Finance Master Admin',
-        email: adminEmail,
-        password: 'password123',
-        role: 'ADMIN',
-        phone: '08099887766'
+        email: 'admin@hostelease.ng',
+        password: 'Admin123!',
+        requestedRole: 'ADMIN'
       })
     });
-    const adminData = await adminReg.json() as any;
+    const adminData = await adminLogin.json() as any;
     const adminToken = adminData.token;
-    assert(Boolean(adminToken), 'Admin registered and authenticated with JWT bearer token');
+    assert(Boolean(adminToken), 'Admin authenticated with verified database role and JWT bearer token');
 
     // 2. Authenticate Student User (to verify RBAC security)
     const studentEmail = `student_rev_${Date.now()}@student.lautech.edu.ng`;

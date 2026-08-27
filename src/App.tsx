@@ -26,7 +26,8 @@ import {
   Layers,
   History,
   RotateCcw,
-  Receipt
+  Receipt,
+  ShieldAlert
 } from 'lucide-react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { Property, Area, SearchFilterState, UserRole, AppView } from './types/hostelEase';
@@ -901,23 +902,68 @@ function MainApp() {
 
         {/* VIEW 7: PROVIDER / LANDLORD PORTAL */}
         {currentView === 'provider-portal' && (
-          <ProviderPortal
-            areas={areas}
-            onOpenConversation={(propId, studentId) => {
-              setMessagingTargetPropertyId(propId);
-              setCurrentView('messages');
-              window.scrollTo({ top: 0, behavior: 'smooth' });
-            }}
-            onShowToast={showToast}
-          />
+          isProvider ? (
+            <ProviderPortal
+              areas={areas}
+              onOpenConversation={(propId, studentId) => {
+                setMessagingTargetPropertyId(propId);
+                setCurrentView('messages');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+              onShowToast={showToast}
+            />
+          ) : (
+            <div className="max-w-md mx-auto my-20 p-8 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-xl text-center space-y-4">
+              <div className="w-16 h-16 rounded-2xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center mx-auto border border-amber-200 dark:border-amber-800 shadow-inner">
+                <ShieldAlert className="w-8 h-8" />
+              </div>
+              <h2 className="text-xl font-black text-slate-900 dark:text-white">🔒 Access Restricted</h2>
+              <p className="text-xs text-slate-600 dark:text-slate-300">
+                This account is not authorized to access the Landlord Management Center. Please log in with a verified Landlord account.
+              </p>
+              <button
+                onClick={() => {
+                  setCurrentView('home');
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+                className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow transition-colors"
+              >
+                Return to Home
+              </button>
+            </div>
+          )
         )}
 
         {/* VIEW 8: ADMIN PORTAL */}
         {currentView === 'admin-portal' && (
-          <AdminPortal
-            areas={areas}
-            onShowToast={showToast}
-          />
+          isAdmin ? (
+            <AdminPortal
+              areas={areas}
+              onShowToast={showToast}
+            />
+          ) : (
+            <div className="max-w-md mx-auto my-20 p-8 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-xl text-center space-y-4">
+              <div className="w-16 h-16 rounded-2xl bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center mx-auto border border-rose-200 dark:border-rose-800 shadow-inner">
+                <ShieldAlert className="w-8 h-8" />
+              </div>
+              <h2 className="text-xl font-black text-slate-900 dark:text-white">🔒 Access Restricted</h2>
+              <p className="text-xs text-slate-600 dark:text-slate-300">
+                This account is not authorized to access the Admin Portal.
+              </p>
+              <p className="text-[11px] text-slate-400 dark:text-slate-500">
+                Administrative privileges are verified against the backend database authority.
+              </p>
+              <button
+                onClick={() => {
+                  setCurrentView('home');
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+                className="w-full py-3 bg-slate-900 hover:bg-slate-800 dark:bg-emerald-600 dark:hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow transition-colors"
+              >
+                Return to Login / Home
+              </button>
+            </div>
+          )
         )}
 
         {/* VIEW 9: MOVE-IN & POST-BOOKING CENTER (Phase 12) */}

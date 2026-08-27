@@ -6,7 +6,7 @@ import { authenticate, generateToken, AuthenticatedRequest } from '../middleware
 
 const router = Router();
 
-// 1. Register User (Student or Provider)
+// 1. Register User (Student or Provider only - No Public Admin Registration)
 router.post('/register', (req, res: Response) => {
   const { email, password, fullName, phone, role, studentDetails, providerDetails } = req.body;
 
@@ -14,15 +14,23 @@ router.post('/register', (req, res: Response) => {
     return res.status(400).json({ error: 'Email, password, full name, and role are required' });
   }
 
-  if (!['STUDENT', 'PROVIDER', 'ADMIN'].includes(role)) {
-    return res.status(400).json({ error: 'Role must be STUDENT, PROVIDER, or ADMIN' });
+  // Security Rule: Public Admin Registration is STRICTLY FORBIDDEN
+  if (role === 'ADMIN' || role === 'OWNER') {
+    return res.status(403).json({ 
+      error: 'PUBLIC_ADMIN_REGISTRATION_FORBIDDEN',
+      message: 'Admin accounts cannot be registered publicly. Only an authorized Super Admin can provision administrative accounts.' 
+    });
+  }
+
+  if (!['STUDENT', 'PROVIDER'].includes(role)) {
+    return res.status(400).json({ error: 'Role must be STUDENT or PROVIDER' });
   }
 
   if (password.length < 6) {
     return res.status(400).json({ error: 'Password must be at least 6 characters long' });
   }
 
-  const existing = db.prepare('SELECT id FROM users WHERE email = ?').get(email.toLowerCase().trim());
+  const existing = db.prepare('SELECT id FROM users WHERE LOWER(email) = LOWER(?)').get(email.trim());
   if (existing) {
     return res.status(409).json({ error: 'An account with this email already exists' });
   }
@@ -33,7 +41,7 @@ router.post('/register', (req, res: Response) => {
 
   try {
     db.transaction(() => {
-      // Insert user
+      // Insert user with verified role
       db.prepare(`
         INSERT INTO users (id, email, password_hash, full_name, phone, role, is_active)
         VALUES (?, ?, ?, ?, ?, ?, 1)
@@ -75,11 +83,11 @@ router.post('/register', (req, res: Response) => {
       email: email.toLowerCase().trim(),
       fullName: fullName.trim(),
       phone: phone || undefined,
-      role: role as 'STUDENT' | 'PROVIDER' | 'ADMIN',
+      role: role as 'STUDENT' | 'PROVIDER',
       isActive: 1
     };
 
-    const token = generateToken(userRecord);
+    const token = generateToken(userRecord as any);
 
     return res.status(201).json({
       message: 'Registration successful',
@@ -92,9 +100,10 @@ router.post('/register', (req, res: Response) => {
   }
 });
 
-// 2. Login User
+// 2. Login User with Strict Role Verification (Database is Source of Truth)
 router.post('/login', (req, res: Response) => {
-  const { email, password } = req.body;
+  const { email, password, role, requestedRole } = req.body;
+  const targetRole = requestedRole || role;
 
   if (!email || !password) {
     return res.status(400).json({ error: 'Email and password are required' });
@@ -103,22 +112,66 @@ router.post('/login', (req, res: Response) => {
   const user = db.prepare(`
     SELECT id, email, password_hash as passwordHash, full_name as fullName, phone, role, is_active as isActive
     FROM users
-    WHERE email = ?
-  `).get(email.toLowerCase().trim()) as any;
+    WHERE LOWER(email) = LOWER(?)
+  `).get(email.trim()) as any;
 
   if (!user) {
-    return res.status(401).json({ error: 'Invalid email or password' });
+    return res.status(401).json({ 
+      error: 'INVALID_CREDENTIALS',
+      message: 'Invalid email or password' 
+    });
   }
 
   if (!user.isActive) {
-    return res.status(403).json({ error: 'Your account has been deactivated. Please contact support.' });
+    return res.status(403).json({ 
+      error: 'ACCOUNT_DEACTIVATED',
+      message: 'Your account has been deactivated. Please contact support.' 
+    });
   }
 
   const passwordValid = bcrypt.compareSync(password, user.passwordHash);
   if (!passwordValid) {
-    return res.status(401).json({ error: 'Invalid email or password' });
+    return res.status(401).json({ 
+      error: 'INVALID_CREDENTIALS',
+      message: 'Invalid email or password' 
+    });
   }
 
+  // =========================================================================
+  // STRICT ROLE & PERMISSION AUTHORIZATION CHECK
+  // The database role is the single source of truth.
+  // =========================================================================
+  if (targetRole) {
+    const requested = (targetRole as string).toUpperCase();
+    if (requested === 'ADMIN') {
+      // Must be an authorized ADMIN or OWNER in database
+      if (user.role !== 'ADMIN' && user.role !== 'OWNER') {
+        return res.status(403).json({
+          error: 'ACCESS_RESTRICTED',
+          code: 'UNAUTHORIZED_ADMIN_ACCESS',
+          message: 'This account is not authorized to access the Admin Portal.'
+        });
+      }
+    } else if (requested === 'PROVIDER') {
+      if (user.role !== 'PROVIDER') {
+        return res.status(403).json({
+          error: 'ACCESS_RESTRICTED',
+          code: 'UNAUTHORIZED_PROVIDER_ACCESS',
+          message: 'This account is not authorized to access the Landlord Dashboard.'
+        });
+      }
+    } else if (requested === 'STUDENT') {
+      if (user.role !== 'STUDENT') {
+        return res.status(403).json({
+          error: 'ACCESS_RESTRICTED',
+          code: 'UNAUTHORIZED_STUDENT_ACCESS',
+          message: 'This account is not registered as a Student.'
+        });
+      }
+    }
+  }
+
+  // Build authenticated user payload strictly with the database role (user.role)
   const userPayload = {
     id: user.id,
     email: user.email,
@@ -136,6 +189,8 @@ router.post('/login', (req, res: Response) => {
     profile = db.prepare('SELECT * FROM student_profiles WHERE user_id = ?').get(user.id);
   } else if (user.role === 'PROVIDER') {
     profile = db.prepare('SELECT * FROM provider_profiles WHERE user_id = ?').get(user.id);
+  } else if (user.role === 'ADMIN' || user.role === 'OWNER') {
+    profile = db.prepare('SELECT * FROM admin_profiles WHERE user_id = ?').get(user.id);
   }
 
   return res.json({

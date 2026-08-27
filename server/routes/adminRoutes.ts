@@ -1,7 +1,8 @@
 import { Router, Response } from 'express';
+import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import db from '../db.js';
-import { authenticate, requireRole, requirePermission, AuthenticatedRequest } from '../middleware/auth.js';
+import { authenticate, requireRole, requirePermission, ROLE_DEFAULT_PERMISSIONS, AuthenticatedRequest } from '../middleware/auth.js';
 
 const router = Router();
 
@@ -260,6 +261,76 @@ router.patch(
     })();
 
     res.json({ message: `User account status updated to ${status}`, accountStatus: status });
+  }
+);
+
+// 2b. Authorize & Create New Admin/Staff Account (Restricted to Super Admin)
+router.post(
+  '/create-admin-account',
+  authenticate,
+  requireRole('ADMIN'),
+  requirePermission('users.manage'),
+  (req: AuthenticatedRequest, res: Response) => {
+    const adminId = req.user!.id;
+    const { email, password, fullName, phone, adminRole, permissions } = req.body;
+
+    if (!email || !password || !fullName) {
+      return res.status(400).json({ error: 'Email, password, and full name are required' });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters long' });
+    }
+
+    const existing = db.prepare('SELECT id FROM users WHERE LOWER(email) = LOWER(?)').get(email.trim());
+    if (existing) {
+      return res.status(409).json({ error: 'An account with this email already exists' });
+    }
+
+    const newAdminId = `user-${crypto.randomUUID()}`;
+    const salt = bcrypt.genSaltSync(10);
+    const passwordHash = bcrypt.hashSync(password, salt);
+    const assignedRole = adminRole || 'ADMIN';
+
+    db.transaction(() => {
+      db.prepare(`
+        INSERT INTO users (id, email, password_hash, full_name, phone, role, is_active)
+        VALUES (?, ?, ?, ?, ?, 'ADMIN', 1)
+      `).run(newAdminId, email.toLowerCase().trim(), passwordHash, fullName.trim(), phone || null);
+
+      db.prepare(`
+        INSERT INTO admin_profiles (id, user_id, admin_role, permissions_json, is_super_admin)
+        VALUES (?, ?, ?, ?, ?)
+      `).run(
+        `admin-prof-${crypto.randomUUID()}`,
+        newAdminId,
+        assignedRole,
+        permissions ? JSON.stringify(permissions) : JSON.stringify(ROLE_DEFAULT_PERMISSIONS[assignedRole] || []),
+        assignedRole === 'SUPER_ADMIN' ? 1 : 0
+      );
+
+      // Audit Log
+      db.prepare(`
+        INSERT INTO audit_logs (id, actor_id, actor_role, action, entity_type, entity_id, details)
+        VALUES (?, ?, 'ADMIN', 'CREATE_ADMIN_ACCOUNT', 'USER', ?, ?)
+      `).run(
+        crypto.randomUUID(),
+        adminId,
+        newAdminId,
+        JSON.stringify({ createdEmail: email.toLowerCase().trim(), adminRole: assignedRole })
+      );
+    })();
+
+    return res.status(201).json({
+      message: 'Admin account created successfully',
+      admin: {
+        id: newAdminId,
+        email: email.toLowerCase().trim(),
+        fullName: fullName.trim(),
+        role: 'ADMIN',
+        adminRole: assignedRole
+      }
+    });
   }
 );
 
