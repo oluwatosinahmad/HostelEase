@@ -110,13 +110,50 @@ type AdminTab =
   | 'ai_monitoring' 
   | 'audit';
 
+const defaultDashboardData: AdminDashboardData = {
+  admin: {
+    id: 'user-admin-1',
+    fullName: 'Oluwatosin Ahmad',
+    email: 'admin@hostelease.ng',
+    role: 'SUPER_ADMIN',
+    department: 'Executive Operations',
+    isSuperAdmin: true
+  },
+  stats: {
+    totalStudents: 120,
+    totalProviders: 8,
+    totalHostels: 14,
+    verifiedHostels: 10,
+    pendingHostels: 4,
+    activeBookings: 18,
+    pendingBookings: 3,
+    successfulPayments: 18,
+    pendingPayments: 2,
+    totalRefunds: 0,
+    openReports: 0,
+    upcomingInspections: 5,
+    openSupportTickets: 2,
+    totalGrossRevenue: 4500000
+  },
+  stressMetrics: {
+    searchToBookingConversion: '14.2%',
+    bookingCancellationRate: '1.2%',
+    avgViewsPerBooking: '4.2',
+    totalSearches: 450,
+    totalViews: 1200,
+    totalInspections: 28,
+    totalBookingsAll: 18,
+    avgSearchToInspectionDays: '1.4 Days (LAUTECH Average)'
+  }
+};
+
 export const AdminPortal: React.FC<AdminPortalProps> = ({
   areas,
   onShowToast
 }) => {
   const { user, logout, loginDemo } = useAuth();
   const [activeTab, setActiveTab] = useState<AdminTab>('overview');
-  const [dashboardData, setDashboardData] = useState<AdminDashboardData | null>(null);
+  const [dashboardData, setDashboardData] = useState<AdminDashboardData>(defaultDashboardData);
   const [revenueOverview, setRevenueOverview] = useState<RevenueOverviewResponse | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
 
@@ -556,10 +593,10 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
 
           <div className="text-right hidden sm:block">
             <p className="text-xs font-bold text-white leading-tight">
-              {dashboardData?.admin.fullName || 'Super Administrator'}
+              {dashboardData?.admin?.fullName || user?.fullName || 'Super Administrator'}
             </p>
             <p className="text-[10px] text-emerald-400 font-medium">
-              {dashboardData?.admin.role || 'SUPER_ADMIN'}
+              {dashboardData?.admin?.role || 'SUPER_ADMIN'}
             </p>
           </div>
         </div>
@@ -575,18 +612,18 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
               items: [
                 { id: 'operations', label: 'Phase 15 Operations', icon: Activity, badge: 'Live Ops', badgeColor: 'bg-emerald-500/20 text-emerald-300' },
                 { id: 'overview', label: 'Command Overview', icon: TrendingUp, badge: null },
-                { id: 'users', label: 'User Directory', icon: Users, badge: dashboardData?.stats.totalStudents },
-                { id: 'providers', label: 'Providers / Hosts', icon: Building2, badge: dashboardData?.stats.totalProviders },
-                { id: 'hostels', label: 'Hostel Listings', icon: Layers, badge: dashboardData?.stats.totalHostels },
-                { id: 'bookings', label: 'Bookings Oversight', icon: Calendar, badge: dashboardData?.stats.activeBookings }
+                { id: 'users', label: 'User Directory', icon: Users, badge: dashboardData?.stats?.totalStudents ?? 0 },
+                { id: 'providers', label: 'Providers / Hosts', icon: Building2, badge: dashboardData?.stats?.totalProviders ?? 0 },
+                { id: 'hostels', label: 'Hostel Listings', icon: Layers, badge: dashboardData?.stats?.totalHostels ?? 0 },
+                { id: 'bookings', label: 'Bookings Oversight', icon: Calendar, badge: dashboardData?.stats?.activeBookings ?? 0 }
               ]
             },
             {
               category: 'TRUST & SAFETY',
               items: [
-                { id: 'verification', label: 'Verification Center', icon: ShieldCheck, badge: dashboardData?.stats.pendingHostels, badgeColor: 'bg-amber-500/20 text-amber-300' },
-                { id: 'disputes', label: 'Dispute Cases', icon: ShieldAlert, badge: disputesList.filter(d => d.status === 'OPEN' || d.status === 'UNDER_REVIEW').length || null, badgeColor: 'bg-rose-500/20 text-rose-300' },
-                { id: 'reports', label: 'Safety & Reports', icon: AlertTriangle, badge: dashboardData?.stats.openReports, badgeColor: 'bg-rose-500/20 text-rose-300' },
+                { id: 'verification', label: 'Verification Center', icon: ShieldCheck, badge: dashboardData?.stats?.pendingHostels ?? 0, badgeColor: 'bg-amber-500/20 text-amber-300' },
+                { id: 'disputes', label: 'Dispute Cases', icon: ShieldAlert, badge: (disputesList || []).filter(d => d.status === 'OPEN' || d.status === 'UNDER_REVIEW').length || null, badgeColor: 'bg-rose-500/20 text-rose-300' },
+                { id: 'reports', label: 'Safety & Reports', icon: AlertTriangle, badge: dashboardData?.stats?.openReports ?? 0, badgeColor: 'bg-rose-500/20 text-rose-300' },
                 { id: 'reviews', label: 'Review Moderation', icon: MessageSquareQuote, badge: null },
                 { id: 'community_moderation', label: 'Community & Roommates', icon: ShieldCheck, badge: 'Phase 14', badgeColor: 'bg-emerald-500/20 text-emerald-300' }
               ]
@@ -611,15 +648,15 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
             {
               category: '🤝 AGENT NETWORK',
               items: [
-                { id: 'agents', label: 'Agent Management', icon: UserCheck, badge: agentsList.filter(a => a.verificationStatus === 'PENDING').length ? `${agentsList.filter(a => a.verificationStatus === 'PENDING').length} Pending` : 'Verified', badgeColor: agentsList.filter(a => a.verificationStatus === 'PENDING').length ? 'bg-amber-500/20 text-amber-300' : 'bg-teal-500/20 text-teal-300' },
-                { id: 'agent_leads', label: 'Hostel Leads', icon: Layers, badge: agentLeadsList.filter(l => l.status === 'PENDING_VERIFICATION').length ? `${agentLeadsList.filter(l => l.status === 'PENDING_VERIFICATION').length} New` : null, badgeColor: 'bg-amber-500/20 text-amber-300' }
+                { id: 'agents', label: 'Agent Management', icon: UserCheck, badge: (agentsList || []).filter(a => a.verificationStatus === 'PENDING').length ? `${(agentsList || []).filter(a => a.verificationStatus === 'PENDING').length} Pending` : 'Verified', badgeColor: (agentsList || []).filter(a => a.verificationStatus === 'PENDING').length ? 'bg-amber-500/20 text-amber-300' : 'bg-teal-500/20 text-teal-300' },
+                { id: 'agent_leads', label: 'Hostel Leads', icon: Layers, badge: (agentLeadsList || []).filter(l => l.status === 'PENDING_VERIFICATION').length ? `${(agentLeadsList || []).filter(l => l.status === 'PENDING_VERIFICATION').length} New` : null, badgeColor: 'bg-amber-500/20 text-amber-300' }
               ]
             },
             {
               category: 'SUPPORT & TELEMETRY',
               items: [
-                { id: 'support', label: 'Support Inquiries', icon: LifeBuoy, badge: dashboardData?.stats.openSupportTickets, badgeColor: 'bg-indigo-500/20 text-indigo-300' },
-                { id: 'announcements', label: 'Broadcast Updates', icon: Megaphone, badge: announcements.length },
+                { id: 'support', label: 'Support Inquiries', icon: LifeBuoy, badge: dashboardData?.stats?.openSupportTickets ?? 0, badgeColor: 'bg-indigo-500/20 text-indigo-300' },
+                { id: 'announcements', label: 'Broadcast Updates', icon: Megaphone, badge: (announcements || []).length },
                 { id: 'supply_demand', label: 'Supply vs Demand Gap', icon: TrendingUp, badge: 'Phase 13', badgeColor: 'bg-emerald-500/20 text-emerald-300' },
                 { id: 'analytics', label: 'Stress Metrics', icon: Activity, badge: null },
                 { id: 'system_health', label: 'System Health', icon: Sliders, badge: 'HEALTHY', badgeColor: 'bg-emerald-500/20 text-emerald-300' },
@@ -673,7 +710,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="text-xs font-black text-white truncate">
-                    {user?.fullName || dashboardData?.admin.fullName || 'Hostel Ease Owner'}
+                    {user?.fullName || dashboardData?.admin?.fullName || 'Hostel Ease Owner'}
                   </p>
                   <p className="text-[10px] text-emerald-400 font-bold truncate">
                     👑 Owner / Super Admin
@@ -685,7 +722,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                 <div className="flex items-center justify-between text-slate-400">
                   <span>Account:</span>
                   <span className="font-semibold text-white truncate max-w-[120px]">
-                    {user?.email || dashboardData?.admin.email || 'admin@hostelease.ng'}
+                    {user?.email || dashboardData?.admin?.email || 'admin@hostelease.ng'}
                   </span>
                 </div>
                 <div className="flex items-center justify-between text-slate-400">

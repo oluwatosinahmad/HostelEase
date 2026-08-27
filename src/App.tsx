@@ -46,6 +46,9 @@ import { MobileBottomNav } from './components/MobileBottomNav';
 import { NetworkStatusBanner } from './components/NetworkStatusBanner';
 import { HostelListSkeleton, DashboardSkeleton } from './components/SkeletonLoaders';
 import { formatNaira, formatDistance } from './utils/formatters';
+import { AdminPortal } from './components/AdminPortal';
+import { AgentPortal } from './components/AgentPortal';
+import { ProviderPortal } from './components/ProviderPortal';
 
 // Lazy Loaded Heavy Components for Fast Mobile Startup
 const CampusMapExplorer = lazy(() => import('./components/CampusMapExplorer').then(m => ({ default: m.CampusMapExplorer })));
@@ -57,9 +60,6 @@ const StudentBookingDashboard = lazy(() => import('./components/StudentBookingDa
 const ProviderBookingDashboard = lazy(() => import('./components/ProviderBookingDashboard').then(m => ({ default: m.ProviderBookingDashboard })));
 const StudentPaymentHistory = lazy(() => import('./components/StudentPaymentHistory').then(m => ({ default: m.StudentPaymentHistory })));
 const MessagingCenter = lazy(() => import('./components/MessagingCenter').then(m => ({ default: m.MessagingCenter })));
-const ProviderPortal = lazy(() => import('./components/ProviderPortal').then(m => ({ default: m.ProviderPortal })));
-const AgentPortal = lazy(() => import('./components/AgentPortal').then(m => ({ default: m.AgentPortal })));
-const AdminPortal = lazy(() => import('./components/AdminPortal').then(m => ({ default: m.AdminPortal })));
 const AIAccommodationAssistantModal = lazy(() => import('./components/AIAccommodationAssistantModal').then(m => ({ default: m.AIAccommodationAssistantModal })));
 const MoveInCenter = lazy(() => import('./components/MoveInCenter').then(m => ({ default: m.MoveInCenter })));
 const AccommodationHistory = lazy(() => import('./components/AccommodationHistory').then(m => ({ default: m.AccommodationHistory })));
