@@ -1271,6 +1271,8 @@ function MainApp() {
             setCurrentView('admin-portal');
           } else if (targetRole === 'PROVIDER') {
             setCurrentView('provider-portal');
+          } else if (targetRole === 'AGENT') {
+            setCurrentView('agent-portal');
           } else {
             setCurrentView('student-dashboard');
           }

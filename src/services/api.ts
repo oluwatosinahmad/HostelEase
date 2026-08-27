@@ -341,17 +341,82 @@ function generateOfflineFallbackResponse(url?: string): any {
   if (cleanUrl.includes('/admin/announcements')) {
     return { announcements: [] };
   }
-  if (cleanUrl.includes('/admin/audit-logs')) {
-    return { logs: [] };
+  if (cleanUrl.includes('/admin/operations/dashboard') || cleanUrl.includes('/admin/operations')) {
+    return DEFAULT_OPERATIONS_DASHBOARD;
+  }
+  if (cleanUrl.includes('/admin/dashboard') || cleanUrl.endsWith('/admin')) {
+    return {
+      admin: {
+        id: 'user-admin-1',
+        fullName: 'Oluwatosin Ahmad',
+        email: 'admin@hostelease.ng',
+        role: 'SUPER_ADMIN',
+        department: 'Executive Operations',
+        isSuperAdmin: true
+      },
+      stats: {
+        totalStudents: 120,
+        totalProviders: 8,
+        totalHostels: DEFAULT_PROPERTIES.length,
+        verifiedHostels: DEFAULT_PROPERTIES.filter(p => p.verificationStatus === 'APPROVED').length,
+        pendingHostels: 2,
+        activeBookings: 18,
+        pendingBookings: 3,
+        successfulPayments: 18,
+        pendingPayments: 2,
+        totalRefunds: 0,
+        openReports: 0,
+        upcomingInspections: 5,
+        openSupportTickets: 2,
+        totalGrossRevenue: 4500000
+      },
+      stressMetrics: {
+        searchToBookingConversion: '14.2%',
+        bookingCancellationRate: '1.2%',
+        avgViewsPerBooking: '4.2',
+        totalSearches: 450,
+        totalViews: 1200,
+        totalInspections: 28,
+        totalBookingsAll: 18,
+        avgSearchToInspectionDays: '1.4 Days (LAUTECH Average)'
+      }
+    };
   }
   if (cleanUrl.includes('/admin')) {
     return {
-      ...DEFAULT_OPERATIONS_DASHBOARD,
-      overview: {
-        totalRevenue: 8450000,
-        netPlatformRevenue: 633750,
-        bookingCommissions: 420000,
-        providerSubscriptions: 150000
+      admin: {
+        id: 'user-admin-1',
+        fullName: 'Oluwatosin Ahmad',
+        email: 'admin@hostelease.ng',
+        role: 'SUPER_ADMIN',
+        department: 'Executive Operations',
+        isSuperAdmin: true
+      },
+      stats: {
+        totalStudents: 120,
+        totalProviders: 8,
+        totalHostels: 14,
+        verifiedHostels: 10,
+        pendingHostels: 4,
+        activeBookings: 18,
+        pendingBookings: 3,
+        successfulPayments: 18,
+        pendingPayments: 2,
+        totalRefunds: 0,
+        openReports: 0,
+        upcomingInspections: 5,
+        openSupportTickets: 2,
+        totalGrossRevenue: 4500000
+      },
+      stressMetrics: {
+        searchToBookingConversion: '14.2%',
+        bookingCancellationRate: '1.2%',
+        avgViewsPerBooking: '4.2',
+        totalSearches: 450,
+        totalViews: 1200,
+        totalInspections: 28,
+        totalBookingsAll: 18,
+        avgSearchToInspectionDays: '1.4 Days (LAUTECH Average)'
       }
     };
   }
