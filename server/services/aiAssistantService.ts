@@ -547,6 +547,118 @@ export class AIAssistantService {
       }
     }
 
+    // 🎓 LAUTECH ACCOMMODATION KNOWLEDGE BASE & ADVISORY
+    // Area guide inquiry
+    if (lower.includes('area') || lower.includes('under g') || lower.includes('adenike') || lower.includes('stadium') || lower.includes('college road') || lower.includes('general area') || lower.includes('where should i live') || lower.includes('best place to stay') || lower.includes('best area')) {
+      toolCallsExecuted.push('areaGuide');
+      const areaProps = this.searchHostels({ limit: 4 }, studentId);
+      return {
+        message: `### 📍 LAUTECH Student Accommodation Area Guide\n\n` +
+          `• **Under G (Main Gate Axis):** 200m – 1.0km from campus. 24/7 commercial life, study cafes, printing hubs, and quick walking access to lecture theaters without taking keke. Rent: ~₦180,000 – ₦380,000.\n\n` +
+          `• **Adenike Community:** 0.5km – 1.8km from campus. Known for having one of the most reliable electricity feeders, vibrant student supermarkets, and steady Keke shuttles. Rent: ~₦160,000 – ₦320,000.\n\n` +
+          `• **Stadium Road:** 0.8km – 2.0km from campus. Serene, well-paved avenue preferred by final-year scholars and serious students. Steady borehole water and strict night security. Rent: ~₦200,000 – ₦420,000.\n\n` +
+          `• **College Road / 2nd Gate:** 0.4km – 1.5km. Direct walking route to LAUTECH College of Health Sciences (CHS), Anatomy labs, and main library. Rent: ~₦170,000 – ₦340,000.\n\n` +
+          `• **General Area & Bowen:** 1.4km – 2.8km. Calm residential neighborhood near the State Hospital with clean water and gated compounds. Rent: ~₦150,000 – ₦300,000.`,
+        structuredData: {
+          type: 'HOSTEL_LIST',
+          properties: areaProps,
+          suggestedQueries: [
+            'Show me hostels in Under G under ₦200k',
+            'Which area has the most reliable electricity?',
+            'Give me an inspection checklist'
+          ]
+        },
+        toolCallsExecuted
+      };
+    }
+
+    // Electricity & Power supply inquiry
+    if (lower.includes('electricity') || lower.includes('light') || lower.includes('power') || lower.includes('inverter') || lower.includes('generator') || lower.includes('solar')) {
+      toolCallsExecuted.push('facilityIntelligence');
+      return {
+        message: `### ⚡ Electricity & Power Supply around LAUTECH\n\n` +
+          `• **Adenike & Under G:** Typically enjoy 14–18+ hours daily on the dedicated commercial distribution feeder line, especially during academic test and exam periods.\n` +
+          `• **Solar Inverter Lodges:** Premium verified lodges on Hostel Ease (like Crown Royal and Harmony Heights) feature 3.5kVA–5kVA solar systems powering room lighting, ceiling fans, and study laptop sockets 24/7.\n` +
+          `• **Sub-meters:** Most modern self-contain units feature individual prepaid sub-meters so you only pay for what you consume.\n\n` +
+          `💡 **Inspection Tip:** During your physical inspection, always ask the caretaker about the generator fueling schedule during public power outages and test the room sockets.`,
+        structuredData: {
+          type: 'HOSTEL_LIST',
+          properties: this.searchHostels({ limit: 3 }, studentId),
+          suggestedQueries: [
+            'Show me hostels with solar inverter',
+            'Give me an inspection checklist',
+            'Compare hostels near Under G'
+          ]
+        },
+        toolCallsExecuted
+      };
+    }
+
+    // Pricing, Caution Fee, Total Cost inquiry
+    if (lower.includes('caution fee') || lower.includes('total cost') || lower.includes('agency fee') || lower.includes('service charge') || lower.includes('hidden fee') || lower.includes('how much does it cost')) {
+      toolCallsExecuted.push('financialTransparency');
+      return {
+        message: `### 💰 Transparent Pricing & Mandatory Fee Breakdown on Hostel Ease\n\n` +
+          `Every listing on Hostel Ease shows 100% upfront pricing so you never face unexpected fees on campus:\n\n` +
+          `1. **Annual Rent:** Base room fee covering the 12-month academic session.\n` +
+          `2. **Caution Deposit (Refundable):** ₦15,000 – ₦30,000 held against room damages and refunded upon smooth move-out.\n` +
+          `3. **Service Charge:** Covers security guard salaries, borehole pumping electricity, and waste disposal.\n` +
+          `4. **Legal / Agreement Fee:** Capped standard agreement documentation fee.\n\n` +
+          `🔒 **Escrow Guarantee:** Your funds are held securely until you inspect, confirm the room condition, and approve the key handover.`,
+        structuredData: {
+          type: 'HOSTEL_LIST',
+          properties: this.searchHostels({ limit: 3 }, studentId),
+          suggestedQueries: [
+            'Show me hostels under ₦180,000 total cost',
+            'How do I book a verified hostel?',
+            'What questions should I ask during inspection?'
+          ]
+        },
+        toolCallsExecuted
+      };
+    }
+
+    // 4-Step Booking & Verification inquiry
+    if (lower.includes('how to book') || lower.includes('how do i book') || lower.includes('booking process') || lower.includes('how does hostel ease work') || lower.includes('how it works')) {
+      toolCallsExecuted.push('bookingGuide');
+      return {
+        message: `### 🏠 How to Secure Your LAUTECH Accommodation in 4 Easy Steps\n\n` +
+          `1. **Explore & Shortlist:** Browse 100% verified lodges with genuine photos, exact distances from campus gates, and total upfront prices.\n` +
+          `2. **Book a Free Inspection:** Schedule a physical walkthrough or live video tour directly with the verified landlord.\n` +
+          `3. **Chat & Confirm Bedspace:** Message the landlord directly to ask questions or reserve your preferred room.\n` +
+          `4. **Pay via Escrow:** Complete payment securely through Hostel Ease Escrow. Funds are only disbursed once you confirm satisfactory key handover.`,
+        structuredData: {
+          type: 'HOSTEL_LIST',
+          properties: this.searchHostels({ limit: 3 }, studentId),
+          suggestedQueries: [
+            'Find hostels near Under G',
+            'Schedule an inspection today',
+            'Show me hostels with borehole water'
+          ]
+        },
+        toolCallsExecuted
+      };
+    }
+
+    // Roommate Matching inquiry
+    if (lower.includes('roommate') || lower.includes('sharing') || lower.includes('find a roommate') || lower.includes('room mate')) {
+      toolCallsExecuted.push('roommateMatching');
+      return {
+        message: `### 🤝 LAUTECH Roommate Matching Hub\n\n` +
+          `Hostel Ease includes an intelligent Roommate Matching system tailored for LAUTECH students:\n\n` +
+          `• **Compatibility Matching:** Match based on sleep schedule (early bird vs night owl), study habits, cleanliness standards, and budget split.\n` +
+          `• **Departmental Alignment:** Find coursemates in Engineering, Health Sciences, Pure Sciences, or Management for group study.\n` +
+          `• **Verified Identity:** Only verified students with registered matriculation or JAMB profiles can connect.\n\n` +
+          `💡 Head over to the **Community Hub** to browse roommate profiles or publish your own request!`,
+        suggestedQueries: [
+          'Find hostels suitable for 2 students sharing',
+          'What are the cheapest self-contain lodges?',
+          'Show me hostels near Stadium Road'
+        ],
+        toolCallsExecuted
+      };
+    }
+
     // Check Contextual Single Property Inquiry (if propertyId provided or property title mentioned)
     let singlePropTargetId = context?.propertyId;
     if (!singlePropTargetId) {
