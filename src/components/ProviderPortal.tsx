@@ -43,9 +43,11 @@ import {
   UserCheck,
   Flag,
   ArrowRight,
-  KeyRound
+  KeyRound,
+  MessageSquare,
+  Search
 } from 'lucide-react';
-import { Area, Property, NotificationItem, VerificationDocument, PriceHistoryItem } from '../types/hostelEase';
+import { Area, Property, NotificationItem, VerificationDocument, PriceHistoryItem, ConversationItem, ConversationDetail, MessageItem } from '../types/hostelEase';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { HostelCreationWizard } from './HostelCreationWizard';
@@ -70,6 +72,7 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
 }) => {
   const { user, loginDemo } = useAuth();
   const docInputRef = useRef<HTMLInputElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Active Tab
   const [activeTab, setActiveTab] = useState<
@@ -93,6 +96,16 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [unreadNotifsCount, setUnreadNotifsCount] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(true);
+
+  // Live Student Inquiries & Direct Messages State
+  const [conversations, setConversations] = useState<ConversationItem[]>([]);
+  const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
+  const [activeDetail, setActiveDetail] = useState<ConversationDetail | null>(null);
+  const [messageReplyText, setMessageReplyText] = useState<string>('');
+  const [messagesLoading, setMessagesLoading] = useState<boolean>(false);
+  const [sendingReply, setSendingReply] = useState<boolean>(false);
+  const [conversationSearch, setConversationSearch] = useState<string>('');
+  const [notifDropdownOpen, setNotifDropdownOpen] = useState<boolean>(false);
 
   // Modals & Sub-states
   const [onboardingOpen, setOnboardingOpen] = useState(false);
@@ -141,6 +154,55 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
   const [selectedDocType, setSelectedDocType] = useState('NIN_CARD');
   const [isUploadingDoc, setIsUploadingDoc] = useState(false);
 
+  const fetchConversations = async (targetId?: string) => {
+    try {
+      const res = await api.messages.getConversations();
+      const list = res.conversations || [];
+      setConversations(list);
+      
+      const toSelect = targetId || activeConversationId || (list.length > 0 ? list[0].id : null);
+      if (toSelect) {
+        setActiveConversationId(toSelect);
+        loadConversationDetail(toSelect);
+      }
+    } catch (err) {
+      console.error('Error fetching conversations:', err);
+    }
+  };
+
+  const loadConversationDetail = async (id: string) => {
+    setMessagesLoading(true);
+    try {
+      const res = await api.messages.getConversation(id);
+      setActiveDetail(res);
+      await api.messages.markAsRead(id);
+      setConversations(prev => prev.map(c => c.id === id ? { ...c, unreadCount: 0 } : c));
+    } catch (err) {
+      console.error('Failed to load conversation detail:', err);
+    } finally {
+      setMessagesLoading(false);
+    }
+  };
+
+  const handleSendReply = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!messageReplyText.trim() || !activeConversationId) return;
+
+    setSendingReply(true);
+    try {
+      await api.messages.sendMessage(activeConversationId, messageReplyText.trim());
+      setMessageReplyText('');
+      await loadConversationDetail(activeConversationId);
+      onShowToast('Reply sent to student successfully!', 'success');
+      const res = await api.messages.getConversations();
+      setConversations(res.conversations || []);
+    } catch (err: any) {
+      onShowToast(err.message || 'Failed to send message', 'error');
+    } finally {
+      setSendingReply(false);
+    }
+  };
+
   const fetchAllProviderData = (propId: string = selectedPropertyId) => {
     setLoading(true);
     Promise.all([
@@ -153,9 +215,10 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
       api.provider.getTeam(),
       api.provider.getAuditLogs(),
       api.verification.getMyDocuments(),
-      api.notifications.getAll()
+      api.notifications.getAll(),
+      api.messages.getConversations()
     ])
-      .then(([dashRes, propsRes, calRes, schedRes, qrRes, perfRes, teamRes, logsRes, docsRes, notifsRes]) => {
+      .then(([dashRes, propsRes, calRes, schedRes, qrRes, perfRes, teamRes, logsRes, docsRes, notifsRes, msgsRes]) => {
         setDashboardData(dashRes);
         setProperties(propsRes.properties || []);
         setCalendarEvents(calRes.events || []);
@@ -167,6 +230,13 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
         setDocuments(docsRes.documents || []);
         setNotifications(notifsRes.notifications || []);
         setUnreadNotifsCount(notifsRes.unreadCount || 0);
+        
+        const convList = msgsRes.conversations || [];
+        setConversations(convList);
+        if (convList.length > 0 && !activeConversationId) {
+          setActiveConversationId(convList[0].id);
+          loadConversationDetail(convList[0].id);
+        }
 
         if (propsRes.properties && propsRes.properties.length > 0 && !selectedRoomPropertyId) {
           setSelectedRoomPropertyId(propsRes.properties[0].id);
@@ -189,6 +259,31 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
   useEffect(() => {
     fetchAllProviderData(selectedPropertyId);
   }, [selectedPropertyId]);
+
+  // Real-time listener for incoming student messages & notifications
+  useEffect(() => {
+    const handleNotificationUpdate = () => {
+      api.notifications.getAll().then(res => {
+        setNotifications(res.notifications || []);
+        setUnreadNotifsCount(res.unreadCount || 0);
+      });
+      api.messages.getConversations().then(res => {
+        setConversations(res.conversations || []);
+      });
+      if (activeConversationId) {
+        api.messages.getConversation(activeConversationId).then(res => {
+          setActiveDetail(res);
+        });
+      }
+    };
+
+    window.addEventListener('hostel_ease_notification_updated', handleNotificationUpdate);
+    return () => window.removeEventListener('hostel_ease_notification_updated', handleNotificationUpdate);
+  }, [activeConversationId]);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [activeDetail?.messages]);
 
   // Fetch rooms when room property changes
   useEffect(() => {
@@ -446,12 +541,84 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
 
           {/* Quick Actions Header Bar */}
           <div className="flex items-center gap-2">
+            
+            {/* Real-time Notification Bell Dropdown */}
+            <div className="relative">
+              <button
+                onClick={() => setNotifDropdownOpen(!notifDropdownOpen)}
+                className="relative p-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl transition-colors cursor-pointer flex items-center justify-center"
+                title="Landlord In-App Notifications"
+              >
+                <Bell className="w-4 h-4 text-gray-700" />
+                {unreadNotifsCount > 0 && (
+                  <span className="absolute -top-1 -right-1 w-5 h-5 bg-rose-600 text-white text-[10px] font-black rounded-full flex items-center justify-center animate-pulse">
+                    {unreadNotifsCount}
+                  </span>
+                )}
+              </button>
+
+              {notifDropdownOpen && (
+                <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white border border-gray-200 rounded-2xl shadow-2xl z-50 p-4 space-y-3 animate-in fade-in zoom-in-95 duration-150">
+                  <div className="flex items-center justify-between border-b border-gray-100 pb-2.5">
+                    <div className="flex items-center gap-2">
+                      <Bell className="w-4 h-4 text-emerald-800" />
+                      <h4 className="text-xs font-bold text-gray-900">Student & Booking Alerts</h4>
+                    </div>
+                    {unreadNotifsCount > 0 && (
+                      <button
+                        onClick={async () => {
+                          await api.notifications.markAllRead();
+                          setUnreadNotifsCount(0);
+                          setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+                          onShowToast('All notifications marked as read', 'info');
+                        }}
+                        className="text-[11px] font-bold text-emerald-800 hover:underline cursor-pointer"
+                      >
+                        Mark all read
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="max-h-72 overflow-y-auto space-y-2 text-xs">
+                    {notifications.length === 0 ? (
+                      <p className="text-center py-6 text-gray-400">No notifications yet.</p>
+                    ) : (
+                      notifications.slice(0, 10).map((n) => (
+                        <div
+                          key={n.id}
+                          onClick={() => {
+                            setNotifDropdownOpen(false);
+                            if (n.type === 'NEW_MESSAGE' || n.linkUrl?.includes('messages')) {
+                              setActiveTab('messages');
+                              fetchConversations();
+                            } else {
+                              setActiveTab('bookings');
+                            }
+                            api.notifications.markRead(n.id);
+                          }}
+                          className={`p-3 rounded-xl border transition-all cursor-pointer ${
+                            !n.isRead ? 'bg-emerald-50/80 border-emerald-200 text-emerald-950 font-medium' : 'bg-gray-50 border-gray-200 text-gray-700'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="font-bold text-[11px] text-gray-900">{n.title}</span>
+                            <span className="text-[10px] text-gray-400">{new Date(n.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                          </div>
+                          <p className="text-[11px] leading-relaxed text-gray-600 line-clamp-2">{n.message}</p>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
             <button
               onClick={() => {
                 setEditingProperty(null);
                 setActiveTab('wizard');
               }}
-              className="px-3.5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-xl shadow-sm transition-all flex items-center gap-1.5"
+              className="px-3.5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-xl shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
             >
               <PlusCircle className="w-4 h-4" />
               + Add Hostel
@@ -459,23 +626,26 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
 
             <button
               onClick={() => setActiveTab('rooms')}
-              className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold rounded-xl transition-all flex items-center gap-1.5"
+              className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer"
             >
               <Layers className="w-4 h-4 text-gray-500" />
               Spaces & Rooms
             </button>
 
             <button
-              onClick={() => setActiveTab('bookings')}
-              className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold rounded-xl transition-all relative flex items-center gap-1.5"
+              onClick={() => setActiveTab('messages')}
+              className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold rounded-xl transition-all relative flex items-center gap-1.5 cursor-pointer"
             >
-              <FileText className="w-4 h-4 text-gray-500" />
-              Add New Hostel
+              <MessageSquare className="w-4 h-4 text-gray-500" />
+              <span>Inquiries</span>
+              {conversations.some(c => (c.unreadCount || 0) > 0) && (
+                <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
+              )}
             </button>
 
             <button
               onClick={() => setAiDrawerOpen(true)}
-              className="px-3.5 py-2 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white text-xs font-bold rounded-xl shadow-sm transition-all flex items-center gap-1.5"
+              className="px-3.5 py-2 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white text-xs font-bold rounded-xl shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
             >
               <Sparkles className="w-4 h-4 text-amber-300 animate-spin-slow" />
               AI Assistant
@@ -542,7 +712,7 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
                 { id: 'bookings', label: 'Bookings', count: stats?.pendingBookings, badgeColor: 'bg-red-500 text-white', icon: FileText },
                 { id: 'move_ins', label: 'Move-In & Issues', count: 0, badgeColor: 'bg-amber-500 text-white', icon: KeyRound },
                 { id: 'inspections', label: 'Inspections & Slots', count: stats?.pendingInspections, badgeColor: 'bg-blue-500 text-white', icon: Clock },
-                { id: 'messages', label: 'Messages & Replies', count: stats?.unreadMessages, badgeColor: 'bg-emerald-500 text-white', icon: Send }
+                { id: 'messages', label: 'Student Inquiries', count: conversations.reduce((sum, c) => sum + (c.unreadCount || 0), 0) || stats?.unreadMessages || 0, badgeColor: 'bg-rose-600 text-white', icon: Send }
               ].map(tab => {
                 const Icon = tab.icon;
                 const isActive = activeTab === tab.id;
@@ -813,6 +983,98 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
                             style={{ width: `${prop.completenessScore}%` }}
                           />
                         </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Live Student Inquiries & Direct Messages Section */}
+            <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-xs space-y-4">
+              <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 bg-emerald-50 text-emerald-800 rounded-xl">
+                    <Send className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-gray-900">Student Inquiries & Live Messages</h3>
+                    <p className="text-xs text-gray-500">Incoming room questions and inspection inquiries from prospective students</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  {conversations.some(c => (c.unreadCount || 0) > 0) && (
+                    <span className="px-2.5 py-1 bg-rose-500 text-white text-[10px] font-black rounded-full animate-pulse">
+                      {conversations.reduce((sum, c) => sum + (c.unreadCount || 0), 0)} New Inquiry
+                    </span>
+                  )}
+                  <button
+                    onClick={() => {
+                      setActiveTab('messages');
+                      fetchConversations();
+                    }}
+                    className="px-3.5 py-1.5 bg-emerald-800 hover:bg-emerald-900 text-white text-xs font-bold rounded-xl shadow-xs transition-colors cursor-pointer"
+                  >
+                    Open Messages Inbox →
+                  </button>
+                </div>
+              </div>
+
+              {conversations.length === 0 ? (
+                <div className="text-center py-8 space-y-2">
+                  <MessageSquare className="w-8 h-8 text-gray-300 mx-auto" />
+                  <p className="text-xs font-semibold text-gray-500">No student messages received yet.</p>
+                  <p className="text-[11px] text-gray-400 max-w-sm mx-auto">When students click "Chat Landlord" on your verified hostel listings, inquiries will instantly appear here with live notifications.</p>
+                </div>
+              ) : (
+                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {conversations.slice(0, 3).map((conv) => (
+                    <div
+                      key={conv.id}
+                      className={`p-4 rounded-xl border transition-all flex flex-col justify-between ${
+                        (conv.unreadCount || 0) > 0
+                          ? 'bg-emerald-50/60 border-emerald-300 shadow-xs'
+                          : 'bg-gray-50 border-gray-200'
+                      }`}
+                    >
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <div className="w-7 h-7 rounded-full bg-emerald-800 text-white font-black text-xs flex items-center justify-center">
+                              {conv.studentName?.charAt(0) || 'S'}
+                            </div>
+                            <div>
+                              <h5 className="text-xs font-bold text-gray-900">{conv.studentName || 'Student'}</h5>
+                              <p className="text-[10px] text-emerald-800 font-semibold">{conv.propertyTitle}</p>
+                            </div>
+                          </div>
+                          {(conv.unreadCount || 0) > 0 && (
+                            <span className="px-2 py-0.5 bg-rose-500 text-white text-[10px] font-black rounded-full">
+                              New
+                            </span>
+                          )}
+                        </div>
+
+                        <p className="text-xs text-gray-600 line-clamp-2 leading-relaxed italic">
+                          "{conv.lastMessageText || 'Hello, I would like to inquire about this hostel...'}"
+                        </p>
+                      </div>
+
+                      <div className="pt-3 mt-2 border-t border-gray-200/60 flex items-center justify-between text-[11px]">
+                        <span className="text-gray-400">
+                          {conv.lastMessageAt ? new Date(conv.lastMessageAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Recently'}
+                        </span>
+                        <button
+                          onClick={() => {
+                            setActiveTab('messages');
+                            setActiveConversationId(conv.id);
+                            loadConversationDetail(conv.id);
+                          }}
+                          className="font-bold text-emerald-800 hover:text-emerald-950 flex items-center gap-1 cursor-pointer"
+                        >
+                          <span>Reply to Student</span>
+                          <ArrowRight className="w-3.5 h-3.5" />
+                        </button>
                       </div>
                     </div>
                   ))}
@@ -1124,58 +1386,254 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
           <ProviderFinancialDashboard onShowToast={onShowToast} />
         )}
 
-        {/* TAB 8: MESSAGES & QUICK REPLIES */}
+        {/* TAB 8: MESSAGES & STUDENT INQUIRIES */}
         {activeTab === 'messages' && (
           <div className="space-y-6">
             
-            {/* Quick Replies Bar */}
+            {/* Top Quick Actions & Template Bar */}
             <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-xs space-y-3">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
-                  <h3 className="text-sm font-bold text-gray-900">Reusable Quick Replies</h3>
-                  <p className="text-xs text-gray-500">Click any reply template to copy or send to inquiring students</p>
+                  <h3 className="text-base font-bold text-gray-900">Student Inquiries & Direct Messaging</h3>
+                  <p className="text-xs text-gray-500">Live chat with prospective students inquiring about your hostels</p>
                 </div>
-                <button
-                  onClick={() => setNewQuickReplyModal(true)}
-                  className="px-3 py-1.5 bg-emerald-800 hover:bg-emerald-900 text-white text-xs font-bold rounded-xl shadow-xs"
-                >
-                  + Add Template
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => fetchConversations()}
+                    className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold rounded-xl transition-colors cursor-pointer"
+                  >
+                    Refresh Chats
+                  </button>
+                  <button
+                    onClick={() => setNewQuickReplyModal(true)}
+                    className="px-3 py-1.5 bg-emerald-800 hover:bg-emerald-900 text-white text-xs font-bold rounded-xl shadow-xs transition-colors flex items-center gap-1 cursor-pointer"
+                  >
+                    + Add Quick Reply Template
+                  </button>
+                </div>
               </div>
 
-              <div className="flex flex-wrap gap-2">
-                {quickReplies.map(qr => (
-                  <div key={qr.id} className="p-3 bg-gray-50 border border-gray-200 rounded-xl max-w-xs flex items-start justify-between gap-2">
-                    <div>
-                      <h5 className="text-xs font-bold text-gray-900">{qr.title}</h5>
-                      <p className="text-[11px] text-gray-600 mt-0.5 line-clamp-2">{qr.messageText}</p>
-                    </div>
+              {/* Quick Reply Badges */}
+              {quickReplies.length > 0 && (
+                <div className="pt-2 border-t border-gray-100 flex items-center gap-2 overflow-x-auto pb-1">
+                  <span className="text-[11px] font-bold text-gray-400 shrink-0">Templates:</span>
+                  {quickReplies.map(qr => (
                     <button
-                      onClick={() => handleDeleteQuickReply(qr.id)}
-                      className="text-gray-400 hover:text-red-500"
+                      key={qr.id}
+                      onClick={() => setMessageReplyText(qr.messageText)}
+                      className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-900 rounded-lg text-xs font-medium shrink-0 transition-colors flex items-center gap-1.5 cursor-pointer"
+                      title={qr.messageText}
                     >
-                      <X className="w-3.5 h-3.5" />
+                      <span>{qr.title}</span>
+                      <span className="text-[10px] text-emerald-600">↳ Insert</span>
                     </button>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
 
-            {/* Direct Open Conversations Link */}
-            <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-6 text-center space-y-3">
-              <Send className="w-10 h-10 text-emerald-800 mx-auto" />
-              <h4 className="text-base font-bold text-emerald-950">Student Messaging Center</h4>
-              <p className="text-xs text-emerald-800 max-w-md mx-auto">
-                Communicate directly with students about room inquiries, inspection confirmations, and move-in coordination.
-              </p>
-              {onOpenConversation && (
-                <button
-                  onClick={() => onOpenConversation(properties[0]?.id || '')}
-                  className="px-5 py-2.5 bg-emerald-800 hover:bg-emerald-900 text-white text-xs font-bold rounded-xl shadow-xs"
-                >
-                  Open Messaging Center
-                </button>
-              )}
+            {/* Two-Pane Messaging Interface */}
+            <div className="bg-white border border-gray-200 rounded-2xl shadow-xs overflow-hidden grid lg:grid-cols-12 min-h-[620px]">
+              
+              {/* Left Column: Student Conversations List */}
+              <div className="lg:col-span-4 border-r border-gray-200 flex flex-col bg-gray-50/50">
+                
+                {/* Search Bar */}
+                <div className="p-3.5 border-b border-gray-200 bg-white">
+                  <div className="relative">
+                    <Search className="w-4 h-4 text-gray-400 absolute left-3 top-2.5" />
+                    <input
+                      type="text"
+                      placeholder="Search student or hostel..."
+                      value={conversationSearch}
+                      onChange={e => setConversationSearch(e.target.value)}
+                      className="w-full pl-9 pr-3 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                {/* Conversations Scrollable List */}
+                <div className="flex-1 overflow-y-auto divide-y divide-gray-100 max-h-[560px]">
+                  {conversations.length === 0 ? (
+                    <div className="text-center py-16 px-4 space-y-2">
+                      <MessageSquare className="w-8 h-8 text-gray-300 mx-auto" />
+                      <p className="text-xs font-bold text-gray-500">No active student inquiries</p>
+                      <p className="text-[11px] text-gray-400">When students ask questions about your rooms, they will show here.</p>
+                    </div>
+                  ) : (
+                    conversations
+                      .filter(c => {
+                        if (!conversationSearch.trim()) return true;
+                        const q = conversationSearch.toLowerCase();
+                        return (
+                          (c.studentName && c.studentName.toLowerCase().includes(q)) ||
+                          (c.propertyTitle && c.propertyTitle.toLowerCase().includes(q)) ||
+                          (c.lastMessageText && c.lastMessageText.toLowerCase().includes(q))
+                        );
+                      })
+                      .map(conv => {
+                        const isSelected = activeConversationId === conv.id;
+                        const hasUnread = (conv.unreadCount || 0) > 0;
+                        return (
+                          <div
+                            key={conv.id}
+                            onClick={() => {
+                              setActiveConversationId(conv.id);
+                              loadConversationDetail(conv.id);
+                            }}
+                            className={`p-3.5 cursor-pointer transition-all flex items-start gap-3 ${
+                              isSelected
+                                ? 'bg-emerald-50/90 border-l-4 border-emerald-800'
+                                : hasUnread
+                                ? 'bg-amber-50/60 hover:bg-amber-100/60'
+                                : 'hover:bg-gray-100/70'
+                            }`}
+                          >
+                            <div className="w-9 h-9 rounded-full bg-emerald-800 text-white font-bold text-xs flex items-center justify-center shrink-0 shadow-xs">
+                              {conv.studentName?.charAt(0) || 'S'}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between mb-0.5">
+                                <h5 className="text-xs font-bold text-gray-900 truncate">
+                                  {conv.studentName || 'Student'}
+                                </h5>
+                                <span className="text-[10px] text-gray-400 shrink-0 ml-1">
+                                  {conv.lastMessageAt ? new Date(conv.lastMessageAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+                                </span>
+                              </div>
+                              <p className="text-[11px] font-semibold text-emerald-800 truncate mb-1">
+                                {conv.propertyTitle}
+                              </p>
+                              <div className="flex items-center justify-between">
+                                <p className="text-[11px] text-gray-500 truncate flex-1 pr-2">
+                                  {conv.lastMessageText || 'No message yet'}
+                                </p>
+                                {hasUnread && (
+                                  <span className="px-1.5 py-0.5 bg-rose-600 text-white text-[9px] font-black rounded-full">
+                                    New
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })
+                  )}
+                </div>
+
+              </div>
+
+              {/* Right Column: Active Conversation & Reply Thread */}
+              <div className="lg:col-span-8 flex flex-col bg-white">
+                {activeDetail ? (
+                  <>
+                    {/* Conversation Header */}
+                    <div className="p-4 border-b border-gray-200 bg-white flex items-center justify-between gap-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-emerald-800 text-white font-black text-sm flex items-center justify-center shadow-xs">
+                          {activeDetail.conversation.student?.name?.charAt(0) || 'S'}
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h4 className="text-sm font-bold text-gray-900">
+                              {activeDetail.conversation.student?.name || 'Student'}
+                            </h4>
+                            <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 text-[10px] font-bold rounded-full">
+                              Prospective Tenant
+                            </span>
+                          </div>
+                          <p className="text-xs text-gray-500">
+                            Inquiring regarding <span className="font-semibold text-emerald-800">{activeDetail.conversation.property?.title}</span> • {activeDetail.conversation.property?.areaName}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Property badge */}
+                      <div className="text-right hidden sm:block">
+                        <span className="text-xs font-black text-gray-900">
+                          {formatNaira(activeDetail.conversation.property?.rentAmount || 0)}/yr
+                        </span>
+                        <p className="text-[10px] text-gray-400">Total: {formatNaira(activeDetail.conversation.property?.totalMandatoryCost || 0)}</p>
+                      </div>
+                    </div>
+
+                    {/* Messages Feed */}
+                    <div className="flex-1 p-5 overflow-y-auto space-y-4 bg-gray-50/40 max-h-[460px]">
+                      {messagesLoading ? (
+                        <div className="text-center py-16">
+                          <div className="w-6 h-6 border-2 border-emerald-800 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+                          <p className="text-xs text-gray-500">Loading conversation history...</p>
+                        </div>
+                      ) : activeDetail.messages.length === 0 ? (
+                        <div className="text-center py-16 text-gray-400 text-xs">
+                          No messages in this inquiry thread yet.
+                        </div>
+                      ) : (
+                        activeDetail.messages.map((msg: MessageItem) => {
+                          const isMe = msg.senderRole === 'PROVIDER';
+                          return (
+                            <div
+                              key={msg.id}
+                              className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}
+                            >
+                              <div className="flex items-center gap-1.5 mb-1 px-1">
+                                <span className="text-[10px] font-bold text-gray-500">
+                                  {isMe ? 'You (Landlord)' : activeDetail.conversation.student?.name || 'Student'}
+                                </span>
+                                <span className="text-[9px] text-gray-400">
+                                  {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                              </div>
+                              <div
+                                className={`max-w-md p-3.5 rounded-2xl text-xs leading-relaxed shadow-xs ${
+                                  isMe
+                                    ? 'bg-emerald-800 text-white rounded-tr-none'
+                                    : 'bg-white border border-gray-200 text-gray-800 rounded-tl-none'
+                                }`}
+                              >
+                                {msg.content}
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
+                      <div ref={messagesEndRef} />
+                    </div>
+
+                    {/* Reply Input Form */}
+                    <div className="p-4 border-t border-gray-200 bg-white space-y-2">
+                      <form onSubmit={handleSendReply} className="flex gap-2">
+                        <input
+                          type="text"
+                          value={messageReplyText}
+                          onChange={e => setMessageReplyText(e.target.value)}
+                          placeholder="Type your response to this student..."
+                          className="flex-1 px-4 py-2.5 text-xs bg-gray-50 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                          disabled={sendingReply}
+                        />
+                        <button
+                          type="submit"
+                          disabled={!messageReplyText.trim() || sendingReply}
+                          className="px-5 py-2.5 bg-emerald-800 hover:bg-emerald-900 disabled:opacity-50 text-white text-xs font-bold rounded-xl shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <Send className="w-4 h-4" />
+                          <span>{sendingReply ? 'Sending...' : 'Send Reply'}</span>
+                        </button>
+                      </form>
+                      <div className="flex items-center justify-between text-[11px] text-gray-400 px-1">
+                        <span>💬 Direct replies are delivered instantly to the student's portal.</span>
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-gray-400 space-y-3 min-h-[400px]">
+                    <MessageSquare className="w-12 h-12 text-gray-300" />
+                    <h4 className="text-sm font-bold text-gray-700">Select a student conversation</h4>
+                    <p className="text-xs max-w-sm">Choose an inquiry from the left pane to view message history and send immediate replies.</p>
+                  </div>
+                )}
+              </div>
+
             </div>
 
           </div>

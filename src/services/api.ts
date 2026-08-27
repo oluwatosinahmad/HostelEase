@@ -1770,11 +1770,18 @@ export const api = {
     },
 
     async sendMessage(conversationId: string, content: string, messageType?: string, metadata?: any): Promise<{ message: MessageItem }> {
+      const storedUser = localStorage.getItem('hostel_ease_user');
+      const currentUser = storedUser ? JSON.parse(storedUser) : null;
+      const isProvider = currentUser?.role === 'PROVIDER' || currentUser?.role === 'LANDLORD';
+      const senderRole: 'STUDENT' | 'PROVIDER' = isProvider ? 'PROVIDER' : 'STUDENT';
+      const senderId = currentUser?.id || (isProvider ? 'usr-provider-default' : 'usr-student-default');
+      const senderName = currentUser?.fullName || (isProvider ? 'Landlord' : 'Ahmad Adelopo');
+
       const newMsg: MessageItem = {
         id: `msg-${Date.now()}`,
         conversationId,
-        senderId: 'usr-student-default',
-        senderRole: 'STUDENT',
+        senderId,
+        senderRole,
         messageType: (messageType as any) || 'TEXT',
         content,
         metadata,
@@ -1805,26 +1812,41 @@ export const api = {
       const msgs = getLocalMessages(conversationId);
       saveLocalMessages(conversationId, [...msgs, newMsg]);
 
-      // Update conversation last message
+      // Update conversation last message & unread badge
       const convs = getLocalConversations();
-      const updated = convs.map(c => c.id === conversationId ? { ...c, lastMessageText: content, lastMessageAt: new Date().toISOString() } : c);
+      const updated = convs.map(c => {
+        if (c.id === conversationId) {
+          return { 
+            ...c, 
+            lastMessageText: content, 
+            lastMessageAt: new Date().toISOString(),
+            unreadCount: !isProvider ? ((c.unreadCount || 0) + 1) : 0
+          };
+        }
+        return c;
+      });
       saveLocalConversations(updated);
 
-      // Automated simulated Landlord reply after a short delay
-      setTimeout(() => {
-        const replyMsg: MessageItem = {
-          id: `msg-reply-${Date.now()}`,
-          conversationId,
-          senderId: 'usr-provider-default',
-          senderRole: 'PROVIDER',
-          messageType: 'TEXT',
-          content: `Thank you for reaching out! I have noted your message regarding the hostel. I will be at the compound tomorrow if you would like to come for physical inspection.`,
-          isRead: false,
-          createdAt: new Date().toISOString()
-        };
-        const currentMsgs = getLocalMessages(conversationId);
-        saveLocalMessages(conversationId, [...currentMsgs, replyMsg]);
-      }, 1000);
+      // Create notification for Landlord when student sends a message
+      if (!isProvider) {
+        try {
+          const targetConv = convs.find(c => c.id === conversationId);
+          const propertyTitle = targetConv?.propertyTitle || 'Your Hostel';
+          const notif = {
+            id: `notif-msg-${Date.now()}`,
+            userId: 'usr-provider-default',
+            title: 'New Student Message',
+            message: `${senderName} sent a message regarding ${propertyTitle}: "${content.substring(0, 60)}${content.length > 60 ? '...' : ''}"`,
+            type: 'NEW_MESSAGE',
+            linkUrl: '/messages',
+            isRead: false,
+            createdAt: new Date().toISOString()
+          };
+          const currentNotifs = JSON.parse(localStorage.getItem('hostel_ease_notifications') || '[]');
+          localStorage.setItem('hostel_ease_notifications', JSON.stringify([notif, ...currentNotifs]));
+          window.dispatchEvent(new CustomEvent('hostel_ease_notification_updated'));
+        } catch {}
+      }
 
       return { message: newMsg };
     },
@@ -1837,6 +1859,12 @@ export const api = {
         });
         if (res.ok) return await res.json();
       } catch {}
+
+      const convs = getLocalConversations();
+      const updated = convs.map(c => c.id === conversationId ? { ...c, unreadCount: 0 } : c);
+      saveLocalConversations(updated);
+      window.dispatchEvent(new CustomEvent('hostel_ease_notification_updated'));
+
       return { message: 'Conversation marked as read' };
     },
 
@@ -1847,7 +1875,10 @@ export const api = {
         });
         if (res.ok) return await res.json();
       } catch {}
-      return { unreadCount: 0 };
+
+      const convs = getLocalConversations();
+      const totalUnread = convs.reduce((sum, c) => sum + (c.unreadCount || 0), 0);
+      return { unreadCount: totalUnread };
     },
 
     async reportUser(data: { reportedUserId: string; conversationId?: string; reason: string; description: string }): Promise<{ message: string }> {
@@ -2162,26 +2193,55 @@ export const api = {
   // In-App Notifications API
   notifications: {
     async getAll(): Promise<{ notifications: NotificationItem[]; unreadCount: number }> {
-      const res = await fetch(`${API_BASE}/notifications`, {
-        headers: { ...getAuthHeader() }
+      try {
+        const res = await fetch(`${API_BASE}/notifications`, {
+          headers: { ...getAuthHeader() }
+        });
+        if (res.ok) return await res.json();
+      } catch {}
+
+      const localNotifs: any[] = JSON.parse(localStorage.getItem('hostel_ease_notifications') || '[]');
+      const all = [...localNotifs, ...(DEFAULT_NOTIFICATION_LOGS || [])];
+      const seen = new Set<string>();
+      const unique = all.filter(n => {
+        if (seen.has(n.id)) return false;
+        seen.add(n.id);
+        return true;
       });
-      return handleResponse(res);
+      const unreadCount = unique.filter(n => !n.isRead).length;
+      return { notifications: unique, unreadCount };
     },
 
     async markRead(id: string): Promise<{ message: string }> {
-      const res = await fetch(`${API_BASE}/notifications/${id}/read`, {
-        method: 'PATCH',
-        headers: { ...getAuthHeader() }
-      });
-      return handleResponse(res);
+      try {
+        const res = await fetch(`${API_BASE}/notifications/${id}/read`, {
+          method: 'PATCH',
+          headers: { ...getAuthHeader() }
+        });
+        if (res.ok) return await res.json();
+      } catch {}
+
+      const localNotifs: any[] = JSON.parse(localStorage.getItem('hostel_ease_notifications') || '[]');
+      const updated = localNotifs.map(n => n.id === id ? { ...n, isRead: true } : n);
+      localStorage.setItem('hostel_ease_notifications', JSON.stringify(updated));
+      window.dispatchEvent(new CustomEvent('hostel_ease_notification_updated'));
+      return { message: 'Notification marked as read' };
     },
 
     async markAllRead(): Promise<{ message: string }> {
-      const res = await fetch(`${API_BASE}/notifications/read-all`, {
-        method: 'PATCH',
-        headers: { ...getAuthHeader() }
-      });
-      return handleResponse(res);
+      try {
+        const res = await fetch(`${API_BASE}/notifications/read-all`, {
+          method: 'PATCH',
+          headers: { ...getAuthHeader() }
+        });
+        if (res.ok) return await res.json();
+      } catch {}
+
+      const localNotifs: any[] = JSON.parse(localStorage.getItem('hostel_ease_notifications') || '[]');
+      const updated = localNotifs.map(n => ({ ...n, isRead: true }));
+      localStorage.setItem('hostel_ease_notifications', JSON.stringify(updated));
+      window.dispatchEvent(new CustomEvent('hostel_ease_notification_updated'));
+      return { message: 'All notifications marked as read' };
     }
   },
 
@@ -3461,8 +3521,50 @@ export const api = {
         amenities: (p.keyAmenities || []).map(a => a.name || 'Facility')
       });
 
+      // 0. Greeting, Capabilities & Housing Overview ("hi", "hello", "what can you offer", "houses", etc.)
+      const isGreeting = /^(hi|hello|hey|hiya|howdy|good morning|good day|good afternoon|good evening|greetings|what'?s up|sup)\b/i.test(lower.trim()) ||
+        lower.trim() === 'hi' || lower.trim() === 'hello' || lower.trim() === 'hey' ||
+        lower.includes('what can you do') || lower.includes('what can you offer') || lower.includes('what do you offer') ||
+        lower.includes('how can you help') || lower.includes('what are you') || lower.includes('who are you') ||
+        lower.includes('various houses') || lower.includes('types of houses') || lower.includes('available houses') ||
+        lower.includes('available hostels') || lower.includes('show me houses') || lower === 'houses' || lower === 'hostels';
+
+      if (isGreeting) {
+        return {
+          conversationId: convId,
+          messageId: msgId,
+          response: `Hello! 👋 Welcome to **Hostel Ease** — your dedicated LAUTECH Student Accommodation & Housing Advisory Assistant.\n\n` +
+            `How can I assist you with your student accommodation today? Here is an overview of what we offer across the LAUTECH campus community:\n\n` +
+            `• **🏢 Various Verified Student Houses & Lodges:**\n` +
+            `  - **Self-Contain Apartments:** Private kitchenette, private bath & balcony in Under G, Adenike & Stadium Road (~₦180,000 – ₦380,000/yr)\n` +
+            `  - **Single Rooms & Room-and-Parlour Units:** Spacious study areas with steady borehole water & security (~₦140,000 – ₦260,000/yr)\n` +
+            `  - **2-Bedroom Flats & Shared Bedspaces:** Perfect for coursemates and roommates sharing expenses (~₦90,000 – ₦160,000/person/yr)\n\n` +
+            `• **⚡ Reliable Power & Solar Inverter Lodges:** 24/7 lighting and laptop charging for serious scholars during tests and exams.\n\n` +
+            `• **💧 Guaranteed Water Supply:** Deep motorized boreholes with dual backup overhead storage tanks.\n\n` +
+            `• **💰 100% Upfront Pricing:** Transparent breakdown of Rent, Caution Deposits, and Service Charges with **zero hidden agent fees**.\n\n` +
+            `• **📅 Free Landlord Inspections & Escrow Protection:** Schedule free walkthroughs and pay securely through Escrow until keys are received in hand.\n\n` +
+            `What type of accommodation or location around LAUTECH are you looking for?`,
+          structuredData: {
+            type: 'HOSTEL_LIST',
+            properties: DEFAULT_PROPERTIES.slice(0, 4).map(mapAIProp),
+            suggestedQueries: [
+              'Show me self-contain lodges in Under G under ₦200k',
+              'Which area has the most reliable electricity?',
+              'Give me an inspection checklist for my tour',
+              'How does Hostel Ease Escrow protect my money?'
+            ]
+          },
+          toolsUsed: ['welcomeAdvisor', 'searchHostels']
+        };
+      }
+
       // 1. Area guide
       if (lower.includes('area') || lower.includes('under g') || lower.includes('adenike') || lower.includes('stadium') || lower.includes('college road') || lower.includes('general') || lower.includes('where should i live') || lower.includes('best place')) {
+        let areaMatched = DEFAULT_PROPERTIES.slice(0, 4);
+        if (lower.includes('under g')) areaMatched = DEFAULT_PROPERTIES.filter(p => (p.area?.name || '').toLowerCase().includes('under g'));
+        else if (lower.includes('adenike')) areaMatched = DEFAULT_PROPERTIES.filter(p => (p.area?.name || '').toLowerCase().includes('adenike'));
+        else if (lower.includes('stadium')) areaMatched = DEFAULT_PROPERTIES.filter(p => (p.area?.name || '').toLowerCase().includes('stadium'));
+
         return {
           conversationId: convId,
           messageId: msgId,
@@ -3474,7 +3576,7 @@ export const api = {
             `• **General Area & Bowen:** 1.4km – 2.8km. Calm residential neighborhood near the State Hospital with clean water and gated compounds. Rent: ~₦150,000 – ₦300,000.`,
           structuredData: {
             type: 'HOSTEL_LIST',
-            properties: DEFAULT_PROPERTIES.slice(0, 3).map(mapAIProp),
+            properties: (areaMatched.length > 0 ? areaMatched : DEFAULT_PROPERTIES.slice(0, 3)).map(mapAIProp),
             suggestedQueries: [
               'Show me hostels in Under G under ₦200k',
               'Which area has the most reliable electricity?',
@@ -3589,11 +3691,14 @@ export const api = {
         };
       }
 
-      // 6. General Fallback with matched hostels
+      // 6. General Match / Specific Searches with matched hostels
       let matched = DEFAULT_PROPERTIES.slice(0, 4);
       if (lower.includes('under g')) matched = DEFAULT_PROPERTIES.filter(p => (p.area?.name || '').toLowerCase().includes('under g'));
       else if (lower.includes('adenike')) matched = DEFAULT_PROPERTIES.filter(p => (p.area?.name || '').toLowerCase().includes('adenike'));
       else if (lower.includes('stadium')) matched = DEFAULT_PROPERTIES.filter(p => (p.area?.name || '').toLowerCase().includes('stadium'));
+      else if (lower.includes('cheap') || lower.includes('150') || lower.includes('180') || lower.includes('budget')) {
+        matched = DEFAULT_PROPERTIES.filter(p => (p.priceSummary?.rentAmount || 0) <= 220000);
+      }
 
       return {
         conversationId: convId,

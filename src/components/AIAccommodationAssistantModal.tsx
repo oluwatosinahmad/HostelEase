@@ -102,10 +102,18 @@ export const AIAccommodationAssistantModal: React.FC<AIAccommodationAssistantMod
             id: 'welcome-msg',
             conversation_id: 'default',
             sender: 'AI',
-            content: `Hello! I'm your **Hostel Ease AI Assistant**. I can help you find verified hostels around LAUTECH, break down rent & mandatory fees, compare accommodations, check your booking status, or prepare inspection checklists. What are you looking for today?`,
+            content: `Hello! 👋 Welcome to **Hostel Ease** — your dedicated LAUTECH Student Accommodation & Housing Advisory Assistant.\n\n` +
+              `How can I assist you with your student accommodation today? We offer verified student houses & lodges across LAUTECH (Under G, Adenike, Stadium Road, CHS/College Road, General Area), 100% transparent fee breakdowns, solar inverter power intelligence, free landlord inspections, and secure Escrow protection.\n\n` +
+              `What type of accommodation or location are you interested in exploring?`,
             structuredData: {
               type: 'CLARIFYING_QUESTION',
-              suggestedQueries: DEFAULT_QUICK_SUGGESTIONS
+              suggestedQueries: [
+                'Show me verified self-contain lodges in Under G',
+                'Which area has the most reliable electricity?',
+                'Find budget hostels under ₦180k',
+                'Give me an inspection checklist for my tour',
+                'How does Hostel Ease Escrow protect my money?'
+              ]
             },
             created_at: new Date().toISOString()
           }

@@ -429,6 +429,44 @@ export class AIAssistantService {
     const lower = prompt.toLowerCase();
     const toolCallsExecuted: string[] = [];
 
+    // 0. Greeting, Capabilities & Housing Overview ("hi", "hello", "what can you offer", "houses", etc.)
+    const isGreeting = /^(hi|hello|hey|hiya|howdy|good morning|good day|good afternoon|good evening|greetings|what'?s up|sup)\b/i.test(lower.trim()) ||
+      lower.trim() === 'hi' || lower.trim() === 'hello' || lower.trim() === 'hey' ||
+      lower.includes('what can you do') || lower.includes('what can you offer') || lower.includes('what do you offer') ||
+      lower.includes('how can you help') || lower.includes('what are you') || lower.includes('who are you') ||
+      lower.includes('various houses') || lower.includes('types of houses') || lower.includes('available houses') ||
+      lower.includes('available hostels') || lower.includes('show me houses') || lower === 'houses' || lower === 'hostels';
+
+    if (isGreeting) {
+      toolCallsExecuted.push('welcomeAdvisor');
+      toolCallsExecuted.push('searchHostels');
+      const sampleHostels = this.searchHostels({ limit: 4 }, studentId);
+      return {
+        message: `Hello! 👋 Welcome to **Hostel Ease** — your dedicated LAUTECH Student Accommodation & Housing Advisory Assistant.\n\n` +
+          `How can I assist you with your student accommodation today? Here is an overview of what we offer across the LAUTECH campus community:\n\n` +
+          `• **🏢 Various Verified Student Houses & Lodges:**\n` +
+          `  - **Self-Contain Apartments:** Private kitchenette, private bath & balcony in Under G, Adenike & Stadium Road (~₦180,000 – ₦380,000/yr)\n` +
+          `  - **Single Rooms & Room-and-Parlour Units:** Spacious study areas with steady borehole water & security (~₦140,000 – ₦260,000/yr)\n` +
+          `  - **2-Bedroom Flats & Shared Bedspaces:** Perfect for coursemates and roommates sharing expenses (~₦90,000 – ₦160,000/person/yr)\n\n` +
+          `• **⚡ Reliable Power & Solar Inverter Lodges:** 24/7 lighting and laptop charging for serious scholars during tests and exams.\n\n` +
+          `• **💧 Guaranteed Water Supply:** Deep motorized boreholes with dual backup overhead storage tanks.\n\n` +
+          `• **💰 100% Upfront Pricing:** Transparent breakdown of Rent, Caution Deposits, and Service Charges with **zero hidden agent fees**.\n\n` +
+          `• **📅 Free Landlord Inspections & Escrow Protection:** Schedule free walkthroughs and pay securely through Escrow until keys are received in hand.\n\n` +
+          `What type of accommodation or location around LAUTECH are you looking for?`,
+        structuredData: {
+          type: 'HOSTEL_LIST',
+          properties: sampleHostels,
+          suggestedQueries: [
+            'Show me self-contain lodges in Under G under ₦200k',
+            'Which area has the most reliable electricity?',
+            'Give me an inspection checklist for my tour',
+            'How does Hostel Ease Escrow protect my money?'
+          ]
+        },
+        toolCallsExecuted
+      };
+    }
+
     // Check Save / Bookmark Action Request
     if (lower.includes('save') || lower.includes('shortlist') || lower.includes('bookmark')) {
       let targetProp: any = null;
