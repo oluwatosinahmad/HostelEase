@@ -75,7 +75,7 @@ router.post('/register', (req, res: Response) => {
       email: email.toLowerCase().trim(),
       fullName: fullName.trim(),
       phone: phone || undefined,
-      role: role as 'STUDENT' | 'PROVIDER',
+      role: role as 'STUDENT' | 'PROVIDER' | 'ADMIN',
       isActive: 1
     };
 

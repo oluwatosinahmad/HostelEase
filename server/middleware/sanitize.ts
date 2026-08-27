@@ -37,14 +37,30 @@ function sanitizeObject(obj: any): any {
 }
 
 export function sanitizeInputs(req: Request, res: Response, next: NextFunction) {
-  if (req.body && typeof req.body === 'object') {
-    req.body = sanitizeObject(req.body);
-  }
-  if (req.query && typeof req.query === 'object') {
-    req.query = sanitizeObject(req.query);
-  }
-  if (req.params && typeof req.params === 'object') {
-    req.params = sanitizeObject(req.params);
+  try {
+    if (req.body && typeof req.body === 'object') {
+      req.body = sanitizeObject(req.body);
+    }
+    if (req.query && typeof req.query === 'object') {
+      for (const key of Object.keys(req.query)) {
+        try {
+          (req.query as any)[key] = sanitizeObject((req.query as any)[key]);
+        } catch {
+          // ignore read-only query properties in Express 5
+        }
+      }
+    }
+    if (req.params && typeof req.params === 'object') {
+      for (const key of Object.keys(req.params)) {
+        try {
+          (req.params as any)[key] = sanitizeObject((req.params as any)[key]);
+        } catch {
+          // ignore read-only params
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('Input sanitization skipped property:', err);
   }
   next();
 }
