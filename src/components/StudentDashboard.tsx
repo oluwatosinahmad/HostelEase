@@ -111,8 +111,8 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
   }, [initialTab]);
 
   // Core Data
-  const [dashboardData, setDashboardData] = useState<StudentDashboardData | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [dashboardData, setDashboardData] = useState<StudentDashboardData | null>(DEFAULT_STUDENT_DASHBOARD);
+  const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
   // Modals state

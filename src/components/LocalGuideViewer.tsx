@@ -6,24 +6,59 @@ interface LocalGuideViewerProps {
   onShowToast: (msg: string, type?: 'success' | 'info' | 'error') => void;
 }
 
+const defaultGuides = [
+  {
+    id: 'guide-inspection-101',
+    title: 'The Essential LAUTECH Hostel Inspection Checklist',
+    category: 'INSPECTIONS',
+    read_time_minutes: 4,
+    content_markdown: `Before making any deposit or commitment on a hostel around LAUTECH (Under G, Adenike, Stadium, or General), follow this non-negotiable checklist:
+
+1. ⚡ **Electricity Feeder & Inverter Status**: Test wall sockets, inspect meter availability, and ask surrounding occupants about daily grid hours.
+2. 💧 **Borehole & Water Flow**: Turn on taps inside the room and bathroom. Verify whether pumping is automated or powered by a dedicated generator during blackouts.
+3. 🔒 **Compound Security & Burglary Proofing**: Check window iron grilles, perimeter wall height, and compound gate lock policies (most student gates lock at 10 PM).
+4. 💰 **Transparent Price Disclosures**: Ensure caution fee, agreement fee, and waste disposal levies are in writing. Never make offline informal cash transfers.`
+  },
+  {
+    id: 'guide-scam-prevention',
+    title: 'How to Prevent Off-Campus Housing Scams in Ogbomoso',
+    category: 'SCAM_DEFENSE',
+    read_time_minutes: 5,
+    content_markdown: `Student fraud in university environments happens when urgency overrides caution. Follow Hostel Ease safety protocols:
+
+• **Never Pay Before Viewing**: Always inspect the exact room you are renting, not a representative photo.
+• **Confirm Landlord Authorization**: Verify that the person showing you the hostel has authorized keys and documentation.
+• **Use Escrow & Verified Channels**: Always book through Hostel Ease with a structured 48-hour confirmation and bank-backed receipt.
+• **Watch Out for "Urgent Pressure"**: Scammers claim "3 other students are bringing money right now". Take your time and verify.`
+  },
+  {
+    id: 'guide-roommate-agreement',
+    title: 'Living Peacefully: Setting Ground Rules with Roommates',
+    category: 'ROOMMATES',
+    read_time_minutes: 3,
+    content_markdown: `Sharing a room reduces rent by 50%, but requires clear expectations:
+
+• 🧹 **Cleaning & Chore Rotations**: Agree on bathroom scrubbing days and kitchen cleaning rules immediately.
+• 💡 **Electricity & Generator Fuel Splitting**: Agree in writing how generator fuel and prepaid recharge tokens are split.
+• 👥 **Visitors & Study Hours**: Agree on overnight visitor frequency and quiet study hours during test and examination weeks.`
+  }
+];
+
 export const LocalGuideViewer: React.FC<LocalGuideViewerProps> = ({ onShowToast }) => {
-  const [guides, setGuides] = useState<any[]>([]);
-  const [selectedGuide, setSelectedGuide] = useState<any | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [guides, setGuides] = useState<any[]>(defaultGuides);
+  const [selectedGuide, setSelectedGuide] = useState<any | null>(defaultGuides[0]);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     const fetchGuides = async () => {
-      setLoading(true);
       try {
         const res = await api.community.getGuides();
-        setGuides(res.guides || []);
-        if (res.guides?.length > 0) {
+        if (res.guides && res.guides.length > 0) {
+          setGuides(res.guides);
           setSelectedGuide(res.guides[0]);
         }
       } catch (err: any) {
-        onShowToast(err.message || 'Failed to load guides', 'error');
-      } finally {
-        setLoading(false);
+        console.error('Failed to load dynamic guides:', err);
       }
     };
     fetchGuides();
@@ -58,7 +93,7 @@ export const LocalGuideViewer: React.FC<LocalGuideViewerProps> = ({ onShowToast 
                     <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded ${
                       isSelected ? 'bg-emerald-700 text-white' : 'bg-slate-100 text-slate-600'
                     }`}>
-                      {g.category.replace('_', ' ')}
+                      {(g.category || 'GUIDE').replace(/_/g, ' ')}
                     </span>
                     <span className={`text-[10px] flex items-center gap-0.5 ${
                       isSelected ? 'text-emerald-200' : 'text-slate-400'

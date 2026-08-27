@@ -45,12 +45,14 @@ export const CampusMapExplorer: React.FC<CampusMapExplorerProps> = ({
   const mapInstanceRef = useRef<L.Map | null>(null);
   const markersGroupRef = useRef<L.LayerGroup | null>(null);
   const landmarksGroupRef = useRef<L.LayerGroup | null>(null);
+  const routeLayerRef = useRef<L.Polyline | null>(null);
 
   const [markersData, setMarkersData] = useState<MapMarker[]>([]);
   const [landmarksData, setLandmarksData] = useState<CampusLandmark[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [selectedMarker, setSelectedMarker] = useState<MapMarker | null>(null);
   const [activeAreaFocus, setActiveAreaFocus] = useState<string>('all');
+  const [mapLayerType, setMapLayerType] = useState<'streets' | 'satellite'>('streets');
 
   // Load Map Data
   useEffect(() => {
@@ -101,6 +103,32 @@ export const CampusMapExplorer: React.FC<CampusMapExplorerProps> = ({
       // Keep map instance mounted across renders
     };
   }, []);
+
+  // Draw Route to LAUTECH Campus Gate when Marker is Selected
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+
+    if (routeLayerRef.current) {
+      map.removeLayer(routeLayerRef.current);
+      routeLayerRef.current = null;
+    }
+
+    if (selectedMarker) {
+      const lautechGate: [number, number] = [8.1438, 4.2638];
+      const hostelLoc: [number, number] = [selectedMarker.lat, selectedMarker.lng];
+
+      const polyline = L.polyline([lautechGate, hostelLoc], {
+        color: '#10b981',
+        weight: 4,
+        opacity: 0.85,
+        dashArray: '8, 8',
+        lineCap: 'round'
+      }).addTo(map);
+
+      routeLayerRef.current = polyline;
+    }
+  }, [selectedMarker]);
 
   // Update Markers & Landmarks on Map
   useEffect(() => {
@@ -287,8 +315,13 @@ export const CampusMapExplorer: React.FC<CampusMapExplorerProps> = ({
                 </div>
 
                 <h4 className="font-bold text-xs text-slate-900 truncate">{selectedMarker.title}</h4>
-                <p className="text-[11px] text-slate-500">📍 {selectedMarker.area.name} • {formatDistance(selectedMarker.distanceKm)}</p>
-                <div className="pt-0.5">
+                <p className="text-[11px] text-slate-500">📍 {selectedMarker.area.name} • {formatDistance(selectedMarker.distanceKm)} from Campus</p>
+                <div className="flex items-center gap-2 text-[10px] font-bold text-emerald-800 bg-emerald-50 px-2 py-1 rounded-lg border border-emerald-100 mt-1">
+                  <span>🚶 {Math.max(3, Math.round(selectedMarker.distanceKm * 14))}m walk</span>
+                  <span>•</span>
+                  <span>🚴 {Math.max(2, Math.round(selectedMarker.distanceKm * 4))}m bike</span>
+                </div>
+                <div className="pt-1 flex items-baseline gap-1">
                   <span className="text-sm font-black text-emerald-700">{formatNaira(selectedMarker.rentAmount)}</span>
                   <span className="text-[10px] text-slate-400 font-medium">/yr</span>
                 </div>
@@ -301,7 +334,7 @@ export const CampusMapExplorer: React.FC<CampusMapExplorerProps> = ({
                 onClick={() => onSelectProperty(selectedMarker.id)}
                 className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow transition-colors flex items-center justify-center gap-1"
               >
-                <Eye className="w-3.5 h-3.5" /> View Details
+                <Eye className="w-3.5 h-3.5" /> View & Book
               </button>
 
               {onOpenConversation && (

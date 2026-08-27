@@ -3,24 +3,89 @@ import { MapPin, Zap, Droplets, Shield, Bike, Footprints, DollarSign, Store, Lan
 import { api } from '../services/api';
 import { formatNaira } from '../utils/formatters';
 
+const parseJsonArray = (val: any): string[] => {
+  if (Array.isArray(val)) return val;
+  if (typeof val === 'string') {
+    try {
+      const parsed = JSON.parse(val);
+      if (Array.isArray(parsed)) return parsed;
+    } catch {
+      return val ? [val] : [];
+    }
+  }
+  return [];
+};
+
+const defaultAreaGuides = [
+  {
+    id: 'area-guide-under-g',
+    area_name: 'Under G',
+    description: 'Premier student residential zone closest to LAUTECH Campus. Famous for high availability of modern self-contain apartments, restaurants, and active nightlife.',
+    walking_minutes_to_campus: 8,
+    bike_minutes_to_campus: 3,
+    estimated_daily_transport: 200,
+    power_reliability_summary: '6 - 9 hours daily grid power. Most hostels feature dedicated solar inverters or central generators.',
+    water_reliability_summary: 'Clean treated borehole water in 90% of lodges with automated overhead tanks.',
+    security_summary: 'Gated student compounds with private night security guards and vigilant community vigilante patrols.',
+    popular_landmarks_json: '["Under G Gate", "Bovas Petrol Station", "The Hive Eatery", "Tivoli Lounge"]',
+    nearby_services_json: '["Mini Supermarkets", "Cybercafes & Printing", "POS Terminals", "Pharmacies"]'
+  },
+  {
+    id: 'area-guide-adenike',
+    area_name: 'Adenike',
+    description: 'Bustling student hub with numerous budget-friendly hostels, study cafes, and frequent commercial bike transit directly into faculty gates.',
+    walking_minutes_to_campus: 12,
+    bike_minutes_to_campus: 4,
+    estimated_daily_transport: 250,
+    power_reliability_summary: 'Steady feeder supply averaging 7 - 10 hours daily. Excellent solar inverter adoption.',
+    water_reliability_summary: 'Reliable private boreholes in compounds.',
+    security_summary: 'Active police outpost nearby, well-lit main streets, and compound perimeter fencing.',
+    popular_landmarks_json: '["Adenike Gate", "Destiny Supermarket", "Winner Chapel Junction", "Alata Market"]',
+    nearby_services_json: '["Laundromats", "Student Cafeterias", "Stationery Hubs", "Medical Clinics"]'
+  },
+  {
+    id: 'area-guide-stadium',
+    area_name: 'Stadium Road',
+    description: 'Serene and modern residential district preferred by senior students and medical scholars who need quieter study environments.',
+    walking_minutes_to_campus: 20,
+    bike_minutes_to_campus: 6,
+    estimated_daily_transport: 350,
+    power_reliability_summary: 'High stability feeder with up to 10 - 12 hours daily electricity.',
+    water_reliability_summary: 'Independent pressurized borehole systems.',
+    security_summary: 'Very high security rating with neighborhood security gates locked by 10 PM.',
+    popular_landmarks_json: '["Ogbomoso Township Stadium", "Stadium Gate", "Peace Arena", "D-Spot Supermarket"]',
+    nearby_services_json: '["Fitness Centers", "Supermarkets", "Tech Hubs", "Co-working spaces"]'
+  },
+  {
+    id: 'area-guide-general',
+    area_name: 'General Area',
+    description: 'Located in proximity to LAUTECH Teaching Hospital and College of Health Sciences. Ideal for clinical and basic medical students.',
+    walking_minutes_to_campus: 15,
+    bike_minutes_to_campus: 5,
+    estimated_daily_transport: 300,
+    power_reliability_summary: 'Priority hospital line power with up to 14 hours daily electricity.',
+    water_reliability_summary: 'Clean public and private water access.',
+    security_summary: 'Surrounded by hospital security and constant street surveillance.',
+    popular_landmarks_json: '["LAUTECH Teaching Hospital", "General Gas", "Health Gate", "Mercy Hospital"]',
+    nearby_services_json: '["24/7 Pharmacies", "Medical Bookshops", "Diagnostic Centers", "Fruit Markets"]'
+  }
+];
+
 export const AreaGuideDetail: React.FC = () => {
-  const [areas, setAreas] = useState<any[]>([]);
-  const [selectedArea, setSelectedArea] = useState<any | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [areas, setAreas] = useState<any[]>(defaultAreaGuides);
+  const [selectedArea, setSelectedArea] = useState<any | null>(defaultAreaGuides[0]);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     const fetchAreas = async () => {
-      setLoading(true);
       try {
         const res = await api.community.getAreas();
-        setAreas(res.areas || []);
-        if (res.areas?.length > 0) {
+        if (res.areas && res.areas.length > 0) {
+          setAreas(res.areas);
           setSelectedArea(res.areas[0]);
         }
       } catch (err) {
-        console.error('Failed to load area guides:', err);
-      } finally {
-        setLoading(false);
+        console.error('Failed to load area guides from API:', err);
       }
     };
     fetchAreas();
@@ -149,7 +214,7 @@ export const AreaGuideDetail: React.FC = () => {
                 <span>Popular Landmarks</span>
               </h4>
               <div className="flex flex-wrap gap-1.5">
-                {JSON.parse(selectedArea.popular_landmarks_json || '[]').map((lm: string, idx: number) => (
+                {parseJsonArray(selectedArea.popular_landmarks_json).map((lm: string, idx: number) => (
                   <span key={idx} className="px-2.5 py-1 bg-white border border-slate-200 rounded-xl text-slate-700 font-bold text-[11px]">
                     📍 {lm}
                   </span>
@@ -163,7 +228,7 @@ export const AreaGuideDetail: React.FC = () => {
                 <span>Nearby Student Services</span>
               </h4>
               <div className="flex flex-wrap gap-1.5">
-                {JSON.parse(selectedArea.nearby_services_json || '[]').map((sv: string, idx: number) => (
+                {parseJsonArray(selectedArea.nearby_services_json).map((sv: string, idx: number) => (
                   <span key={idx} className="px-2.5 py-1 bg-white border border-slate-200 rounded-xl text-slate-700 font-bold text-[11px]">
                     🛒 {sv}
                   </span>

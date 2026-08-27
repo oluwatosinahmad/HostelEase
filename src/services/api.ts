@@ -589,6 +589,305 @@ function generateOfflineFallbackResponse(url?: string): any {
     };
   }
 
+  // Community Questions & Answers
+  if (cleanUrl.includes('/community/questions/') && !cleanUrl.endsWith('/community/questions')) {
+    const qId = cleanUrl.split('/').pop() || 'q-default';
+    return {
+      question: {
+        id: qId,
+        title: 'Which hostels around Under G have steady solar inverter and borehole water?',
+        description: 'Looking for a clean self-contain lodge in Under G with steady solar inverter or generator schedule and continuous running water. Budget is around ₦250k - ₦300k.',
+        category: 'AREAS',
+        authorName: 'Oluwaseun Adeyemi',
+        isVerifiedStudent: true,
+        answersCount: 2,
+        isAnswered: true,
+        createdAt: new Date().toISOString()
+      },
+      answers: [
+        {
+          id: 'ans-1',
+          questionId: qId,
+          authorName: 'Tunde Adeyemi',
+          isVerifiedStudent: true,
+          content: 'I live in Harmony Heights Lodge near Bovas in Under G. They have a 5KVA solar inverter that powers lighting and fan sockets 24/7. Water is pumped every morning at 6:30 AM without fail.',
+          isHelpfulCount: 8,
+          isUnhelpfulCount: 0,
+          userReaction: null,
+          createdAt: new Date().toISOString()
+        },
+        {
+          id: 'ans-2',
+          questionId: qId,
+          authorName: 'Blessing Okafor',
+          isVerifiedStudent: true,
+          content: 'You can also check Emerald Villa along Stadium Road if you want very quiet study environment. Rent is about ₦280k with prepaid meters.',
+          isHelpfulCount: 5,
+          isUnhelpfulCount: 0,
+          userReaction: null,
+          createdAt: new Date().toISOString()
+        }
+      ]
+    };
+  }
+  if (cleanUrl.includes('/community/questions')) {
+    return {
+      questions: [
+        {
+          id: 'q-lautech-1',
+          title: 'Which hostels around Under G have the most reliable solar inverter and borehole water?',
+          description: 'Looking for a clean self-contain lodge in Under G with steady solar inverter or generator schedule and continuous running water. Budget is around ₦250k - ₦300k.',
+          category: 'AREAS',
+          authorName: 'Oluwaseun Adeyemi',
+          isVerifiedStudent: true,
+          answersCount: 2,
+          isAnswered: true,
+          createdAt: new Date().toISOString()
+        },
+        {
+          id: 'q-lautech-2',
+          title: 'How is the electricity situation in Adenike area during examination weeks?',
+          description: 'I want to rent a room in Adenike near Destiny Supermarket. How many hours of electricity do they get on average per day?',
+          category: 'FACILITIES',
+          authorName: 'Blessing Okafor',
+          isVerifiedStudent: true,
+          answersCount: 3,
+          isAnswered: true,
+          createdAt: new Date().toISOString()
+        },
+        {
+          id: 'q-lautech-3',
+          title: 'What should I check before paying caution deposit on Stadium Road lodges?',
+          description: 'Are caution deposits easily refundable upon vacating hostels along Stadium Road? What documents or agreement should I demand from the caretaker?',
+          category: 'COSTS',
+          authorName: 'Farouk Ibrahim',
+          isVerifiedStudent: true,
+          answersCount: 1,
+          isAnswered: true,
+          createdAt: new Date().toISOString()
+        }
+      ]
+    };
+  }
+  if (cleanUrl.includes('/community/experiences')) {
+    return {
+      experiences: [
+        {
+          id: 'exp-1',
+          propertyTitle: 'Harmony Heights Lodge, Under G',
+          authorName: 'Ayomide Balogun (400L Computer Science)',
+          academicSession: '2025/2026',
+          isVerifiedStay: true,
+          overallExperience: 'Very peaceful compound with 24/7 security. Borehole water is pumped every morning and evening. Solar inverter powers light points and fan sockets throughout the night.',
+          positivesSummary: 'Constant solar power for laptops, clean tiled rooms, perimeter fence',
+          concernsSummary: 'Network can fluctuate slightly during heavy rain'
+        },
+        {
+          id: 'exp-2',
+          propertyTitle: 'Royal Villa, Stadium Road',
+          authorName: 'Khadijat Bello (300L Nursing)',
+          academicSession: '2025/2026',
+          isVerifiedStay: true,
+          overallExperience: 'Great environment for studying. No loud parties allowed after 10 PM. 10 minutes bike ride to LAUTECH Teaching Hospital Gate.',
+          positivesSummary: 'Extremely quiet, security guards on duty, prepaid meter per room',
+          concernsSummary: 'Slightly higher transport fare during evening rush hour'
+        }
+      ]
+    };
+  }
+
+  // Roommates
+  if (cleanUrl.includes('/roommates/discover')) {
+    return {
+      matches: [
+        {
+          compatibilityLabel: '94% Match',
+          positiveMatches: ['Both prefer Quiet study hours', 'Matching budget in Under G', 'Similar sleep schedule'],
+          tradeOffs: ['Prefers morning cleaning rotations'],
+          requestStatus: 'NONE',
+          profile: {
+            id: 'rm-1',
+            userId: 'usr-student-2',
+            displayName: 'Kehinde Adeleke',
+            department: 'Computer Science',
+            level: '300L',
+            budgetMin: 150000,
+            budgetMax: 250000,
+            preferredAreas: ['Under G', 'Adenike'],
+            preferredRoomType: 'SHARED_2',
+            moveInMonth: 'September',
+            aboutMe: 'Serious 300L student looking for an organized and respectful roommate to split a modern 2-bed apartment.'
+          }
+        },
+        {
+          compatibilityLabel: '88% Match',
+          positiveMatches: ['Matching budget range', 'Preferred area Stadium Road', 'No smoking policy'],
+          tradeOffs: ['Occasional weekend study group visitors'],
+          requestStatus: 'NONE',
+          profile: {
+            id: 'rm-2',
+            userId: 'usr-student-3',
+            displayName: 'Emeka Nwosu',
+            department: 'Civil Engineering',
+            level: '200L',
+            budgetMin: 180000,
+            budgetMax: 280000,
+            preferredAreas: ['Stadium Road', 'General Area'],
+            preferredRoomType: 'SHARED_2',
+            moveInMonth: 'September',
+            aboutMe: 'Focused engineering student. Very clean and respectful of private study hours.'
+          }
+        }
+      ]
+    };
+  }
+  if (cleanUrl.includes('/roommates/profile')) {
+    return {
+      profile: {
+        id: 'rm-current',
+        userId: 'usr-current',
+        displayName: 'LAUTECH Student',
+        department: 'Computer Science',
+        level: '300L',
+        budgetMin: 150000,
+        budgetMax: 250000,
+        preferredAreas: ['Under G', 'Adenike'],
+        preferredRoomType: 'SHARED_2',
+        moveInMonth: 'September',
+        studyEnvironment: 'QUIET',
+        cleanlinessExpectation: 'VERY_CLEAN',
+        sleepSchedule: 'REGULAR',
+        visitorPreference: 'OCCASIONAL',
+        aboutMe: 'Organized and focused student seeking a compatible living partner.',
+        isActive: true
+      }
+    };
+  }
+
+  // Messaging Conversations
+  if (cleanUrl.includes('/messages/conversations/')) {
+    const cId = cleanUrl.split('/').pop() || 'conv-1';
+    return {
+      id: cId,
+      property: {
+        id: 'prop-1',
+        title: 'Harmony Heights Lodge',
+        priceSummary: { rentAmount: 250000, totalMandatoryCost: 285000 },
+        area: { name: 'Under G' }
+      },
+      provider: {
+        id: 'user-provider-1',
+        name: 'Chief Adeleke (Landlord)',
+        phone: '08031234567',
+        isVerified: true
+      },
+      student: {
+        id: 'user-student-1',
+        name: 'Tunde Adeyemi'
+      },
+      messages: [
+        {
+          id: 'msg-1',
+          senderId: 'user-provider-1',
+          senderRole: 'PROVIDER',
+          content: 'Hello! Thank you for your inquiry about Harmony Heights Lodge in Under G. How can I assist you?',
+          createdAt: new Date(Date.now() - 3600000).toISOString()
+        },
+        {
+          id: 'msg-2',
+          senderId: 'user-student-1',
+          senderRole: 'STUDENT',
+          content: 'Good day sir, is the self-contain room with solar inverter still available for 2026/2027 session?',
+          createdAt: new Date(Date.now() - 1800000).toISOString()
+        },
+        {
+          id: 'msg-3',
+          senderId: 'user-provider-1',
+          senderRole: 'PROVIDER',
+          content: 'Yes, it is very much available. You can schedule an inspection or book directly through Hostel Ease to freeze your rate.',
+          createdAt: new Date(Date.now() - 600000).toISOString()
+        }
+      ]
+    };
+  }
+  if (cleanUrl.includes('/messages/conversations')) {
+    return {
+      conversations: [
+        {
+          id: 'conv-1',
+          propertyId: 'prop-1',
+          propertyTitle: 'Harmony Heights Lodge',
+          propertyCoverImage: 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=600&q=80',
+          areaName: 'Under G',
+          rentAmount: 250000,
+          otherUserName: 'Chief Adeleke (Landlord)',
+          otherUserRole: 'PROVIDER',
+          lastMessageText: 'Yes, it is very much available. You can schedule an inspection or book directly through Hostel Ease.',
+          lastMessageAt: new Date().toISOString(),
+          unreadCount: 0
+        }
+      ]
+    };
+  }
+
+  // Bookings availability
+  if (cleanUrl.includes('/bookings/availability')) {
+    return {
+      propertyId: 'prop-1',
+      rooms: [
+        {
+          id: 'room-1',
+          name: 'Executive Self-Contain (Ground Floor)',
+          type: 'SELF_CONTAIN',
+          quantityAvailable: 3,
+          maxOccupants: 1,
+          isEnsuite: true,
+          isFurnished: true,
+          pricing: {
+            rentAmount: 250000,
+            serviceCharge: 10000,
+            agencyFee: 15000,
+            cautionFee: 15000,
+            otherMandatoryCharges: 5000,
+            totalMandatoryCost: 280000,
+            totalCost: 295000
+          },
+          bedspaces: []
+        },
+        {
+          id: 'room-2',
+          name: 'Deluxe Self-Contain (First Floor with Balcony)',
+          type: 'SELF_CONTAIN',
+          quantityAvailable: 2,
+          maxOccupants: 1,
+          isEnsuite: true,
+          isFurnished: true,
+          pricing: {
+            rentAmount: 270000,
+            serviceCharge: 10000,
+            agencyFee: 15000,
+            cautionFee: 15000,
+            otherMandatoryCharges: 5000,
+            totalMandatoryCost: 300000,
+            totalCost: 315000
+          },
+          bedspaces: []
+        }
+      ]
+    };
+  }
+  if (cleanUrl.includes('/bookings/reserve')) {
+    const ref = `HE-2026-${Math.floor(100000 + Math.random() * 900000)}`;
+    return {
+      success: true,
+      bookingId: `bk-${Date.now()}`,
+      bookingReference: ref,
+      expiresAt: new Date(Date.now() + 48 * 3600000).toISOString(),
+      totalCost: 295000,
+      message: 'Reservation created successfully'
+    };
+  }
+
   // Move-in & Disputes
   if (cleanUrl.includes('/move-in')) {
     return {

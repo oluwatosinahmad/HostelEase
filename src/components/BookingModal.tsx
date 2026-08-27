@@ -610,7 +610,13 @@ export const BookingModal: React.FC<BookingModalProps> = ({
               <div className="pt-3 flex flex-col sm:flex-row items-center justify-center gap-3">
                 <button
                   type="button"
-                  onClick={onClose}
+                  onClick={() => {
+                    if (createdBooking) {
+                      onBookingSuccess(createdBooking.bookingId, createdBooking.bookingReference);
+                    } else {
+                      onClose();
+                    }
+                  }}
                   className="w-full sm:w-auto px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md transition-colors"
                 >
                   Done & View My Bookings

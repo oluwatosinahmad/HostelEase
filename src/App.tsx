@@ -49,21 +49,19 @@ import { formatNaira, formatDistance } from './utils/formatters';
 import { AdminPortal } from './components/AdminPortal';
 import { AgentPortal } from './components/AgentPortal';
 import { ProviderPortal } from './components/ProviderPortal';
-
-// Lazy Loaded Heavy Components for Fast Mobile Startup
-const CampusMapExplorer = lazy(() => import('./components/CampusMapExplorer').then(m => ({ default: m.CampusMapExplorer })));
-const HostelComparisonModal = lazy(() => import('./components/HostelComparisonModal').then(m => ({ default: m.HostelComparisonModal })));
-const HostelDetailModal = lazy(() => import('./components/HostelDetailModal').then(m => ({ default: m.HostelDetailModal })));
-const StudentDashboard = lazy(() => import('./components/StudentDashboard').then(m => ({ default: m.StudentDashboard })));
-const StudentInspectionCenter = lazy(() => import('./components/StudentInspectionCenter').then(m => ({ default: m.StudentInspectionCenter })));
-const StudentBookingDashboard = lazy(() => import('./components/StudentBookingDashboard').then(m => ({ default: m.StudentBookingDashboard })));
-const ProviderBookingDashboard = lazy(() => import('./components/ProviderBookingDashboard').then(m => ({ default: m.ProviderBookingDashboard })));
-const StudentPaymentHistory = lazy(() => import('./components/StudentPaymentHistory').then(m => ({ default: m.StudentPaymentHistory })));
-const MessagingCenter = lazy(() => import('./components/MessagingCenter').then(m => ({ default: m.MessagingCenter })));
-const AIAccommodationAssistantModal = lazy(() => import('./components/AIAccommodationAssistantModal').then(m => ({ default: m.AIAccommodationAssistantModal })));
-const MoveInCenter = lazy(() => import('./components/MoveInCenter').then(m => ({ default: m.MoveInCenter })));
-const AccommodationHistory = lazy(() => import('./components/AccommodationHistory').then(m => ({ default: m.AccommodationHistory })));
-const CommunityHub = lazy(() => import('./components/CommunityHub').then(m => ({ default: m.CommunityHub })));
+import { CampusMapExplorer } from './components/CampusMapExplorer';
+import { HostelComparisonModal } from './components/HostelComparisonModal';
+import { HostelDetailModal } from './components/HostelDetailModal';
+import { StudentDashboard } from './components/StudentDashboard';
+import { StudentInspectionCenter } from './components/StudentInspectionCenter';
+import { StudentBookingDashboard } from './components/StudentBookingDashboard';
+import { ProviderBookingDashboard } from './components/ProviderBookingDashboard';
+import { StudentPaymentHistory } from './components/StudentPaymentHistory';
+import { MessagingCenter } from './components/MessagingCenter';
+import { AIAccommodationAssistantModal } from './components/AIAccommodationAssistantModal';
+import { MoveInCenter } from './components/MoveInCenter';
+import { AccommodationHistory } from './components/AccommodationHistory';
+import { CommunityHub } from './components/CommunityHub';
 
 const initialFilters: SearchFilterState = {
   search: '',
@@ -1212,6 +1210,10 @@ function MainApp() {
           }}
           onBookingSuccess={(bookingId, bookingRef) => {
             showToast(`Reservation #${bookingRef} created successfully!`, 'success');
+            setBookingModalOpen(false);
+            setBookingTargetProperty(null);
+            setCurrentView('bookings');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
           }}
           onOpenConversation={(propId) => {
             setMessagingTargetPropertyId(propId);

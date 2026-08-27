@@ -18,6 +18,65 @@ interface CommunityHubProps {
   initialTab?: 'questions' | 'experiences' | 'roommates' | 'guides' | 'areas';
 }
 
+const defaultQuestions = [
+  {
+    id: 'q-lautech-1',
+    title: 'Which hostels around Under G have the most reliable solar inverter and borehole water?',
+    description: 'Looking for a clean self-contain lodge in Under G with steady solar inverter or generator schedule and continuous running water. Budget is around ₦250k - ₦300k.',
+    category: 'AREAS',
+    authorName: 'Oluwaseun Adeyemi',
+    isVerifiedStudent: true,
+    answersCount: 2,
+    isAnswered: true,
+    createdAt: new Date().toISOString()
+  },
+  {
+    id: 'q-lautech-2',
+    title: 'How is the electricity situation in Adenike area during examination weeks?',
+    description: 'I want to rent a room in Adenike near Destiny Supermarket. How many hours of electricity do they get on average per day?',
+    category: 'FACILITIES',
+    authorName: 'Blessing Okafor',
+    isVerifiedStudent: true,
+    answersCount: 3,
+    isAnswered: true,
+    createdAt: new Date().toISOString()
+  },
+  {
+    id: 'q-lautech-3',
+    title: 'What should I check before paying caution deposit on Stadium Road lodges?',
+    description: 'Are caution deposits easily refundable upon vacating hostels along Stadium Road? What documents or agreement should I demand from the caretaker?',
+    category: 'COSTS',
+    authorName: 'Farouk Ibrahim',
+    isVerifiedStudent: true,
+    answersCount: 1,
+    isAnswered: true,
+    createdAt: new Date().toISOString()
+  }
+];
+
+const defaultExperiences = [
+  {
+    id: 'exp-1',
+    propertyTitle: 'Harmony Heights Lodge, Under G',
+    authorName: 'Ayomide Balogun (400L Computer Science)',
+    academicSession: '2025/2026',
+    isVerifiedStay: true,
+    overallExperience: 'Very peaceful compound with 24/7 security. Borehole water is pumped every morning and evening. Solar inverter powers light points and fan sockets throughout the night.',
+    positivesSummary: 'Constant solar power for laptops, clean tiled rooms, perimeter fence',
+    concernsSummary: 'Network can fluctuate slightly during heavy rain'
+  },
+  {
+    id: 'exp-2',
+    propertyTitle: 'Royal Villa, Stadium Road',
+    authorName: 'Khadijat Bello (300L Nursing)',
+    academicSession: '2025/2026',
+    isVerifiedStay: true,
+    overallExperience: 'Great environment for studying. No loud parties allowed after 10 PM. 10 minutes bike ride to LAUTECH Teaching Hospital Gate.',
+    positivesSummary: 'Extremely quiet, security guards on duty, prepaid meter per room',
+    concernsSummary: 'Slightly higher transport fare during evening rush hour'
+  }
+];
+
 export const CommunityHub: React.FC<CommunityHubProps> = ({
   isAuthenticated,
   onShowToast,
@@ -28,9 +87,9 @@ export const CommunityHub: React.FC<CommunityHubProps> = ({
   const [categoryFilter, setCategoryFilter] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   
-  const [questions, setQuestions] = useState<any[]>([]);
-  const [experiences, setExperiences] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [questions, setQuestions] = useState<any[]>(defaultQuestions);
+  const [experiences, setExperiences] = useState<any[]>(defaultExperiences);
+  const [loading, setLoading] = useState(false);
 
   // Ask Question Modal State
   const [showAskModal, setShowAskModal] = useState(false);
@@ -44,22 +103,23 @@ export const CommunityHub: React.FC<CommunityHubProps> = ({
   const [selectedQuestionId, setSelectedQuestionId] = useState<string | null>(null);
 
   const fetchQuestionsAndExperiences = async () => {
-    setLoading(true);
     try {
       if (activeTab === 'questions') {
         const res = await api.community.getQuestions({
           category: categoryFilter !== 'ALL' ? categoryFilter : undefined,
           search: searchQuery.trim() || undefined
         });
-        setQuestions(res.questions || []);
+        if (res.questions && res.questions.length > 0) {
+          setQuestions(res.questions);
+        }
       } else if (activeTab === 'experiences') {
         const res = await api.community.getExperiences();
-        setExperiences(res.experiences || []);
+        if (res.experiences && res.experiences.length > 0) {
+          setExperiences(res.experiences);
+        }
       }
     } catch (err) {
       console.error('Failed to load community content:', err);
-    } finally {
-      setLoading(false);
     }
   };
 

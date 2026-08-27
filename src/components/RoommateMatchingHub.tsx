@@ -358,21 +358,21 @@ export const RoommateMatchingHub: React.FC<RoommateMatchingHubProps> = ({
                         </div>
                         <div className="flex items-center gap-1.5 text-slate-700 font-medium">
                           <MapPin className="w-3.5 h-3.5 text-rose-500" />
-                          <span>{m.profile.preferredAreas.join(', ')}</span>
+                          <span>{Array.isArray(m.profile.preferredAreas) ? m.profile.preferredAreas.join(', ') : (typeof m.profile.preferredAreas === 'string' ? m.profile.preferredAreas : 'Under G, Adenike')}</span>
                         </div>
                         <div className="flex items-center gap-1.5 text-slate-700 font-medium">
                           <Bed className="w-3.5 h-3.5 text-indigo-500" />
-                          <span>{m.profile.preferredRoomType.replace('_', ' ')}</span>
+                          <span>{(m.profile.preferredRoomType || 'SHARED').replace(/_/g, ' ')}</span>
                         </div>
                         <div className="flex items-center gap-1.5 text-slate-700 font-medium">
                           <Clock className="w-3.5 h-3.5 text-amber-500" />
-                          <span>Move in: {m.profile.moveInMonth}</span>
+                          <span>Move in: {m.profile.moveInMonth || 'Resumption'}</span>
                         </div>
                       </div>
 
                       {/* Transparent Positive Checks */}
                       <div className="mt-3 space-y-1">
-                        {m.positiveMatches.map((pos: string, idx: number) => (
+                        {(m.positiveMatches || []).map((pos: string, idx: number) => (
                           <p key={idx} className="text-[11px] text-emerald-800 font-semibold flex items-center gap-1">
                             {pos}
                           </p>
@@ -380,9 +380,9 @@ export const RoommateMatchingHub: React.FC<RoommateMatchingHubProps> = ({
                       </div>
 
                       {/* Disclosed Trade-offs */}
-                      {m.tradeOffs.length > 0 && (
+                      {(m.tradeOffs || []).length > 0 && (
                         <div className="mt-2 space-y-0.5">
-                          {m.tradeOffs.map((tro: string, idx: number) => (
+                          {(m.tradeOffs || []).map((tro: string, idx: number) => (
                             <p key={idx} className="text-[10px] text-amber-700 font-medium flex items-center gap-1">
                               {tro}
                             </p>
