@@ -532,7 +532,7 @@ router.get('/preferences', authenticate, (req: AuthenticatedRequest, res: Respon
   }
 });
 
-router.put('/preferences', authenticate, (req: AuthenticatedRequest, res: Response) => {
+const savePreferencesHandler = (req: AuthenticatedRequest, res: Response) => {
   if (!req.user || req.user.role !== 'STUDENT') return res.status(403).json({ error: 'Unauthorized' });
 
   const {
@@ -594,7 +594,12 @@ router.put('/preferences', authenticate, (req: AuthenticatedRequest, res: Respon
   } catch (err: any) {
     return res.status(500).json({ error: 'Failed to save preferences: ' + err.message });
   }
-});
+};
+
+router.put('/preferences', authenticate, savePreferencesHandler);
+router.post('/preferences', authenticate, savePreferencesHandler);
+router.post('/dashboard/preferences', authenticate, savePreferencesHandler);
+router.put('/dashboard/preferences', authenticate, savePreferencesHandler);
 
 // ----------------------------------------------------
 // 3. Recently Viewed Hostels

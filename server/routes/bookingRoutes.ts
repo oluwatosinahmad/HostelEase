@@ -112,7 +112,7 @@ router.get('/availability/properties/:propertyId', (req, res: Response) => {
 });
 
 // 2. Create a Reservation Request (STUDENT only)
-router.post('/reserve', authenticate, (req: AuthenticatedRequest, res: Response) => {
+const createReservationHandler = (req: AuthenticatedRequest, res: Response) => {
   if (!req.user || req.user.role !== 'STUDENT') {
     return res.status(403).json({ error: 'Only registered students can reserve hostel accommodation' });
   }
@@ -349,7 +349,10 @@ router.post('/reserve', authenticate, (req: AuthenticatedRequest, res: Response)
     const statusCode = err.statusCode || 400;
     res.status(statusCode).json({ error: err.message || 'Failed to create reservation' });
   }
-});
+};
+
+router.post('/reserve', authenticate, createReservationHandler);
+router.post('/', authenticate, createReservationHandler);
 
 // 3. Get Bookings List (Student or Provider)
 router.get('/', authenticate, (req: AuthenticatedRequest, res: Response) => {

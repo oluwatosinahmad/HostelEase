@@ -17,41 +17,38 @@ const VALID_REASONS = [
 ];
 
 // 1. Submit a Listing Report (Student)
-router.post('/properties/:propertyId', authenticate, (req: AuthenticatedRequest, res: Response) => {
+const submitReportHandler = (req: AuthenticatedRequest, res: Response) => {
   if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
-  const { propertyId } = req.params;
-  const { reason, description } = req.body;
+  const propertyId = req.params.propertyId || req.body.propertyId || req.body.targetId;
+  const { reason = 'OTHER', description, category } = req.body;
 
-  if (!reason || !description) {
-    return res.status(400).json({ error: 'Reason and detailed description are required' });
-  }
-
-  if (!VALID_REASONS.includes(reason)) {
-    return res.status(400).json({ error: `Reason must be one of: ${VALID_REASONS.join(', ')}` });
+  if (!description) {
+    return res.status(400).json({ error: 'Detailed description is required' });
   }
 
   try {
-    const property = db.prepare('SELECT id, title FROM properties WHERE id = ?').get(propertyId) as any;
-    if (!property) {
-      return res.status(404).json({ error: 'Property not found' });
-    }
+    const property = propertyId ? db.prepare('SELECT id, title FROM properties WHERE id = ?').get(propertyId) as any : null;
+    const resolvedPropId = property?.id || propertyId || 'general';
 
     const reportId = `report-${crypto.randomUUID()}`;
     db.prepare(`
       INSERT INTO listing_reports (
         id, user_id, property_id, reason, description, status, created_at, updated_at
       ) VALUES (?, ?, ?, ?, ?, 'PENDING', datetime('now'), datetime('now'))
-    `).run(reportId, req.user.id, propertyId, reason, description.trim());
+    `).run(reportId, req.user.id, resolvedPropId, category || reason || 'OTHER', description.trim());
 
     return res.status(201).json({
-      message: 'Thank you for reporting this listing. Our team will review the claim to protect students.',
+      message: 'Thank you for submitting this report. Our operations team will review it to protect students.',
       reportId
     });
-  } catch (err) {
+  } catch (err: any) {
     console.error('Submit report error:', err);
-    return res.status(500).json({ error: 'Failed to submit report' });
+    return res.status(500).json({ error: 'Failed to submit report: ' + err.message });
   }
-});
+};
+
+router.post('/properties/:propertyId', authenticate, submitReportHandler);
+router.post('/', authenticate, submitReportHandler);
 
 // 2. Admin List of Reports
 router.get('/', authenticate, requireRole('ADMIN'), (req: AuthenticatedRequest, res: Response) => {

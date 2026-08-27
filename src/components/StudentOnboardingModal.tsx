@@ -104,7 +104,7 @@ export const StudentOnboardingModal: React.FC<StudentOnboardingModalProps> = ({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-md animate-in fade-in">
       <div className="bg-white w-full max-w-xl rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
         {/* Header */}
-        <div className="bg-gradient-to-r from-emerald-800 to-teal-900 text-white p-6 relative flex-shrink-0">
+        <div className="bg-gradient-to-r from-emerald-800 to-teal-900 dark:from-emerald-950 dark:to-slate-900 text-white p-6 relative flex-shrink-0">
           <button
             onClick={onClose}
             className="absolute top-5 right-5 p-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
@@ -138,28 +138,28 @@ export const StudentOnboardingModal: React.FC<StudentOnboardingModalProps> = ({
         </div>
 
         {/* Modal Body */}
-        <div className="p-6 overflow-y-auto space-y-6 flex-grow">
+        <div className="p-6 overflow-y-auto space-y-6 flex-grow bg-white dark:bg-slate-900 text-slate-900 dark:text-white">
           {/* STEP 1: Budget & Areas */}
           {step === 1 && (
             <div className="space-y-5 animate-in slide-in-from-right-4">
               {/* Budget Range */}
               <div>
-                <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-2">
+                <label className="block text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider mb-2">
                   Annual Budget Range (₦)
                 </label>
                 <div className="grid grid-cols-2 gap-3 mb-3">
-                  <div className="p-3 bg-slate-50 border border-slate-200 rounded-2xl">
-                    <span className="text-[10px] text-slate-500 font-bold uppercase">Min Budget</span>
-                    <div className="text-base font-black text-slate-900">{formatNaira(minBudget)}</div>
+                  <div className="p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl">
+                    <span className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase">Min Budget</span>
+                    <div className="text-base font-black text-slate-900 dark:text-white">{formatNaira(minBudget)}</div>
                   </div>
-                  <div className="p-3 bg-slate-50 border border-slate-200 rounded-2xl">
-                    <span className="text-[10px] text-emerald-700 font-bold uppercase">Max Budget</span>
-                    <div className="text-base font-black text-emerald-800">{formatNaira(maxBudget)}</div>
+                  <div className="p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl">
+                    <span className="text-[10px] text-emerald-700 dark:text-emerald-400 font-bold uppercase">Max Budget</span>
+                    <div className="text-base font-black text-emerald-800 dark:text-emerald-300">{formatNaira(maxBudget)}</div>
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <div className="flex items-center justify-between text-xs text-slate-500">
+                  <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
                     <span>₦80,000</span>
                     <span>Max: {formatNaira(maxBudget)}</span>
                     <span>₦500,000</span>
@@ -178,7 +178,7 @@ export const StudentOnboardingModal: React.FC<StudentOnboardingModalProps> = ({
 
               {/* Preferred Areas */}
               <div>
-                <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-2">
+                <label className="block text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider mb-2">
                   Preferred LAUTECH Areas (Select all that apply)
                 </label>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
@@ -191,17 +191,17 @@ export const StudentOnboardingModal: React.FC<StudentOnboardingModalProps> = ({
                         onClick={() => toggleArea(area.id)}
                         className={`p-3 rounded-2xl border text-left text-xs font-bold transition-all flex items-center justify-between ${
                           isSelected
-                            ? 'bg-emerald-50 border-emerald-500 text-emerald-950 ring-2 ring-emerald-500/20'
-                            : 'bg-white border-slate-200 text-slate-700 hover:border-slate-300'
+                            ? 'bg-emerald-50 dark:bg-emerald-950/60 border-emerald-500 dark:border-emerald-600 text-emerald-950 dark:text-emerald-200 ring-2 ring-emerald-500/20'
+                            : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-600'
                         }`}
                       >
                         <div className="truncate">
                           <p className="truncate">{area.name}</p>
-                          <span className="text-[10px] text-slate-400 font-medium">
+                          <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium">
                             ~{area.approxDistanceMinKm} - {area.approxDistanceMaxKm}km
                           </span>
                         </div>
-                        {isSelected && <Check className="w-4 h-4 text-emerald-600 flex-shrink-0" />}
+                        {isSelected && <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />}
                       </button>
                     );
                   })}
@@ -211,10 +211,10 @@ export const StudentOnboardingModal: React.FC<StudentOnboardingModalProps> = ({
               {/* Max Distance */}
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                  <label className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">
                     Max Distance from School Gate
                   </label>
-                  <span className="text-xs font-black text-emerald-700">{maxDistanceKm} km</span>
+                  <span className="text-xs font-black text-emerald-700 dark:text-emerald-400">{maxDistanceKm} km</span>
                 </div>
                 <input
                   type="range"
@@ -234,7 +234,7 @@ export const StudentOnboardingModal: React.FC<StudentOnboardingModalProps> = ({
             <div className="space-y-5 animate-in slide-in-from-right-4">
               {/* Room Types */}
               <div>
-                <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-2">
+                <label className="block text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider mb-2">
                   Preferred Room Types
                 </label>
                 <div className="grid grid-cols-2 gap-2.5">
@@ -252,12 +252,12 @@ export const StudentOnboardingModal: React.FC<StudentOnboardingModalProps> = ({
                         onClick={() => toggleRoomType(item.type as PropertyType)}
                         className={`p-3.5 rounded-2xl border text-left text-xs font-bold transition-all flex items-center justify-between ${
                           isSelected
-                            ? 'bg-emerald-50 border-emerald-500 text-emerald-950 ring-2 ring-emerald-500/20'
-                            : 'bg-white border-slate-200 text-slate-700 hover:border-slate-300'
+                            ? 'bg-emerald-50 dark:bg-emerald-950/60 border-emerald-500 dark:border-emerald-600 text-emerald-950 dark:text-emerald-200 ring-2 ring-emerald-500/20'
+                            : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-600'
                         }`}
                       >
                         <span>{item.label}</span>
-                        {isSelected && <Check className="w-4 h-4 text-emerald-600 flex-shrink-0" />}
+                        {isSelected && <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />}
                       </button>
                     );
                   })}
@@ -266,7 +266,7 @@ export const StudentOnboardingModal: React.FC<StudentOnboardingModalProps> = ({
 
               {/* Must-Have Facilities */}
               <div>
-                <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-2">
+                <label className="block text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider mb-2">
                   Must-Have Facilities
                 </label>
                 <div className="grid grid-cols-2 gap-2.5">
@@ -280,12 +280,12 @@ export const StudentOnboardingModal: React.FC<StudentOnboardingModalProps> = ({
                         onClick={() => toggleFacility(fac.key)}
                         className={`p-3 rounded-2xl border text-left text-xs font-bold transition-all flex items-center gap-2.5 ${
                           isSelected
-                            ? 'bg-emerald-50 border-emerald-500 text-emerald-950 ring-2 ring-emerald-500/20'
-                            : 'bg-white border-slate-200 text-slate-700 hover:border-slate-300'
+                            ? 'bg-emerald-50 dark:bg-emerald-950/60 border-emerald-500 dark:border-emerald-600 text-emerald-950 dark:text-emerald-200 ring-2 ring-emerald-500/20'
+                            : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-600'
                         }`}
                       >
                         <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                          isSelected ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-500'
+                          isSelected ? 'bg-emerald-600 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-300'
                         }`}>
                           <Icon className="w-4 h-4" />
                         </div>
@@ -298,7 +298,7 @@ export const StudentOnboardingModal: React.FC<StudentOnboardingModalProps> = ({
 
               {/* Gender Preference */}
               <div>
-                <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-2">
+                <label className="block text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider mb-2">
                   Hostel Gender Policy Preference
                 </label>
                 <div className="grid grid-cols-3 gap-2">
@@ -314,7 +314,7 @@ export const StudentOnboardingModal: React.FC<StudentOnboardingModalProps> = ({
                       className={`p-2.5 rounded-xl border text-center text-xs font-bold transition-all ${
                         genderPreference === g.key
                           ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
-                          : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                          : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-750'
                       }`}
                     >
                       {g.label}
@@ -329,18 +329,18 @@ export const StudentOnboardingModal: React.FC<StudentOnboardingModalProps> = ({
           {step === 3 && (
             <div className="space-y-5 animate-in slide-in-from-right-4">
               <div>
-                <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-2">
+                <label className="block text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider mb-2">
                   Intended Move-in Date
                 </label>
                 <input
                   type="date"
                   value={preferredMoveInDate}
                   onChange={(e) => setPreferredMoveInDate(e.target.value)}
-                  className="w-full text-sm font-bold bg-slate-50 border border-slate-200 rounded-2xl p-3.5 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                  className="w-full text-sm font-bold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-2xl p-3.5 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                 />
               </div>
 
-              <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-200 space-y-2">
+              <div className="p-4 bg-emerald-50 dark:bg-emerald-950/50 rounded-2xl border border-emerald-200 dark:border-emerald-800 space-y-2">
                 <label className="flex items-center gap-3 cursor-pointer">
                   <input
                     type="checkbox"
@@ -349,17 +349,17 @@ export const StudentOnboardingModal: React.FC<StudentOnboardingModalProps> = ({
                     className="rounded text-emerald-600 focus:ring-emerald-500 w-4 h-4"
                   />
                   <div>
-                    <p className="text-xs font-bold text-emerald-950">My move-in date is flexible (+/- 2 weeks)</p>
-                    <p className="text-[11px] text-emerald-800">
+                    <p className="text-xs font-bold text-emerald-950 dark:text-emerald-200">My move-in date is flexible (+/- 2 weeks)</p>
+                    <p className="text-[11px] text-emerald-800 dark:text-emerald-300">
                       Helps match hostels currently undergoing pre-session maintenance or painting.
                     </p>
                   </div>
                 </label>
               </div>
 
-              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 text-xs text-slate-600 space-y-1">
-                <div className="flex items-center gap-1.5 font-bold text-slate-900">
-                  <ShieldCheck className="w-4 h-4 text-emerald-600" />
+              <div className="p-4 bg-slate-50 dark:bg-slate-800/80 rounded-2xl border border-slate-200 dark:border-slate-700 text-xs text-slate-600 dark:text-slate-300 space-y-1">
+                <div className="flex items-center gap-1.5 font-bold text-slate-900 dark:text-white">
+                  <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                   <span>100% Control Guarantee</span>
                 </div>
                 <p className="text-[11px]">
@@ -371,11 +371,11 @@ export const StudentOnboardingModal: React.FC<StudentOnboardingModalProps> = ({
         </div>
 
         {/* Footer Actions */}
-        <div className="p-5 bg-slate-50 border-t border-slate-200 flex items-center justify-between flex-shrink-0">
+        <div className="p-5 bg-slate-50 dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between flex-shrink-0">
           <button
             type="button"
             onClick={onClose}
-            className="text-xs font-bold text-slate-500 hover:text-slate-900 px-3 py-2"
+            className="text-xs font-bold text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white px-3 py-2"
           >
             Skip for Now
           </button>
@@ -385,7 +385,7 @@ export const StudentOnboardingModal: React.FC<StudentOnboardingModalProps> = ({
               <button
                 type="button"
                 onClick={() => setStep(prev => prev - 1)}
-                className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-xs font-bold text-slate-700 transition-colors"
+                className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 transition-colors"
               >
                 Back
               </button>

@@ -29,7 +29,7 @@ router.get('/health', (req: Request, res: Response) => {
 });
 
 // Admin-Only Detailed System Metrics & Health Telemetry
-router.get('/metrics', requireAuth, requireRole(['ADMIN']), (req: Request, res: Response) => {
+const metricsHandler = (req: Request, res: Response) => {
   try {
     const memoryUsage = process.memoryUsage();
     const uptimeSeconds = Math.floor((Date.now() - SERVER_START_TIME.getTime()) / 1000);
@@ -69,6 +69,9 @@ router.get('/metrics', requireAuth, requireRole(['ADMIN']), (req: Request, res: 
   } catch (err: any) {
     res.status(500).json({ error: 'Failed to retrieve system metrics', code: 'METRICS_ERROR' });
   }
-});
+};
+
+router.get('/metrics', requireAuth, requireRole(['ADMIN']), metricsHandler);
+router.get('/summary', requireAuth, requireRole(['ADMIN']), metricsHandler);
 
 export default router;

@@ -76,4 +76,43 @@ router.get('/', authenticate, (req: AuthenticatedRequest, res: Response) => {
   }
 });
 
+// Save a property
+router.post('/', authenticate, (req: AuthenticatedRequest, res: Response) => {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+  const { propertyId, notes = '' } = req.body;
+  if (!propertyId) return res.status(400).json({ error: 'propertyId is required' });
+
+  try {
+    const existing = db.prepare('SELECT id FROM saved_properties WHERE user_id = ? AND property_id = ?').get(req.user.id, propertyId) as any;
+    if (existing) {
+      return res.status(200).json({ success: true, savedId: existing.id, message: 'Property already saved' });
+    }
+
+    const savedId = `saved-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+    db.prepare(`
+      INSERT INTO saved_properties (id, user_id, property_id, notes, created_at)
+      VALUES (?, ?, ?, ?, datetime('now'))
+    `).run(savedId, req.user.id, propertyId, notes);
+
+    return res.status(201).json({ success: true, savedId, message: 'Hostel saved to shortlist' });
+  } catch (err: any) {
+    console.error('Save property error:', err);
+    return res.status(500).json({ error: 'Failed to save hostel: ' + err.message });
+  }
+});
+
+// Unsave a property
+router.delete('/:propertyId', authenticate, (req: AuthenticatedRequest, res: Response) => {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+  const { propertyId } = req.params;
+
+  try {
+    db.prepare('DELETE FROM saved_properties WHERE user_id = ? AND (property_id = ? OR id = ?)').run(req.user.id, propertyId, propertyId);
+    return res.json({ success: true, message: 'Hostel removed from saved list' });
+  } catch (err: any) {
+    console.error('Remove saved property error:', err);
+    return res.status(500).json({ error: 'Failed to remove saved hostel' });
+  }
+});
+
 export default router;

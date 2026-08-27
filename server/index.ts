@@ -112,6 +112,7 @@ app.get('/api/health', (req: Request, res: Response) => {
 // API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/properties', propertyRoutes);
+app.use('/api/saved', savedRoutes);
 app.use('/api/saved-properties', savedRoutes);
 app.use('/api/inspections', inspectionRoutes);
 app.use('/api/reports', reportRoutes);

@@ -13,6 +13,7 @@
     "db:seed": "tsx server/seed.ts",
     "dev:all": "concurrently -n \"SERVER,CLIENT\" -c \"blue,green\" \"tsx server/index.ts\" \"vite\"",
     "test:phase14": "tsx scripts/test_phase14.ts",
+    "test:phase18": "tsx scripts/test_phase18_launch.ts",
     "test:live": "tsx scripts/verify_live_system.ts"
   },
   "dependencies": {

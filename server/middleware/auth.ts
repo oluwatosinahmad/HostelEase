@@ -75,13 +75,14 @@ export function optionalAuthenticate(req: AuthenticatedRequest, res: Response, n
   next();
 }
 
-export function requireRole(...roles: Array<'STUDENT' | 'PROVIDER' | 'ADMIN'>) {
+export function requireRole(...roles: any[]) {
+  const flattenedRoles = roles.flat();
   return (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     if (!req.user) {
       return res.status(401).json({ error: 'Authentication required' });
     }
-    if (!roles.includes(req.user.role)) {
-      return res.status(403).json({ error: `Access denied. Requires one of: ${roles.join(', ')}` });
+    if (!flattenedRoles.includes(req.user.role)) {
+      return res.status(403).json({ error: `Access denied. Requires one of: ${flattenedRoles.join(', ')}` });
     }
     next();
   };
