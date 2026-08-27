@@ -167,7 +167,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           <div className="flex border-b border-slate-200 dark:border-slate-800 pb-2">
             <button
               type="button"
-              onClick={() => setMode('login')}
+              onClick={() => { setMode('login'); setError(null); }}
               className={`flex-1 text-center py-1.5 text-xs font-bold border-b-2 transition-colors ${
                 mode === 'login'
                   ? role === 'ADMIN'
@@ -180,7 +180,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             </button>
             <button
               type="button"
-              onClick={() => setMode('register')}
+              onClick={() => { setMode('register'); setError(null); }}
               className={`flex-1 text-center py-1.5 text-xs font-bold border-b-2 transition-colors ${
                 mode === 'register'
                   ? role === 'ADMIN'
@@ -194,9 +194,20 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           </div>
 
           {error && (
-            <div className="p-3 bg-red-50 dark:bg-red-950/60 border border-red-200 dark:border-red-800 rounded-xl text-red-700 dark:text-red-300 text-xs flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0" />
-              <span>{error}</span>
+            <div className="p-3 bg-red-50 dark:bg-red-950/60 border border-red-200 dark:border-red-800 rounded-xl text-red-700 dark:text-red-300 text-xs flex flex-col gap-2">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0" />
+                <span className="font-medium">{error}</span>
+              </div>
+              {error.toLowerCase().includes('already exists') && (
+                <button
+                  type="button"
+                  onClick={() => { setMode('login'); setError(null); }}
+                  className="self-start text-xs font-bold text-emerald-700 dark:text-emerald-400 underline hover:text-emerald-800"
+                >
+                  Click here to Log In instead →
+                </button>
+              )}
             </div>
           )}
 
@@ -212,7 +223,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     type="text"
                     placeholder={role === 'ADMIN' ? 'e.g. Admin Ahmad' : 'e.g. Babatunde Adeleke'}
                     value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
+                    onChange={(e) => { setFullName(e.target.value); setError(null); }}
                     className="w-full text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pl-9 pr-3 py-2.5 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                     required
                   />
@@ -228,7 +239,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   type="email"
                   placeholder={role === 'STUDENT' ? 'student@lautech.edu.ng' : role === 'ADMIN' ? 'admin@hostelease.ng' : 'landlord@hostelease.ng'}
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e) => { setEmail(e.target.value); setError(null); }}
                   className="w-full text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pl-9 pr-3 py-2.5 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                   required
                 />
@@ -236,14 +247,20 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             </div>
 
             <div>
-              <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">Password</label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase">Password</label>
+                {mode === 'register' && (
+                  <span className="text-[10px] text-slate-400 dark:text-slate-500">Min. 6 characters</span>
+                )}
+              </div>
               <div className="relative flex items-center">
                 <Lock className="w-4 h-4 text-slate-400 absolute left-3" />
                 <input
                   type="password"
                   placeholder="••••••••"
+                  minLength={6}
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(e) => { setPassword(e.target.value); setError(null); }}
                   className="w-full text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pl-9 pr-3 py-2.5 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                   required
                 />

@@ -126,12 +126,30 @@ export const api = {
           localStorage.setItem('hostel_ease_user', JSON.stringify(json.user));
           return json;
         }
-        if (res.status >= 400 && res.status < 500) {
+
+        // If email already exists, try logging the user in directly with provided credentials
+        if (res.status === 409) {
+          try {
+            const loginRes = await api.auth.login({
+              email: data.email,
+              password: data.password,
+              role: data.role
+            });
+            return loginRes;
+          } catch {
+            throw new Error('An account with this email already exists. Please switch to "Log In" tab.');
+          }
+        }
+
+        const contentType = res.headers.get('content-type') || '';
+        if (contentType.includes('application/json')) {
           const errData = await res.json().catch(() => ({}));
-          throw new Error(errData.error || errData.message || 'Registration failed');
+          if (errData.error || errData.message) {
+            throw new Error(errData.error || errData.message);
+          }
         }
       } catch (err: any) {
-        if (err.message && !err.message.includes('fetch') && !err.message.includes('network') && !err.message.includes('Failed to fetch')) {
+        if (err.message && !err.message.includes('fetch') && !err.message.includes('network') && !err.message.includes('Failed to fetch') && !err.message.includes('Unexpected end of JSON')) {
           throw err;
         }
         console.warn('Backend auth unreachable, using client session mode.');
@@ -140,7 +158,7 @@ export const api = {
       const role = data.role || 'STUDENT';
       const mockUser = {
         id: `usr-${Date.now()}`,
-        fullName: data.fullName || (role === 'PROVIDER' ? 'Hostel Landlord' : 'Student User'),
+        fullName: data.fullName || (role === 'PROVIDER' ? 'Hostel Landlord' : role === 'ADMIN' ? 'Platform Administrator' : 'Student User'),
         email: data.email,
         role: role,
         phone: data.phone || '08012345678',
@@ -170,12 +188,15 @@ export const api = {
           localStorage.setItem('hostel_ease_user', JSON.stringify(json.user));
           return json;
         }
-        if (res.status >= 400 && res.status < 500) {
+        const contentType = res.headers.get('content-type') || '';
+        if (contentType.includes('application/json')) {
           const errData = await res.json().catch(() => ({}));
-          throw new Error(errData.error || errData.message || 'Invalid email or password');
+          if (errData.error || errData.message) {
+            throw new Error(errData.error || errData.message);
+          }
         }
       } catch (err: any) {
-        if (err.message && !err.message.includes('fetch') && !err.message.includes('network') && !err.message.includes('Failed to fetch')) {
+        if (err.message && !err.message.includes('fetch') && !err.message.includes('network') && !err.message.includes('Failed to fetch') && !err.message.includes('Unexpected end of JSON')) {
           throw err;
         }
         console.warn('Backend auth unreachable, using client session mode.');
