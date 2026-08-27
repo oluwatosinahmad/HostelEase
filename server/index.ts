@@ -31,6 +31,7 @@ import intelligenceRoutes from './routes/intelligenceRoutes';
 import communityRoutes from './routes/communityRoutes';
 import roommateRoutes from './routes/roommateRoutes';
 import operationsRoutes from './routes/operationsRoutes';
+import adminRevenueRoutes from './routes/adminRevenueRoutes';
 
 import { securityHeaders } from './middleware/securityHeaders';
 import { sanitizeInputs } from './middleware/sanitize';
@@ -119,6 +120,7 @@ app.use('/api/reports', reportRoutes);
 app.use('/api/provider', providerRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/admin/operations', operationsRoutes);
+app.use('/api/admin/revenue', adminRevenueRoutes);
 app.use('/api/areas', areaRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/notifications', notificationRoutes);

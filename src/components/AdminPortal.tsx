@@ -37,7 +37,12 @@ import {
   TrendingUp,
   Sliders,
   ChevronRight,
-  AlertCircle
+  AlertCircle,
+  Receipt,
+  ArrowUpRight,
+  ArrowDownLeft,
+  Camera,
+  Download
 } from 'lucide-react';
 import { 
   Area, 
@@ -51,7 +56,8 @@ import {
   SystemHealthService, 
   AdminAuditLogItem, 
   VerificationChecklist,
-  AIAdminStats 
+  AIAdminStats,
+  RevenueOverviewResponse 
 } from '../types/hostelEase';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -59,6 +65,7 @@ import { AdminFinancialDashboard } from './AdminFinancialDashboard';
 import { AdminSupplyDemandDashboard } from './AdminSupplyDemandDashboard';
 import { AdminCommunityModeration } from './AdminCommunityModeration';
 import { AdminOperationsDashboard } from './AdminOperationsDashboard';
+import { AdminRevenueModule, RevenueSubTab } from './AdminRevenueModule';
 import { formatNaira, formatDistance } from '../utils/formatters';
 
 interface AdminPortalProps {
@@ -79,6 +86,18 @@ type AdminTab =
   | 'community_moderation'
   | 'bookings' 
   | 'financials' 
+  | 'finance_revenue'
+  | 'finance_transactions'
+  | 'finance_commissions'
+  | 'finance_subscriptions'
+  | 'finance_featured'
+  | 'finance_services'
+  | 'finance_payouts'
+  | 'finance_refunds'
+  | 'finance_invoices'
+  | 'finance_withdrawals'
+  | 'finance_reports'
+  | 'finance_settings'
   | 'support' 
   | 'announcements' 
   | 'analytics' 
@@ -94,6 +113,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
   const { loginDemo } = useAuth();
   const [activeTab, setActiveTab] = useState<AdminTab>('overview');
   const [dashboardData, setDashboardData] = useState<AdminDashboardData | null>(null);
+  const [revenueOverview, setRevenueOverview] = useState<RevenueOverviewResponse | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
 
   // Search & Filters
@@ -190,7 +210,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
   const fetchAllAdminData = async () => {
     setLoading(true);
     try {
-      const [dash, users, provs, hosts, reps, revs, bks, supp, ann, health, logs, ai, disps] = await Promise.all([
+      const [dash, users, provs, hosts, reps, revs, bks, supp, ann, health, logs, ai, disps, revOver] = await Promise.all([
         api.admin.getDashboard().catch(() => null),
         api.admin.getUsers(undefined, userRoleFilter, userStatusFilter).catch(() => ({ users: [] })),
         api.admin.getProviders(providerFilter).catch(() => ({ providers: [] })),
@@ -203,10 +223,12 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
         api.admin.getSystemHealth().catch(() => ({ services: [] })),
         api.admin.getAuditLogs().catch(() => ({ logs: [] })),
         api.ai.getAdminStats().catch(() => null),
-        api.disputes.adminList({ status: disputeStatusFilter }).catch(() => ({ disputes: [] }))
+        api.disputes.adminList({ status: disputeStatusFilter }).catch(() => ({ disputes: [] })),
+        api.admin.revenue.getOverview().catch(() => null)
       ]);
 
       if (dash) setDashboardData(dash);
+      if (revOver) setRevenueOverview(revOver);
       setUsersList(users.users || []);
       setProvidersList(provs.providers || []);
       setHostelsList(hosts.hostels || []);
@@ -558,9 +580,20 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
               ]
             },
             {
-              category: 'FINANCIALS & LEDGER',
+              category: '💰 FINANCE / REVENUE',
               items: [
-                { id: 'financials', label: 'Ledger & Payments', icon: CreditCard, badge: null }
+                { id: 'finance_revenue', label: 'Revenue Overview', icon: TrendingUp, badge: revenueOverview ? formatNaira(revenueOverview.ownerRevenue.netPlatformRevenue) : null, badgeColor: 'bg-emerald-500/20 text-emerald-300' },
+                { id: 'finance_transactions', label: 'Transactions', icon: CreditCard, badge: null },
+                { id: 'finance_commissions', label: 'Booking Commissions', icon: Receipt, badge: '7.5%', badgeColor: 'bg-indigo-500/20 text-indigo-300' },
+                { id: 'finance_subscriptions', label: 'Provider Subscriptions', icon: ShieldCheck, badge: revenueOverview?.dashboardSummary.activeSubscribers || null },
+                { id: 'finance_featured', label: 'Featured Listings', icon: Sparkles, badge: revenueOverview?.dashboardSummary.activeFeatured || null, badgeColor: 'bg-amber-500/20 text-amber-300' },
+                { id: 'finance_services', label: 'Provider Services', icon: Camera, badge: revenueOverview?.dashboardSummary.completedServices || null },
+                { id: 'finance_payouts', label: 'Payouts', icon: ArrowUpRight, badge: revenueOverview?.dashboardSummary.pendingPayoutsCount ? `${revenueOverview.dashboardSummary.pendingPayoutsCount} Pending` : null, badgeColor: 'bg-rose-500/20 text-rose-300' },
+                { id: 'finance_refunds', label: 'Refunds', icon: ArrowDownLeft, badge: null },
+                { id: 'finance_invoices', label: 'Invoices', icon: FileText, badge: null },
+                { id: 'finance_withdrawals', label: 'Withdrawals', icon: DollarSign, badge: null },
+                { id: 'finance_reports', label: 'Financial Reports', icon: Download, badge: '2026' },
+                { id: 'finance_settings', label: 'Revenue Settings', icon: Sliders, badge: null }
               ]
             },
             {
@@ -653,6 +686,122 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                 <h1 className="text-2xl font-black text-white tracking-tight">Platform Command Center</h1>
                 <p className="text-xs text-slate-400">Real-time platform activity across LAUTECH, Ogbomoso</p>
               </div>
+
+              {/* 💰 FINANCIAL SUMMARY CARDS GRID */}
+              <div className="bg-slate-950 border border-slate-800 rounded-2xl p-5 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <DollarSign className="w-5 h-5 text-emerald-400" />
+                    <h2 className="font-bold text-white text-sm">Financial & Treasury Overview</h2>
+                  </div>
+                  <button
+                    onClick={() => setActiveTab('finance_revenue')}
+                    className="text-xs text-emerald-400 hover:text-emerald-300 font-bold flex items-center gap-1 transition-colors"
+                  >
+                    <span>View Revenue Console</span>
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                  <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-3.5 space-y-1">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase">Total Revenue</p>
+                    <p className="text-xl font-black text-emerald-400">
+                      {formatNaira(revenueOverview?.dashboardSummary.totalRevenue ?? dashboardData.stats.totalGrossRevenue)}
+                    </p>
+                    <p className="text-[10px] text-slate-500">Gross inflows</p>
+                  </div>
+
+                  <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-3.5 space-y-1">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase">This Month</p>
+                    <p className="text-xl font-black text-white">
+                      {formatNaira(revenueOverview?.dashboardSummary.thisMonth ?? 0)}
+                    </p>
+                    <p className="text-[10px] text-emerald-400">Current cycle</p>
+                  </div>
+
+                  <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-3.5 space-y-1">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase">Pending Revenue</p>
+                    <p className="text-xl font-black text-amber-400">
+                      {formatNaira(revenueOverview?.dashboardSummary.pendingRevenue ?? 0)}
+                    </p>
+                    <p className="text-[10px] text-slate-500">In escrow queue</p>
+                  </div>
+
+                  <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-3.5 space-y-1">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase">Successful Bookings</p>
+                    <p className="text-xl font-black text-white">
+                      {revenueOverview?.dashboardSummary.successfulBookings ?? dashboardData.stats.successfulPayments}
+                    </p>
+                    <p className="text-[10px] text-slate-500">Paid stays</p>
+                  </div>
+
+                  <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-3.5 space-y-1">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase">Provider Revenue</p>
+                    <p className="text-xl font-black text-cyan-400">
+                      {formatNaira(revenueOverview?.dashboardSummary.providerRevenue ?? 0)}
+                    </p>
+                    <p className="text-[10px] text-slate-500">Landlord payouts</p>
+                  </div>
+
+                  <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-3.5 space-y-1">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase">Platform Commission</p>
+                    <p className="text-xl font-black text-indigo-400">
+                      {formatNaira(revenueOverview?.dashboardSummary.platformCommission ?? 0)}
+                    </p>
+                    <p className="text-[10px] text-slate-500">Retained take rate</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* 👑 OWNER REVENUE EXACT STREAM BREAKDOWN CARD */}
+              {revenueOverview && (
+                <div className="bg-gradient-to-br from-slate-950 via-slate-900 to-emerald-950/30 border border-emerald-500/30 rounded-2xl p-5 shadow-xl space-y-4">
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-slate-800/80 pb-3">
+                    <div>
+                      <span className="text-[10px] font-black tracking-wider text-emerald-400 uppercase bg-emerald-950 px-2 py-0.5 rounded border border-emerald-800">
+                        Owner Monetization Streams
+                      </span>
+                      <h3 className="text-base font-bold text-white mt-1">Hostel Ease Monetization Breakdown</h3>
+                    </div>
+                    <p className="text-sm font-black text-emerald-400">
+                      Net Platform Revenue: {formatNaira(revenueOverview.ownerRevenue.netPlatformRevenue)}
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 text-xs">
+                    <div className="bg-slate-900/80 p-3 rounded-xl border border-slate-800">
+                      <p className="text-[10px] text-slate-400 uppercase font-bold">Total Revenue</p>
+                      <p className="text-base font-black text-white">{formatNaira(revenueOverview.ownerRevenue.totalGrossRevenue)}</p>
+                    </div>
+
+                    <div className="bg-slate-900/80 p-3 rounded-xl border border-emerald-900/40">
+                      <p className="text-[10px] text-emerald-400 uppercase font-bold">Booking Commission</p>
+                      <p className="text-base font-black text-emerald-300">{formatNaira(revenueOverview.ownerRevenue.bookingCommission)}</p>
+                    </div>
+
+                    <div className="bg-slate-900/80 p-3 rounded-xl border border-blue-900/40">
+                      <p className="text-[10px] text-blue-400 uppercase font-bold">Provider Subscriptions</p>
+                      <p className="text-base font-black text-blue-300">{formatNaira(revenueOverview.ownerRevenue.providerSubscriptions)}</p>
+                    </div>
+
+                    <div className="bg-slate-900/80 p-3 rounded-xl border border-amber-900/40">
+                      <p className="text-[10px] text-amber-400 uppercase font-bold">Featured Listings</p>
+                      <p className="text-base font-black text-amber-300">{formatNaira(revenueOverview.ownerRevenue.featuredListings)}</p>
+                    </div>
+
+                    <div className="bg-slate-900/80 p-3 rounded-xl border border-purple-900/40">
+                      <p className="text-[10px] text-purple-400 uppercase font-bold">Digital Services</p>
+                      <p className="text-base font-black text-purple-300">{formatNaira(revenueOverview.ownerRevenue.digitalServices)}</p>
+                    </div>
+
+                    <div className="bg-slate-900/80 p-3 rounded-xl border border-rose-900/40">
+                      <p className="text-[10px] text-rose-400 uppercase font-bold">Refunds</p>
+                      <p className="text-base font-black text-rose-400">-{formatNaira(revenueOverview.ownerRevenue.refunds)}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* KPI Cards Grid */}
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
@@ -1065,41 +1214,30 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
             </div>
           )}
 
-          {/* TAB 9: FINANCIAL LEDGER & RECONCILIATION */}
-          {activeTab === 'financials' && (
-            <div className="space-y-6">
-              <AdminFinancialDashboard onShowToast={onShowToast} />
-
-              {/* Basic Reconciliation Card */}
-              {reconciliationData && (
-                <div className="bg-slate-950 border border-slate-800 rounded-2xl p-5 space-y-4">
-                  <div className="flex items-center justify-between">
-                    <h3 className="font-bold text-white text-sm">Automated Paystack & Platform Ledger Reconciliation</h3>
-                    <span className="text-[10px] font-semibold bg-emerald-950 text-emerald-400 px-2 py-0.5 rounded border border-emerald-800">
-                      {reconciliationData.summary.status}
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-                    <div className="bg-slate-900/60 p-3 rounded-lg">
-                      <p className="text-slate-400">Total Transactions</p>
-                      <p className="font-bold text-white text-base">{reconciliationData.summary.totalPayments}</p>
-                    </div>
-                    <div className="bg-slate-900/60 p-3 rounded-lg">
-                      <p className="text-slate-400">Successful Settlements</p>
-                      <p className="font-bold text-emerald-400 text-base">{reconciliationData.summary.successfulPayments}</p>
-                    </div>
-                    <div className="bg-slate-900/60 p-3 rounded-lg">
-                      <p className="text-slate-400">Gross Settlement Value</p>
-                      <p className="font-bold text-white text-base">{formatNaira(reconciliationData.summary.totalAmount)}</p>
-                    </div>
-                    <div className="bg-slate-900/60 p-3 rounded-lg">
-                      <p className="text-slate-400">Flagged Discrepancies</p>
-                      <p className="font-bold text-emerald-400 text-base">{reconciliationData.summary.discrepanciesCount}</p>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
+          {/* 💰 FINANCE & REVENUE SUB-MODULE TABS */}
+          {(activeTab === 'financials' || activeTab.startsWith('finance_')) && (
+            <AdminRevenueModule
+              activeSubTab={
+                activeTab === 'finance_revenue' ? 'overview' :
+                activeTab === 'finance_transactions' ? 'transactions' :
+                activeTab === 'finance_commissions' ? 'commissions' :
+                activeTab === 'finance_subscriptions' ? 'subscriptions' :
+                activeTab === 'finance_featured' ? 'featured' :
+                activeTab === 'finance_services' ? 'services' :
+                activeTab === 'finance_payouts' ? 'payouts' :
+                activeTab === 'finance_refunds' ? 'refunds' :
+                activeTab === 'finance_invoices' ? 'invoices' :
+                activeTab === 'finance_withdrawals' ? 'withdrawals' :
+                activeTab === 'finance_reports' ? 'reports' :
+                activeTab === 'finance_settings' ? 'settings' :
+                'overview'
+              }
+              onShowToast={onShowToast}
+              onNavigateSubTab={(subTab) => {
+                const targetTab = subTab === 'overview' ? 'finance_revenue' : `finance_${subTab}`;
+                setActiveTab(targetTab as AdminTab);
+              }}
+            />
           )}
 
           {/* TAB 11: ANNOUNCEMENTS */}

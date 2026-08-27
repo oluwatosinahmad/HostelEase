@@ -1898,5 +1898,217 @@ export interface OperationsDashboardData {
   providerScorecards: ProviderPerformanceScorecard[];
 }
 
+// =============================================================================
+// FINANCE & REVENUE TYPES
+// =============================================================================
+export interface OwnerRevenueData {
+  totalGrossRevenue: number;
+  bookingCommission: number;
+  providerSubscriptions: number;
+  featuredListings: number;
+  digitalServices: number;
+  refunds: number;
+  netPlatformRevenue: number;
+}
+
+export interface RevenueDashboardSummary {
+  totalRevenue: number;
+  thisMonth: number;
+  pendingRevenue: number;
+  successfulBookings: number;
+  providerRevenue: number;
+  platformCommission: number;
+  activeSubscribers: number;
+  activeFeatured: number;
+  completedServices: number;
+  pendingPayouts: number;
+  pendingPayoutsCount: number;
+  totalOwnerWithdrawn: number;
+}
+
+export interface RevenueStreamItem {
+  name: string;
+  amount: number;
+  percentage: number;
+  color: string;
+  icon: string;
+}
+
+export interface AreaRevenueItem {
+  areaName: string;
+  areaSlug: string;
+  paymentsCount: number;
+  grossAmount: number;
+  commissionEarned: number;
+}
+
+export interface MonthlyRevenueHistoryItem {
+  month: string;
+  bookingCommission: number;
+  grossTransactionVolume: number;
+  transactionsCount: number;
+}
+
+export interface RevenueOverviewResponse {
+  success: boolean;
+  ownerRevenue: OwnerRevenueData;
+  dashboardSummary: RevenueDashboardSummary;
+  streams: RevenueStreamItem[];
+  areaRevenue: AreaRevenueItem[];
+  monthlyHistory: MonthlyRevenueHistoryItem[];
+}
+
+export interface BookingCommissionItem {
+  paymentId: string;
+  paymentReference: string;
+  grossRentPaid: number;
+  commissionEarned: number;
+  providerNet: number;
+  status: string;
+  paidAt: string;
+  createdAt: string;
+  bookingReference: string;
+  hostelTitle: string;
+  areaName: string;
+  studentName: string;
+  providerName: string;
+  commissionRatePercent: number;
+}
+
+export interface ProviderSubscriptionItem {
+  id: string;
+  provider_id: string;
+  providerName: string;
+  providerEmail: string;
+  providerPhone?: string;
+  businessName?: string;
+  plan_name: 'STARTER' | 'PRO_LANDLORD' | 'ENTERPRISE_ESTATE';
+  amount: number;
+  billing_cycle: 'MONTHLY' | 'SEMESTER' | 'ANNUAL';
+  max_listings: number;
+  features_json: string;
+  status: 'ACTIVE' | 'EXPIRED' | 'CANCELLED' | 'PENDING';
+  start_date: string;
+  end_date: string;
+  payment_reference?: string;
+  created_at: string;
+}
+
+export interface FeaturedListingItem {
+  id: string;
+  property_id: string;
+  propertyTitle: string;
+  propertyAddress: string;
+  propertySlug: string;
+  areaName: string;
+  provider_id: string;
+  providerName: string;
+  providerPhone?: string;
+  feature_tier: 'HOMEPAGE_SPOTLIGHT' | 'TOP_OF_SEARCH' | 'AREA_HERO' | 'VERIFIED_BADGE_BOOST';
+  amount: number;
+  duration_days: number;
+  impressions_count: number;
+  clicks_count: number;
+  status: 'ACTIVE' | 'EXPIRED' | 'CANCELLED' | 'PENDING';
+  start_date: string;
+  end_date: string;
+  payment_reference?: string;
+  created_at: string;
+}
+
+export interface ProviderDigitalServiceItem {
+  id: string;
+  provider_id: string;
+  providerName: string;
+  providerPhone?: string;
+  providerEmail?: string;
+  property_id?: string;
+  propertyTitle?: string;
+  service_type: 'PROFESSIONAL_PHOTOGRAPHY' | 'VIRTUAL_3D_TOUR' | 'PHYSICAL_INSPECTION_AUDIT' | 'SMS_BROADCAST_BLAST' | 'FEATURED_SOCIAL_PROMOTION' | 'TENANCY_LEGAL_AGREEMENT';
+  service_name: string;
+  amount: number;
+  status: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+  assigned_agent?: string;
+  delivery_notes?: string;
+  payment_reference?: string;
+  created_at: string;
+  completed_at?: string;
+}
+
+export interface PayoutRequestItem {
+  id: string;
+  payout_reference: string;
+  provider_id: string;
+  providerName: string;
+  providerEmail: string;
+  providerPhone?: string;
+  businessName?: string;
+  amount: number;
+  bank_name: string;
+  account_number: string;
+  account_name: string;
+  status: 'PENDING' | 'PROCESSING' | 'PAID' | 'REJECTED';
+  admin_notes?: string;
+  processed_by?: string;
+  processed_at?: string;
+  created_at: string;
+}
+
+export interface PlatformInvoiceItem {
+  id: string;
+  invoice_number: string;
+  user_id: string;
+  user_role: string;
+  user_name: string;
+  user_email: string;
+  item_type: 'BOOKING_FEE' | 'COMMISSION' | 'SUBSCRIPTION' | 'FEATURED_LISTING' | 'DIGITAL_SERVICE' | 'PLATFORM_SERVICE';
+  item_description: string;
+  subtotal: number;
+  tax_amount: number;
+  total_amount: number;
+  status: 'PAID' | 'PENDING' | 'VOID' | 'REFUNDED';
+  due_date?: string;
+  paid_at?: string;
+  created_at: string;
+}
+
+export interface PlatformWithdrawalItem {
+  id: string;
+  withdrawal_reference: string;
+  admin_id: string;
+  adminName: string;
+  adminEmail: string;
+  amount: number;
+  destination_account_name: string;
+  destination_bank: string;
+  destination_account_number: string;
+  purpose: string;
+  status: 'PENDING' | 'COMPLETED' | 'FAILED';
+  created_at: string;
+}
+
+export interface FinancialReportRow {
+  monthPeriod: string;
+  paidBookings: number;
+  grossBookingVolume: number;
+  bookingCommission: number;
+  subscriptionRevenue: number;
+  featuredRevenue: number;
+  digitalServiceRevenue: number;
+  totalPlatformGross: number;
+  refundsTotal: number;
+  netPlatformEarnings: number;
+  providerDisbursements: number;
+}
+
+export interface RevenueSettingItem {
+  id: string;
+  setting_key: string;
+  setting_value: string;
+  category: string;
+  description?: string;
+  updated_at: string;
+}
+
 
 

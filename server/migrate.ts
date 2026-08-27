@@ -2193,17 +2193,6 @@ Your caution deposit is refundable upon move-out provided no unauthorized struct
         assigned_to: 'Support Staff (Kemi)',
         related_entity_type: 'BOOKING',
         related_entity_id: 'book-102'
-      },
-      {
-        id: 'opt-3',
-        title: 'Process Provider Payout for Scholars Court',
-        description: 'Student completed successful check-in. Net payout ₦304,000 cleared for disbursement.',
-        category: 'REFUND',
-        priority: 'MEDIUM',
-        status: 'PENDING',
-        assigned_to: 'Finance Admin (Tayo)',
-        related_entity_type: 'PAYOUT',
-        related_entity_id: 'payout-101'
       }
     ];
 
@@ -2213,6 +2202,266 @@ Your caution deposit is refundable upon move-out provided no unauthorized struct
           id, title, description, category, priority, status, assigned_to, related_entity_type, related_entity_id
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(t.id, t.title, t.description, t.category, t.priority, t.status, t.assigned_to, t.related_entity_type, t.related_entity_id);
+    }
+
+    // =========================================================================
+    // FINANCE & REVENUE EXPANSION TABLES
+    // =========================================================================
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS provider_subscriptions (
+        id TEXT PRIMARY KEY,
+        provider_id TEXT NOT NULL,
+        plan_name TEXT NOT NULL CHECK(plan_name IN ('STARTER', 'PRO_LANDLORD', 'ENTERPRISE_ESTATE')),
+        amount REAL NOT NULL,
+        billing_cycle TEXT NOT NULL DEFAULT 'MONTHLY' CHECK(billing_cycle IN ('MONTHLY', 'SEMESTER', 'ANNUAL')),
+        max_listings INTEGER NOT NULL DEFAULT 5,
+        features_json TEXT,
+        status TEXT NOT NULL DEFAULT 'ACTIVE' CHECK(status IN ('ACTIVE', 'EXPIRED', 'CANCELLED', 'PENDING')),
+        start_date TEXT NOT NULL,
+        end_date TEXT NOT NULL,
+        payment_reference TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+        FOREIGN KEY (provider_id) REFERENCES users(id) ON DELETE CASCADE
+      );
+      CREATE INDEX IF NOT EXISTS idx_prov_sub_user ON provider_subscriptions(provider_id, status);
+
+      CREATE TABLE IF NOT EXISTS featured_listings (
+        id TEXT PRIMARY KEY,
+        property_id TEXT NOT NULL,
+        provider_id TEXT NOT NULL,
+        feature_tier TEXT NOT NULL CHECK(feature_tier IN ('HOMEPAGE_SPOTLIGHT', 'TOP_OF_SEARCH', 'AREA_HERO', 'VERIFIED_BADGE_BOOST')),
+        amount REAL NOT NULL,
+        duration_days INTEGER NOT NULL DEFAULT 30,
+        impressions_count INTEGER NOT NULL DEFAULT 0,
+        clicks_count INTEGER NOT NULL DEFAULT 0,
+        status TEXT NOT NULL DEFAULT 'ACTIVE' CHECK(status IN ('ACTIVE', 'EXPIRED', 'CANCELLED', 'PENDING')),
+        start_date TEXT NOT NULL,
+        end_date TEXT NOT NULL,
+        payment_reference TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        FOREIGN KEY (property_id) REFERENCES properties(id) ON DELETE CASCADE,
+        FOREIGN KEY (provider_id) REFERENCES users(id) ON DELETE CASCADE
+      );
+      CREATE INDEX IF NOT EXISTS idx_feat_list_prop ON featured_listings(property_id, status);
+
+      CREATE TABLE IF NOT EXISTS provider_digital_services (
+        id TEXT PRIMARY KEY,
+        provider_id TEXT NOT NULL,
+        property_id TEXT,
+        service_type TEXT NOT NULL CHECK(service_type IN ('PROFESSIONAL_PHOTOGRAPHY', 'VIRTUAL_3D_TOUR', 'PHYSICAL_INSPECTION_AUDIT', 'SMS_BROADCAST_BLAST', 'FEATURED_SOCIAL_PROMOTION', 'TENANCY_LEGAL_AGREEMENT')),
+        service_name TEXT NOT NULL,
+        amount REAL NOT NULL,
+        status TEXT NOT NULL DEFAULT 'COMPLETED' CHECK(status IN ('PENDING', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED')),
+        assigned_agent TEXT,
+        delivery_notes TEXT,
+        payment_reference TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        completed_at TEXT,
+        FOREIGN KEY (provider_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (property_id) REFERENCES properties(id) ON DELETE SET NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_prov_serv_user ON provider_digital_services(provider_id);
+
+      CREATE TABLE IF NOT EXISTS payout_requests (
+        id TEXT PRIMARY KEY,
+        payout_reference TEXT NOT NULL UNIQUE,
+        provider_id TEXT NOT NULL,
+        amount REAL NOT NULL,
+        bank_name TEXT NOT NULL,
+        account_number TEXT NOT NULL,
+        account_name TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'PENDING' CHECK(status IN ('PENDING', 'PROCESSING', 'PAID', 'REJECTED')),
+        admin_notes TEXT,
+        processed_by TEXT,
+        processed_at TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        FOREIGN KEY (provider_id) REFERENCES users(id) ON DELETE CASCADE
+      );
+      CREATE INDEX IF NOT EXISTS idx_payout_req_prov ON payout_requests(provider_id, status);
+
+      CREATE TABLE IF NOT EXISTS platform_invoices (
+        id TEXT PRIMARY KEY,
+        invoice_number TEXT NOT NULL UNIQUE,
+        user_id TEXT NOT NULL,
+        user_role TEXT NOT NULL,
+        user_name TEXT NOT NULL,
+        user_email TEXT NOT NULL,
+        item_type TEXT NOT NULL CHECK(item_type IN ('BOOKING_FEE', 'COMMISSION', 'SUBSCRIPTION', 'FEATURED_LISTING', 'DIGITAL_SERVICE', 'PLATFORM_SERVICE')),
+        item_description TEXT NOT NULL,
+        subtotal REAL NOT NULL,
+        tax_amount REAL NOT NULL DEFAULT 0,
+        total_amount REAL NOT NULL,
+        status TEXT NOT NULL DEFAULT 'PAID' CHECK(status IN ('PAID', 'PENDING', 'VOID', 'REFUNDED')),
+        due_date TEXT,
+        paid_at TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      );
+      CREATE INDEX IF NOT EXISTS idx_invoices_user ON platform_invoices(user_id);
+      CREATE INDEX IF NOT EXISTS idx_invoices_num ON platform_invoices(invoice_number);
+
+      CREATE TABLE IF NOT EXISTS platform_withdrawals (
+        id TEXT PRIMARY KEY,
+        withdrawal_reference TEXT NOT NULL UNIQUE,
+        admin_id TEXT NOT NULL,
+        amount REAL NOT NULL,
+        destination_account_name TEXT NOT NULL,
+        destination_bank TEXT NOT NULL,
+        destination_account_number TEXT NOT NULL,
+        purpose TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'COMPLETED' CHECK(status IN ('PENDING', 'COMPLETED', 'FAILED')),
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        FOREIGN KEY (admin_id) REFERENCES users(id) ON DELETE CASCADE
+      );
+
+      CREATE TABLE IF NOT EXISTS revenue_settings (
+        id TEXT PRIMARY KEY,
+        setting_key TEXT NOT NULL UNIQUE,
+        setting_value TEXT NOT NULL,
+        category TEXT NOT NULL,
+        description TEXT,
+        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+    `);
+
+    // Seed Default Revenue Settings
+    const defaultSettings = [
+      { id: 'rev-1', key: 'booking_commission_rate', val: '7.5', cat: 'COMMISSIONS', desc: 'Platform fee percentage charged on total hostel booking amount' },
+      { id: 'rev-2', key: 'student_service_fee', val: '2500', cat: 'STUDENT_FEES', desc: 'Flat service and verification escrow fee per student booking (₦)' },
+      { id: 'rev-3', key: 'pro_landlord_subscription_price', val: '15000', cat: 'SUBSCRIPTIONS', desc: 'Monthly Pro Landlord subscription for up to 10 active lodges (₦)' },
+      { id: 'rev-4', key: 'enterprise_subscription_price', val: '45000', cat: 'SUBSCRIPTIONS', desc: 'Per-session Enterprise subscription for unlimited lodges and multi-caretaker management (₦)' },
+      { id: 'rev-5', key: 'homepage_spotlight_price', val: '10000', cat: 'FEATURED_LISTINGS', desc: 'Monthly spotlight banner placement on Hostel Ease LAUTECH home feed (₦)' },
+      { id: 'rev-6', key: 'top_of_search_price', val: '5000', cat: 'FEATURED_LISTINGS', desc: 'Monthly top-ranking boost in search filters for Under G, Adenike, Stadium (₦)' },
+      { id: 'rev-7', key: 'photography_service_price', val: '12000', cat: 'DIGITAL_SERVICES', desc: 'On-site professional HD photography and verified watermark badge (₦)' },
+      { id: 'rev-8', key: 'virtual_tour_price', val: '20000', cat: 'DIGITAL_SERVICES', desc: '360-degree interactive virtual room tour creation (₦)' },
+      { id: 'rev-9', key: 'min_provider_payout_threshold', val: '10000', cat: 'PAYOUTS', desc: 'Minimum account balance required before landlord can request withdrawal (₦)' },
+      { id: 'rev-10', key: 'payout_processing_fee', val: '0', cat: 'PAYOUTS', desc: 'Direct bank transfer fee charged to landlords for standard payouts (₦)' }
+    ];
+
+    for (const s of defaultSettings) {
+      db.prepare(`
+        INSERT OR IGNORE INTO revenue_settings (id, setting_key, setting_value, category, description, updated_at)
+        VALUES (?, ?, ?, ?, ?, datetime('now'))
+      `).run(s.id, s.key, s.val, s.cat, s.desc);
+    }
+
+    // Seed Sample Revenue Records if none exist
+    const providerUser = db.prepare("SELECT id, full_name, email FROM users WHERE role = 'PROVIDER' LIMIT 1").get() as any;
+    const propertyRecord = db.prepare("SELECT id, title FROM properties LIMIT 1").get() as any;
+    const financeAdminUser = db.prepare("SELECT id FROM users WHERE role = 'ADMIN' LIMIT 1").get() as any;
+
+    if (providerUser) {
+      // 1. Seed Subscriptions
+      db.prepare(`
+        INSERT OR IGNORE INTO provider_subscriptions (
+          id, provider_id, plan_name, amount, billing_cycle, max_listings, features_json, status, start_date, end_date, payment_reference, created_at
+        ) VALUES (
+          'sub-seed-1', ?, 'PRO_LANDLORD', 15000, 'MONTHLY', 10,
+          '["Priority verification badge", "Up to 10 lodge listings", "Instant WhatsApp lead alerts", "Occupancy analytics"]',
+          'ACTIVE', '2026-08-01', '2026-09-01', 'HE-SUB-2026-001', datetime('now', '-20 days')
+        )
+      `).run(providerUser.id);
+
+      db.prepare(`
+        INSERT OR IGNORE INTO provider_subscriptions (
+          id, provider_id, plan_name, amount, billing_cycle, max_listings, features_json, status, start_date, end_date, payment_reference, created_at
+        ) VALUES (
+          'sub-seed-2', ?, 'ENTERPRISE_ESTATE', 45000, 'ANNUAL', 50,
+          '["Unlimited hostel listings", "Dedicated caretaker accounts", "Direct SMS broadcast", "Legal tenancy contract templates"]',
+          'ACTIVE', '2026-01-15', '2027-01-15', 'HE-SUB-2026-002', datetime('now', '-60 days')
+        )
+      `).run(providerUser.id);
+
+      // 2. Seed Featured Listings
+      if (propertyRecord) {
+        db.prepare(`
+          INSERT OR IGNORE INTO featured_listings (
+            id, property_id, provider_id, feature_tier, amount, duration_days, impressions_count, clicks_count, status, start_date, end_date, payment_reference, created_at
+          ) VALUES (
+            'feat-seed-1', ?, ?, 'HOMEPAGE_SPOTLIGHT', 10000, 30, 1420, 285, 'ACTIVE',
+            '2026-08-10', '2026-09-10', 'HE-FEAT-2026-001', datetime('now', '-15 days')
+          )
+        `).run(propertyRecord.id, providerUser.id);
+
+        db.prepare(`
+          INSERT OR IGNORE INTO featured_listings (
+            id, property_id, provider_id, feature_tier, amount, duration_days, impressions_count, clicks_count, status, start_date, end_date, payment_reference, created_at
+          ) VALUES (
+            'feat-seed-2', ?, ?, 'TOP_OF_SEARCH', 5000, 30, 890, 144, 'ACTIVE',
+            '2026-08-01', '2026-09-01', 'HE-FEAT-2026-002', datetime('now', '-25 days')
+          )
+        `).run(propertyRecord.id, providerUser.id);
+
+        // 3. Seed Digital Services
+        db.prepare(`
+          INSERT OR IGNORE INTO provider_digital_services (
+            id, provider_id, property_id, service_type, service_name, amount, status, assigned_agent, delivery_notes, payment_reference, created_at, completed_at
+          ) VALUES (
+            'srv-seed-1', ?, ?, 'PROFESSIONAL_PHOTOGRAPHY', 'Lodge HD Photo Shoot & Watermark', 12000, 'COMPLETED',
+            'Ibrahim Oladipo (Media Team)', '15 HD wide-angle photos uploaded and verified.', 'HE-SRV-2026-001', datetime('now', '-10 days'), datetime('now', '-8 days')
+          )
+        `).run(providerUser.id, propertyRecord.id);
+
+        db.prepare(`
+          INSERT OR IGNORE INTO provider_digital_services (
+            id, provider_id, property_id, service_type, service_name, amount, status, assigned_agent, delivery_notes, payment_reference, created_at, completed_at
+          ) VALUES (
+            'srv-seed-2', ?, ?, 'VIRTUAL_3D_TOUR', '360° Virtual Walkthrough Room Tour', 20000, 'COMPLETED',
+            'Bayo Adeleke (Tech Team)', 'Interactive 360 tour linked to hostel detail card.', 'HE-SRV-2026-002', datetime('now', '-18 days'), datetime('now', '-16 days')
+          )
+        `).run(providerUser.id, propertyRecord.id);
+      }
+
+      // 4. Seed Payout Requests
+      db.prepare(`
+        INSERT OR IGNORE INTO payout_requests (
+          id, payout_reference, provider_id, amount, bank_name, account_number, account_name, status, admin_notes, processed_by, processed_at, created_at
+        ) VALUES (
+          'payreq-seed-1', 'PO-2026-001', ?, 180000, 'Access Bank', '0712345678', 'Chief Segun Olaleye', 'PAID',
+          'Verified successful student move-in. Approved by Finance Admin.', 'Admin Tayo', datetime('now', '-5 days'), datetime('now', '-7 days')
+        )
+      `).run(providerUser.id);
+
+      db.prepare(`
+        INSERT OR IGNORE INTO payout_requests (
+          id, payout_reference, provider_id, amount, bank_name, account_number, account_name, status, admin_notes, created_at
+        ) VALUES (
+          'payreq-seed-2', 'PO-2026-002', ?, 220000, 'Guaranty Trust Bank', '0123456789', 'Alhaji Kareem Adeleke', 'PENDING',
+          'Scheduled for weekly disbursement batch.', datetime('now', '-1 days')
+        )
+      `).run(providerUser.id);
+
+      // 5. Seed Invoices
+      db.prepare(`
+        INSERT OR IGNORE INTO platform_invoices (
+          id, invoice_number, user_id, user_role, user_name, user_email, item_type, item_description, subtotal, tax_amount, total_amount, status, due_date, paid_at, created_at
+        ) VALUES (
+          'inv-seed-1', 'INV-2026-001', ?, 'PROVIDER', ?, ?, 'SUBSCRIPTION',
+          'Pro Landlord Monthly Plan (August 2026)', 15000, 0, 15000, 'PAID', '2026-08-01', datetime('now', '-20 days'), datetime('now', '-20 days')
+        )
+      `).run(providerUser.id, providerUser.full_name, providerUser.email);
+
+      db.prepare(`
+        INSERT OR IGNORE INTO platform_invoices (
+          id, invoice_number, user_id, user_role, user_name, user_email, item_type, item_description, subtotal, tax_amount, total_amount, status, due_date, paid_at, created_at
+        ) VALUES (
+          'inv-seed-2', 'INV-2026-002', ?, 'PROVIDER', ?, ?, 'FEATURED_LISTING',
+          'Homepage Spotlight Banner (30 Days)', 10000, 0, 10000, 'PAID', '2026-08-10', datetime('now', '-15 days'), datetime('now', '-15 days')
+        )
+      `).run(providerUser.id, providerUser.full_name, providerUser.email);
+    }
+
+    if (financeAdminUser) {
+      // 6. Seed Platform Owner Withdrawals
+      db.prepare(`
+        INSERT OR IGNORE INTO platform_withdrawals (
+          id, withdrawal_reference, admin_id, amount, destination_account_name, destination_bank, destination_account_number, purpose, status, created_at
+        ) VALUES (
+          'with-seed-1', 'WDR-2026-001', ?, 50000, 'Hostel Ease Tech Hub', 'First Bank of Nigeria', '2031122334',
+          'Platform operations & server hosting fees reimbursement', 'COMPLETED', datetime('now', '-12 days')
+        )
+      `).run(financeAdminUser.id);
     }
   })();
 

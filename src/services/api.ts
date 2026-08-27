@@ -1161,6 +1161,141 @@ export const api = {
         headers: { ...getAuthHeader() }
       });
       return handleResponse(res);
+    },
+
+    // 💰 Finance & Revenue Sub-Module (Phase 18 Integration)
+    revenue: {
+      async getOverview(): Promise<import('../types/hostelEase').RevenueOverviewResponse> {
+        const res = await fetch(`${API_BASE}/admin/revenue/overview`, {
+          headers: { ...getAuthHeader() }
+        });
+        return handleResponse(res);
+      },
+
+      async getTransactions(params?: { status?: string; paymentMethod?: string; search?: string; limit?: number; offset?: number }): Promise<{ success: boolean; totalCount: number; transactions: any[] }> {
+        const query = new URLSearchParams();
+        if (params?.status) query.append('status', params.status);
+        if (params?.paymentMethod) query.append('paymentMethod', params.paymentMethod);
+        if (params?.search) query.append('search', params.search);
+        if (params?.limit) query.append('limit', String(params.limit));
+        if (params?.offset) query.append('offset', String(params.offset));
+
+        const res = await fetch(`${API_BASE}/admin/revenue/transactions?${query.toString()}`, {
+          headers: { ...getAuthHeader() }
+        });
+        return handleResponse(res);
+      },
+
+      async getCommissions(): Promise<{ success: boolean; summary: any; commissions: import('../types/hostelEase').BookingCommissionItem[] }> {
+        const res = await fetch(`${API_BASE}/admin/revenue/commissions`, {
+          headers: { ...getAuthHeader() }
+        });
+        return handleResponse(res);
+      },
+
+      async getSubscriptions(): Promise<{ success: boolean; plans: any[]; subscriptions: import('../types/hostelEase').ProviderSubscriptionItem[] }> {
+        const res = await fetch(`${API_BASE}/admin/revenue/subscriptions`, {
+          headers: { ...getAuthHeader() }
+        });
+        return handleResponse(res);
+      },
+
+      async getFeaturedListings(): Promise<{ success: boolean; summary: any; featured: import('../types/hostelEase').FeaturedListingItem[] }> {
+        const res = await fetch(`${API_BASE}/admin/revenue/featured-listings`, {
+          headers: { ...getAuthHeader() }
+        });
+        return handleResponse(res);
+      },
+
+      async getProviderServices(): Promise<{ success: boolean; summary: any; services: import('../types/hostelEase').ProviderDigitalServiceItem[] }> {
+        const res = await fetch(`${API_BASE}/admin/revenue/provider-services`, {
+          headers: { ...getAuthHeader() }
+        });
+        return handleResponse(res);
+      },
+
+      async updateProviderService(id: string, data: any): Promise<{ success: boolean; message: string }> {
+        const res = await fetch(`${API_BASE}/admin/revenue/provider-services/${id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+          body: JSON.stringify(data)
+        });
+        return handleResponse(res);
+      },
+
+      async getPayouts(): Promise<{ success: boolean; summary: any; payouts: import('../types/hostelEase').PayoutRequestItem[] }> {
+        const res = await fetch(`${API_BASE}/admin/revenue/payouts`, {
+          headers: { ...getAuthHeader() }
+        });
+        return handleResponse(res);
+      },
+
+      async actionPayout(id: string, data: { action: 'APPROVE' | 'REJECT'; adminNotes?: string }): Promise<{ success: boolean; message: string }> {
+        const res = await fetch(`${API_BASE}/admin/revenue/payouts/${id}/action`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+          body: JSON.stringify(data)
+        });
+        return handleResponse(res);
+      },
+
+      async getRefunds(): Promise<{ success: boolean; summary: any; refunds: any[] }> {
+        const res = await fetch(`${API_BASE}/admin/revenue/refunds`, {
+          headers: { ...getAuthHeader() }
+        });
+        return handleResponse(res);
+      },
+
+      async getInvoices(params?: { search?: string; status?: string }): Promise<{ success: boolean; summary: any; invoices: import('../types/hostelEase').PlatformInvoiceItem[] }> {
+        const query = new URLSearchParams();
+        if (params?.search) query.append('search', params.search);
+        if (params?.status) query.append('status', params.status);
+
+        const res = await fetch(`${API_BASE}/admin/revenue/invoices?${query.toString()}`, {
+          headers: { ...getAuthHeader() }
+        });
+        return handleResponse(res);
+      },
+
+      async getWithdrawals(): Promise<{ success: boolean; summary: any; withdrawals: import('../types/hostelEase').PlatformWithdrawalItem[] }> {
+        const res = await fetch(`${API_BASE}/admin/revenue/withdrawals`, {
+          headers: { ...getAuthHeader() }
+        });
+        return handleResponse(res);
+      },
+
+      async createWithdrawal(data: { amount: number; destinationBank: string; destinationAccountNumber: string; destinationAccountName: string; purpose?: string }): Promise<{ success: boolean; withdrawalReference: string; message: string }> {
+        const res = await fetch(`${API_BASE}/admin/revenue/withdrawals`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+          body: JSON.stringify(data)
+        });
+        return handleResponse(res);
+      },
+
+      async getReports(year?: string): Promise<{ success: boolean; fiscalYear: string; taxJurisdiction: string; companyName: string; report: import('../types/hostelEase').FinancialReportRow[] }> {
+        const url = year ? `${API_BASE}/admin/revenue/reports?year=${year}` : `${API_BASE}/admin/revenue/reports`;
+        const res = await fetch(url, {
+          headers: { ...getAuthHeader() }
+        });
+        return handleResponse(res);
+      },
+
+      async getSettings(): Promise<{ success: boolean; settings: import('../types/hostelEase').RevenueSettingItem[] }> {
+        const res = await fetch(`${API_BASE}/admin/revenue/settings`, {
+          headers: { ...getAuthHeader() }
+        });
+        return handleResponse(res);
+      },
+
+      async updateSettings(settings: Array<{ key: string; value: string }>): Promise<{ success: boolean; message: string }> {
+        const res = await fetch(`${API_BASE}/admin/revenue/settings`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+          body: JSON.stringify({ settings })
+        });
+        return handleResponse(res);
+      }
     }
   },
 
