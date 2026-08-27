@@ -56,8 +56,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     setError(null);
     setAccessRestricted(false);
     // If switching to Admin, ensure mode is login since public admin registration is forbidden
-    if (newRole === 'ADMIN' && mode === 'register') {
+    if (newRole === 'ADMIN') {
       setMode('login');
+      if (!email || email.includes('lautech.edu.ng') || email.includes('example.com')) {
+        setEmail('admin@hostelease.ng');
+      }
     }
   };
 
@@ -415,10 +418,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   disabled={submitting}
                   className={`w-full py-3 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-2 mt-4 disabled:opacity-50 ${
                     role === 'ADMIN' 
-                      ? 'bg-purple-600 hover:bg-purple-700' 
+                      ? 'bg-purple-600 hover:bg-purple-700 shadow-purple-600/30' 
                       : role === 'AGENT'
-                      ? 'bg-teal-600 hover:bg-teal-700'
-                      : 'bg-emerald-600 hover:bg-emerald-700'
+                      ? 'bg-teal-600 hover:bg-teal-700 shadow-teal-600/30'
+                      : 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/30'
                   }`}
                 >
                   {submitting 
@@ -427,6 +430,37 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     ? (role === 'PROVIDER' ? 'Log in as Landlord' : role === 'AGENT' ? '🤝 Log in as Agent' : role === 'ADMIN' ? '👑 Authenticate Admin Credentials' : 'Log in as Student') 
                     : `Create ${role === 'PROVIDER' ? 'Landlord' : 'Student'} Account`}
                 </button>
+              )}
+
+              {role === 'ADMIN' && (
+                <div className="pt-2">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      setEmail('admin@hostelease.ng');
+                      setPassword('Admin123!');
+                      setError(null);
+                      setSubmitting(true);
+                      try {
+                        const authed = await login('admin@hostelease.ng', 'Admin123!', 'ADMIN');
+                        setIsLoggingIn(true);
+                        setTimeout(() => {
+                          setIsLoggingIn(false);
+                          setSubmitting(false);
+                          if (onSuccess) onSuccess(authed);
+                          onClose();
+                        }, 700);
+                      } catch (err: any) {
+                        setError(err.message || 'Demo Admin authentication failed');
+                        setSubmitting(false);
+                      }
+                    }}
+                    disabled={submitting}
+                    className="w-full py-2.5 bg-purple-50 hover:bg-purple-100 dark:bg-purple-950/40 dark:hover:bg-purple-900/60 border border-purple-200 dark:border-purple-800 text-purple-900 dark:text-purple-200 font-bold text-[11px] rounded-xl transition-colors flex items-center justify-center gap-1.5"
+                  >
+                    <span>⚡ 1-Click Owner Demo Login</span>
+                  </button>
+                </div>
               )}
             </form>
           </div>

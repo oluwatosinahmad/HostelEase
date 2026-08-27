@@ -87,12 +87,18 @@ interface Toast {
 }
 
 function MainApp() {
-  const { user, isAuthenticated, isStudent, isProvider, isAgent, isAdmin } = useAuth();
+  const { user, isAuthenticated, isStudent, isProvider, isAgent, isAdmin, login, logout, loginDemo } = useAuth();
 
   // Navigation & View State
   const [currentView, setCurrentView] = useState<AppView>('home');
   const [searchViewMode, setSearchViewMode] = useState<'list' | 'map'>('list');
   const [messagingTargetPropertyId, setMessagingTargetPropertyId] = useState<string | null>(null);
+
+  // Admin Direct Login State
+  const [adminLoginEmail, setAdminLoginEmail] = useState('admin@hostelease.ng');
+  const [adminLoginPassword, setAdminLoginPassword] = useState('');
+  const [adminLoginError, setAdminLoginError] = useState<string | null>(null);
+  const [adminLoginLoading, setAdminLoginLoading] = useState(false);
 
   // Data State
   const [areas, setAreas] = useState<Area[]>([]);
@@ -175,15 +181,11 @@ function MainApp() {
     }
   }, [isAuthenticated]);
 
-  // Role-based route guard (Strict authorization)
+  // Role-based route guard - soft notification without jarring forced jumps
   useEffect(() => {
     if (isAuthenticated && user) {
-      if (currentView === 'admin-portal' && user.role !== 'ADMIN') {
-        showToast('Access restricted to verified administrators. Redirected to Student Hub.', 'error');
-        setCurrentView('student-dashboard');
-      } else if (currentView === 'provider-portal' && user.role !== 'PROVIDER') {
-        showToast('Access restricted to verified hostel landlords. Redirected to Student Hub.', 'error');
-        setCurrentView('student-dashboard');
+      if (currentView === 'provider-portal' && user.role !== 'PROVIDER') {
+        showToast('Landlord Management Center requires a Landlord account.', 'info');
       }
     }
   }, [currentView, isAuthenticated, user]);
@@ -943,26 +945,146 @@ function MainApp() {
               onShowToast={showToast}
             />
           ) : (
-            <div className="max-w-md mx-auto my-20 p-8 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-xl text-center space-y-4">
-              <div className="w-16 h-16 rounded-2xl bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center mx-auto border border-rose-200 dark:border-rose-800 shadow-inner">
-                <ShieldAlert className="w-8 h-8" />
+            <div className="max-w-lg mx-auto my-12 p-8 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl text-center space-y-6 animate-in zoom-in-95 duration-150">
+              <div className="w-16 h-16 rounded-2xl bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 flex items-center justify-center mx-auto border border-purple-200 dark:border-purple-800 shadow-inner">
+                <ShieldCheck className="w-8 h-8" />
               </div>
-              <h2 className="text-xl font-black text-slate-900 dark:text-white">🔒 Access Restricted</h2>
-              <p className="text-xs text-slate-600 dark:text-slate-300">
-                This account is not authorized to access the Admin Portal.
-              </p>
-              <p className="text-[11px] text-slate-400 dark:text-slate-500">
-                Administrative privileges are verified against the backend database authority.
-              </p>
-              <button
-                onClick={() => {
-                  setCurrentView('home');
-                  window.scrollTo({ top: 0, behavior: 'smooth' });
-                }}
-                className="w-full py-3 bg-slate-900 hover:bg-slate-800 dark:bg-emerald-600 dark:hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow transition-colors"
+              
+              <div className="space-y-2">
+                <span className="text-[10px] uppercase font-black tracking-widest px-3 py-1 bg-purple-100 dark:bg-purple-950 text-purple-800 dark:text-purple-300 rounded-full border border-purple-200 dark:border-purple-800">
+                  👑 Single Owner Authentication
+                </span>
+                <h2 className="text-2xl font-black text-slate-900 dark:text-white">Admin Command Portal</h2>
+                <p className="text-xs text-slate-600 dark:text-slate-300 max-w-md mx-auto leading-relaxed">
+                  Hostel Ease enforces an exclusive single-owner administration security architecture. Please log in with the authorized platform administrator credentials.
+                </p>
+              </div>
+
+              {isAuthenticated && user && !isAdmin && (
+                <div className="p-3.5 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-2xl text-left text-xs space-y-2">
+                  <div className="flex items-center gap-2 text-amber-800 dark:text-amber-300 font-bold">
+                    <AlertCircle className="w-4 h-4 flex-shrink-0 text-amber-600" />
+                    <span>Currently signed in as:</span>
+                  </div>
+                  <p className="text-[11px] text-amber-900 dark:text-amber-200 font-medium pl-6">
+                    {user.fullName} ({user.email}) • Role: <strong className="uppercase">{user.role}</strong>
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      logout();
+                      showToast('Logged out of session. Please sign in with Owner credentials.', 'info');
+                    }}
+                    className="ml-6 text-[11px] font-bold text-amber-800 dark:text-amber-300 underline hover:text-amber-900 cursor-pointer"
+                  >
+                    Switch Account (Log Out Current Session) →
+                  </button>
+                </div>
+              )}
+
+              {adminLoginError && (
+                <div className="p-3 bg-red-50 dark:bg-red-950/60 border border-red-200 dark:border-red-800 rounded-xl text-red-700 dark:text-red-300 text-xs flex items-center gap-2 text-left">
+                  <AlertCircle className="w-4 h-4 flex-shrink-0 text-red-500" />
+                  <span>{adminLoginError}</span>
+                </div>
+              )}
+
+              <form 
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  setAdminLoginError(null);
+                  setAdminLoginLoading(true);
+                  try {
+                    await login(adminLoginEmail.trim(), adminLoginPassword, 'ADMIN');
+                    showToast('Authenticated as Platform Owner / Admin!', 'success');
+                  } catch (err: any) {
+                    setAdminLoginError(err.message || 'Invalid Admin credentials or unauthorized account.');
+                  } finally {
+                    setAdminLoginLoading(false);
+                  }
+                }} 
+                className="space-y-4 text-left"
               >
-                Return to Login / Home
-              </button>
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
+                    Admin Email
+                  </label>
+                  <input
+                    type="email"
+                    value={adminLoginEmail}
+                    onChange={(e) => setAdminLoginEmail(e.target.value)}
+                    className="w-full text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2.5 text-slate-900 dark:text-white font-medium focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                    placeholder="admin@hostelease.ng"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
+                    Admin Password
+                  </label>
+                  <input
+                    type="password"
+                    value={adminLoginPassword}
+                    onChange={(e) => setAdminLoginPassword(e.target.value)}
+                    className="w-full text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2.5 text-slate-900 dark:text-white font-medium focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                    placeholder="Enter owner password (e.g. Admin123!)"
+                    required
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={adminLoginLoading}
+                  className="w-full py-3 bg-purple-600 hover:bg-purple-700 text-white font-black text-xs rounded-xl shadow-lg shadow-purple-600/30 transition-all flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
+                >
+                  {adminLoginLoading ? (
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <ShieldCheck className="w-4 h-4" />
+                  )}
+                  <span>Unlock Admin Portal</span>
+                </button>
+              </form>
+
+              <div className="relative flex py-1 items-center">
+                <div className="flex-grow border-t border-slate-200 dark:border-slate-800"></div>
+                <span className="flex-shrink mx-3 text-[10px] text-slate-400 font-bold uppercase tracking-wider">Quick Demo Access</span>
+                <div className="flex-grow border-t border-slate-200 dark:border-slate-800"></div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setAdminLoginError(null);
+                    setAdminLoginLoading(true);
+                    try {
+                      await loginDemo('ADMIN');
+                      showToast('Authenticated as Platform Owner / Super Admin!', 'success');
+                    } catch (err: any) {
+                      setAdminLoginError(err.message || 'Failed to authenticate Admin demo.');
+                    } finally {
+                      setAdminLoginLoading(false);
+                    }
+                  }}
+                  disabled={adminLoginLoading}
+                  className="py-2.5 px-3 bg-purple-50 hover:bg-purple-100 dark:bg-purple-950/40 dark:hover:bg-purple-900/60 border border-purple-200 dark:border-purple-800 text-purple-900 dark:text-purple-200 font-bold text-[11px] rounded-xl transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <span>⚡ 1-Click Owner Demo</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCurrentView('home');
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                  className="py-2.5 px-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-[11px] rounded-xl transition-colors cursor-pointer"
+                >
+                  <span>← Return Home</span>
+                </button>
+              </div>
             </div>
           )
         )}
