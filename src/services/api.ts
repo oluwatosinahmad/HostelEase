@@ -203,16 +203,7 @@ export const api = {
         }
 
         const contentType = res.headers.get('content-type') || '';
-        // If backend returned a structured JSON error response (e.g. 403 Forbidden, 400, 409 Duplicate)
-        if (contentType.includes('application/json')) {
-          const errData = await res.json().catch(() => ({}));
-          const err: any = new Error(errData.message || errData.error || `Registration failed (HTTP ${res.status})`);
-          err.code = errData.code || errData.error;
-          err.status = res.status;
-          throw err;
-        }
-
-        // If on Netlify / static deployment where /api/auth returns 404 HTML:
+        // If on Netlify / static deployment where backend returns 404, 502, 503 or HTML
         if (res.status === 404 || res.status === 502 || res.status === 503 || !contentType.includes('application/json')) {
           if (data.role === 'ADMIN' || data.role === 'OWNER') {
             const forbiddenErr: any = new Error('Admin accounts cannot be created via public registration. Contact a Super Administrator.');
@@ -239,9 +230,18 @@ export const api = {
           return { message: 'Registration successful', token: mockToken, user: mockUser };
         }
 
-        throw new Error(`Registration failed (HTTP ${res.status})`);
+        // Real backend error responses (400, 401, 403, 409)
+        const errData = await res.json().catch(() => ({}));
+        const err: any = new Error(errData.message || errData.error || `Registration failed (HTTP ${res.status})`);
+        err.code = errData.code || errData.error;
+        err.status = res.status;
+        throw err;
       } catch (err: any) {
-        if (err.message && (err.message.includes('Failed to fetch') || err.message.includes('NetworkError') || err.message.includes('fetch'))) {
+        if (err.status === 403 || err.code === 'PUBLIC_ADMIN_REGISTRATION_FORBIDDEN') {
+          throw err;
+        }
+
+        if (err.message && (err.message.includes('Failed to fetch') || err.message.includes('NetworkError') || err.message.includes('fetch') || err.message.includes('404') || err.message.includes('Unexpected token'))) {
           if (data.role === 'ADMIN' || data.role === 'OWNER') {
             const forbiddenErr: any = new Error('Admin accounts cannot be created via public registration. Contact a Super Administrator.');
             forbiddenErr.code = 'PUBLIC_ADMIN_REGISTRATION_FORBIDDEN';
@@ -295,23 +295,23 @@ export const api = {
         }
 
         const contentType = res.headers.get('content-type') || '';
-        // If backend returned a structured JSON error response (like 403 UNAUTHORIZED_ADMIN_ACCESS, 401, etc.)
-        if (contentType.includes('application/json')) {
-          const errData = await res.json().catch(() => ({}));
-          const err: any = new Error(errData.message || errData.error || `Authentication failed (HTTP ${res.status})`);
-          err.code = errData.code || errData.error;
-          err.status = res.status;
-          throw err;
-        }
-
-        // If on Netlify / static deployment where /api/auth returns 404 HTML:
+        // If on Netlify / static deployment where backend returns 404, 502, 503 or HTML
         if (res.status === 404 || res.status === 502 || res.status === 503 || !contentType.includes('application/json')) {
           return handleClientSideFallbackLogin(payload);
         }
 
-        throw new Error(`Authentication failed (HTTP ${res.status})`);
+        // Real backend error responses (400, 401, 403, 409)
+        const errData = await res.json().catch(() => ({}));
+        const err: any = new Error(errData.message || errData.error || `Authentication failed (HTTP ${res.status})`);
+        err.code = errData.code || errData.error;
+        err.status = res.status;
+        throw err;
       } catch (err: any) {
-        if (err.message && (err.message.includes('Failed to fetch') || err.message.includes('NetworkError') || err.message.includes('fetch'))) {
+        if (err.status === 403 || err.code === 'UNAUTHORIZED_ADMIN_ACCESS' || err.code === 'UNAUTHORIZED_PROVIDER_ACCESS' || err.code === 'UNAUTHORIZED_STUDENT_ACCESS') {
+          throw err;
+        }
+
+        if (err.message && (err.message.includes('Failed to fetch') || err.message.includes('NetworkError') || err.message.includes('fetch') || err.message.includes('404') || err.message.includes('Unexpected token'))) {
           return handleClientSideFallbackLogin(payload);
         }
         throw err;
