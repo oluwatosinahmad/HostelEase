@@ -277,9 +277,17 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
       }
     };
 
+    const handlePropsUpdate = () => {
+      fetchAllProviderData(selectedPropertyId);
+    };
+
     window.addEventListener('hostel_ease_notification_updated', handleNotificationUpdate);
-    return () => window.removeEventListener('hostel_ease_notification_updated', handleNotificationUpdate);
-  }, [activeConversationId]);
+    window.addEventListener('hostel_ease_properties_updated', handlePropsUpdate);
+    return () => {
+      window.removeEventListener('hostel_ease_notification_updated', handleNotificationUpdate);
+      window.removeEventListener('hostel_ease_properties_updated', handlePropsUpdate);
+    };
+  }, [activeConversationId, selectedPropertyId]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -498,7 +506,20 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
     }
   };
 
-  const stats = dashboardData?.stats;
+  const stats = {
+    totalCapacity: properties.reduce((sum, p) => sum + (Number(p?.totalRooms) || (p?.rooms?.length || 1)), 0),
+    availableSpaces: properties.reduce((sum, p) => sum + (Number(p?.availableRooms ?? p?.totalRooms) || 1), 0),
+    occupiedSpaces: Math.max(0, properties.reduce((sum, p) => sum + (Number(p?.totalRooms) || 1), 0) - properties.reduce((sum, p) => sum + (Number(p?.availableRooms ?? p?.totalRooms) || 1), 0)),
+    reservedSpaces: dashboardData?.stats?.reservedSpaces || 0,
+    pendingBookings: dashboardData?.stats?.pendingBookings || 0,
+    confirmedBookings: dashboardData?.stats?.confirmedBookings || 0,
+    upcomingInspections: dashboardData?.stats?.upcomingInspections || 0,
+    pendingInspections: dashboardData?.stats?.pendingInspections || 0,
+    totalRevenue: properties.reduce((sum, p) => sum + (p?.priceSummary?.rentAmount || p?.pricing?.rentAmount || p?.rentAmount || 0), 0),
+    verificationStatus: (user as any)?.accountStatus === 'ACTIVE' ? 'APPROVED' : (dashboardData?.stats?.verificationStatus || 'APPROVED'),
+    unreadMessages: conversations.reduce((sum, c) => sum + (c.unreadCount || 0), 0) || (dashboardData?.stats?.unreadMessages || 0),
+    ...dashboardData?.stats
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
