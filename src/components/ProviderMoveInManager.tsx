@@ -64,6 +64,9 @@ export const ProviderMoveInManager: React.FC<ProviderMoveInManagerProps> = ({
 
   useEffect(() => {
     fetchOverview();
+    const handleUpdate = () => fetchOverview();
+    window.addEventListener('hostel_ease_bookings_updated', handleUpdate);
+    return () => window.removeEventListener('hostel_ease_bookings_updated', handleUpdate);
   }, []);
 
   const handleIssueActionSubmit = async (e: React.FormEvent) => {

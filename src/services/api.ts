@@ -1704,6 +1704,12 @@ export const api = {
       }
 
       saveLocalInspection(newInsp);
+
+      // 1. Send direct message to Landlord's DM inbox
+      const inspectionMsg = `📅 Inspection Request: ${data.inspectionType} inspection requested for ${foundProp.title} on ${data.preferredDate} at ${data.preferredTime}. Student Phone: ${data.studentPhone || currentUser?.phone || '08031234567'}. Hello Landlord, I have scheduled an inspection for your hostel.`;
+      api.messages.startConversation(foundProp.id, inspectionMsg).catch(() => {});
+
+      // 2. Add notification for Student
       addIsolatedNotification({
         userId: currentUser?.id || 'usr-student-default',
         title: 'Inspection Appointment Booked',
@@ -1711,6 +1717,17 @@ export const api = {
         linkUrl: '/student',
         role: 'STUDENT'
       });
+
+      // 3. Add notification for Landlord
+      addIsolatedNotification({
+        userId: foundProp.provider?.id || 'usr-provider-default',
+        title: 'New Inspection Request',
+        message: `A student requested a ${data.inspectionType.toLowerCase()} inspection for ${foundProp.title} on ${data.preferredDate} at ${data.preferredTime}.`,
+        linkUrl: '/provider',
+        role: 'PROVIDER'
+      });
+
+      window.dispatchEvent(new CustomEvent('hostel_ease_conversations_updated'));
 
       return {
         message: 'Inspection request submitted successfully. The landlord will review and confirm your slot.',
@@ -3567,6 +3584,12 @@ export const api = {
       }
 
       saveLocalBooking(localItem);
+
+      // 1. Send direct message to Landlord's DM inbox
+      const bookingMsg = `📋 Reservation Request Placed (${bookingReference}) for ${room?.name || 'Ensuite Room'}. Move-in: ${data.moveInDate}. Total: ₦${totalCost.toLocaleString()}. Hello Landlord, I have submitted a reservation request for your property. Looking forward to your confirmation!`;
+      api.messages.startConversation(foundProp.id, bookingMsg).catch(() => {});
+
+      // 2. Add notification for Student
       addIsolatedNotification({
         userId: currentUser?.id || 'usr-student-default',
         title: 'Hostel Reservation Created',
@@ -3574,6 +3597,17 @@ export const api = {
         linkUrl: '/student',
         role: 'STUDENT'
       });
+
+      // 3. Add notification for Landlord
+      addIsolatedNotification({
+        userId: foundProp.provider?.id || 'usr-provider-default',
+        title: 'New Reservation Request',
+        message: `A student placed a reservation request for ${foundProp.title} (Ref: ${bookingReference}). Please review and confirm.`,
+        linkUrl: '/provider',
+        role: 'PROVIDER'
+      });
+
+      window.dispatchEvent(new CustomEvent('hostel_ease_conversations_updated'));
 
       return {
         message: 'Reservation request successfully created and submitted to landlord',
@@ -4689,10 +4723,67 @@ export const api = {
     },
 
     async getProviderOverview(): Promise<any> {
-      const res = await fetch(`${API_BASE}/move-in/provider/overview`, {
-        headers: { ...getAuthHeader() }
-      });
-      return handleResponse(res);
+      try {
+        const res = await fetch(`${API_BASE}/move-in/provider/overview`, {
+          headers: { ...getAuthHeader() }
+        });
+        const contentType = res.headers.get('content-type') || '';
+        if (res.ok && contentType.includes('application/json')) {
+          const json = await res.json();
+          if (json.todayMoveIns && json.upcomingMoveIns) return json;
+        }
+      } catch (err) {
+        console.warn('Backend move-in overview unreachable, using local store.');
+      }
+
+      const bookings = getLocalBookings();
+      const todayStr = new Date().toISOString().split('T')[0];
+
+      const moveInItems = bookings.map(b => ({
+        id: `min-${b.id}`,
+        booking_id: b.id,
+        booking_reference: b.bookingReference,
+        student_id: 'usr-student',
+        provider_id: 'usr-provider-default',
+        property_id: b.propertyId,
+        room_id: b.roomId,
+        bedspace_id: b.bedspaceId,
+        move_in_date: b.moveInDate,
+        status: 'NOT_STARTED',
+        move_in_instructions: 'Please arrive between 10:00 AM and 4:00 PM. Meet the caretaker at the main gate for key handoff and physical room inspection.',
+        key_collection_point: 'Hostel Caretaker Office (Gate House)',
+        emergency_contact_phone: b.providerPhone || '08039876543',
+        scheduled_arrival_time: '12:00 PM',
+        booking_status: b.status,
+        payment_status: b.paymentStatus || 'UNPAID',
+        booking_move_in_date: b.moveInDate,
+        rent_amount: b.rentAmount,
+        caution_deposit: b.cautionDeposit,
+        service_charge: b.serviceCharge,
+        total_cost: b.totalCost,
+        property_title: b.propertyTitle,
+        property_address: `${b.areaName}, Ogbomoso`,
+        area_name: b.areaName,
+        room_name: b.roomName,
+        room_type: b.roomType,
+        bedspace_number: b.bedspaceNumber,
+        student_name: b.studentName,
+        student_phone: b.studentPhone,
+        student_email: b.studentEmail,
+        student_avatar: b.studentAvatarUrl,
+        student_matric: b.studentMatricNumber,
+        provider_name: b.providerName,
+        provider_phone: b.providerPhone,
+        provider_email: b.providerEmail
+      }));
+
+      return {
+        todayMoveIns: moveInItems.filter(m => m.move_in_date === todayStr),
+        upcomingMoveIns: moveInItems.filter(m => m.move_in_date >= todayStr || m.booking_status === 'PENDING' || m.booking_status === 'CONFIRMED'),
+        completedMoveIns: moveInItems.filter(m => m.booking_status === 'COMPLETED'),
+        openIssues: [],
+        totalMoveIns: moveInItems.length
+      };
     },
 
     async updateProviderInstructions(bookingId: string, data: any): Promise<{ message: string }> {

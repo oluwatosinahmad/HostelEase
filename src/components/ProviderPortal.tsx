@@ -260,7 +260,7 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
     fetchAllProviderData(selectedPropertyId);
   }, [selectedPropertyId]);
 
-  // Real-time listener for incoming student messages & notifications
+  // Real-time listener for incoming student messages, bookings, inspections & notifications
   useEffect(() => {
     const handleNotificationUpdate = () => {
       api.notifications.getAll().then(res => {
@@ -282,9 +282,15 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
     };
 
     window.addEventListener('hostel_ease_notification_updated', handleNotificationUpdate);
+    window.addEventListener('hostel_ease_conversations_updated', handleNotificationUpdate);
+    window.addEventListener('hostel_ease_bookings_updated', handlePropsUpdate);
+    window.addEventListener('hostel_ease_inspections_updated', handlePropsUpdate);
     window.addEventListener('hostel_ease_properties_updated', handlePropsUpdate);
     return () => {
       window.removeEventListener('hostel_ease_notification_updated', handleNotificationUpdate);
+      window.removeEventListener('hostel_ease_conversations_updated', handleNotificationUpdate);
+      window.removeEventListener('hostel_ease_bookings_updated', handlePropsUpdate);
+      window.removeEventListener('hostel_ease_inspections_updated', handlePropsUpdate);
       window.removeEventListener('hostel_ease_properties_updated', handlePropsUpdate);
     };
   }, [activeConversationId, selectedPropertyId]);

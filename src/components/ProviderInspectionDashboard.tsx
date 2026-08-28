@@ -70,6 +70,9 @@ export const ProviderInspectionDashboard: React.FC<ProviderInspectionDashboardPr
 
   useEffect(() => {
     fetchAllData();
+    const handleUpdate = () => fetchAllData();
+    window.addEventListener('hostel_ease_inspections_updated', handleUpdate);
+    return () => window.removeEventListener('hostel_ease_inspections_updated', handleUpdate);
   }, [activeFilter]);
 
   const handleAccept = async () => {
