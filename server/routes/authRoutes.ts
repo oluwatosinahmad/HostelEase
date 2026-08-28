@@ -38,14 +38,15 @@ router.post('/register', (req, res: Response) => {
   const userId = `user-${crypto.randomUUID()}`;
   const salt = bcrypt.genSaltSync(10);
   const passwordHash = bcrypt.hashSync(password, salt);
+  const avatarUrl = req.body.avatarUrl || req.body.avatar_url || studentDetails?.avatarUrl || null;
 
   try {
     db.transaction(() => {
       // Insert user with verified role
       db.prepare(`
-        INSERT INTO users (id, email, password_hash, full_name, phone, role, is_active)
-        VALUES (?, ?, ?, ?, ?, ?, 1)
-      `).run(userId, email.toLowerCase().trim(), passwordHash, fullName.trim(), phone || null, role);
+        INSERT INTO users (id, email, password_hash, full_name, phone, role, avatar_url, is_active)
+        VALUES (?, ?, ?, ?, ?, ?, ?, 1)
+      `).run(userId, email.toLowerCase().trim(), passwordHash, fullName.trim(), phone || null, role, avatarUrl);
 
       // Create role profile
       if (role === 'STUDENT') {
@@ -58,7 +59,7 @@ router.post('/register', (req, res: Response) => {
           profileId,
           userId,
           studentDetails?.universityId || defaultUni?.id || 'uni-lautech-ogbomoso',
-          studentDetails?.matricNo || null,
+          studentDetails?.matricNo || studentDetails?.matricNumber || null,
           studentDetails?.department || null,
           studentDetails?.level || null,
           studentDetails?.gender || null

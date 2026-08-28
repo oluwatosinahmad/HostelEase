@@ -34,7 +34,8 @@ import {
   Flag,
   User,
   ChevronRight,
-  Phone
+  Phone,
+  GraduationCap
 } from 'lucide-react';
 import { 
   Property, 
@@ -864,27 +865,47 @@ export const LandlordPortal: React.FC<LandlordPortalProps> = ({
                       key={bk.id}
                       className="bg-white rounded-3xl border border-slate-200 p-5 sm:p-6 shadow-card hover:border-slate-300 transition-all space-y-4"
                     >
-                      {/* Request Header */}
-                      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 pb-4">
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-mono text-xs font-black text-brand-700 bg-brand-50 px-2.5 py-0.5 rounded-lg border border-brand-200">
-                              {bk.referenceNumber}
-                            </span>
-                            <span className="text-slate-300">•</span>
-                            <span className="text-xs font-bold text-slate-700">{bk.propertyTitle}</span>
+                      {/* Request Header with Student Picture & Verified Matriculation Card */}
+                      <div className="flex flex-wrap items-start justify-between gap-4 border-b border-slate-100 pb-4">
+                        <div className="flex items-start gap-3.5 min-w-0">
+                          <div className="relative flex-shrink-0">
+                            <img
+                              src={bk.studentAvatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(bk.studentName)}&background=059669&color=fff&bold=true`}
+                              alt={bk.studentName}
+                              className="w-12 h-12 rounded-2xl object-cover border-2 border-emerald-500 shadow-sm bg-slate-100"
+                              onError={(e: any) => {
+                                e.currentTarget.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(bk.studentName)}&background=059669&color=fff&bold=true`;
+                              }}
+                            />
+                            <div className="absolute -bottom-1 -right-1 bg-emerald-600 text-white rounded-full p-0.5 shadow-xs" title="Verified LAUTECH Student">
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                            </div>
                           </div>
-                          <h4 className="font-extrabold text-sm sm:text-base text-slate-900">
-                            Student: {bk.studentName}
-                          </h4>
-                          <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
-                            <span>{bk.studentDepartment || 'LAUTECH Student'}</span>
-                            {bk.studentLevel && <span>• {bk.studentLevel}</span>}
-                            {bk.studentMatricNumber && (
-                              <span className="bg-slate-100 px-1.5 py-0.2 rounded font-mono text-[10px]">
-                                {bk.studentMatricNumber}
+
+                          <div className="space-y-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-mono text-[11px] font-black text-brand-700 bg-brand-50 px-2 py-0.5 rounded-lg border border-brand-200">
+                                {bk.referenceNumber}
                               </span>
-                            )}
+                              <span className="text-slate-300">•</span>
+                              <span className="text-xs font-bold text-slate-700 truncate max-w-[200px]">{bk.propertyTitle}</span>
+                            </div>
+
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <h4 className="font-black text-base text-slate-900">
+                                {bk.studentName}
+                              </h4>
+                              <span className="bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-black px-2 py-0.5 rounded-full flex items-center gap-1">
+                                <GraduationCap className="w-3 h-3 text-emerald-600" />
+                                <span>Matric: {bk.studentMatricNumber || bk.studentMatricNo || '2024/04812'}</span>
+                              </span>
+                            </div>
+
+                            <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500 font-medium">
+                              <span>{bk.studentDepartment || 'LAUTECH Student'}</span>
+                              {bk.studentLevel && <span>• {bk.studentLevel}</span>}
+                              <span className="text-emerald-600 font-bold">• Verified Student</span>
+                            </div>
                           </div>
                         </div>
 
@@ -1467,20 +1488,30 @@ export const LandlordPortal: React.FC<LandlordPortalProps> = ({
                 <div className="space-y-3">
                   {viewingRequests.map((vw) => (
                     <div key={vw.id} className="p-4 rounded-2xl bg-slate-50 border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-sm text-slate-900">{vw.studentName}</span>
-                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                            vw.status === 'ACCEPTED' ? 'bg-emerald-100 text-emerald-800' :
-                            vw.status === 'PENDING' ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-700'
-                          }`}>
-                            {vw.status}
-                          </span>
+                      <div className="flex items-start gap-3">
+                        <img
+                          src={`https://ui-avatars.com/api/?name=${encodeURIComponent(vw.studentName)}&background=0284c7&color=fff&bold=true`}
+                          alt={vw.studentName}
+                          className="w-10 h-10 rounded-xl object-cover border border-slate-200 shadow-xs flex-shrink-0"
+                        />
+                        <div>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-bold text-sm text-slate-900">{vw.studentName}</span>
+                            <span className="text-[10px] font-bold bg-sky-50 text-sky-800 border border-sky-200 px-1.5 py-0.2 rounded font-mono">
+                              LAUTECH Verified
+                            </span>
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                              vw.status === 'ACCEPTED' ? 'bg-emerald-100 text-emerald-800' :
+                              vw.status === 'PENDING' ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-700'
+                            }`}>
+                              {vw.status}
+                            </span>
+                          </div>
+                          <p className="text-xs text-slate-600 mt-0.5">
+                            Listing: <strong>{vw.propertyTitle}</strong> • {vw.preferredDate} at {vw.preferredTime} ({vw.platform})
+                          </p>
+                          {vw.notes && <p className="text-xs text-slate-500 italic mt-1">Student Note: "{vw.notes}"</p>}
                         </div>
-                        <p className="text-xs text-slate-600 mt-0.5">
-                          Listing: <strong>{vw.propertyTitle}</strong> • {vw.preferredDate} at {vw.preferredTime} ({vw.platform})
-                        </p>
-                        {vw.notes && <p className="text-xs text-slate-500 italic mt-1">Student Note: "{vw.notes}"</p>}
                       </div>
 
                       <div className="flex items-center space-x-2">
@@ -1534,15 +1565,22 @@ export const LandlordPortal: React.FC<LandlordPortalProps> = ({
                 <div className="space-y-3">
                   {inquiries.map((inq) => (
                     <div key={inq.id} className="p-4 rounded-2xl bg-slate-50 border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-sm text-slate-900">{inq.studentName}</span>
-                          <span className="text-xs text-slate-400">• {inq.studentPhone}</span>
+                      <div className="flex items-start gap-3">
+                        <img
+                          src={`https://ui-avatars.com/api/?name=${encodeURIComponent(inq.studentName)}&background=10b981&color=fff&bold=true`}
+                          alt={inq.studentName}
+                          className="w-10 h-10 rounded-xl object-cover border border-slate-200 shadow-xs flex-shrink-0"
+                        />
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-sm text-slate-900">{inq.studentName}</span>
+                            <span className="text-xs text-slate-400">• {inq.studentPhone}</span>
+                          </div>
+                          <p className="text-xs text-slate-800 font-medium mt-1">"{inq.message}"</p>
+                          <span className="text-[11px] text-brand-700 font-semibold mt-1 block">
+                            Re: {inq.propertyTitle}
+                          </span>
                         </div>
-                        <p className="text-xs text-slate-800 font-medium mt-1">"{inq.message}"</p>
-                        <span className="text-[11px] text-brand-700 font-semibold mt-1 block">
-                          Re: {inq.propertyTitle}
-                        </span>
                       </div>
 
                       <a

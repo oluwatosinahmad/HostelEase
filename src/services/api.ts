@@ -1038,16 +1038,25 @@ export const api = {
           }
 
           const fallbackRole = data.role === 'PROVIDER' ? 'PROVIDER' : 'STUDENT';
+          const defaultAvatar = fallbackRole === 'STUDENT'
+            ? 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80'
+            : 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=300&q=80';
           const mockUser = {
             id: `usr-${Date.now()}`,
             fullName: data.fullName || (fallbackRole === 'PROVIDER' ? 'Hostel Landlord' : 'Student User'),
             email: data.email,
             role: fallbackRole,
             phone: data.phone || '08012345678',
+            avatarUrl: data.avatarUrl || defaultAvatar,
             isActive: 1,
             accountStatus: 'ACTIVE',
             providerDetails: fallbackRole === 'PROVIDER' ? { businessName: data.providerDetails?.businessName || 'Verified Accommodations' } : undefined,
-            studentDetails: fallbackRole === 'STUDENT' ? { department: data.studentDetails?.department || 'Computer Science' } : undefined
+            studentDetails: fallbackRole === 'STUDENT' ? { 
+              matricNo: data.studentDetails?.matricNo || data.studentDetails?.matricNumber || '2024/04812',
+              matricNumber: data.studentDetails?.matricNo || data.studentDetails?.matricNumber || '2024/04812',
+              department: data.studentDetails?.department || 'Computer Science',
+              level: data.studentDetails?.level || '300L'
+            } : undefined
           };
           const mockToken = `he_token_${Date.now()}`;
           localStorage.setItem('hostel_ease_token', mockToken);
@@ -1075,16 +1084,25 @@ export const api = {
           }
 
           const fallbackRole = data.role === 'PROVIDER' ? 'PROVIDER' : 'STUDENT';
+          const defaultAvatar = fallbackRole === 'STUDENT'
+            ? 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80'
+            : 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=300&q=80';
           const mockUser = {
             id: `usr-${Date.now()}`,
             fullName: data.fullName || (fallbackRole === 'PROVIDER' ? 'Hostel Landlord' : 'Student User'),
             email: data.email,
             role: fallbackRole,
             phone: data.phone || '08012345678',
+            avatarUrl: data.avatarUrl || defaultAvatar,
             isActive: 1,
             accountStatus: 'ACTIVE',
             providerDetails: fallbackRole === 'PROVIDER' ? { businessName: data.providerDetails?.businessName || 'Verified Accommodations' } : undefined,
-            studentDetails: fallbackRole === 'STUDENT' ? { department: data.studentDetails?.department || 'Computer Science' } : undefined
+            studentDetails: fallbackRole === 'STUDENT' ? { 
+              matricNo: data.studentDetails?.matricNo || data.studentDetails?.matricNumber || '2024/04812',
+              matricNumber: data.studentDetails?.matricNo || data.studentDetails?.matricNumber || '2024/04812',
+              department: data.studentDetails?.department || 'Computer Science',
+              level: data.studentDetails?.level || '300L'
+            } : undefined
           };
           const mockToken = `he_token_${Date.now()}`;
           localStorage.setItem('hostel_ease_token', mockToken);

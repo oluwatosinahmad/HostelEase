@@ -12,10 +12,21 @@ import {
   AlertCircle,
   ShieldAlert,
   ArrowLeft,
-  KeyRound
+  KeyRound,
+  Camera,
+  Check
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { UserRole } from '../types/hostelEase';
+
+const PRESET_STUDENT_AVATARS = [
+  { id: 'av-1', url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80', label: 'Female 1' },
+  { id: 'av-2', url: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&w=300&q=80', label: 'Male 1' },
+  { id: 'av-3', url: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=300&q=80', label: 'Female 2' },
+  { id: 'av-4', url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=300&q=80', label: 'Male 2' },
+  { id: 'av-5', url: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=300&q=80', label: 'Female 3' },
+  { id: 'av-6', url: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=300&q=80', label: 'Male 3' }
+];
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -41,6 +52,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
   const [department, setDepartment] = useState('Computer Science');
+  const [matricNo, setMatricNo] = useState('');
+  const [level, setLevel] = useState('100L');
+  const [avatarUrl, setAvatarUrl] = useState('https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80');
+  const [customAvatarInput, setCustomAvatarInput] = useState(false);
   const [businessName, setBusinessName] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
@@ -89,7 +104,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           fullName: fullName.trim(),
           phone: phone.trim() || undefined,
           role,
-          studentDetails: role === 'STUDENT' ? { department } : undefined,
+          avatarUrl: role === 'STUDENT' ? avatarUrl : undefined,
+          studentDetails: role === 'STUDENT' ? { 
+            matricNo: matricNo.trim() || undefined,
+            matricNumber: matricNo.trim() || undefined,
+            department: department.trim(),
+            level,
+            avatarUrl
+          } : undefined,
           providerDetails: role === 'PROVIDER' ? { businessName } : undefined
         });
       }
@@ -361,15 +383,109 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               )}
 
               {mode === 'register' && role === 'STUDENT' && (
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">LAUTECH Department</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Computer Science, Accounting, Med Lab"
-                    value={department}
-                    onChange={(e) => setDepartment(e.target.value)}
-                    className="w-full text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                  />
+                <div className="space-y-3 pt-1 border-t border-slate-100 dark:border-slate-800">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
+                        Matriculation No. <span className="text-emerald-600 dark:text-emerald-400">*</span>
+                      </label>
+                      <div className="relative flex items-center">
+                        <GraduationCap className="w-4 h-4 text-slate-400 absolute left-3" />
+                        <input
+                          type="text"
+                          placeholder="e.g. 2024/09876"
+                          value={matricNo}
+                          onChange={(e) => setMatricNo(e.target.value)}
+                          className="w-full text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pl-9 pr-3 py-2.5 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:ring-2 focus:ring-emerald-500 focus:outline-none uppercase font-mono font-bold"
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
+                        Academic Level
+                      </label>
+                      <select
+                        value={level}
+                        onChange={(e) => setLevel(e.target.value)}
+                        className="w-full text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:outline-none font-bold"
+                      >
+                        <option value="100L">100 Level (Fresher)</option>
+                        <option value="200L">200 Level</option>
+                        <option value="300L">300 Level</option>
+                        <option value="400L">400 Level (Finalist / Clinical)</option>
+                        <option value="500L">500 Level (Engineering / Agri)</option>
+                        <option value="Postgraduate">Postgraduate / Masters</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
+                      LAUTECH Department
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Computer Science, Accounting, Med Lab, Mechanical Eng"
+                      value={department}
+                      onChange={(e) => setDepartment(e.target.value)}
+                      className="w-full text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                    />
+                  </div>
+
+                  {/* Profile Picture Avatar Selector */}
+                  <div className="space-y-2 bg-slate-50 dark:bg-slate-800/60 p-3 rounded-2xl border border-slate-200 dark:border-slate-700">
+                    <div className="flex items-center justify-between">
+                      <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase flex items-center gap-1.5">
+                        <Camera className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>Student Profile Photo (Visible to Landlord)</span>
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setCustomAvatarInput(!customAvatarInput)}
+                        className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline"
+                      >
+                        {customAvatarInput ? 'Choose preset' : 'Enter photo URL'}
+                      </button>
+                    </div>
+
+                    {!customAvatarInput ? (
+                      <div className="flex items-center gap-2 overflow-x-auto py-1 scrollbar-none">
+                        {PRESET_STUDENT_AVATARS.map((av) => (
+                          <button
+                            key={av.id}
+                            type="button"
+                            onClick={() => setAvatarUrl(av.url)}
+                            className={`relative rounded-full p-0.5 transition-all flex-shrink-0 ${
+                              avatarUrl === av.url
+                                ? 'ring-2 ring-emerald-500 scale-105 shadow-sm'
+                                : 'opacity-70 hover:opacity-100'
+                            }`}
+                          >
+                            <img
+                              src={av.url}
+                              alt={av.label}
+                              className="w-9 h-9 rounded-full object-cover"
+                            />
+                            {avatarUrl === av.url && (
+                              <div className="absolute -bottom-0.5 -right-0.5 bg-emerald-600 text-white rounded-full p-0.5">
+                                <Check className="w-2.5 h-2.5" />
+                              </div>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <input
+                        type="url"
+                        placeholder="Paste image URL (https://...)"
+                        value={avatarUrl}
+                        onChange={(e) => setAvatarUrl(e.target.value)}
+                        className="w-full text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-slate-900 dark:text-white placeholder:text-slate-400 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                      />
+                    )}
+                  </div>
                 </div>
               )}
 

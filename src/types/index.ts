@@ -811,7 +811,9 @@ export type Booking = {
   studentEmail: string;
   studentPhone: string;
   studentWhatsapp?: string;
+  studentAvatarUrl?: string;
   studentMatricNumber?: string;
+  studentMatricNo?: string;
   studentDepartment?: string;
   studentLevel?: string;
 

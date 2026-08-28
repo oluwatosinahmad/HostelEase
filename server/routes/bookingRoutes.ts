@@ -397,6 +397,12 @@ router.get('/', authenticate, (req: AuthenticatedRequest, res: Response) => {
       u_student.full_name as studentName,
       u_student.email as studentEmail,
       u_student.phone as studentPhone,
+      u_student.avatar_url as studentAvatarUrl,
+      sp.matric_no as studentMatricNumber,
+      sp.matric_no as studentMatricNo,
+      sp.department as studentDepartment,
+      sp.level as studentLevel,
+      sp.gender as studentGender,
       u_provider.full_name as providerName,
       u_provider.email as providerEmail,
       u_provider.phone as providerPhone
@@ -406,6 +412,7 @@ router.get('/', authenticate, (req: AuthenticatedRequest, res: Response) => {
     JOIN rooms r ON b.room_id = r.id
     LEFT JOIN bedspaces bs ON b.bedspace_id = bs.id
     JOIN users u_student ON b.student_id = u_student.id
+    LEFT JOIN student_profiles sp ON u_student.id = sp.user_id
     JOIN users u_provider ON b.provider_id = u_provider.id
   `;
 
@@ -581,6 +588,11 @@ router.get('/:id', authenticate, (req: AuthenticatedRequest, res: Response) => {
       u_student.full_name as studentName,
       u_student.email as studentEmail,
       u_student.phone as studentPhone,
+      u_student.avatar_url as studentAvatarUrl,
+      sp.matric_no as studentMatricNumber,
+      sp.department as studentDepartment,
+      sp.level as studentLevel,
+      sp.gender as studentGender,
       u_provider.full_name as providerName,
       u_provider.email as providerEmail,
       u_provider.phone as providerPhone
@@ -590,6 +602,7 @@ router.get('/:id', authenticate, (req: AuthenticatedRequest, res: Response) => {
     JOIN rooms r ON b.room_id = r.id
     LEFT JOIN bedspaces bs ON b.bedspace_id = bs.id
     JOIN users u_student ON b.student_id = u_student.id
+    LEFT JOIN student_profiles sp ON u_student.id = sp.user_id
     JOIN users u_provider ON b.provider_id = u_provider.id
     WHERE b.id = ? OR b.booking_reference = ?
   `).get(id, id) as any;
@@ -640,7 +653,13 @@ router.get('/:id', authenticate, (req: AuthenticatedRequest, res: Response) => {
         id: booking.student_id,
         name: booking.studentName,
         email: booking.studentEmail,
-        phone: booking.studentPhone
+        phone: booking.studentPhone,
+        avatarUrl: booking.studentAvatarUrl,
+        matricNo: booking.studentMatricNumber,
+        matricNumber: booking.studentMatricNumber,
+        department: booking.studentDepartment,
+        level: booking.studentLevel,
+        gender: booking.studentGender
       },
       provider: {
         id: booking.provider_id,

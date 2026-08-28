@@ -608,6 +608,12 @@ export interface BookingItem {
   studentName: string;
   studentEmail: string;
   studentPhone?: string;
+  studentAvatarUrl?: string;
+  studentMatricNumber?: string;
+  studentMatricNo?: string;
+  studentDepartment?: string;
+  studentLevel?: string;
+  studentGender?: string;
   providerName: string;
   providerEmail: string;
   providerPhone?: string;
@@ -652,6 +658,12 @@ export interface BookingDetail {
     name: string;
     email: string;
     phone?: string;
+    avatarUrl?: string;
+    matricNo?: string;
+    matricNumber?: string;
+    department?: string;
+    level?: string;
+    gender?: string;
   };
   provider: {
     id: string;
