@@ -11,6 +11,10 @@ interface AuthContextType {
   logout: () => void;
   updateProfile: (data: any) => Promise<void>;
   loginDemo: (role: UserRole) => Promise<User>;
+  impersonateUser: (targetUser: User) => void;
+  exitImpersonation: () => void;
+  isImpersonating: boolean;
+  impersonatorAdmin: User | null;
   isAuthenticated: boolean;
   isStudent: boolean;
   isProvider: boolean;
@@ -30,6 +34,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   });
   const [token, setToken] = useState<string | null>(() => localStorage.getItem('hostel_ease_token'));
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [impersonatorAdmin, setImpersonatorAdmin] = useState<User | null>(() => {
+    try {
+      const stored = localStorage.getItem('hostel_ease_impersonator_admin');
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      return null;
+    }
+  });
 
   useEffect(() => {
     async function loadUser() {
@@ -113,6 +125,32 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
+  const impersonateUser = (targetUser: User) => {
+    if (user && (user.role === 'ADMIN' || (user as any)?.role === 'SUPER_ADMIN') && !impersonatorAdmin) {
+      setImpersonatorAdmin(user);
+      localStorage.setItem('hostel_ease_impersonator_admin', JSON.stringify(user));
+    }
+    setUser(targetUser);
+    localStorage.setItem('hostel_ease_user', JSON.stringify(targetUser));
+    window.dispatchEvent(new CustomEvent('hostel_ease_impersonation_started', { detail: targetUser }));
+  };
+
+  const exitImpersonation = () => {
+    const adminRaw = localStorage.getItem('hostel_ease_impersonator_admin');
+    if (adminRaw) {
+      try {
+        const realAdmin = JSON.parse(adminRaw);
+        setUser(realAdmin);
+        localStorage.setItem('hostel_ease_user', JSON.stringify(realAdmin));
+        localStorage.removeItem('hostel_ease_impersonator_admin');
+        setImpersonatorAdmin(null);
+        window.dispatchEvent(new CustomEvent('hostel_ease_impersonation_ended'));
+        return;
+      } catch {}
+    }
+    setImpersonatorAdmin(null);
+  };
+
   const value: AuthContextType = {
     user,
     token,
@@ -122,6 +160,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     logout,
     updateProfile,
     loginDemo,
+    impersonateUser,
+    exitImpersonation,
+    isImpersonating: Boolean(impersonatorAdmin),
+    impersonatorAdmin,
     isAuthenticated: Boolean(user),
     isStudent: user?.role === 'STUDENT',
     isProvider: user?.role === 'PROVIDER' || (user as any)?.role === 'LANDLORD',

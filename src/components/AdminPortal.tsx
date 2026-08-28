@@ -73,6 +73,7 @@ import { formatNaira, formatDistance } from '../utils/formatters';
 interface AdminPortalProps {
   areas: Area[];
   onShowToast: (message: string, type?: 'success' | 'info' | 'error') => void;
+  onNavigateView?: (view: any) => void;
 }
 
 type AdminTab = 
@@ -127,16 +128,19 @@ const defaultDashboardData: AdminDashboardData = {
     pendingBookings: 3,
     successfulPayments: 18,
     pendingPayments: 2,
-    totalRefunds: 0,
+    totalGrossRevenue: 4500000,
+    openDisputes: 1,
     openReports: 0,
-    upcomingInspections: 5,
-    openSupportTickets: 2,
-    totalGrossRevenue: 4500000
+    openSupportTickets: 2
   },
   stressMetrics: {
     searchToBookingConversion: '14.2%',
-    bookingCancellationRate: '1.2%',
     avgViewsPerBooking: '4.2',
+    bookingCancellationRate: '1.2%',
+    disputeEscalationRate: '0.6%',
+    avgProviderVerificationHours: '3.5 Hours'
+  },
+  telemetrySummary: {
     totalSearches: 450,
     totalViews: 1200,
     totalInspections: 28,
@@ -147,9 +151,10 @@ const defaultDashboardData: AdminDashboardData = {
 
 export const AdminPortal: React.FC<AdminPortalProps> = ({
   areas,
-  onShowToast
+  onShowToast,
+  onNavigateView
 }) => {
-  const { user, logout, loginDemo } = useAuth();
+  const { user, logout, loginDemo, impersonateUser } = useAuth();
   const [activeTab, setActiveTab] = useState<AdminTab>('overview');
   const [dashboardData, setDashboardData] = useState<AdminDashboardData>(defaultDashboardData);
   const [revenueOverview, setRevenueOverview] = useState<RevenueOverviewResponse | null>(null);
@@ -162,8 +167,10 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
 
   // Tab Data Lists
   const [usersList, setUsersList] = useState<AdminUserItem[]>([]);
+  const [userSearchQuery, setUserSearchQuery] = useState<string>('');
   const [userRoleFilter, setUserRoleFilter] = useState<string>('all');
   const [userStatusFilter, setUserStatusFilter] = useState<string>('all');
+  const [selectedUserForDetails, setSelectedUserForDetails] = useState<AdminUserItem | null>(null);
 
   const [providersList, setProvidersList] = useState<AdminProviderItem[]>([]);
   const [providerFilter, setProviderFilter] = useState<string>('all');
@@ -335,6 +342,31 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
       fetchAllAdminData();
     } catch (err: any) {
       onShowToast(err.message || 'Failed to update user status', 'error');
+    }
+  };
+
+  const handleImpersonateUser = (u: AdminUserItem) => {
+    const targetUser = {
+      id: u.id,
+      email: u.email,
+      fullName: u.fullName,
+      role: u.role as any,
+      phone: u.phone,
+      avatarUrl: u.avatarUrl,
+      businessName: u.businessName,
+      matricNo: u.matricNo || u.matricNumber,
+      matricNumber: u.matricNo || u.matricNumber,
+      department: u.department,
+      level: u.level
+    };
+    impersonateUser(targetUser as any);
+    onShowToast(`👑 Super Admin Mode: Now controlling ${u.fullName}'s account (${u.role === 'PROVIDER' ? '🏢 Landlord' : '🎓 Student'})`, 'success');
+    if (onNavigateView) {
+      if (u.role === 'PROVIDER') {
+        onNavigateView('provider-portal');
+      } else {
+        onNavigateView('home');
+      }
     }
   };
 
@@ -982,95 +1014,323 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
             </div>
           )}
 
-          {/* TAB 2: USER MANAGEMENT */}
+          {/* TAB 2: USER DIRECTORY & ACCOUNT MANAGER */}
           {activeTab === 'users' && (
             <div className="space-y-4">
-              <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-950 p-4 rounded-xl border border-slate-800">
                 <div>
-                  <h2 className="text-lg font-bold text-white">User Accounts Directory</h2>
-                  <p className="text-xs text-slate-400">Manage students, providers, and administrator roles</p>
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-lg font-bold text-white">User Accounts Directory & Direct Access</h2>
+                    <span className="text-[10px] bg-purple-950 text-purple-300 font-bold px-2 py-0.5 rounded border border-purple-800">
+                      👑 Super Admin Oversight
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-400">Directly inspect, manage, and access all student and landlord accounts</p>
                 </div>
-                <div className="flex items-center gap-2">
+                
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="relative">
+                    <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      placeholder="Search name, email, matric, phone..."
+                      value={userSearchQuery}
+                      onChange={(e) => setUserSearchQuery(e.target.value)}
+                      className="bg-slate-900 border border-slate-700 text-xs text-white placeholder-slate-500 rounded-lg pl-8 pr-3 py-1.5 focus:outline-none focus:border-emerald-500 w-56"
+                    />
+                  </div>
+
                   <select
                     value={userRoleFilter}
                     onChange={(e) => setUserRoleFilter(e.target.value)}
-                    className="bg-slate-950 border border-slate-800 text-xs text-slate-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-emerald-500"
+                    className="bg-slate-900 border border-slate-700 text-xs text-slate-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-emerald-500 font-medium"
                   >
-                    <option value="all">All Roles</option>
-                    <option value="STUDENT">Students</option>
-                    <option value="PROVIDER">Providers</option>
-                    <option value="ADMIN">Admins</option>
+                    <option value="all">All Roles ({usersList.length})</option>
+                    <option value="STUDENT">🎓 Students ({usersList.filter(u => u.role === 'STUDENT').length})</option>
+                    <option value="PROVIDER">🏢 Landlords ({usersList.filter(u => u.role === 'PROVIDER').length})</option>
+                    <option value="ADMIN">👑 Admins ({usersList.filter(u => u.role === 'ADMIN').length})</option>
                   </select>
 
                   <select
                     value={userStatusFilter}
                     onChange={(e) => setUserStatusFilter(e.target.value)}
-                    className="bg-slate-950 border border-slate-800 text-xs text-slate-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-emerald-500"
+                    className="bg-slate-900 border border-slate-700 text-xs text-slate-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-emerald-500 font-medium"
                   >
                     <option value="all">All Statuses</option>
-                    <option value="ACTIVE">Active</option>
-                    <option value="SUSPENDED">Suspended</option>
-                    <option value="RESTRICTED">Restricted</option>
+                    <option value="ACTIVE">Active Only</option>
+                    <option value="SUSPENDED">Suspended Only</option>
+                    <option value="RESTRICTED">Restricted Only</option>
                   </select>
                 </div>
               </div>
 
-              <div className="bg-slate-950 border border-slate-800 rounded-xl overflow-hidden">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-900/80 text-slate-400 uppercase text-[10px] tracking-wider border-b border-slate-800">
-                    <tr>
-                      <th className="p-3">User</th>
-                      <th className="p-3">Role</th>
-                      <th className="p-3">Contact</th>
-                      <th className="p-3">Status</th>
-                      <th className="p-3">Activity</th>
-                      <th className="p-3 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-900">
-                    {usersList.map((u) => (
-                      <tr key={u.id} className="hover:bg-slate-900/40 transition-colors">
-                        <td className="p-3">
-                          <p className="font-bold text-white">{u.fullName}</p>
-                          <p className="text-[10px] text-slate-400">{u.email}</p>
-                        </td>
-                        <td className="p-3">
-                          <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${
-                            u.role === 'ADMIN' ? 'bg-purple-950 text-purple-300 border border-purple-800' :
-                            u.role === 'PROVIDER' ? 'bg-cyan-950 text-cyan-300 border border-cyan-800' :
-                            'bg-emerald-950 text-emerald-300 border border-emerald-800'
-                          }`}>
-                            {u.role}
-                          </span>
-                        </td>
-                        <td className="p-3 text-slate-300">{u.phone || '—'}</td>
-                        <td className="p-3">
-                          <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${
-                            u.accountStatus === 'ACTIVE' ? 'bg-emerald-950 text-emerald-400' :
-                            u.accountStatus === 'SUSPENDED' ? 'bg-rose-950 text-rose-400' :
-                            'bg-amber-950 text-amber-400'
-                          }`}>
-                            {u.accountStatus || 'ACTIVE'}
-                          </span>
-                        </td>
-                        <td className="p-3 text-[10px] text-slate-400">
-                          {u.role === 'STUDENT' ? `${u.studentBookingsCount || 0} Bookings` : `${u.providerHostelsCount || 0} Hostels`}
-                        </td>
-                        <td className="p-3 text-right">
-                          <button
-                            onClick={() => {
-                              setSelectedUserForStatus(u);
-                              setUserStatusToSet(u.accountStatus === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE');
-                            }}
-                            className="text-xs font-semibold text-emerald-400 hover:text-emerald-300 underline"
-                          >
-                            Manage Status
-                          </button>
-                        </td>
+              {/* User Directory Table */}
+              <div className="bg-slate-950 border border-slate-800 rounded-xl overflow-hidden shadow-xl">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-slate-900/90 text-slate-400 uppercase text-[10px] tracking-wider border-b border-slate-800">
+                      <tr>
+                        <th className="p-3.5">User Identity</th>
+                        <th className="p-3.5">Role & Category</th>
+                        <th className="p-3.5">Academic / Business Details</th>
+                        <th className="p-3.5">Contact Details</th>
+                        <th className="p-3.5">Activity Stats</th>
+                        <th className="p-3.5">Account Status</th>
+                        <th className="p-3.5 text-right">Admin Controls</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody className="divide-y divide-slate-900">
+                      {usersList
+                        .filter(u => {
+                          if (!userSearchQuery.trim()) return true;
+                          const q = userSearchQuery.toLowerCase();
+                          return (
+                            u.fullName.toLowerCase().includes(q) ||
+                            u.email.toLowerCase().includes(q) ||
+                            (u.phone && u.phone.includes(q)) ||
+                            (u.matricNo && u.matricNo.toLowerCase().includes(q)) ||
+                            (u.businessName && u.businessName.toLowerCase().includes(q)) ||
+                            (u.department && u.department.toLowerCase().includes(q))
+                          );
+                        })
+                        .map((u) => (
+                          <tr key={u.id} className="hover:bg-slate-900/60 transition-colors">
+                            {/* Identity */}
+                            <td className="p-3.5">
+                              <div className="flex items-center gap-2.5">
+                                <img
+                                  src={u.avatarUrl || (u.role === 'PROVIDER' 
+                                    ? 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100' 
+                                    : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100')}
+                                  alt={u.fullName}
+                                  className="w-8 h-8 rounded-full object-cover border border-slate-700 flex-shrink-0"
+                                />
+                                <div>
+                                  <p className="font-bold text-white leading-tight">{u.fullName}</p>
+                                  <p className="text-[10px] text-slate-400">{u.email}</p>
+                                </div>
+                              </div>
+                            </td>
+
+                            {/* Role Badge */}
+                            <td className="p-3.5">
+                              <span className={`text-[10px] px-2.5 py-1 rounded-full font-bold inline-flex items-center gap-1 ${
+                                u.role === 'ADMIN' ? 'bg-purple-950 text-purple-300 border border-purple-800' :
+                                u.role === 'PROVIDER' ? 'bg-cyan-950 text-cyan-300 border border-cyan-800' :
+                                'bg-emerald-950 text-emerald-300 border border-emerald-800'
+                              }`}>
+                                <span>{u.role === 'PROVIDER' ? '🏢 Landlord' : u.role === 'ADMIN' ? '👑 Platform Owner' : '🎓 Student'}</span>
+                              </span>
+                            </td>
+
+                            {/* Academic / Business Details */}
+                            <td className="p-3.5">
+                              {u.role === 'STUDENT' ? (
+                                <div className="space-y-0.5">
+                                  <p className="text-[11px] font-mono font-bold text-emerald-400">
+                                    Matric: {u.matricNo || u.matricNumber || '20/47CS/0118'}
+                                  </p>
+                                  <p className="text-[10px] text-slate-400">
+                                    {u.department || 'Computer Science'} • {u.level || '400L'}
+                                  </p>
+                                </div>
+                              ) : u.role === 'PROVIDER' ? (
+                                <div className="space-y-0.5">
+                                  <p className="text-[11px] font-bold text-cyan-300">
+                                    {u.businessName || 'Adeleke Heritage Properties'}
+                                  </p>
+                                  <p className="text-[10px] text-slate-400">
+                                    Verified NIN/CAC Accommodation Operator
+                                  </p>
+                                </div>
+                              ) : (
+                                <p className="text-[10px] text-purple-300 font-bold">Executive Administrator</p>
+                              )}
+                            </td>
+
+                            {/* Contact Details */}
+                            <td className="p-3.5 text-slate-300">
+                              <p className="font-mono text-xs">{u.phone || '+234 800 000 0000'}</p>
+                              <span className="text-[9px] text-emerald-400 font-semibold">Verified Channel</span>
+                            </td>
+
+                            {/* Activity Stats */}
+                            <td className="p-3.5 text-[11px]">
+                              {u.role === 'STUDENT' ? (
+                                <div className="space-y-0.5">
+                                  <span className="font-bold text-slate-200">{u.studentBookingsCount || 0} Bookings</span>
+                                  <span className="text-slate-500 block text-[10px]">{u.studentInspectionsCount || 0} Tour Requests</span>
+                                </div>
+                              ) : u.role === 'PROVIDER' ? (
+                                <div className="space-y-0.5">
+                                  <span className="font-bold text-cyan-300">{u.providerHostelsCount || 1} Hostels Listed</span>
+                                  <span className="text-slate-500 block text-[10px]">Active Escrow Tenant Move-Ins</span>
+                                </div>
+                              ) : (
+                                <span className="text-slate-500 text-[10px]">Full Super Admin Root</span>
+                              )}
+                            </td>
+
+                            {/* Account Status */}
+                            <td className="p-3.5">
+                              <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
+                                u.accountStatus === 'ACTIVE' ? 'bg-emerald-950 text-emerald-400 border border-emerald-800' :
+                                u.accountStatus === 'SUSPENDED' ? 'bg-rose-950 text-rose-400 border border-rose-800' :
+                                'bg-amber-950 text-amber-400 border border-amber-800'
+                              }`}>
+                                {u.accountStatus || 'ACTIVE'}
+                              </span>
+                            </td>
+
+                            {/* Admin Controls */}
+                            <td className="p-3.5 text-right">
+                              <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                                {u.role !== 'ADMIN' && (
+                                  <button
+                                    onClick={() => handleImpersonateUser(u)}
+                                    className="px-2.5 py-1 bg-purple-600 hover:bg-purple-500 text-white rounded-lg font-bold text-[11px] transition-all flex items-center gap-1 shadow-sm cursor-pointer"
+                                    title={`Log in and control ${u.fullName}'s account`}
+                                  >
+                                    <span>👑 Access Account</span>
+                                  </button>
+                                )}
+
+                                <button
+                                  onClick={() => setSelectedUserForDetails(u)}
+                                  className="px-2.5 py-1 bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300 hover:text-white rounded-lg font-semibold text-[11px] transition-colors flex items-center gap-1 cursor-pointer"
+                                >
+                                  <Eye className="w-3 h-3" />
+                                  <span>Inspect</span>
+                                </button>
+
+                                <button
+                                  onClick={() => {
+                                    setSelectedUserForStatus(u);
+                                    setUserStatusToSet(u.accountStatus === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE');
+                                  }}
+                                  className="p-1 text-slate-400 hover:text-amber-400 transition-colors"
+                                  title="Toggle Active / Suspended Status"
+                                >
+                                  <Lock className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 3: PROVIDERS / HOSTS MANAGEMENT */}
+          {activeTab === 'providers' && (
+            <div className="space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-950 p-4 rounded-xl border border-slate-800">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-lg font-bold text-white">Landlord & Housing Provider Hub</h2>
+                    <span className="text-[10px] bg-cyan-950 text-cyan-300 font-bold px-2 py-0.5 rounded border border-cyan-800">
+                      Verified Hostels Oversight
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-400">Directly control, monitor, and access registered landlord management dashboards</p>
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  <select
+                    value={providerFilter}
+                    onChange={(e) => setProviderFilter(e.target.value)}
+                    className="bg-slate-900 border border-slate-700 text-xs text-slate-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-emerald-500 font-medium"
+                  >
+                    <option value="all">All Landlords ({providersList.length})</option>
+                    <option value="VERIFIED">Verified Badged Only</option>
+                    <option value="PENDING">Pending Review</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Provider Grid Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {providersList.map((p) => (
+                  <div key={p.id} className="bg-slate-950 border border-slate-800 rounded-2xl p-5 space-y-4 shadow-xl flex flex-col justify-between">
+                    <div className="space-y-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <span className="text-[10px] font-bold text-cyan-400 uppercase tracking-wider bg-cyan-950 px-2 py-0.5 rounded border border-cyan-800">
+                            {p.businessName || 'Student Housing Lodge'}
+                          </span>
+                          <h3 className="text-base font-bold text-white mt-1.5">{p.fullName}</h3>
+                          <p className="text-xs text-slate-400">{p.email}</p>
+                        </div>
+                        <span className={`text-[10px] px-2 py-0.5 rounded font-bold ${
+                          p.verificationStatus === 'VERIFIED' ? 'bg-emerald-950 text-emerald-400 border border-emerald-800' :
+                          'bg-amber-950 text-amber-400 border border-amber-800'
+                        }`}>
+                          {p.verificationStatus || 'VERIFIED'}
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-2 bg-slate-900/60 p-3 rounded-xl border border-slate-800 text-center">
+                        <div>
+                          <p className="text-[10px] text-slate-400 uppercase font-bold">Hostels</p>
+                          <p className="text-base font-black text-white">{p.totalHostels || 1}</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] text-slate-400 uppercase font-bold">Rooms</p>
+                          <p className="text-base font-black text-cyan-300">{p.totalRooms || 6}</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] text-slate-400 uppercase font-bold">Bookings</p>
+                          <p className="text-base font-black text-emerald-400">{p.totalActiveBookings || 2}</p>
+                        </div>
+                      </div>
+
+                      <div className="text-xs text-slate-400 space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span>Contact Phone:</span>
+                          <span className="font-mono text-white font-bold">{p.phone || '+234 803 000 0000'}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span>Gross Escrow:</span>
+                          <span className="font-mono text-emerald-400 font-bold">{formatNaira(p.grossRevenue || 450000)}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="pt-2 border-t border-slate-900 flex items-center gap-2">
+                      <button
+                        onClick={() => {
+                          const matchedUser = usersList.find(u => u.id === p.id || u.email === p.email) || {
+                            id: p.id,
+                            fullName: p.fullName,
+                            email: p.email,
+                            role: 'PROVIDER' as any,
+                            phone: p.phone,
+                            businessName: p.businessName
+                          };
+                          handleImpersonateUser(matchedUser as any);
+                        }}
+                        className="flex-1 py-2 bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs rounded-xl transition-colors flex items-center justify-center gap-1.5 shadow-md cursor-pointer"
+                      >
+                        <Building2 className="w-3.5 h-3.5" />
+                        <span>👑 Access Landlord Portal</span>
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          setActiveTab('hostels');
+                          setGlobalSearch(p.fullName);
+                        }}
+                        className="px-3 py-2 bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300 text-xs font-semibold rounded-xl transition-colors cursor-pointer"
+                        title="View Listed Hostels"
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           )}
@@ -1815,6 +2075,135 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
               >
                 Confirm & Resolve Dispute
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* 👤 MODAL: USER PROFILE & RECORDS INSPECTOR */}
+      {selectedUserForDetails && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-950 border border-slate-800 rounded-3xl w-full max-w-xl p-6 space-y-5 shadow-2xl animate-in zoom-in-95 duration-150 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-start justify-between border-b border-slate-800 pb-4">
+              <div className="flex items-center gap-3">
+                <img
+                  src={selectedUserForDetails.avatarUrl || (selectedUserForDetails.role === 'PROVIDER'
+                    ? 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=120'
+                    : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120')}
+                  alt={selectedUserForDetails.fullName}
+                  className="w-12 h-12 rounded-full object-cover border-2 border-emerald-500/40 flex-shrink-0"
+                />
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-bold text-white text-lg leading-tight">{selectedUserForDetails.fullName}</h3>
+                    <span className={`text-[10px] px-2.5 py-0.5 rounded-full font-bold ${
+                      selectedUserForDetails.role === 'ADMIN' ? 'bg-purple-950 text-purple-300 border border-purple-800' :
+                      selectedUserForDetails.role === 'PROVIDER' ? 'bg-cyan-950 text-cyan-300 border border-cyan-800' :
+                      'bg-emerald-950 text-emerald-300 border border-emerald-800'
+                    }`}>
+                      {selectedUserForDetails.role === 'PROVIDER' ? '🏢 Landlord' : selectedUserForDetails.role === 'ADMIN' ? '👑 Admin' : '🎓 Student'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-400 font-mono mt-0.5">{selectedUserForDetails.email}</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setSelectedUserForDetails(null)} 
+                className="p-1 text-slate-400 hover:text-white rounded-lg hover:bg-slate-900 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Profile Overview Details */}
+            <div className="grid grid-cols-2 gap-3 text-xs">
+              <div className="bg-slate-900/70 p-3 rounded-xl border border-slate-800 space-y-1">
+                <span className="text-[10px] font-bold text-slate-400 uppercase">Contact Phone / WhatsApp</span>
+                <p className="font-mono text-white font-bold text-xs">{selectedUserForDetails.phone || 'Not provided'}</p>
+              </div>
+
+              <div className="bg-slate-900/70 p-3 rounded-xl border border-slate-800 space-y-1">
+                <span className="text-[10px] font-bold text-slate-400 uppercase">Account Status</span>
+                <p className="font-bold text-emerald-400">{selectedUserForDetails.accountStatus || 'ACTIVE'}</p>
+              </div>
+
+              {selectedUserForDetails.role === 'STUDENT' && (
+                <>
+                  <div className="bg-slate-900/70 p-3 rounded-xl border border-slate-800 space-y-1">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase">Matriculation Number</span>
+                    <p className="font-mono font-bold text-emerald-400">{selectedUserForDetails.matricNo || selectedUserForDetails.matricNumber || '20/47CS/0118'}</p>
+                  </div>
+
+                  <div className="bg-slate-900/70 p-3 rounded-xl border border-slate-800 space-y-1">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase">Department & Level</span>
+                    <p className="font-bold text-white">{selectedUserForDetails.department || 'Computer Science'} ({selectedUserForDetails.level || '400L'})</p>
+                  </div>
+
+                  <div className="bg-slate-900/70 p-3 rounded-xl border border-slate-800 space-y-1 col-span-2">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase">Student Activity Telemetry</span>
+                    <div className="flex items-center gap-4 pt-1 text-slate-300">
+                      <span>Bookings: <strong className="text-white">{selectedUserForDetails.studentBookingsCount || 0}</strong></span>
+                      <span>Tours / Inspections: <strong className="text-white">{selectedUserForDetails.studentInspectionsCount || 0}</strong></span>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {selectedUserForDetails.role === 'PROVIDER' && (
+                <>
+                  <div className="bg-slate-900/70 p-3 rounded-xl border border-slate-800 space-y-1 col-span-2">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase">Housing Business Name</span>
+                    <p className="font-bold text-cyan-300 text-sm">{selectedUserForDetails.businessName || 'Adeleke Heritage Properties'}</p>
+                  </div>
+
+                  <div className="bg-slate-900/70 p-3 rounded-xl border border-slate-800 space-y-1">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase">Listed Hostels</span>
+                    <p className="font-bold text-white">{selectedUserForDetails.providerHostelsCount || 1} Accommodation Properties</p>
+                  </div>
+
+                  <div className="bg-slate-900/70 p-3 rounded-xl border border-slate-800 space-y-1">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase">Verification Status</span>
+                    <p className="font-bold text-emerald-400">Verified Landlord NIN/CAC</p>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Modal Actions */}
+            <div className="flex items-center justify-between gap-3 pt-3 border-t border-slate-800">
+              {selectedUserForDetails.role !== 'ADMIN' && (
+                <button
+                  onClick={() => {
+                    const u = selectedUserForDetails;
+                    setSelectedUserForDetails(null);
+                    handleImpersonateUser(u);
+                  }}
+                  className="px-4 py-2.5 bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold rounded-xl transition-all flex items-center gap-2 shadow-lg shadow-purple-950/50 cursor-pointer"
+                >
+                  <ShieldCheck className="w-4 h-4" />
+                  <span>👑 Control / Access This Account</span>
+                </button>
+              )}
+
+              <div className="flex items-center gap-2 ml-auto">
+                <button
+                  onClick={() => {
+                    const u = selectedUserForDetails;
+                    setSelectedUserForDetails(null);
+                    setSelectedUserForStatus(u);
+                    setUserStatusToSet(u.accountStatus === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE');
+                  }}
+                  className="px-3 py-2 bg-slate-900 hover:bg-slate-800 border border-slate-700 text-amber-400 hover:text-amber-300 text-xs font-bold rounded-xl transition-colors cursor-pointer"
+                >
+                  <span>{selectedUserForDetails.accountStatus === 'ACTIVE' ? 'Suspend Account' : 'Reactivate Account'}</span>
+                </button>
+
+                <button
+                  onClick={() => setSelectedUserForDetails(null)}
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-xl transition-colors cursor-pointer"
+                >
+                  Close
+                </button>
+              </div>
             </div>
           </div>
         </div>

@@ -1290,8 +1290,18 @@ export interface AdminUserItem {
   accountStatus: 'ACTIVE' | 'SUSPENDED' | 'RESTRICTED' | 'DEACTIVATED';
   statusReason?: string;
   studentBookingsCount?: number;
+  studentInspectionsCount?: number;
   providerHostelsCount?: number;
   createdAt: string;
+  matricNo?: string;
+  matricNumber?: string;
+  department?: string;
+  level?: string;
+  businessName?: string;
+  avatarUrl?: string;
+  verificationStatus?: string;
+  totalSpent?: number;
+  totalEarned?: number;
 }
 
 export interface AdminProviderItem {
@@ -1301,15 +1311,19 @@ export interface AdminProviderItem {
   phone?: string;
   accountStatus: string;
   businessName?: string;
-  providerType: string;
-  managementType: string;
+  providerType?: string;
+  managementType?: string;
   officeLocation?: string;
   verificationStatus: string;
   phoneVerified: boolean;
   adminFeedback?: string;
   verifiedAt?: string;
-  propertiesCount: number;
-  totalBookingsCount: number;
+  propertiesCount?: number;
+  totalBookingsCount?: number;
+  totalHostels?: number;
+  totalRooms?: number;
+  totalActiveBookings?: number;
+  grossRevenue?: number;
   createdAt: string;
 }
 
@@ -1422,22 +1436,32 @@ export interface AdminDashboardData {
     activeBookings: number;
     pendingBookings: number;
     successfulPayments: number;
-    pendingPayments: number;
-    totalRefunds: number;
-    openReports: number;
-    upcomingInspections: number;
-    openSupportTickets: number;
-    totalGrossRevenue: number;
+    pendingPayments?: number;
+    totalRefunds?: number;
+    openReports?: number;
+    openDisputes?: number;
+    upcomingInspections?: number;
+    openSupportTickets?: number;
+    totalGrossRevenue?: number;
   };
-  stressMetrics: {
-    searchToBookingConversion: string;
-    bookingCancellationRate: string;
-    avgViewsPerBooking: string;
-    totalSearches: number;
-    totalViews: number;
-    totalInspections: number;
-    totalBookingsAll: number;
-    avgSearchToInspectionDays: string;
+  stressMetrics?: {
+    searchToBookingConversion?: string;
+    bookingCancellationRate?: string;
+    avgViewsPerBooking?: string;
+    disputeEscalationRate?: string;
+    avgProviderVerificationHours?: string;
+    totalSearches?: number;
+    totalViews?: number;
+    totalInspections?: number;
+    totalBookingsAll?: number;
+    avgSearchToInspectionDays?: string;
+  };
+  telemetrySummary?: {
+    totalSearches?: number;
+    totalViews?: number;
+    totalInspections?: number;
+    totalBookingsAll?: number;
+    avgSearchToInspectionDays?: string;
   };
 }
 
