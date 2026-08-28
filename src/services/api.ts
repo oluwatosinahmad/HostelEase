@@ -195,12 +195,121 @@ export function addIsolatedNotification(notif: {
 function generateOfflineFallbackResponse(url?: string): any {
   const cleanUrl = (url || '').split('?')[0].toLowerCase();
 
-  // Areas
+  // 1. In-App Inspections (check before generic /properties/)
+  if (cleanUrl.includes('/inspections/properties/') || cleanUrl.includes('/inspections')) {
+    const mockId = `insp-${Date.now()}`;
+    return {
+      message: 'Inspection request submitted successfully. The landlord will review and confirm your slot.',
+      inspectionId: mockId,
+      status: 'PENDING',
+      inspections: [],
+      inspection: {
+        id: mockId,
+        status: 'PENDING',
+        scheduledDate: new Date().toISOString().split('T')[0],
+        timeSlot: '11:00 AM'
+      }
+    };
+  }
+
+  // 2. Booking Room Availability & Reservations (check before generic /properties/)
+  if (cleanUrl.includes('/bookings/availability')) {
+    const parts = cleanUrl.split('/');
+    const propId = parts[parts.length - 1] || 'prop-default';
+    const foundProp = DEFAULT_PROPERTIES.find(p => p.id === propId || p.slug === propId) || DEFAULT_PROPERTIES[0];
+    
+    return {
+      propertyId: foundProp.id,
+      title: foundProp.title,
+      availabilityStatus: foundProp.availabilityStatus || 'AVAILABLE',
+      rooms: (foundProp.rooms && foundProp.rooms.length > 0) ? foundProp.rooms.map(r => ({
+        id: r.id,
+        name: r.name,
+        type: r.type || 'SELF_CONTAIN',
+        maxOccupants: r.maxOccupants || 1,
+        quantityTotal: r.quantityTotal || 8,
+        quantityAvailable: r.quantityAvailable || 6,
+        occupiedCount: r.occupiedCount || 2,
+        isEnsuite: r.isEnsuite !== false,
+        isFurnished: Boolean(r.isFurnished),
+        status: 'AVAILABLE',
+        pricing: {
+          rentAmount: foundProp.priceSummary?.rentAmount || 200000,
+          serviceCharge: foundProp.priceSummary?.serviceCharge || 15000,
+          agencyFee: 0,
+          cautionDeposit: foundProp.priceSummary?.cautionFee || 20000,
+          otherCharges: foundProp.priceSummary?.otherMandatoryCharges || 5000,
+          totalCost: (foundProp.priceSummary?.rentAmount || 200000) + 40000
+        },
+        bedspaces: [
+          { id: `bs-${r.id}-1`, bedspaceNumber: 'A1', isOccupied: false, genderPreference: 'ANY', status: 'AVAILABLE' },
+          { id: `bs-${r.id}-2`, bedspaceNumber: 'A2', isOccupied: true, genderPreference: 'ANY', status: 'OCCUPIED' }
+        ]
+      })) : [
+        {
+          id: `room-${foundProp.id}-1`,
+          name: 'Executive Self-Contain Room',
+          type: 'SELF_CONTAIN',
+          maxOccupants: 1,
+          quantityTotal: 8,
+          quantityAvailable: 5,
+          occupiedCount: 3,
+          isEnsuite: true,
+          isFurnished: false,
+          status: 'AVAILABLE',
+          pricing: {
+            rentAmount: foundProp.priceSummary?.rentAmount || 220000,
+            serviceCharge: 15000,
+            agencyFee: 0,
+            cautionDeposit: 20000,
+            otherCharges: 5000,
+            totalCost: (foundProp.priceSummary?.rentAmount || 220000) + 40000
+          },
+          bedspaces: [
+            { id: 'bs-1', bedspaceNumber: '1', isOccupied: false, genderPreference: 'ANY', status: 'AVAILABLE' }
+          ]
+        }
+      ]
+    };
+  }
+
+  if (cleanUrl.includes('/bookings/reserve') || cleanUrl.includes('/bookings')) {
+    const mockBookingId = `bk-${Date.now()}`;
+    const mockRef = `HE-BK-${Math.floor(100000 + Math.random() * 900000)}`;
+    return {
+      message: 'Reservation request successfully created and submitted to landlord',
+      bookingId: mockBookingId,
+      bookingReference: mockRef,
+      status: 'PENDING',
+      expiresAt: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString(),
+      totalCost: 260000,
+      bookings: [],
+      breakdown: {
+        rentAmount: 220000,
+        serviceCharge: 15000,
+        cautionDeposit: 20000,
+        otherCharges: 5000,
+        totalCost: 260000
+      }
+    };
+  }
+
+  // 3. Direct Messages & Conversations
+  if (cleanUrl.includes('/messages/conversations') || cleanUrl.includes('/messages')) {
+    return {
+      conversationId: `conv-${Date.now()}`,
+      conversations: [],
+      message: 'Conversation active',
+      messages: []
+    };
+  }
+
+  // 4. Areas
   if (cleanUrl.includes('/areas')) {
     return { areas: DEFAULT_AREAS };
   }
 
-  // Properties / Accommodations
+  // 5. Properties / Accommodations
   if (cleanUrl.includes('/properties/featured')) {
     return { properties: DEFAULT_PROPERTIES.slice(0, 4) };
   }
@@ -251,35 +360,6 @@ function generateOfflineFallbackResponse(url?: string): any {
   // Saved Properties
   if (cleanUrl.includes('/saved')) {
     return { savedProperties: [], isSaved: true, message: 'Updated saved hostels' };
-  }
-
-  // Inspections
-  if (cleanUrl.includes('/inspections')) {
-    return {
-      inspections: [],
-      message: 'Inspection scheduled successfully',
-      inspection: {
-        id: `insp-${Date.now()}`,
-        status: 'SCHEDULED',
-        scheduledDate: new Date().toISOString().split('T')[0],
-        timeSlot: '11:00 AM'
-      }
-    };
-  }
-
-  // Bookings
-  if (cleanUrl.includes('/bookings')) {
-    return {
-      bookings: [],
-      message: 'Booking reservation confirmed',
-      booking: {
-        id: `bk-${Date.now()}`,
-        bookingReference: `HE-BK-${Date.now().toString(36).toUpperCase()}`,
-        status: 'CONFIRMED',
-        paymentStatus: 'PAID',
-        createdAt: new Date().toISOString()
-      }
-    };
   }
 
   // Payments
