@@ -48,6 +48,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
   // Form fields
   const [email, setEmail] = useState('');
+  const [emailManuallyEdited, setEmailManuallyEdited] = useState(false);
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
@@ -64,12 +65,35 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
   if (!isOpen) return null;
 
+  const formatEmailFromName = (name: string, targetRole: UserRole): string => {
+    const clean = name.toLowerCase().trim().replace(/[^a-z0-9]+/g, '.').replace(/^\.+|\.+$/g, '');
+    if (!clean) return '';
+    if (targetRole === 'STUDENT') return `${clean}@lautech.edu.ng`;
+    if (targetRole === 'PROVIDER') return `${clean}@hostelease.ng`;
+    if (targetRole === 'ADMIN') return `${clean}@hostelease.ng`;
+    return `${clean}@lautech.edu.ng`;
+  };
+
+  const getCleanUsernamePrefix = (inputEmail: string): string => {
+    return inputEmail.toLowerCase().trim().split('@')[0].replace(/[^a-z0-9.]/g, '');
+  };
+
+  const handleFullNameChange = (val: string) => {
+    setFullName(val);
+    setError(null);
+    if (!emailManuallyEdited || !email || email.endsWith('@lautech.edu.ng') || email.endsWith('@hostelease.ng')) {
+      setEmail(formatEmailFromName(val, role));
+    }
+  };
+
   const handleRoleSelect = (newRole: UserRole) => {
     setRole(newRole);
     setError(null);
     setAccessRestricted(false);
-    // If switching to Admin, ensure mode is login since public admin registration is forbidden
-    if (newRole === 'ADMIN') {
+    
+    if (fullName && (!emailManuallyEdited || email.endsWith('@lautech.edu.ng') || email.endsWith('@hostelease.ng'))) {
+      setEmail(formatEmailFromName(fullName, newRole));
+    } else if (newRole === 'ADMIN') {
       setMode('login');
       if (!email || email.includes('lautech.edu.ng') || email.includes('example.com')) {
         setEmail('admin@hostelease.ng');
@@ -83,7 +107,19 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     setRole('STUDENT');
     setMode('login');
     setEmail('');
+    setEmailManuallyEdited(false);
     setPassword('');
+    setFullName('');
+  };
+
+  const normalizeEmailBeforeSubmit = (rawEmail: string, targetRole: UserRole): string => {
+    const trimmed = rawEmail.toLowerCase().trim();
+    if (!trimmed) return '';
+    if (!trimmed.includes('@')) {
+      if (targetRole === 'STUDENT') return `${trimmed}@lautech.edu.ng`;
+      if (targetRole === 'PROVIDER' || targetRole === 'ADMIN') return `${trimmed}@hostelease.ng`;
+    }
+    return trimmed;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -92,14 +128,16 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     setAccessRestricted(false);
     setSubmitting(true);
 
+    const resolvedEmail = normalizeEmailBeforeSubmit(email, role);
+
     try {
       let authedUser: any = null;
       if (mode === 'login') {
         // Pass requested role context to backend for strict authorization
-        authedUser = await login(email.trim(), password, role);
+        authedUser = await login(resolvedEmail, password, role);
       } else {
         authedUser = await register({
-          email: email.trim(),
+          email: resolvedEmail,
           password,
           fullName: fullName.trim(),
           phone: phone.trim() || undefined,
@@ -305,16 +343,21 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             <form onSubmit={handleSubmit} className="space-y-3">
               {mode === 'register' && role !== 'ADMIN' && (
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
-                    Full Name {role === 'PROVIDER' ? '(Landlord)' : '(Student)'}
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase">
+                      Full Name {role === 'PROVIDER' ? '(Landlord)' : '(Student)'}
+                    </label>
+                    <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">
+                      ✨ Auto-generates email
+                    </span>
+                  </div>
                   <div className="relative flex items-center">
                     <UserIcon className="w-4 h-4 text-slate-400 absolute left-3" />
                     <input
                       type="text"
-                      placeholder={role === 'PROVIDER' ? 'e.g. Chief Segun Olaleye' : 'e.g. Babatunde Adeleke'}
+                      placeholder={role === 'PROVIDER' ? 'e.g. Ahmad Oladimeji' : 'e.g. Adelopo Ahmad'}
                       value={fullName}
-                      onChange={(e) => { setFullName(e.target.value); setError(null); }}
+                      onChange={(e) => handleFullNameChange(e.target.value)}
                       className="w-full text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pl-9 pr-3 py-2.5 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                       required
                     />
@@ -323,26 +366,83 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               )}
 
               <div>
-                <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
-                  {role === 'ADMIN' ? 'Admin Email / Username' : 'Email Address'}
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase">
+                    {role === 'ADMIN' ? 'Admin Email / Username' : 'Email Address'}
+                  </label>
+                  {email && !email.includes('@') && (
+                    <span className="text-[10px] text-amber-600 dark:text-amber-400 font-bold">
+                      Domain required
+                    </span>
+                  )}
+                </div>
                 <div className="relative flex items-center">
                   <Mail className="w-4 h-4 text-slate-400 absolute left-3" />
                   <input
-                    type="email"
+                    type="text"
                     placeholder={
                       role === 'STUDENT' 
-                        ? 'student@lautech.edu.ng' 
+                        ? 'adelopo@lautech.edu.ng' 
                         : role === 'ADMIN' 
                         ? 'admin@hostelease.ng' 
-                        : 'landlord@hostelease.ng'
+                        : 'ahmad@hostelease.ng'
                     }
                     value={email}
-                    onChange={(e) => { setEmail(e.target.value); setError(null); }}
+                    onChange={(e) => { 
+                      setEmail(e.target.value); 
+                      setEmailManuallyEdited(true); 
+                      setError(null); 
+                    }}
                     className="w-full text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pl-9 pr-3 py-2.5 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                     required
                   />
                 </div>
+
+                {/* Smart Auto-Complete Domain Chip */}
+                {email && !email.includes('@') && (
+                  <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
+                    <span className="text-[10px] text-slate-500 dark:text-slate-400">Click to complete:</span>
+                    {role === 'STUDENT' && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const clean = getCleanUsernamePrefix(email);
+                          setEmail(`${clean || 'student'}@lautech.edu.ng`);
+                          setError(null);
+                        }}
+                        className="px-2 py-0.5 bg-emerald-100 hover:bg-emerald-200 dark:bg-emerald-950/60 dark:hover:bg-emerald-900/80 text-emerald-800 dark:text-emerald-200 text-[10px] font-bold rounded-lg transition-colors flex items-center gap-1 border border-emerald-300 dark:border-emerald-700"
+                      >
+                        <span>⚡ @lautech.edu.ng</span>
+                      </button>
+                    )}
+                    {role === 'PROVIDER' && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const clean = getCleanUsernamePrefix(email);
+                          setEmail(`${clean || 'landlord'}@hostelease.ng`);
+                          setError(null);
+                        }}
+                        className="px-2 py-0.5 bg-emerald-100 hover:bg-emerald-200 dark:bg-emerald-950/60 dark:hover:bg-emerald-900/80 text-emerald-800 dark:text-emerald-200 text-[10px] font-bold rounded-lg transition-colors flex items-center gap-1 border border-emerald-300 dark:border-emerald-700"
+                      >
+                        <span>⚡ @hostelease.ng</span>
+                      </button>
+                    )}
+                    {role === 'ADMIN' && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const clean = getCleanUsernamePrefix(email);
+                          setEmail(`${clean || 'admin'}@hostelease.ng`);
+                          setError(null);
+                        }}
+                        className="px-2 py-0.5 bg-purple-100 hover:bg-purple-200 dark:bg-purple-950/60 dark:hover:bg-purple-900/80 text-purple-800 dark:text-purple-200 text-[10px] font-bold rounded-lg transition-colors flex items-center gap-1 border border-purple-300 dark:border-purple-700"
+                      >
+                        <span>👑 @hostelease.ng</span>
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div>
