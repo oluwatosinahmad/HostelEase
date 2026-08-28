@@ -1944,9 +1944,9 @@ export const api = {
     }
   },
 
-  // Accommodation Messaging (Phase 4)
+  // In-App Messaging API
   messages: {
-    async startConversation(propertyId: string, initialMessage?: string, studentId?: string): Promise<{ conversationId: string; conversation: any }> {
+    async startConversation(propertyId: string, initialMessage?: string, studentId?: string): Promise<{ conversationId: string; conversation: ConversationItem }> {
       try {
         const res = await fetch(`${API_BASE}/messages/conversations`, {
           method: 'POST',
@@ -1962,24 +1962,45 @@ export const api = {
         console.warn('Backend start conversation unreachable, using local storage session.');
       }
 
-      // Local / Offline fallback
-      const property = DEFAULT_PROPERTIES.find(p => p.id === propertyId) || DEFAULT_PROPERTIES[0];
-      const convId = `conv-${property.id}`;
+      // Local / Offline fallback - lookup across local registered properties and defaults
+      const allProps = [...getLocalProperties('all'), ...DEFAULT_PROPERTIES];
+      const property = allProps.find(p => p.id === propertyId) || {
+        id: propertyId,
+        title: 'LAUTECH Student Accommodation',
+        address: 'LAUTECH Area, Ogbomoso',
+        area: { name: 'Under G' },
+        areaName: 'Under G',
+        propertyType: 'SELF_CONTAIN',
+        distanceFromCampusKm: 0.8,
+        priceSummary: { rentAmount: 200000, totalMandatoryCost: 200000 },
+        coverImage: 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=1200&q=80',
+        provider: {
+          id: `usr-provider-${propertyId}`,
+          name: 'Verified Landlord',
+          phone: '+234 800 000 0000'
+        }
+      };
+
       const userRaw = localStorage.getItem('hostel_ease_user');
       const currentUser = userRaw ? JSON.parse(userRaw) : null;
+      const sId = studentId || currentUser?.id || 'usr-student-default';
+      const sName = currentUser?.fullName || 'Ahmad Adelopo';
+      const provName = property.provider?.name || (property.provider as any)?.businessName || (property as any).businessName || 'Verified Landlord';
+      const provId = property.provider?.id || (property as any).providerId || `usr-prov-${property.id}`;
+      const convId = `conv-${property.id}`;
       
       const conv: ConversationItem = {
         id: convId,
         propertyId: property.id,
-        propertyTitle: property.title,
-        propertyAddress: property.address,
-        propertyCoverImage: property.coverImage,
-        areaName: property.area?.name || 'LAUTECH Area',
-        studentId: currentUser?.id || 'usr-student-default',
-        studentName: currentUser?.fullName || 'Ahmad Adelopo',
-        providerId: property.provider?.id || 'usr-provider-default',
-        providerName: property.provider?.name || 'Chief Oladimeji Alao',
-        lastMessageText: initialMessage || 'Hello! Is this hostel available for the 2026/2027 academic session?',
+        propertyTitle: property.title || 'Hostel Accommodation',
+        propertyAddress: property.address || 'LAUTECH Area',
+        propertyCoverImage: property.coverImage || 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=1200&q=80',
+        areaName: (property as any).areaName || property.area?.name || 'Under G',
+        studentId: sId,
+        studentName: sName,
+        providerId: provId,
+        providerName: provName,
+        lastMessageText: initialMessage || `Hello! Is ${property.title} available for the 2026/2027 academic session?`,
         lastMessageAt: new Date().toISOString(),
         unreadCount: 0,
         status: 'ACTIVE',
@@ -1987,7 +2008,7 @@ export const api = {
       };
 
       const existingConvs = getLocalConversations();
-      const updatedConvs = [conv, ...existingConvs.filter(c => c.id !== convId)];
+      const updatedConvs = [conv, ...existingConvs.filter(c => c.id !== convId && c.propertyId !== property.id)];
       saveLocalConversations(updatedConvs);
 
       // Seed initial messages if none exist
@@ -1997,20 +2018,20 @@ export const api = {
           {
             id: `msg-${Date.now()}-1`,
             conversationId: convId,
-            senderId: currentUser?.id || 'usr-student-default',
+            senderId: sId,
             senderRole: 'STUDENT',
             messageType: 'TEXT',
-            content: initialMessage || 'Hello! Is this hostel available for the 2026/2027 academic session?',
+            content: initialMessage || `Hello! Is ${property.title} available for rent for the 2026/2027 session?`,
             isRead: true,
             createdAt: new Date(Date.now() - 300000).toISOString()
           },
           {
             id: `msg-${Date.now()}-2`,
             conversationId: convId,
-            senderId: property.provider?.id || 'usr-provider-default',
+            senderId: provId,
             senderRole: 'PROVIDER',
             messageType: 'TEXT',
-            content: `Hello! Yes, we have available rooms at ${property.title}. Electricity is steady and clean borehole water is running. What day would you like to schedule an inspection tour?`,
+            content: `Hello ${sName.split(' ')[0]}! Yes, we have available rooms at ${property.title}. Clean borehole water is running 24/7 and electricity is steady. Would you like to schedule an inspection tour this week?`,
             isRead: true,
             createdAt: new Date().toISOString()
           }
@@ -2039,8 +2060,11 @@ export const api = {
 
       let local = getLocalConversations();
       if (local.length === 0) {
-        const p1 = DEFAULT_PROPERTIES[0];
-        const p2 = DEFAULT_PROPERTIES[1];
+        const allProps = [...getLocalProperties('all'), ...DEFAULT_PROPERTIES];
+        const p1 = allProps[0] || DEFAULT_PROPERTIES[0];
+        const p2 = allProps[1] || DEFAULT_PROPERTIES[1];
+        const p3 = allProps[2] || DEFAULT_PROPERTIES[2];
+
         local = [
           {
             id: `conv-${p1.id}`,
@@ -2048,12 +2072,12 @@ export const api = {
             propertyTitle: p1.title,
             propertyAddress: p1.address,
             propertyCoverImage: p1.coverImage,
-            areaName: p1.area?.name || 'Under G',
+            areaName: (p1 as any).areaName || p1.area?.name || 'Under G',
             studentId: 'usr-student-default',
             studentName: 'Ahmad Adelopo',
-            providerId: p1.provider?.id || 'usr-provider-default',
+            providerId: p1.provider?.id || 'usr-provider-1',
             providerName: p1.provider?.name || 'Engr. Segun Adeyemi',
-            lastMessageText: 'Hello Ahmad! I will be waiting at the lodge gate by 2:00 PM for the inspection.',
+            lastMessageText: 'Hello Ahmad! I will be waiting at the lodge gate by 2:00 PM for your inspection tour.',
             lastMessageAt: new Date(Date.now() - 3600000).toISOString(),
             unreadCount: 0,
             status: 'ACTIVE',
@@ -2065,16 +2089,33 @@ export const api = {
             propertyTitle: p2.title,
             propertyAddress: p2.address,
             propertyCoverImage: p2.coverImage,
-            areaName: p2.area?.name || 'Adenike',
+            areaName: (p2 as any).areaName || p2.area?.name || 'Adenike',
             studentId: 'usr-student-default',
             studentName: 'Ahmad Adelopo',
             providerId: p2.provider?.id || 'usr-provider-2',
             providerName: p2.provider?.name || 'Chief Oladimeji Alao',
-            lastMessageText: 'Good day! Room 4 is still available for the 2026/2027 academic session.',
+            lastMessageText: 'Good day! Room 4 is still available with steady water and prepaid meter for the 2026/2027 session.',
             lastMessageAt: new Date(Date.now() - 7200000).toISOString(),
-            unreadCount: 0,
+            unreadCount: 1,
             status: 'ACTIVE',
             createdAt: new Date(Date.now() - 172800000).toISOString()
+          },
+          {
+            id: `conv-${p3.id}`,
+            propertyId: p3.id,
+            propertyTitle: p3.title,
+            propertyAddress: p3.address,
+            propertyCoverImage: p3.coverImage,
+            areaName: (p3 as any).areaName || p3.area?.name || 'Isale General',
+            studentId: 'usr-student-default',
+            studentName: 'Ahmad Adelopo',
+            providerId: p3.provider?.id || 'usr-provider-3',
+            providerName: p3.provider?.name || 'Alhaji Rasheed Akanni',
+            lastMessageText: 'The total fee covers annual rent and caution deposit with zero agency commission.',
+            lastMessageAt: new Date(Date.now() - 14400000).toISOString(),
+            unreadCount: 0,
+            status: 'ACTIVE',
+            createdAt: new Date(Date.now() - 259200000).toISOString()
           }
         ];
         saveLocalConversations(local);
@@ -2096,54 +2137,89 @@ export const api = {
         console.warn('Backend getConversation unreachable, using local storage.');
       }
 
+      const allProps = [...getLocalProperties('all'), ...DEFAULT_PROPERTIES];
       const convs = getLocalConversations();
-      const convItem = convs.find(c => c.id === id) || convs[0];
-      const propertyId = convItem ? convItem.propertyId : id.replace('conv-', '');
-      const prop = DEFAULT_PROPERTIES.find(p => p.id === propertyId) || DEFAULT_PROPERTIES[0];
+      
+      // Look up specific conversation by id or by propertyId
+      let convItem = convs.find(c => c.id === id || c.propertyId === id || c.id === `conv-${id}`);
+      
+      if (!convItem && convs.length > 0) {
+        convItem = convs[0];
+      }
 
-      let msgs = getLocalMessages(id);
+      const targetPropertyId = convItem ? convItem.propertyId : id.replace('conv-', '');
+      const prop = allProps.find(p => p.id === targetPropertyId) || {
+        id: targetPropertyId,
+        title: convItem?.propertyTitle || 'Hostel Accommodation',
+        address: convItem?.propertyAddress || 'LAUTECH Area, Ogbomoso',
+        area: { name: convItem?.areaName || 'Under G' },
+        areaName: convItem?.areaName || 'Under G',
+        propertyType: 'SELF_CONTAIN',
+        distanceFromCampusKm: 0.8,
+        priceSummary: { rentAmount: 220000, totalMandatoryCost: 240000 },
+        coverImage: convItem?.propertyCoverImage || 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=1200&q=80',
+        provider: {
+          id: convItem?.providerId || `usr-prov-${targetPropertyId}`,
+          name: convItem?.providerName || 'Verified Landlord'
+        }
+      };
+
+      const finalConvId = convItem?.id || id;
+      let msgs = getLocalMessages(finalConvId);
+
       if (msgs.length === 0) {
+        const provName = convItem?.providerName || prop.provider?.name || 'Verified Landlord';
+        const stName = convItem?.studentName || 'Ahmad Adelopo';
         msgs = [
           {
             id: `msg-${Date.now()}-1`,
-            conversationId: id,
-            senderId: 'usr-student-default',
+            conversationId: finalConvId,
+            senderId: convItem?.studentId || 'usr-student-default',
             senderRole: 'STUDENT',
             messageType: 'TEXT',
-            content: 'Hello! Is this hostel available for rent for the 2026/2027 session?',
+            content: `Hello! Is ${prop.title} available for rent for the 2026/2027 session?`,
             isRead: true,
             createdAt: new Date(Date.now() - 3600000).toISOString()
           },
           {
             id: `msg-${Date.now()}-2`,
-            conversationId: id,
-            senderId: prop.provider?.id || 'usr-provider-default',
+            conversationId: finalConvId,
+            senderId: prop.provider?.id || convItem?.providerId || 'usr-provider-default',
             senderRole: 'PROVIDER',
             messageType: 'TEXT',
-            content: `Hello! Yes, we have available rooms at ${prop.title}. The rooms are ensuite with steady borehole water and prepaid meters. Would you like to schedule an inspection tour?`,
+            content: `Hello ${stName.split(' ')[0]}! Yes, we have available rooms at ${prop.title}. The lodge has steady borehole water and prepaid meters. What time would be convenient for an inspection tour?`,
             isRead: true,
             createdAt: new Date(Date.now() - 1800000).toISOString()
           }
         ];
-        saveLocalMessages(id, msgs);
+        saveLocalMessages(finalConvId, msgs);
       }
+
+      const rentVal = Number((prop as any).rentAmount ?? prop.priceSummary?.rentAmount ?? 220000);
+      const totalVal = Number((prop as any).totalMandatoryCost ?? prop.priceSummary?.totalMandatoryCost ?? rentVal);
 
       return {
         conversation: {
-          id: id,
+          id: finalConvId,
           property: {
             id: prop.id,
-            title: prop.title,
-            address: prop.address,
-            areaName: prop.area?.name || 'LAUTECH Area',
-            propertyType: prop.propertyType,
-            distanceFromCampusKm: prop.distanceFromCampusKm,
-            rentAmount: prop.priceSummary?.rentAmount || 220000,
-            totalMandatoryCost: prop.priceSummary?.totalMandatoryCost || 280000,
-            coverImage: prop.coverImage
+            title: prop.title || convItem?.propertyTitle || 'Hostel Accommodation',
+            address: prop.address || convItem?.propertyAddress || 'LAUTECH Area, Ogbomoso',
+            areaName: (prop as any).areaName || prop.area?.name || convItem?.areaName || 'LAUTECH Area',
+            propertyType: prop.propertyType || 'SELF_CONTAIN',
+            distanceFromCampusKm: Number(prop.distanceFromCampusKm) || 0.8,
+            rentAmount: rentVal,
+            totalMandatoryCost: totalVal,
+            coverImage: prop.coverImage || convItem?.propertyCoverImage || 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=1200&q=80'
           },
-          student: { id: convItem?.studentId || 'usr-student-default', name: convItem?.studentName || 'Ahmad Adelopo' },
-          provider: { id: prop.provider?.id || 'usr-provider-default', name: prop.provider?.name || 'Engr. Segun Adeyemi' },
+          student: {
+            id: convItem?.studentId || 'usr-student-default',
+            name: convItem?.studentName || 'Ahmad Adelopo'
+          },
+          provider: {
+            id: prop.provider?.id || convItem?.providerId || 'usr-provider-default',
+            name: convItem?.providerName || prop.provider?.name || 'Verified Landlord'
+          },
           status: 'ACTIVE',
           createdAt: convItem?.createdAt || new Date().toISOString()
         },
@@ -2209,26 +2285,24 @@ export const api = {
       });
       saveLocalConversations(updated);
 
-      // Create notification for Landlord when student sends a message
-      if (!isProvider) {
-        try {
-          const targetConv = convs.find(c => c.id === conversationId);
-          const propertyTitle = targetConv?.propertyTitle || 'Your Hostel';
-          const notif = {
-            id: `notif-msg-${Date.now()}`,
-            userId: 'usr-provider-default',
-            title: 'New Student Message',
-            message: `${senderName} sent a message regarding ${propertyTitle}: "${content.substring(0, 60)}${content.length > 60 ? '...' : ''}"`,
-            type: 'NEW_MESSAGE',
-            linkUrl: '/messages',
-            isRead: false,
-            createdAt: new Date().toISOString()
-          };
-          const currentNotifs = JSON.parse(localStorage.getItem('hostel_ease_notifications') || '[]');
-          localStorage.setItem('hostel_ease_notifications', JSON.stringify([notif, ...currentNotifs]));
-          window.dispatchEvent(new CustomEvent('hostel_ease_notification_updated'));
-        } catch {}
-      }
+      // Create notification for recipient
+      try {
+        const targetConv = convs.find(c => c.id === conversationId);
+        const propertyTitle = targetConv?.propertyTitle || 'Hostel Accommodation';
+        const notif = {
+          id: `notif-msg-${Date.now()}`,
+          userId: isProvider ? (targetConv?.studentId || 'usr-student-default') : (targetConv?.providerId || 'usr-provider-default'),
+          title: isProvider ? `Message from Landlord (${senderName})` : `New Student Message (${senderName})`,
+          message: `Regarding ${propertyTitle}: "${content.substring(0, 60)}${content.length > 60 ? '...' : ''}"`,
+          type: 'NEW_MESSAGE',
+          linkUrl: '/messages',
+          isRead: false,
+          createdAt: new Date().toISOString()
+        };
+        const currentNotifs = JSON.parse(localStorage.getItem('hostel_ease_notifications') || '[]');
+        localStorage.setItem('hostel_ease_notifications', JSON.stringify([notif, ...currentNotifs]));
+        window.dispatchEvent(new CustomEvent('hostel_ease_notification_updated'));
+      } catch {}
 
       return { message: newMsg };
     },
