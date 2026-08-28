@@ -71,6 +71,9 @@ export const StudentInspectionCenter: React.FC<StudentInspectionCenterProps> = (
 
   useEffect(() => {
     fetchInspections();
+    const handleUpdate = () => fetchInspections();
+    window.addEventListener('hostel_ease_inspections_updated', handleUpdate);
+    return () => window.removeEventListener('hostel_ease_inspections_updated', handleUpdate);
   }, [activeTab]);
 
   const handleConfirmReschedule = async (id: string) => {

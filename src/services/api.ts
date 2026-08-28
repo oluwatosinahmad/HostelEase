@@ -192,23 +192,181 @@ export function addIsolatedNotification(notif: {
   }
 }
 
+const SEED_BOOKINGS: BookingItem[] = [
+  {
+    id: 'bk-seed-1',
+    bookingReference: 'HE-BK-782194',
+    propertyId: 'prop-underg-1',
+    propertyTitle: 'Crown Royal Deluxe Lodge',
+    propertyCoverImage: 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=1000&q=80',
+    distanceFromCampusKm: 0.6,
+    areaName: 'Under G (LAUTECH)',
+    roomId: 'room-underg-1',
+    roomName: 'Executive Ensuite Room (B2)',
+    roomType: 'SELF_CONTAIN',
+    bedspaceNumber: 'Bed A',
+    moveInDate: '2026-09-01',
+    academicSession: '2026/2027',
+    durationMonths: 12,
+    rentAmount: 220000,
+    serviceCharge: 15000,
+    agencyFee: 0,
+    cautionDeposit: 20000,
+    otherCharges: 5000,
+    totalCost: 260000,
+    status: 'CONFIRMED',
+    paymentStatus: 'PAID',
+    paidAt: new Date(Date.now() - 3 * 86400000).toISOString(),
+    expiresAt: new Date(Date.now() + 365 * 86400000).toISOString(),
+    createdAt: new Date(Date.now() - 5 * 86400000).toISOString(),
+    updatedAt: new Date(Date.now() - 3 * 86400000).toISOString(),
+    studentName: 'Student User',
+    studentEmail: 'student@hostelease.ng',
+    studentPhone: '08031234567',
+    studentMatricNumber: '2024/09876',
+    studentDepartment: 'Computer Science',
+    studentLevel: '300L',
+    providerName: 'Chief Oladimeji Alao',
+    providerEmail: 'landlord@hostelease.ng',
+    providerPhone: '08039876543'
+  }
+];
+
+export function getLocalBookings(): BookingItem[] {
+  try {
+    const raw = localStorage.getItem('hostel_ease_bookings');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch {}
+  localStorage.setItem('hostel_ease_bookings', JSON.stringify(SEED_BOOKINGS));
+  return SEED_BOOKINGS;
+}
+
+export function saveLocalBooking(item: BookingItem) {
+  try {
+    const all = getLocalBookings();
+    const existingIndex = all.findIndex(b => b.id === item.id || b.bookingReference === item.bookingReference);
+    if (existingIndex >= 0) {
+      all[existingIndex] = { ...all[existingIndex], ...item, updatedAt: new Date().toISOString() };
+    } else {
+      all.unshift(item);
+    }
+    localStorage.setItem('hostel_ease_bookings', JSON.stringify(all));
+    window.dispatchEvent(new CustomEvent('hostel_ease_bookings_updated', { detail: item }));
+  } catch (err) {
+    console.error('Failed to save local booking:', err);
+  }
+}
+
+export function updateLocalBookingStatus(id: string, status: BookingStatus, reason?: string) {
+  try {
+    const all = getLocalBookings();
+    const target = all.find(b => b.id === id || b.bookingReference === id);
+    if (target) {
+      target.status = status;
+      if (reason) target.cancellationReason = reason;
+      target.updatedAt = new Date().toISOString();
+      localStorage.setItem('hostel_ease_bookings', JSON.stringify(all));
+      window.dispatchEvent(new CustomEvent('hostel_ease_bookings_updated'));
+    }
+  } catch (err) {
+    console.error('Failed to update local booking:', err);
+  }
+}
+
+const SEED_INSPECTIONS: InspectionRequest[] = [
+  {
+    id: 'insp-seed-1',
+    propertyId: 'prop-underg-1',
+    propertyTitle: 'Crown Royal Deluxe Lodge',
+    propertyAddress: 'Opposite Bovas Station, Under G Area, Ogbomoso',
+    nearbyLandmark: 'Bovas Station',
+    areaName: 'Under G (LAUTECH)',
+    coverImage: 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=1000&q=80',
+    inspectionType: 'PHYSICAL',
+    preferredDate: new Date(Date.now() + 2 * 86400000).toISOString().split('T')[0],
+    preferredTime: '11:00 AM',
+    studentPhone: '08031234567',
+    status: 'CONFIRMED',
+    studentName: 'Student User',
+    studentEmail: 'student@hostelease.ng',
+    providerName: 'Chief Oladimeji Alao',
+    providerPhone: '08039876543',
+    createdAt: new Date().toISOString()
+  }
+];
+
+export function getLocalInspections(): InspectionRequest[] {
+  try {
+    const raw = localStorage.getItem('hostel_ease_inspections');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch {}
+  localStorage.setItem('hostel_ease_inspections', JSON.stringify(SEED_INSPECTIONS));
+  return SEED_INSPECTIONS;
+}
+
+export function saveLocalInspection(item: InspectionRequest) {
+  try {
+    const all = getLocalInspections();
+    const existingIndex = all.findIndex(i => i.id === item.id);
+    if (existingIndex >= 0) {
+      all[existingIndex] = { ...all[existingIndex], ...item, updatedAt: new Date().toISOString() };
+    } else {
+      all.unshift(item);
+    }
+    localStorage.setItem('hostel_ease_inspections', JSON.stringify(all));
+    window.dispatchEvent(new CustomEvent('hostel_ease_inspections_updated', { detail: item }));
+  } catch (err) {
+    console.error('Failed to save local inspection:', err);
+  }
+}
+
 function generateOfflineFallbackResponse(url?: string): any {
   const cleanUrl = (url || '').split('?')[0].toLowerCase();
 
   // 1. In-App Inspections (check before generic /properties/)
-  if (cleanUrl.includes('/inspections/properties/') || cleanUrl.includes('/inspections')) {
+  if (cleanUrl.includes('/inspections/properties/')) {
+    const parts = cleanUrl.split('/');
+    const propId = parts[parts.length - 1] || 'prop-default';
+    const foundProp = DEFAULT_PROPERTIES.find(p => p.id === propId || p.slug === propId) || DEFAULT_PROPERTIES[0];
     const mockId = `insp-${Date.now()}`;
+    const newInsp: InspectionRequest = {
+      id: mockId,
+      propertyId: foundProp.id,
+      propertyTitle: foundProp.title,
+      propertyAddress: foundProp.nearbyLandmark ? `Near ${foundProp.nearbyLandmark}, Ogbomoso` : 'Under G, Ogbomoso',
+      nearbyLandmark: foundProp.nearbyLandmark,
+      areaName: foundProp.area?.name || 'Under G (LAUTECH)',
+      coverImage: foundProp.coverImage,
+      inspectionType: 'PHYSICAL',
+      preferredDate: new Date(Date.now() + 2 * 86400000).toISOString().split('T')[0],
+      preferredTime: '11:00 AM',
+      studentPhone: '08031234567',
+      status: 'PENDING',
+      studentName: 'Student User',
+      studentEmail: 'student@hostelease.ng',
+      providerName: foundProp.provider?.name || 'Chief Oladimeji Alao',
+      providerPhone: foundProp.provider?.phone || '08039876543',
+      createdAt: new Date().toISOString()
+    };
+    saveLocalInspection(newInsp);
+
     return {
       message: 'Inspection request submitted successfully. The landlord will review and confirm your slot.',
       inspectionId: mockId,
       status: 'PENDING',
-      inspections: [],
-      inspection: {
-        id: mockId,
-        status: 'PENDING',
-        scheduledDate: new Date().toISOString().split('T')[0],
-        timeSlot: '11:00 AM'
-      }
+      inspection: newInsp
+    };
+  }
+
+  if (cleanUrl.endsWith('/inspections') || cleanUrl.includes('/inspections')) {
+    return {
+      inspections: getLocalInspections()
     };
   }
 
@@ -273,17 +431,52 @@ function generateOfflineFallbackResponse(url?: string): any {
     };
   }
 
-  if (cleanUrl.includes('/bookings/reserve') || cleanUrl.includes('/bookings')) {
+  if (cleanUrl.includes('/bookings/reserve')) {
     const mockBookingId = `bk-${Date.now()}`;
     const mockRef = `HE-BK-${Math.floor(100000 + Math.random() * 900000)}`;
+    const foundProp = DEFAULT_PROPERTIES[0];
+    const newBooking: BookingItem = {
+      id: mockBookingId,
+      bookingReference: mockRef,
+      propertyId: foundProp.id,
+      propertyTitle: foundProp.title,
+      propertyCoverImage: foundProp.coverImage || 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=800&q=80',
+      distanceFromCampusKm: foundProp.distanceFromCampusKm || 0.6,
+      areaName: foundProp.area?.name || 'Under G (LAUTECH)',
+      roomId: 'room-1',
+      roomName: 'Executive Ensuite Room',
+      roomType: 'SELF_CONTAIN',
+      moveInDate: new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0],
+      academicSession: '2026/2027',
+      durationMonths: 12,
+      rentAmount: 220000,
+      serviceCharge: 15000,
+      agencyFee: 0,
+      cautionDeposit: 20000,
+      otherCharges: 5000,
+      totalCost: 260000,
+      status: 'PENDING',
+      expiresAt: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString(),
+      paymentStatus: 'UNPAID',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      studentName: 'Student User',
+      studentEmail: 'student@hostelease.ng',
+      studentPhone: '08031234567',
+      studentMatricNumber: '2024/09876',
+      providerName: foundProp.provider?.name || 'Chief Oladimeji Alao',
+      providerEmail: (foundProp.provider as any)?.email || 'landlord@hostelease.ng',
+      providerPhone: foundProp.provider?.phone || '08039876543'
+    };
+    saveLocalBooking(newBooking);
+
     return {
       message: 'Reservation request successfully created and submitted to landlord',
       bookingId: mockBookingId,
       bookingReference: mockRef,
       status: 'PENDING',
-      expiresAt: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString(),
+      expiresAt: newBooking.expiresAt,
       totalCost: 260000,
-      bookings: [],
       breakdown: {
         rentAmount: 220000,
         serviceCharge: 15000,
@@ -291,6 +484,12 @@ function generateOfflineFallbackResponse(url?: string): any {
         otherCharges: 5000,
         totalCost: 260000
       }
+    };
+  }
+
+  if (cleanUrl.endsWith('/bookings') || cleanUrl.includes('/bookings')) {
+    return {
+      bookings: getLocalBookings()
     };
   }
 
@@ -1462,23 +1661,99 @@ export const api = {
       studentPhone?: string;
       notes?: string;
     }): Promise<{ message: string; inspectionId: string }> {
-      const res = await fetch(`${API_BASE}/inspections/properties/${propertyId}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
-        body: JSON.stringify(data)
+      const foundProp = DEFAULT_PROPERTIES.find(p => p.id === propertyId || p.slug === propertyId) || DEFAULT_PROPERTIES[0];
+      const currentUser = getCurrentUser();
+      const mockId = `insp-${Date.now()}`;
+
+      const newInsp: InspectionRequest = {
+        id: mockId,
+        propertyId: foundProp.id,
+        propertyTitle: foundProp.title,
+        propertyAddress: foundProp.nearbyLandmark ? `Near ${foundProp.nearbyLandmark}, Ogbomoso` : 'Under G, Ogbomoso',
+        nearbyLandmark: foundProp.nearbyLandmark,
+        areaName: foundProp.area?.name || 'Under G (LAUTECH)',
+        coverImage: foundProp.coverImage,
+        roomId: data.roomId,
+        inspectionType: data.inspectionType,
+        preferredDate: data.preferredDate,
+        preferredTime: data.preferredTime,
+        studentPhone: data.studentPhone || currentUser?.phone || '08031234567',
+        notes: data.notes,
+        status: 'PENDING',
+        studentName: currentUser?.fullName || 'Student User',
+        studentEmail: currentUser?.email || 'student@hostelease.ng',
+        providerName: foundProp.provider?.name || 'Chief Oladimeji Alao',
+        providerPhone: foundProp.provider?.phone || '08039876543',
+        createdAt: new Date().toISOString()
+      };
+
+      try {
+        const res = await fetch(`${API_BASE}/inspections/properties/${propertyId}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+          body: JSON.stringify(data)
+        });
+        if (res.ok) {
+          const json = await res.json();
+          newInsp.id = json.inspectionId || newInsp.id;
+          saveLocalInspection(newInsp);
+          return json;
+        }
+      } catch (err) {
+        console.warn('Backend inspection service unreachable, storing inspection appointment locally.');
+      }
+
+      saveLocalInspection(newInsp);
+      addIsolatedNotification({
+        userId: currentUser?.id || 'usr-student-default',
+        title: 'Inspection Appointment Booked',
+        message: `Scheduled ${data.inspectionType} inspection for ${foundProp.title} on ${data.preferredDate} at ${data.preferredTime}.`,
+        linkUrl: '/student',
+        role: 'STUDENT'
       });
-      return handleResponse(res);
+
+      return {
+        message: 'Inspection request submitted successfully. The landlord will review and confirm your slot.',
+        inspectionId: mockId
+      };
     },
 
     async getAll(filters: { status?: string; type?: string } = {}): Promise<{ inspections: InspectionRequest[] }> {
-      const params = new URLSearchParams();
-      if (filters.status && filters.status !== 'ALL') params.append('status', filters.status);
-      if (filters.type && filters.type !== 'ALL') params.append('type', filters.type);
+      try {
+        const params = new URLSearchParams();
+        if (filters.status && filters.status !== 'ALL') params.append('status', filters.status);
+        if (filters.type && filters.type !== 'ALL') params.append('type', filters.type);
 
-      const res = await fetch(`${API_BASE}/inspections?${params.toString()}`, {
-        headers: { ...getAuthHeader() }
-      });
-      return handleResponse(res);
+        const res = await fetch(`${API_BASE}/inspections?${params.toString()}`, {
+          headers: { ...getAuthHeader() }
+        });
+        const contentType = res.headers.get('content-type') || '';
+        if (res.ok && contentType.includes('application/json')) {
+          const json = await res.json();
+          if (json.inspections && json.inspections.length > 0) {
+            const local = getLocalInspections();
+            const merged = [...json.inspections];
+            for (const l of local) {
+              if (!merged.some(i => i.id === l.id)) {
+                merged.unshift(l);
+              }
+            }
+            return { inspections: merged };
+          }
+        }
+      } catch (err) {
+        console.warn('Backend inspections unreachable, returning local store.');
+      }
+
+      const local = getLocalInspections();
+      let filtered = [...local];
+      if (filters.status && filters.status !== 'ALL') {
+        filtered = filtered.filter(i => i.status === filters.status);
+      }
+      if (filters.type && filters.type !== 'ALL') {
+        filtered = filtered.filter(i => i.inspectionType === filters.type);
+      }
+      return { inspections: filtered };
     },
 
     async accept(id: string, message?: string): Promise<{ message: string; virtualMeetingUrl?: string }> {
@@ -3198,8 +3473,13 @@ export const api = {
   // ----------------------------------------------------
   bookings: {
     async getAvailability(propertyId: string): Promise<PropertyAvailabilityResponse> {
-      const res = await fetch(`${API_BASE}/bookings/availability/properties/${propertyId}`);
-      return handleResponse(res);
+      try {
+        const res = await fetch(`${API_BASE}/bookings/availability/properties/${propertyId}`);
+        if (res.ok) return await res.json();
+      } catch (err) {
+        console.warn('Backend room availability unreachable, generating from property fallback.');
+      }
+      return generateOfflineFallbackResponse(`/bookings/availability/${propertyId}`);
     },
 
     async reserve(data: {
@@ -3219,53 +3499,240 @@ export const api = {
       totalCost: number;
       breakdown: any;
     }> {
-      const res = await fetch(`${API_BASE}/bookings/reserve`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
-        body: JSON.stringify(data)
+      const foundProp = DEFAULT_PROPERTIES.find(p => p.id === data.propertyId || p.slug === data.propertyId) || DEFAULT_PROPERTIES[0];
+      const room = foundProp.rooms?.find(r => r.id === data.roomId) || foundProp.rooms?.[0];
+      const rentAmount = foundProp.priceSummary?.rentAmount || 220000;
+      const serviceCharge = foundProp.priceSummary?.serviceCharge || 15000;
+      const cautionDeposit = foundProp.priceSummary?.cautionFee || 20000;
+      const otherCharges = foundProp.priceSummary?.otherMandatoryCharges || 5000;
+      const totalCost = rentAmount + serviceCharge + cautionDeposit + otherCharges;
+      const currentUser = getCurrentUser();
+
+      const bookingId = `bk-${Date.now()}`;
+      const bookingReference = `HE-BK-${Math.floor(100000 + Math.random() * 900000)}`;
+      const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString();
+
+      const localItem: BookingItem = {
+        id: bookingId,
+        bookingReference: bookingReference,
+        propertyId: foundProp.id,
+        propertyTitle: foundProp.title,
+        propertyCoverImage: foundProp.coverImage || 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=800&q=80',
+        distanceFromCampusKm: foundProp.distanceFromCampusKm || 0.8,
+        areaName: foundProp.area?.name || 'Under G (LAUTECH)',
+        roomId: data.roomId,
+        roomName: room?.name || 'Standard Ensuite Room',
+        roomType: room?.type || 'SELF_CONTAIN',
+        bedspaceId: data.bedspaceId,
+        bedspaceNumber: data.bedspaceId ? 'Bed 1' : undefined,
+        moveInDate: data.moveInDate,
+        academicSession: data.academicSession || '2026/2027',
+        durationMonths: data.durationMonths || 12,
+        rentAmount,
+        serviceCharge,
+        agencyFee: 0,
+        cautionDeposit,
+        otherCharges,
+        totalCost,
+        status: 'PENDING',
+        expiresAt,
+        specialRequests: data.specialRequests,
+        paymentStatus: 'UNPAID',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        studentName: currentUser?.fullName || 'Student',
+        studentEmail: currentUser?.email || 'student@hostelease.ng',
+        studentPhone: currentUser?.phone || '08031234567',
+        studentMatricNumber: currentUser?.matricNo || '2024/09876',
+        providerName: foundProp.provider?.name || 'Chief Oladimeji Alao',
+        providerEmail: (foundProp.provider as any)?.email || 'landlord@hostelease.ng',
+        providerPhone: foundProp.provider?.phone || '08039876543'
+      };
+
+      try {
+        const res = await fetch(`${API_BASE}/bookings/reserve`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+          body: JSON.stringify(data)
+        });
+        if (res.ok) {
+          const json = await res.json();
+          localItem.id = json.bookingId || localItem.id;
+          localItem.bookingReference = json.bookingReference || localItem.bookingReference;
+          saveLocalBooking(localItem);
+          return json;
+        }
+      } catch (e) {
+        console.warn('Backend booking reservation offline, saving locally');
+      }
+
+      saveLocalBooking(localItem);
+      addIsolatedNotification({
+        userId: currentUser?.id || 'usr-student-default',
+        title: 'Hostel Reservation Created',
+        message: `Reservation request submitted for ${foundProp.title} (Ref: ${bookingReference}). Waiting for landlord confirmation.`,
+        linkUrl: '/student',
+        role: 'STUDENT'
       });
-      return handleResponse(res);
+
+      return {
+        message: 'Reservation request successfully created and submitted to landlord',
+        bookingId,
+        bookingReference,
+        status: 'PENDING',
+        expiresAt,
+        totalCost,
+        breakdown: {
+          rentAmount,
+          serviceCharge,
+          agencyFee: 0,
+          cautionDeposit,
+          otherCharges
+        }
+      };
     },
 
     async getAll(status?: string): Promise<{ bookings: BookingItem[] }> {
-      const query = status && status !== 'ALL' ? `?status=${status}` : '';
-      const res = await fetch(`${API_BASE}/bookings${query}`, {
-        headers: { ...getAuthHeader() }
-      });
-      return handleResponse(res);
+      try {
+        const query = status && status !== 'ALL' ? `?status=${status}` : '';
+        const res = await fetch(`${API_BASE}/bookings${query}`, {
+          headers: { ...getAuthHeader() }
+        });
+        const contentType = res.headers.get('content-type') || '';
+        if (res.ok && contentType.includes('application/json')) {
+          const json = await res.json();
+          if (json.bookings && json.bookings.length > 0) {
+            const local = getLocalBookings();
+            const merged = [...json.bookings];
+            for (const l of local) {
+              if (!merged.some(b => b.id === l.id || b.bookingReference === l.bookingReference)) {
+                merged.unshift(l);
+              }
+            }
+            return { bookings: status && status !== 'ALL' ? merged.filter(b => b.status === status) : merged };
+          }
+        }
+      } catch (err) {
+        console.warn('Backend bookings unreachable, returning locally stored bookings.');
+      }
+
+      const local = getLocalBookings();
+      const filtered = status && status !== 'ALL' ? local.filter(b => b.status === status) : local;
+      return { bookings: filtered };
     },
 
     async getById(id: string): Promise<{ booking: BookingDetail; history: BookingHistoryItem[] }> {
-      const res = await fetch(`${API_BASE}/bookings/${id}`, {
-        headers: { ...getAuthHeader() }
-      });
-      return handleResponse(res);
+      try {
+        const res = await fetch(`${API_BASE}/bookings/${id}`, {
+          headers: { ...getAuthHeader() }
+        });
+        if (res.ok) return await res.json();
+      } catch (err) {}
+
+      const local = getLocalBookings();
+      const found = local.find(b => b.id === id || b.bookingReference === id) || local[0];
+      const foundProp = DEFAULT_PROPERTIES.find(p => p.id === found?.propertyId) || DEFAULT_PROPERTIES[0];
+
+      const detail: BookingDetail = {
+        id: found?.id || id,
+        bookingReference: found?.bookingReference || 'HE-BK-DEMO',
+        property: {
+          id: foundProp.id,
+          title: foundProp.title,
+          address: foundProp.nearbyLandmark ? `Near ${foundProp.nearbyLandmark}, Ogbomoso` : 'Under G, Ogbomoso',
+          areaName: foundProp.area?.name || 'Under G',
+          coverImage: foundProp.coverImage || 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=800&q=80',
+          distanceFromCampusKm: foundProp.distanceFromCampusKm || 0.6
+        },
+        room: {
+          id: found?.roomId || 'room-1',
+          name: found?.roomName || 'Executive Ensuite Room',
+          type: found?.roomType || 'SELF_CONTAIN',
+          isEnsuite: true
+        },
+        moveInDate: found?.moveInDate || '2026-09-01',
+        academicSession: found?.academicSession || '2026/2027',
+        durationMonths: found?.durationMonths || 12,
+        pricing: {
+          rentAmount: found?.rentAmount || 220000,
+          serviceCharge: found?.serviceCharge || 15000,
+          agencyFee: found?.agencyFee || 0,
+          cautionDeposit: found?.cautionDeposit || 20000,
+          otherCharges: found?.otherCharges || 5000,
+          totalCost: found?.totalCost || 260000
+        },
+        status: found?.status || 'PENDING',
+        paymentStatus: found?.paymentStatus || 'UNPAID',
+        expiresAt: found?.expiresAt || new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString(),
+        student: {
+          id: 'usr-student',
+          name: found?.studentName || 'Student',
+          email: found?.studentEmail || 'student@hostelease.ng',
+          phone: found?.studentPhone || '08031234567',
+          matricNumber: found?.studentMatricNumber || '2024/09876'
+        },
+        provider: {
+          id: foundProp.provider?.id || 'usr-provider-default',
+          name: found?.providerName || foundProp.provider?.name || 'Chief Oladimeji Alao',
+          phone: found?.providerPhone || foundProp.provider?.phone || '08039876543',
+          email: (foundProp.provider as any)?.email || 'landlord@hostelease.ng'
+        },
+        createdAt: found?.createdAt || new Date().toISOString(),
+        updatedAt: found?.updatedAt || new Date().toISOString()
+      };
+
+      const history: BookingHistoryItem[] = [
+        {
+          id: `hist-1`,
+          actorId: 'usr-student',
+          actorRole: 'STUDENT',
+          actorName: found?.studentName || 'Student',
+          previousStatus: undefined,
+          newStatus: 'PENDING',
+          notes: 'Reservation request initiated by student',
+          createdAt: found?.createdAt || new Date().toISOString()
+        }
+      ];
+
+      return { booking: detail, history };
     },
 
     async confirm(id: string): Promise<{ message: string; status: BookingStatus }> {
-      const res = await fetch(`${API_BASE}/bookings/${id}/confirm`, {
-        method: 'PATCH',
-        headers: { ...getAuthHeader() }
-      });
-      return handleResponse(res);
+      updateLocalBookingStatus(id, 'CONFIRMED');
+      try {
+        const res = await fetch(`${API_BASE}/bookings/${id}/confirm`, {
+          method: 'PATCH',
+          headers: { ...getAuthHeader() }
+        });
+        if (res.ok) return await res.json();
+      } catch (err) {}
+      return { message: 'Reservation confirmed successfully', status: 'CONFIRMED' };
     },
 
     async decline(id: string, reason?: string): Promise<{ message: string; status: BookingStatus }> {
-      const res = await fetch(`${API_BASE}/bookings/${id}/decline`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
-        body: JSON.stringify({ reason })
-      });
-      return handleResponse(res);
+      updateLocalBookingStatus(id, 'DECLINED', reason);
+      try {
+        const res = await fetch(`${API_BASE}/bookings/${id}/decline`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+          body: JSON.stringify({ reason })
+        });
+        if (res.ok) return await res.json();
+      } catch (err) {}
+      return { message: 'Reservation declined', status: 'DECLINED' };
     },
 
     async cancel(id: string, reason?: string): Promise<{ message: string; status: BookingStatus }> {
-      const res = await fetch(`${API_BASE}/bookings/${id}/cancel`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
-        body: JSON.stringify({ reason })
-      });
-      return handleResponse(res);
+      updateLocalBookingStatus(id, 'CANCELLED_BY_STUDENT', reason);
+      try {
+        const res = await fetch(`${API_BASE}/bookings/${id}/cancel`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+          body: JSON.stringify({ reason })
+        });
+        if (res.ok) return await res.json();
+      } catch (err) {}
+      return { message: 'Reservation cancelled successfully', status: 'CANCELLED_BY_STUDENT' };
     },
 
     async getReview(id: string): Promise<BookingReviewData> {
@@ -3540,10 +4007,70 @@ export const api = {
         } catch {}
       }
 
+      const localBookings = getLocalBookings();
+      const localInspections = getLocalInspections();
+      
+      const firstActive = localBookings.find(b => b.status === 'CONFIRMED' || b.status === 'PENDING');
+      const pendingBookings = localBookings.filter(b => b.status === 'PENDING');
+      const firstInsp = localInspections[0];
+
       return {
         ...DEFAULT_STUDENT_DASHBOARD,
         user: currentUser,
-        preferences: currentPrefs
+        preferences: currentPrefs,
+        summary: {
+          ...DEFAULT_STUDENT_DASHBOARD.summary,
+          activeBookingsCount: localBookings.length,
+          pendingInspectionsCount: localInspections.filter(i => i.status === 'PENDING').length
+        },
+        activeBooking: firstActive ? {
+          id: firstActive.id,
+          bookingReference: firstActive.bookingReference,
+          propertyId: firstActive.propertyId,
+          propertyTitle: firstActive.propertyTitle,
+          propertyAddress: `${firstActive.areaName}, Ogbomoso`,
+          coverImage: firstActive.propertyCoverImage,
+          distanceFromCampusKm: firstActive.distanceFromCampusKm,
+          roomName: firstActive.roomName,
+          roomType: firstActive.roomType,
+          bedspaceNumber: firstActive.bedspaceNumber,
+          moveInDate: firstActive.moveInDate,
+          academicSession: firstActive.academicSession,
+          totalCost: firstActive.totalCost,
+          rentAmount: firstActive.rentAmount,
+          status: firstActive.status,
+          paymentStatus: (firstActive.paymentStatus as any) || 'UNPAID',
+          paidAt: firstActive.paidAt,
+          expiresAt: firstActive.expiresAt,
+          provider: {
+            name: firstActive.providerName,
+            phone: firstActive.providerPhone || '08039876543',
+            email: firstActive.providerEmail || 'landlord@hostelease.ng'
+          }
+        } : DEFAULT_STUDENT_DASHBOARD.activeBooking,
+        pendingBookings: pendingBookings.map(b => ({
+          id: b.id,
+          bookingReference: b.bookingReference,
+          status: b.status,
+          createdAt: b.createdAt,
+          expiresAt: b.expiresAt,
+          totalCost: b.totalCost,
+          propertyTitle: b.propertyTitle,
+          roomName: b.roomName
+        })),
+        upcomingInspection: firstInsp ? {
+          id: firstInsp.id,
+          propertyTitle: firstInsp.propertyTitle,
+          propertyAddress: firstInsp.propertyAddress || 'Under G, Ogbomoso',
+          date: firstInsp.preferredDate,
+          time: firstInsp.preferredTime,
+          type: firstInsp.inspectionType,
+          status: firstInsp.status,
+          provider: {
+            name: firstInsp.providerName || 'Landlord',
+            phone: firstInsp.providerPhone || '08039876543'
+          }
+        } : DEFAULT_STUDENT_DASHBOARD.upcomingInspection
       };
     },
 

@@ -73,6 +73,9 @@ export const StudentBookingDashboard: React.FC<StudentBookingDashboardProps> = (
 
   useEffect(() => {
     fetchBookings();
+    const handleUpdate = () => fetchBookings();
+    window.addEventListener('hostel_ease_bookings_updated', handleUpdate);
+    return () => window.removeEventListener('hostel_ease_bookings_updated', handleUpdate);
   }, []);
 
   const handleCancelBooking = async (e: React.FormEvent) => {
