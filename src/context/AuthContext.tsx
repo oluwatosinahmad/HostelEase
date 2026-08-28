@@ -107,7 +107,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (role === 'STUDENT') {
       return await login('student@lautech.edu.ng', 'Student123!', 'STUDENT');
     } else if (role === 'PROVIDER') {
-      return await login('provider@hostelease.ng', 'Provider123!', 'PROVIDER');
+      return await login('landlord@hostelease.ng', 'Provider123!', 'PROVIDER');
     } else {
       return await login('admin@hostelease.ng', 'Admin123!', 'ADMIN');
     }

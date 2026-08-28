@@ -158,7 +158,7 @@ export function runSeed() {
     // Landlord 1: Chief Adeleke (Verified Landlord)
     insertUser.run(
       provider1Id,
-      'provider@hostelease.ng',
+      'landlord@hostelease.ng',
       providerPasswordHash,
       'Chief (Alhaji) G. O. Adeleke',
       '+2348039876543',
