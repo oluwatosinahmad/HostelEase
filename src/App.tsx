@@ -47,7 +47,6 @@ import { NetworkStatusBanner } from './components/NetworkStatusBanner';
 import { HostelListSkeleton, DashboardSkeleton } from './components/SkeletonLoaders';
 import { formatNaira, formatDistance } from './utils/formatters';
 import { AdminPortal } from './components/AdminPortal';
-import { AgentPortal } from './components/AgentPortal';
 import { ProviderPortal } from './components/ProviderPortal';
 import { CampusMapExplorer } from './components/CampusMapExplorer';
 import { HostelComparisonModal } from './components/HostelComparisonModal';
@@ -86,7 +85,7 @@ interface Toast {
 }
 
 function MainApp() {
-  const { user, isAuthenticated, isStudent, isProvider, isAgent, isAdmin, login, logout, loginDemo } = useAuth();
+  const { user, isAuthenticated, isStudent, isProvider, isAdmin, login, logout, loginDemo } = useAuth();
 
   // Navigation & View State
   const [currentView, setCurrentView] = useState<AppView>(() => {
@@ -1107,35 +1106,6 @@ function MainApp() {
           )
         )}
 
-        {/* VIEW: AGENT PORTAL (4TH ROLE) */}
-        {currentView === 'agent-portal' && (
-          isAgent ? (
-            <AgentPortal />
-          ) : (
-            <div className="max-w-md mx-auto my-20 p-8 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-xl text-center space-y-4">
-              <div className="w-16 h-16 rounded-2xl bg-teal-50 dark:bg-teal-950/60 text-teal-600 dark:text-teal-400 flex items-center justify-center mx-auto border border-teal-200 dark:border-teal-800 shadow-inner">
-                <ShieldAlert className="w-8 h-8" />
-              </div>
-              <h2 className="text-xl font-black text-slate-900 dark:text-white">🔒 Access Restricted</h2>
-              <p className="text-xs text-slate-600 dark:text-slate-300">
-                This account is not authorized to access the Agent Portal. You must be a verified Hostel Ease Agent.
-              </p>
-              <p className="text-[11px] text-slate-400 dark:text-slate-500">
-                Agent status requires administrative review of verification documents.
-              </p>
-              <button
-                onClick={() => {
-                  setCurrentView('home');
-                  window.scrollTo({ top: 0, behavior: 'smooth' });
-                }}
-                className="w-full py-3 bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs rounded-xl shadow transition-colors"
-              >
-                Return to Home
-              </button>
-            </div>
-          )
-        )}
-
         {/* VIEW 9: MOVE-IN & POST-BOOKING CENTER (Phase 12) */}
         {currentView === 'move-in' && (
           <MoveInCenter
@@ -1291,8 +1261,6 @@ function MainApp() {
             setCurrentView('admin-portal');
           } else if (targetRole === 'PROVIDER') {
             setCurrentView('provider-portal');
-          } else if (targetRole === 'AGENT') {
-            setCurrentView('agent-portal');
           } else {
             setCurrentView('student-dashboard');
           }

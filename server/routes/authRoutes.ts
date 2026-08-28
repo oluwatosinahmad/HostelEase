@@ -75,25 +75,6 @@ router.post('/register', (req, res: Response) => {
           providerDetails?.address || null,
           providerDetails?.idType || 'NIN'
         );
-      } else if (role === 'AGENT') {
-        const profileId = `ap-${crypto.randomUUID()}`;
-        const agentDetails = req.body.agentDetails || {};
-        db.prepare(`
-          INSERT INTO agent_profiles (
-            id, user_id, business_name, operating_areas_json, experience_years, bio,
-            verification_status, id_document_url, id_document_type, service_fee_amount
-          ) VALUES (?, ?, ?, ?, ?, ?, 'PENDING', ?, ?, ?)
-        `).run(
-          profileId,
-          userId,
-          agentDetails.businessName || fullName,
-          JSON.stringify(agentDetails.operatingAreas || ['Under G', 'Adenike']),
-          Number(agentDetails.experienceYears) || 1,
-          agentDetails.bio || 'Verified accommodation specialist in Ogbomoso.',
-          agentDetails.idDocumentUrl || null,
-          agentDetails.idDocumentType || 'NIN_CARD',
-          Number(agentDetails.serviceFeeAmount) || 5000
-        );
       }
     })();
 
@@ -102,16 +83,14 @@ router.post('/register', (req, res: Response) => {
       email: email.toLowerCase().trim(),
       fullName: fullName.trim(),
       phone: phone || undefined,
-      role: role as 'STUDENT' | 'PROVIDER' | 'AGENT',
+      role: role as 'STUDENT' | 'PROVIDER',
       isActive: 1
     };
 
     const token = generateToken(userRecord as any);
 
     return res.status(201).json({
-      message: role === 'AGENT' 
-        ? 'Your Agent application has been submitted and is pending verification by Hostel Ease Admin.'
-        : 'Registration successful',
+      message: 'Registration successful',
       token,
       user: userRecord
     });
@@ -181,38 +160,6 @@ router.post('/login', (req, res: Response) => {
           message: 'This account is not authorized to access the Landlord Dashboard.'
         });
       }
-    } else if (requested === 'AGENT') {
-      if (user.role !== 'AGENT') {
-        return res.status(403).json({
-          error: 'ACCESS_RESTRICTED',
-          code: 'UNAUTHORIZED_AGENT_ACCESS',
-          message: 'This account is not registered as an Agent.'
-        });
-      }
-
-      // Check agent profile verification status
-      const agentProfile = db.prepare('SELECT * FROM agent_profiles WHERE user_id = ?').get(user.id) as any;
-      if (!agentProfile || agentProfile.verification_status === 'PENDING' || agentProfile.verification_status === 'UNDER_REVIEW') {
-        return res.status(403).json({
-          error: 'ACCESS_RESTRICTED',
-          code: 'AGENT_PENDING_APPROVAL',
-          message: 'Your Agent account is not yet approved. Please wait for Admin review.'
-        });
-      }
-      if (agentProfile.verification_status === 'SUSPENDED' || agentProfile.verification_status === 'DEACTIVATED') {
-        return res.status(403).json({
-          error: 'ACCESS_RESTRICTED',
-          code: 'AGENT_ACCOUNT_SUSPENDED',
-          message: 'Your Agent account has been suspended. Please contact Hostel Ease Support.'
-        });
-      }
-      if (agentProfile.verification_status === 'REJECTED') {
-        return res.status(403).json({
-          error: 'ACCESS_RESTRICTED',
-          code: 'AGENT_ACCOUNT_REJECTED',
-          message: 'Your Agent application was not approved. Please contact Hostel Ease Support.'
-        });
-      }
     } else if (requested === 'STUDENT') {
       if (user.role !== 'STUDENT') {
         return res.status(403).json({
@@ -242,8 +189,6 @@ router.post('/login', (req, res: Response) => {
     profile = db.prepare('SELECT * FROM student_profiles WHERE user_id = ?').get(user.id);
   } else if (user.role === 'PROVIDER') {
     profile = db.prepare('SELECT * FROM provider_profiles WHERE user_id = ?').get(user.id);
-  } else if (user.role === 'AGENT') {
-    profile = db.prepare('SELECT * FROM agent_profiles WHERE user_id = ?').get(user.id);
   } else if (user.role === 'ADMIN' || user.role === 'OWNER') {
     profile = db.prepare('SELECT * FROM admin_profiles WHERE user_id = ?').get(user.id);
   }
@@ -300,8 +245,6 @@ router.get('/me', authenticate, (req: AuthenticatedRequest, res: Response) => {
     `).get(req.user.id);
   } else if (req.user.role === 'PROVIDER') {
     profile = db.prepare('SELECT * FROM provider_profiles WHERE user_id = ?').get(req.user.id);
-  } else if (req.user.role === 'AGENT') {
-    profile = db.prepare('SELECT * FROM agent_profiles WHERE user_id = ?').get(req.user.id);
   } else if (req.user.role === 'ADMIN' || req.user.role === 'OWNER') {
     profile = db.prepare('SELECT * FROM admin_profiles WHERE user_id = ?').get(req.user.id);
   }
@@ -318,7 +261,7 @@ router.get('/me', authenticate, (req: AuthenticatedRequest, res: Response) => {
 router.put('/profile', authenticate, (req: AuthenticatedRequest, res: Response) => {
   if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
 
-  const { fullName, phone, studentDetails, providerDetails, agentDetails } = req.body;
+  const { fullName, phone, studentDetails, providerDetails } = req.body;
 
   try {
     db.transaction(() => {
@@ -326,8 +269,8 @@ router.put('/profile', authenticate, (req: AuthenticatedRequest, res: Response) 
         db.prepare(`
           UPDATE users 
           SET full_name = COALESCE(?, full_name),
-              phone = COALESCE(?, phone),
-              updated_at = datetime('now')
+               phone = COALESCE(?, phone),
+               updated_at = datetime('now')
           WHERE id = ?
         `).run(fullName?.trim() || null, phone || null, req.user!.id);
       }
@@ -364,32 +307,6 @@ router.put('/profile', authenticate, (req: AuthenticatedRequest, res: Response) 
           providerDetails.address || null,
           providerDetails.bio || null,
           providerDetails.preferredContactMethod || null,
-          req.user!.id
-        );
-      }
-
-      if (req.user!.role === 'AGENT' && agentDetails) {
-        db.prepare(`
-          UPDATE agent_profiles
-          SET business_name = COALESCE(?, business_name),
-              bio = COALESCE(?, bio),
-              operating_areas_json = COALESCE(?, operating_areas_json),
-              experience_years = COALESCE(?, experience_years),
-              service_fee_amount = COALESCE(?, service_fee_amount),
-              payout_bank_name = COALESCE(?, payout_bank_name),
-              payout_account_number = COALESCE(?, payout_account_number),
-              payout_account_name = COALESCE(?, payout_account_name),
-              updated_at = datetime('now')
-          WHERE user_id = ?
-        `).run(
-          agentDetails.businessName || null,
-          agentDetails.bio || null,
-          agentDetails.operatingAreas ? JSON.stringify(agentDetails.operatingAreas) : null,
-          agentDetails.experienceYears ? Number(agentDetails.experienceYears) : null,
-          agentDetails.serviceFeeAmount ? Number(agentDetails.serviceFeeAmount) : null,
-          agentDetails.payoutBankName || null,
-          agentDetails.payoutAccountNumber || null,
-          agentDetails.payoutAccountName || null,
           req.user!.id
         );
       }

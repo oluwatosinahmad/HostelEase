@@ -1092,7 +1092,7 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
 
                 <div>
                   <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
-                    Agency / Agreement (₦)
+                    Tenancy Agreement & Legal Fee (₦)
                   </label>
                   <input
                     type="number"

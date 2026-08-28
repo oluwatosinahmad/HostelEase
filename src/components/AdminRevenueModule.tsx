@@ -859,7 +859,7 @@ export const AdminRevenueModule: React.FC<AdminRevenueModuleProps> = ({
                     <th className="p-3">Landlord</th>
                     <th className="p-3">Hostel</th>
                     <th className="p-3">Fee Paid</th>
-                    <th className="p-3">Assigned Field Agent</th>
+                    <th className="p-3">Assigned Verification Officer</th>
                     <th className="p-3">Delivery Notes</th>
                     <th className="p-3">Status</th>
                   </tr>

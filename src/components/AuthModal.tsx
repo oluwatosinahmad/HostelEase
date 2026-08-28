@@ -16,7 +16,6 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { UserRole } from '../types/hostelEase';
-import { AgentApplicationModal } from './AgentApplicationModal';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -47,7 +46,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [accessRestricted, setAccessRestricted] = useState<boolean>(false);
-  const [showAgentAppModal, setShowAgentAppModal] = useState(false);
 
   if (!isOpen) return null;
 
@@ -164,12 +162,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             </div>
           </div>
 
-          {/* Role selector pills (Student | Landlord | Agent | Admin) */}
-          <div className="grid grid-cols-4 gap-1 bg-white/10 p-1 rounded-xl mt-4 text-[11px]">
+          {/* Role selector pills (Student | Landlord | Admin) */}
+          <div className="grid grid-cols-3 gap-1.5 bg-white/10 p-1 rounded-xl mt-4 text-xs">
             <button
               type="button"
               onClick={() => handleRoleSelect('STUDENT')}
-              className={`py-1.5 px-1 rounded-lg font-bold transition-all flex items-center justify-center gap-1 ${
+              className={`py-2 px-2 rounded-lg font-bold transition-all flex items-center justify-center gap-1.5 ${
                 role === 'STUDENT' ? 'bg-emerald-600 text-white shadow' : 'text-slate-300 hover:text-white'
               }`}
             >
@@ -178,7 +176,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             <button
               type="button"
               onClick={() => handleRoleSelect('PROVIDER')}
-              className={`py-1.5 px-1 rounded-lg font-bold transition-all flex items-center justify-center gap-1 ${
+              className={`py-2 px-2 rounded-lg font-bold transition-all flex items-center justify-center gap-1.5 ${
                 role === 'PROVIDER' ? 'bg-emerald-600 text-white shadow' : 'text-slate-300 hover:text-white'
               }`}
             >
@@ -186,17 +184,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             </button>
             <button
               type="button"
-              onClick={() => handleRoleSelect('AGENT')}
-              className={`py-1.5 px-1 rounded-lg font-bold transition-all flex items-center justify-center gap-1 ${
-                role === 'AGENT' ? 'bg-teal-600 text-white shadow' : 'text-slate-300 hover:text-white'
-              }`}
-            >
-              🤝 Agent
-            </button>
-            <button
-              type="button"
               onClick={() => handleRoleSelect('ADMIN')}
-              className={`py-1.5 px-1 rounded-lg font-bold transition-all flex items-center justify-center gap-1 ${
+              className={`py-2 px-2 rounded-lg font-bold transition-all flex items-center justify-center gap-1.5 ${
                 role === 'ADMIN' ? 'bg-purple-600 text-white shadow' : 'text-slate-300 hover:text-white'
               }`}
             >
@@ -251,10 +240,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 <button
                   type="button"
                   onClick={() => { setMode('login'); setError(null); }}
-                  className={`flex-1 text-center py-1.5 text-xs font-bold border-b-2 transition-colors ${
+                  className={`flex-1 pb-2 text-xs font-bold transition-all border-b-2 text-center ${
                     mode === 'login'
-                      ? 'border-emerald-600 text-emerald-700 dark:text-emerald-400'
-                      : 'border-transparent text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
+                      ? 'border-emerald-600 text-emerald-600 dark:text-emerald-400'
+                      : 'border-transparent text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
                   }`}
                 >
                   Log In
@@ -262,21 +251,21 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 <button
                   type="button"
                   onClick={() => { setMode('register'); setError(null); }}
-                  className={`flex-1 text-center py-1.5 text-xs font-bold border-b-2 transition-colors ${
+                  className={`flex-1 pb-2 text-xs font-bold transition-all border-b-2 text-center ${
                     mode === 'register'
-                      ? 'border-emerald-600 text-emerald-700 dark:text-emerald-400'
-                      : 'border-transparent text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
+                      ? 'border-emerald-600 text-emerald-600 dark:text-emerald-400'
+                      : 'border-transparent text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
                   }`}
                 >
-                  Create Account
+                  Register Account
                 </button>
               </div>
             )}
 
             {error && (
-              <div className="p-3 bg-red-50 dark:bg-red-950/60 border border-red-200 dark:border-red-800 rounded-xl text-red-700 dark:text-red-300 text-xs flex flex-col gap-2">
+              <div className="p-3 bg-red-50 dark:bg-red-950/60 border border-red-200 dark:border-red-800 rounded-xl text-red-700 dark:text-red-300 text-xs flex flex-col gap-1.5">
                 <div className="flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0" />
+                  <AlertCircle className="w-4 h-4 flex-shrink-0" />
                   <span className="font-medium">{error}</span>
                 </div>
                 {error.toLowerCase().includes('already exists') && (
@@ -295,7 +284,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               {mode === 'register' && role !== 'ADMIN' && (
                 <div>
                   <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
-                    Full Name {role === 'PROVIDER' ? '(Landlord / Agent)' : '(Student)'}
+                    Full Name {role === 'PROVIDER' ? '(Landlord)' : '(Student)'}
                   </label>
                   <div className="relative flex items-center">
                     <UserIcon className="w-4 h-4 text-slate-400 absolute left-3" />
@@ -371,21 +360,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 </div>
               )}
 
-              {mode === 'register' && role === 'AGENT' && (
-                <div className="p-4 bg-teal-50 dark:bg-teal-950/60 border border-teal-200 dark:border-teal-800 rounded-xl space-y-3">
-                  <div className="text-xs text-teal-900 dark:text-teal-200 font-medium">
-                    Hostel Ease requires all Agents to be vetted and verified before receiving student requests.
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setShowAgentAppModal(true)}
-                    className="w-full py-2.5 px-4 bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs rounded-xl shadow transition flex items-center justify-center gap-1.5"
-                  >
-                    Launch Agent Application Wizard →
-                  </button>
-                </div>
-              )}
-
               {mode === 'register' && role === 'STUDENT' && (
                 <div>
                   <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">LAUTECH Department</label>
@@ -412,25 +386,21 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 </div>
               )}
 
-              {!(mode === 'register' && role === 'AGENT') && (
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className={`w-full py-3 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-2 mt-4 disabled:opacity-50 ${
-                    role === 'ADMIN' 
-                      ? 'bg-purple-600 hover:bg-purple-700 shadow-purple-600/30' 
-                      : role === 'AGENT'
-                      ? 'bg-teal-600 hover:bg-teal-700 shadow-teal-600/30'
-                      : 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/30'
-                  }`}
-                >
-                  {submitting 
-                    ? 'Authenticating...' 
-                    : mode === 'login' 
-                    ? (role === 'PROVIDER' ? 'Log in as Landlord' : role === 'AGENT' ? '🤝 Log in as Agent' : role === 'ADMIN' ? '👑 Authenticate Admin Credentials' : 'Log in as Student') 
-                    : `Create ${role === 'PROVIDER' ? 'Landlord' : 'Student'} Account`}
-                </button>
-              )}
+              <button
+                type="submit"
+                disabled={submitting}
+                className={`w-full py-3 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-2 mt-4 disabled:opacity-50 ${
+                  role === 'ADMIN' 
+                    ? 'bg-purple-600 hover:bg-purple-700 shadow-purple-600/30' 
+                    : 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/30'
+                }`}
+              >
+                {submitting 
+                  ? 'Authenticating...' 
+                  : mode === 'login' 
+                  ? (role === 'PROVIDER' ? 'Log in as Landlord' : role === 'ADMIN' ? '👑 Authenticate Admin Credentials' : 'Log in as Student') 
+                  : `Create ${role === 'PROVIDER' ? 'Landlord' : 'Student'} Account`}
+              </button>
 
               {role === 'ADMIN' && (
                 <div className="pt-2">
@@ -466,18 +436,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           </div>
         )}
       </div>
-
-      {showAgentAppModal && (
-        <AgentApplicationModal
-          isOpen={showAgentAppModal}
-          onClose={() => setShowAgentAppModal(false)}
-          onSuccess={() => {
-            setShowAgentAppModal(false);
-            setMode('login');
-            setRole('AGENT');
-          }}
-        />
-      )}
     </div>
   );
 };

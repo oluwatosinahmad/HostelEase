@@ -199,11 +199,10 @@ export const ProviderOnboardingModal: React.FC<ProviderOnboardingModalProps> = (
                 <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1">
                   Management Category
                 </label>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 gap-2">
                   {[
-                    { id: 'DIRECT_OWNER', label: 'Hostel Owner' },
-                    { id: 'CARETAKER', label: 'Caretaker' },
-                    { id: 'ESTATE_AGENT', label: 'Property Agent' }
+                    { id: 'DIRECT_OWNER', label: 'Hostel Owner (Landlord)' },
+                    { id: 'CARETAKER', label: 'Resident Caretaker' }
                   ].map(item => (
                     <button
                       key={item.id}
