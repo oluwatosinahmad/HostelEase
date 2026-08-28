@@ -2337,6 +2337,45 @@ export const api = {
       return { unreadCount: totalUnread };
     },
 
+    async toggleReaction(conversationId: string, messageId: string, emoji: string): Promise<{ success: boolean; reactions: Record<string, string[]> }> {
+      const storedUser = localStorage.getItem('hostel_ease_user');
+      const currentUser = storedUser ? JSON.parse(storedUser) : null;
+      const userId = currentUser?.id || 'usr-student-default';
+      const userName = currentUser?.fullName || 'You';
+
+      const msgs = getLocalMessages(conversationId);
+      let updatedReactions: Record<string, string[]> = {};
+
+      const updatedMsgs = msgs.map(m => {
+        if (m.id === messageId) {
+          const currentReactions = { ...(m.metadata?.reactions || {}) };
+          const userList = currentReactions[emoji] || [];
+          if (userList.includes(userId)) {
+            // Remove user reaction
+            currentReactions[emoji] = userList.filter(id => id !== userId);
+            if (currentReactions[emoji].length === 0) {
+              delete currentReactions[emoji];
+            }
+          } else {
+            // Add user reaction
+            currentReactions[emoji] = [...userList, userId];
+          }
+          updatedReactions = currentReactions;
+          return {
+            ...m,
+            metadata: {
+              ...m.metadata,
+              reactions: currentReactions
+            }
+          };
+        }
+        return m;
+      });
+
+      saveLocalMessages(conversationId, updatedMsgs);
+      return { success: true, reactions: updatedReactions };
+    },
+
     async reportUser(data: { reportedUserId: string; conversationId?: string; reason: string; description: string }): Promise<{ message: string }> {
       try {
         const res = await fetch(`${API_BASE}/messages/report`, {

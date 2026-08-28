@@ -326,9 +326,18 @@ export interface MessageItem {
   conversationId: string;
   senderId: string;
   senderRole: 'STUDENT' | 'PROVIDER' | 'SYSTEM';
-  messageType: 'TEXT' | 'SYSTEM_EVENT' | 'QUICK_QUESTION' | 'INSPECTION_SHORTCUT';
+  messageType: 'TEXT' | 'IMAGE' | 'AUDIO' | 'SNAP_PASSCODE' | 'SYSTEM_EVENT' | 'QUICK_QUESTION' | 'INSPECTION_SHORTCUT';
   content: string;
-  metadata?: any;
+  metadata?: {
+    imageUrl?: string;
+    imageCaption?: string;
+    audioDuration?: number;
+    audioUrl?: string;
+    reactions?: Record<string, string[]>;
+    passcode?: string;
+    passcodeExpiry?: string;
+    [key: string]: any;
+  };
   isRead: boolean;
   readAt?: string;
   createdAt: string;
