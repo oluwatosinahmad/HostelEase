@@ -182,6 +182,9 @@ function MainApp() {
 
   useEffect(() => {
     loadInitialData();
+    const handlePropsUpdate = () => loadInitialData();
+    window.addEventListener('hostel_ease_properties_updated', handlePropsUpdate);
+    return () => window.removeEventListener('hostel_ease_properties_updated', handlePropsUpdate);
   }, []);
 
   // Fetch Saved properties when authenticated

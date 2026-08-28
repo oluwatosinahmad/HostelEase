@@ -1185,9 +1185,40 @@ async function handleResponse<T>(res: Response): Promise<T> {
   return res.json();
 }
 
+function getLocalRegisteredUsers(): any[] {
+  try {
+    const raw = localStorage.getItem('hostel_ease_registered_users');
+    if (raw) return JSON.parse(raw);
+  } catch {}
+  return [];
+}
+
+function saveLocalRegisteredUsers(users: any[]) {
+  try {
+    localStorage.setItem('hostel_ease_registered_users', JSON.stringify(users));
+  } catch {}
+}
+
 function handleClientSideFallbackLogin(payload: { email?: string; password?: string; requestedRole?: string; role?: string }) {
   const email = (payload.email || '').toLowerCase().trim();
   const requested = payload.requestedRole || payload.role || 'STUDENT';
+
+  // Check if this user registered locally
+  const registeredUsers = getLocalRegisteredUsers();
+  const matchedUser = registeredUsers.find(u => u.email?.toLowerCase().trim() === email);
+
+  if (matchedUser) {
+    if (requested && matchedUser.role !== requested) {
+      const err: any = new Error(`This account is registered as a ${matchedUser.role === 'PROVIDER' ? 'Landlord' : matchedUser.role}. Please switch to the correct portal tab.`);
+      err.code = requested === 'ADMIN' ? 'UNAUTHORIZED_ADMIN_ACCESS' : (requested === 'PROVIDER' ? 'UNAUTHORIZED_PROVIDER_ACCESS' : 'UNAUTHORIZED_STUDENT_ACCESS');
+      err.status = 403;
+      throw err;
+    }
+    const mockToken = `he_token_${Date.now()}`;
+    localStorage.setItem('hostel_ease_token', mockToken);
+    localStorage.setItem('hostel_ease_user', JSON.stringify(matchedUser));
+    return { message: 'Login successful', token: mockToken, user: matchedUser };
+  }
 
   // Strict Admin Validation on Netlify/offline static mode
   if (requested === 'ADMIN') {
@@ -1200,7 +1231,7 @@ function handleClientSideFallbackLogin(payload: { email?: string; password?: str
     }
     const adminUser = {
       id: 'usr-admin-default',
-      fullName: 'Hostel Ease Admin',
+      fullName: 'Oluwatosin Ahmad (Admin)',
       email: email || 'admin@hostelease.ng',
       role: 'ADMIN',
       phone: '08004678353',
@@ -1214,21 +1245,28 @@ function handleClientSideFallbackLogin(payload: { email?: string; password?: str
   }
 
   if (requested === 'PROVIDER') {
-    if (email.includes('student@')) {
-      const err: any = new Error('This account is not authorized to access the Landlord Dashboard.');
+    if (email.includes('student@') || email.endsWith('.edu.ng')) {
+      const err: any = new Error('This student email is not authorized to access the Landlord Dashboard. Please use your Landlord email or switch to the Student Portal.');
       err.code = 'UNAUTHORIZED_PROVIDER_ACCESS';
       err.status = 403;
       throw err;
     }
+    const isDemoProvider = email === 'provider@hostelease.ng' || email === 'landlord@hostelease.ng' || !email;
+    const providerName = isDemoProvider 
+      ? 'Chief (Alhaji) G. O. Adeleke' 
+      : email.split('@')[0].replace(/[._-]/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) + ' (Landlord)';
+    const providerId = isDemoProvider ? 'usr-provider-default' : `usr-prov-${email.replace(/[^a-z0-9]/g, '-')}`;
+
     const providerUser = {
-      id: 'usr-provider-default',
-      fullName: 'Chief (Alhaji) G. O. Adeleke',
-      email: email || 'provider@hostelease.ng',
+      id: providerId,
+      fullName: providerName,
+      email: email || 'landlord@hostelease.ng',
       role: 'PROVIDER',
       phone: '08039876543',
+      avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=300&q=80',
       isActive: 1,
       accountStatus: 'ACTIVE',
-      providerDetails: { businessName: 'Adeleke Heritage Properties Ogbomoso' }
+      providerDetails: { businessName: isDemoProvider ? 'Adeleke Heritage Properties Ogbomoso' : `${providerName} Accommodations` }
     };
     const mockToken = `he_prov_token_${Date.now()}`;
     localStorage.setItem('hostel_ease_token', mockToken);
@@ -1238,20 +1276,33 @@ function handleClientSideFallbackLogin(payload: { email?: string; password?: str
 
   // Student login
   if (email.includes('admin@') || email.includes('provider@') || email.includes('landlord@')) {
-    const err: any = new Error('This account is registered as Landlord/Admin. Please switch to the correct portal tab.');
+    const err: any = new Error('This email is registered as a Landlord/Admin. Please switch to the Landlord or Admin portal tab.');
     err.code = 'UNAUTHORIZED_STUDENT_ACCESS';
     err.status = 403;
     throw err;
   }
+
+  const isDemoStudent = email === 'student@lautech.edu.ng' || email === 'student@hostelease.ng' || !email;
+  const studentName = isDemoStudent 
+    ? 'Tunde Adeyemi' 
+    : email.split('@')[0].replace(/[._-]/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+  const studentId = isDemoStudent ? 'usr-student-default' : `usr-stud-${email.replace(/[^a-z0-9]/g, '-')}`;
+
   const studentUser = {
-    id: `usr-student-${Date.now()}`,
-    fullName: 'Tunde Adeyemi (LAUTECH)',
+    id: studentId,
+    fullName: studentName,
     email: email || 'student@lautech.edu.ng',
     role: 'STUDENT',
     phone: '08031234567',
+    avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80',
     isActive: 1,
     accountStatus: 'ACTIVE',
-    studentDetails: { department: 'Computer Science', level: '300L' }
+    studentDetails: { 
+      department: 'Computer Science', 
+      level: '300L',
+      matricNo: '2024/04812',
+      matricNumber: '2024/04812'
+    }
   };
   const mockToken = `he_stud_token_${Date.now()}`;
   localStorage.setItem('hostel_ease_token', mockToken);
@@ -1303,6 +1354,9 @@ export const api = {
           const json = await res.json();
           localStorage.setItem('hostel_ease_token', json.token);
           localStorage.setItem('hostel_ease_user', JSON.stringify(json.user));
+          // Save to local registered users
+          const existing = getLocalRegisteredUsers();
+          saveLocalRegisteredUsers([json.user, ...existing.filter(u => u.email?.toLowerCase() !== json.user.email?.toLowerCase())]);
           return json;
         }
 
@@ -1321,7 +1375,7 @@ export const api = {
             ? 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80'
             : 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=300&q=80';
           const mockUser = {
-            id: `usr-${Date.now()}`,
+            id: `usr-${fallbackRole.toLowerCase()}-${Date.now()}`,
             fullName: data.fullName || (fallbackRole === 'PROVIDER' ? 'Hostel Landlord' : 'Student User'),
             email: data.email,
             role: fallbackRole,
@@ -1329,17 +1383,22 @@ export const api = {
             avatarUrl: data.avatarUrl || defaultAvatar,
             isActive: 1,
             accountStatus: 'ACTIVE',
-            providerDetails: fallbackRole === 'PROVIDER' ? { businessName: data.providerDetails?.businessName || 'Verified Accommodations' } : undefined,
+            providerDetails: fallbackRole === 'PROVIDER' ? { businessName: data.providerDetails?.businessName || data.businessName || `${data.fullName || 'Landlord'} Properties` } : undefined,
             studentDetails: fallbackRole === 'STUDENT' ? { 
-              matricNo: data.studentDetails?.matricNo || data.studentDetails?.matricNumber || '2024/04812',
-              matricNumber: data.studentDetails?.matricNo || data.studentDetails?.matricNumber || '2024/04812',
-              department: data.studentDetails?.department || 'Computer Science',
-              level: data.studentDetails?.level || '300L'
+              matricNo: data.studentDetails?.matricNo || data.matricNo || data.studentDetails?.matricNumber || '2024/04812',
+              matricNumber: data.studentDetails?.matricNo || data.matricNo || data.studentDetails?.matricNumber || '2024/04812',
+              department: data.studentDetails?.department || data.department || 'Computer Science',
+              level: data.studentDetails?.level || data.level || '300L'
             } : undefined
           };
           const mockToken = `he_token_${Date.now()}`;
           localStorage.setItem('hostel_ease_token', mockToken);
           localStorage.setItem('hostel_ease_user', JSON.stringify(mockUser));
+
+          // Save to persistent registered users
+          const existing = getLocalRegisteredUsers();
+          saveLocalRegisteredUsers([mockUser, ...existing.filter(u => u.email?.toLowerCase() !== mockUser.email?.toLowerCase())]);
+
           return { message: 'Registration successful', token: mockToken, user: mockUser };
         }
 
@@ -1578,9 +1637,10 @@ export const api = {
           }
         }
       } catch (err) {
-        console.warn(`Backend /api/properties/${id} unreachable, using fallback property.`);
+        console.warn(`Backend /api/properties/${id} unreachable, using local property catalog.`);
       }
-      const prop = DEFAULT_PROPERTIES.find(p => p.id === id) || DEFAULT_PROPERTIES[0];
+      const allProps = getLocalProperties('all');
+      const prop = allProps.find(p => p.id === id || p.slug === id) || allProps[0];
       return { property: prop };
     },
 
@@ -1602,7 +1662,9 @@ export const api = {
       } catch (err) {
         console.warn('Backend /api/properties/featured unreachable, using featured fallback.');
       }
-      return { properties: DEFAULT_PROPERTIES.slice(0, 3) };
+      const allProps = getLocalProperties('all');
+      const featured = allProps.filter(p => p.isFeatured);
+      return { properties: featured.length > 0 ? featured : allProps.slice(0, 4) };
     },
 
     async getRecent(): Promise<{ properties: Property[] }> {
@@ -1623,7 +1685,8 @@ export const api = {
       } catch (err) {
         console.warn('Backend /api/properties/recent unreachable, using recent fallback.');
       }
-      return { properties: DEFAULT_PROPERTIES.slice(0, 6) };
+      const allProps = getLocalProperties('all');
+      return { properties: allProps.slice(0, 8) };
     },
 
     async saveProperty(propertyId: string, notes?: string): Promise<{ isSaved: boolean }> {

@@ -525,7 +525,19 @@ export const DEFAULT_PROPERTIES: Property[] = [
 ];
 
 export function filterFallbackProperties(filters: any): { properties: Property[]; pagination: any } {
-  let result = [...DEFAULT_PROPERTIES];
+  let allProps: Property[] = [];
+  try {
+    const raw = localStorage.getItem('hostel_ease_properties');
+    if (raw) {
+      allProps = JSON.parse(raw);
+    } else {
+      allProps = [...DEFAULT_PROPERTIES];
+    }
+  } catch {
+    allProps = [...DEFAULT_PROPERTIES];
+  }
+
+  let result = [...allProps];
 
   if (filters.search) {
     const q = filters.search.toLowerCase().trim();
