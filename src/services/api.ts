@@ -2490,7 +2490,7 @@ export const api = {
         distanceFromCampusKm: Number(data.distanceFromCampusKm) || 0.8,
         totalRooms: Number(data.totalRooms) || (data.roomsList ? data.roomsList.length : 1),
         availabilityStatus: 'AVAILABLE',
-        verificationStatus: data.isDraft ? 'DRAFT' : 'APPROVED',
+        verificationStatus: data.isDraft ? 'DRAFT' : 'PENDING_REVIEW',
         provider: {
           id: currentUserId,
           name: user?.fullName || 'Verified Landlord',
@@ -2558,12 +2558,43 @@ export const api = {
 
       saveLocalProperty(newProp);
 
+      // Notification for Landlord
       addIsolatedNotification({
         userId: currentUserId,
-        title: 'Hostel Listed Successfully',
-        message: `"${newProp.title}" was registered and is live in your Landlord Portal.`,
+        title: 'Hostel Submitted for Verification',
+        message: `"${newProp.title}" was registered and is in the Admin Verification Queue.`,
         type: 'LISTING'
       });
+
+      // Notification & Audit Trail for Super Admin
+      try {
+        const adminAudit = JSON.parse(localStorage.getItem('hostel_ease_admin_audit_logs') || '[]');
+        adminAudit.unshift({
+          id: `audit-${Date.now()}`,
+          actorId: currentUserId,
+          actorName: user?.fullName || 'Landlord',
+          actorEmail: user?.email || 'landlord@hostelease.ng',
+          actorRole: 'PROVIDER',
+          action: 'HOSTEL_VERIFICATION_SUBMITTED',
+          entityType: 'PROPERTY',
+          entityId: propertyId,
+          details: `Submitted new hostel "${newProp.title}" in ${areaName} (Rent: ₦${rent.toLocaleString()}/yr) for physical 8-point verification.`,
+          createdAt: new Date().toISOString()
+        });
+        localStorage.setItem('hostel_ease_admin_audit_logs', JSON.stringify(adminAudit.slice(0, 50)));
+
+        const adminNotifs = JSON.parse(localStorage.getItem('hostel_ease_admin_notifications') || '[]');
+        adminNotifs.unshift({
+          id: `admin-notif-${Date.now()}`,
+          title: '🏢 New Hostel Awaiting Verification',
+          message: `Landlord "${user?.fullName || 'Landlord'}" submitted "${newProp.title}" in ${areaName} for physical verification.`,
+          type: 'VERIFICATION',
+          entityId: propertyId,
+          read: false,
+          createdAt: new Date().toISOString()
+        });
+        localStorage.setItem('hostel_ease_admin_notifications', JSON.stringify(adminNotifs.slice(0, 50)));
+      } catch {}
 
       try {
         const res = await fetch(`${API_BASE}/provider/properties`, {
@@ -3258,14 +3289,113 @@ export const api = {
     },
 
     async getHostels(search?: string, status?: string, areaId?: string): Promise<{ hostels: AdminHostelItem[] }> {
-      const params = new URLSearchParams();
-      if (search) params.append('search', search);
-      if (status && status !== 'all') params.append('status', status);
-      if (areaId && areaId !== 'all') params.append('areaId', areaId);
-      const res = await fetch(`${API_BASE}/admin/hostels?${params.toString()}`, {
-        headers: { ...getAuthHeader() }
+      let serverHostels: AdminHostelItem[] = [];
+      try {
+        const params = new URLSearchParams();
+        if (search) params.append('search', search);
+        if (status && status !== 'all') params.append('status', status);
+        if (areaId && areaId !== 'all') params.append('areaId', areaId);
+        const res = await fetch(`${API_BASE}/admin/hostels?${params.toString()}`, {
+          headers: { ...getAuthHeader() }
+        });
+        if (res.ok) {
+          const json = await res.json();
+          if (json && Array.isArray(json.hostels)) serverHostels = json.hostels;
+        }
+      } catch (err) {
+        console.warn('Backend getHostels offline, using local and fallback store:', err);
+      }
+
+      // Always merge all local registered properties created by landlords!
+      const localProps = getLocalProperties('all');
+      const convertedLocal: AdminHostelItem[] = localProps.map(p => {
+        const rent = Number((p as any).rentAmount ?? p.priceSummary?.rentAmount ?? (p as any).pricing?.rentAmount ?? 200000);
+        const totalCost = Number((p as any).totalMandatoryCost ?? p.priceSummary?.totalMandatoryCost ?? rent);
+        const cover = p.coverImage || (p.media?.[0]?.url || 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=1200&q=80');
+        const areaName = (p as any).areaName || (p as any).area?.name || 'Under G';
+        const provName = p.provider?.name || (p.provider as any)?.businessName || (p as any).businessName || 'Verified Landlord';
+        const provPhone = p.provider?.phone || (p as any).phone || '+234 800 000 0000';
+        const provEmail = (p.provider as any)?.email || (p as any).email || 'landlord@hostelease.ng';
+
+        return {
+          id: p.id,
+          title: p.title || 'Hostel Accommodation',
+          slug: p.slug || p.id,
+          address: p.address || `${areaName}, Ogbomoso`,
+          nearbyLandmark: p.nearbyLandmark || (p as any).area?.landmark || 'LAUTECH Area',
+          distanceFromCampusKm: Number(p.distanceFromCampusKm) || 0.8,
+          propertyType: p.propertyType || 'SELF_CONTAIN',
+          genderPreference: p.genderPreference || 'ANY',
+          totalRooms: Number(p.totalRooms) || (p.rooms?.length || 1),
+          verificationStatus: p.verificationStatus || 'PENDING_REVIEW',
+          availabilityStatus: p.availabilityStatus || 'AVAILABLE',
+          completenessScore: p.completenessScore || 90,
+          coverImage: cover,
+          rentAmount: rent,
+          totalMandatoryCost: totalCost,
+          areaName,
+          provider: {
+            name: provName,
+            phone: provPhone,
+            email: provEmail
+          },
+          createdAt: p.createdAt || new Date().toISOString()
+        };
       });
-      return handleResponse(res);
+
+      const hostelMap = new Map<string, AdminHostelItem>();
+      [...serverHostels, ...convertedLocal].forEach(h => {
+        const safeH: AdminHostelItem = {
+          id: h.id,
+          title: h.title || 'Hostel Accommodation',
+          slug: h.slug || h.id,
+          address: h.address || 'LAUTECH Area, Ogbomoso',
+          nearbyLandmark: h.nearbyLandmark || '',
+          distanceFromCampusKm: Number(h.distanceFromCampusKm) || 0.8,
+          propertyType: h.propertyType || 'SELF_CONTAIN',
+          genderPreference: h.genderPreference || 'ANY',
+          totalRooms: Number(h.totalRooms) || 1,
+          verificationStatus: h.verificationStatus || 'PENDING_REVIEW',
+          availabilityStatus: h.availabilityStatus || 'AVAILABLE',
+          completenessScore: h.completenessScore || 90,
+          coverImage: h.coverImage || 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=1200&q=80',
+          rentAmount: Number((h as any).rentAmount ?? (h as any).priceSummary?.rentAmount ?? 200000),
+          totalMandatoryCost: Number((h as any).totalMandatoryCost ?? (h as any).priceSummary?.totalMandatoryCost ?? 200000),
+          areaName: h.areaName || (h as any).area?.name || 'Under G',
+          provider: {
+            name: h.provider?.name || (h.provider as any)?.businessName || 'Verified Landlord',
+            phone: h.provider?.phone || '+234 800 000 0000',
+            email: h.provider?.email || 'landlord@hostelease.ng'
+          },
+          createdAt: h.createdAt || new Date().toISOString()
+        };
+
+        if (!hostelMap.has(safeH.id)) {
+          hostelMap.set(safeH.id, safeH);
+        }
+      });
+
+      let allHostels = Array.from(hostelMap.values());
+
+      if (search && search.trim()) {
+        const q = search.toLowerCase();
+        allHostels = allHostels.filter(h =>
+          h.title.toLowerCase().includes(q) ||
+          h.areaName.toLowerCase().includes(q) ||
+          h.provider.name.toLowerCase().includes(q) ||
+          h.address.toLowerCase().includes(q)
+        );
+      }
+
+      if (status && status !== 'all') {
+        allHostels = allHostels.filter(h => h.verificationStatus === status);
+      }
+
+      if (areaId && areaId !== 'all') {
+        allHostels = allHostels.filter(h => (h as any).areaId === areaId || h.areaName.toLowerCase().includes(areaId.toLowerCase()));
+      }
+
+      return { hostels: allHostels };
     },
 
     async reviewHostelVerification(id: string, data: {
@@ -3274,12 +3404,28 @@ export const api = {
       notes?: string;
       validMonths?: number;
     }): Promise<{ message: string; reviewId: string; verificationStatus: string }> {
-      const res = await fetch(`${API_BASE}/admin/verification/properties/${id}/review`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
-        body: JSON.stringify(data)
-      });
-      return handleResponse(res);
+      try {
+        const res = await fetch(`${API_BASE}/admin/verification/properties/${id}/review`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+          body: JSON.stringify(data)
+        });
+        if (res.ok) return await res.json();
+      } catch {}
+
+      // Update local storage property
+      const all = getLocalProperties('all');
+      const target = all.find(p => p.id === id);
+      if (target) {
+        target.verificationStatus = data.decision === 'APPROVED' ? 'APPROVED' : data.decision === 'REJECTED' ? 'REJECTED' : 'PENDING_REVIEW';
+        saveLocalProperty(target);
+      }
+
+      return {
+        message: `Verification decision "${data.decision}" applied successfully.`,
+        reviewId: `rev-${Date.now()}`,
+        verificationStatus: data.decision
+      };
     },
 
     async getReports(status?: string, category?: string): Promise<{ reports: any[] }> {
@@ -3319,13 +3465,69 @@ export const api = {
     },
 
     async getBookings(status?: string, search?: string): Promise<{ bookings: any[] }> {
-      const params = new URLSearchParams();
-      if (status && status !== 'all') params.append('status', status);
-      if (search) params.append('search', search);
-      const res = await fetch(`${API_BASE}/admin/bookings?${params.toString()}`, {
-        headers: { ...getAuthHeader() }
+      let serverBookings: any[] = [];
+      try {
+        const params = new URLSearchParams();
+        if (status && status !== 'all') params.append('status', status);
+        if (search) params.append('search', search);
+        const res = await fetch(`${API_BASE}/admin/bookings?${params.toString()}`, {
+          headers: { ...getAuthHeader() }
+        });
+        if (res.ok) {
+          const json = await res.json();
+          if (json && Array.isArray(json.bookings)) serverBookings = json.bookings;
+        }
+      } catch {}
+
+      const localBookings = getLocalBookings();
+      const localProps = getLocalProperties('all');
+
+      const convertedLocal = localBookings.map((b: any, idx) => {
+        const prop = localProps.find(p => p.id === b.propertyId);
+        return {
+          id: b.id || `bk-${idx}`,
+          bookingReference: b.bookingReference || `HE-${2026}-${1000 + idx}`,
+          propertyTitle: b.propertyTitle || prop?.title || 'LAUTECH Student Accommodation',
+          propertyName: b.propertyTitle || prop?.title || 'LAUTECH Student Accommodation',
+          propertyArea: b.areaName || prop?.area?.name || (prop as any)?.areaName || 'Under G',
+          studentName: b.studentName || 'LAUTECH Student',
+          studentEmail: b.studentEmail || 'student@lautech.edu.ng',
+          studentPhone: b.studentPhone || '+234 800 000 0000',
+          providerName: b.providerName || prop?.provider?.name || 'Verified Landlord',
+          providerPhone: b.providerPhone || prop?.provider?.phone || '+234 800 000 0000',
+          roomName: b.roomName || 'Single Study Unit',
+          totalAmount: b.totalAmount || b.rentAmount || 220000,
+          rentAmount: b.rentAmount || 200000,
+          cautionFee: b.cautionFee || 20000,
+          serviceCharge: b.serviceCharge || 0,
+          bookingStatus: b.bookingStatus || b.status || 'CONFIRMED',
+          status: b.bookingStatus || b.status || 'CONFIRMED',
+          paymentStatus: b.paymentStatus || 'PAID',
+          moveInConfirmationExpiresAt: b.moveInConfirmationExpiresAt || new Date(Date.now() + 48 * 3600 * 1000).toISOString(),
+          createdAt: b.createdAt || new Date().toISOString()
+        };
       });
-      return handleResponse(res);
+
+      const map = new Map<string, any>();
+      [...serverBookings, ...convertedLocal].forEach(b => {
+        if (!map.has(b.id)) map.set(b.id, b);
+      });
+
+      let results = Array.from(map.values());
+      if (status && status !== 'all') {
+        results = results.filter(b => b.status === status || b.bookingStatus === status);
+      }
+      if (search && search.trim()) {
+        const q = search.toLowerCase();
+        results = results.filter(b =>
+          (b.bookingReference && b.bookingReference.toLowerCase().includes(q)) ||
+          (b.propertyTitle && b.propertyTitle.toLowerCase().includes(q)) ||
+          (b.studentName && b.studentName.toLowerCase().includes(q)) ||
+          (b.studentEmail && b.studentEmail.toLowerCase().includes(q))
+        );
+      }
+
+      return { bookings: results };
     },
 
     async getReconciliation(): Promise<{ summary: any; unverifiedTransactions: any[]; mismatchList: any[] }> {

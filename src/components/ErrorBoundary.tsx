@@ -25,7 +25,7 @@ export class ErrorBoundary extends Component<Props, State> {
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     this.setState({ errorInfo });
     // In production, send to error monitoring (e.g. Sentry / Datadog)
-    console.error('[CampusNest Production ErrorBoundary]:', error, errorInfo);
+    console.error('[Hostel Ease Production ErrorBoundary]:', error, errorInfo);
   }
 
   private handleReset = () => {
@@ -40,7 +40,7 @@ export class ErrorBoundary extends Component<Props, State> {
   public render() {
     if (this.state.hasError) {
       return (
-        <div className="min-h-screen bg-slate-950 text-white flex items-center justify-center p-4 selection:bg-brand-500 selection:text-white">
+        <div className="min-h-screen bg-slate-950 text-white flex items-center justify-center p-4 selection:bg-emerald-500 selection:text-white">
           <div className="bg-slate-900 border border-slate-800 rounded-3xl p-8 max-w-lg w-full text-center space-y-6 shadow-2xl animate-fadeIn">
             
             {/* Header Icon */}
@@ -55,7 +55,7 @@ export class ErrorBoundary extends Component<Props, State> {
               </span>
               <h2 className="text-xl font-black text-white">Something went wrong</h2>
               <p className="text-xs text-slate-400 leading-relaxed max-w-md mx-auto">
-                CampusNest encountered an unexpected UI state. Your data, active bookings, and saved nests remain safely stored.
+                Hostel Ease encountered an unexpected UI state. Your data, active bookings, and saved hostels remain safely stored.
               </p>
             </div>
 
@@ -63,7 +63,7 @@ export class ErrorBoundary extends Component<Props, State> {
             <div className="flex flex-col sm:flex-row gap-3 pt-2">
               <button
                 onClick={this.handleReload}
-                className="flex-1 py-3 px-4 rounded-2xl bg-brand-600 hover:bg-brand-500 text-white font-bold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-brand-900/40"
+                className="flex-1 py-3 px-4 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-emerald-900/40"
               >
                 <RefreshCw className="w-4 h-4" />
                 <span>Reload Page</span>
@@ -80,7 +80,7 @@ export class ErrorBoundary extends Component<Props, State> {
             {/* Security Notice */}
             <div className="border-t border-slate-800/80 pt-4 text-[11px] text-slate-500 flex items-center justify-center gap-1.5">
               <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
-              <span>CampusNest v9.0 • Protected by Escrow Shield & Automated Failover</span>
+              <span>Hostel Ease v1.0 • Protected by Escrow Shield & Automated Failover</span>
             </div>
           </div>
         </div>
