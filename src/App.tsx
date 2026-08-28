@@ -40,6 +40,7 @@ import { SmartSearchBar } from './components/SmartSearchBar';
 import { SavedHostelsView } from './components/SavedHostelsView';
 import { ComparisonDock } from './components/ComparisonDock';
 import { BookingModal } from './components/BookingModal';
+import { InspectionModal } from './components/InspectionModal';
 import { AuthModal } from './components/AuthModal';
 import { Footer } from './components/Footer';
 import { MobileBottomNav } from './components/MobileBottomNav';
@@ -133,6 +134,8 @@ function MainApp() {
   const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null);
   const [bookingModalOpen, setBookingModalOpen] = useState<boolean>(false);
   const [bookingTargetProperty, setBookingTargetProperty] = useState<Property | null>(null);
+  const [standaloneInspectionModalOpen, setStandaloneInspectionModalOpen] = useState<boolean>(false);
+  const [inspectionTargetProperty, setInspectionTargetProperty] = useState<Property | null>(null);
   const [authModalOpen, setAuthModalOpen] = useState<boolean>(false);
   const [authModalDefaultRole, setAuthModalDefaultRole] = useState<UserRole>('STUDENT');
   const [aiModalOpen, setAiModalOpen] = useState<boolean>(false);
@@ -315,13 +318,13 @@ function MainApp() {
   };
 
   const handleOpenBookingModal = (property: Property) => {
-    if (!isAuthenticated) {
-      setAuthModalDefaultRole('STUDENT');
-      setAuthModalOpen(true);
-      return;
-    }
     setBookingTargetProperty(property);
     setBookingModalOpen(true);
+  };
+
+  const handleOpenInspectionModal = (property: Property) => {
+    setInspectionTargetProperty(property);
+    setStandaloneInspectionModalOpen(true);
   };
 
   const handleReservePropertyById = async (propertyId: string) => {
@@ -491,6 +494,8 @@ function MainApp() {
                       setCurrentView('messages');
                       window.scrollTo({ top: 0, behavior: 'smooth' });
                     }}
+                    onOpenBookingModal={(prop) => handleOpenBookingModal(prop)}
+                    onOpenInspectionModal={(prop) => handleOpenInspectionModal(prop)}
                     isCompared={comparedPropertyIds.includes(property.id)}
                   />
                 ))}
@@ -723,6 +728,8 @@ function MainApp() {
                             setCurrentView('messages');
                             window.scrollTo({ top: 0, behavior: 'smooth' });
                           }}
+                          onOpenBookingModal={(prop) => handleOpenBookingModal(prop)}
+                          onOpenInspectionModal={(prop) => handleOpenInspectionModal(prop)}
                           isCompared={comparedPropertyIds.includes(property.id)}
                         />
                       ))}
@@ -1211,6 +1218,26 @@ function MainApp() {
             window.scrollTo({ top: 0, behavior: 'smooth' });
           }}
           onShowToast={showToast}
+        />
+      )}
+
+      {/* Standalone Inspection Modal */}
+      {inspectionTargetProperty && (
+        <InspectionModal
+          property={inspectionTargetProperty}
+          isOpen={standaloneInspectionModalOpen}
+          onClose={() => {
+            setStandaloneInspectionModalOpen(false);
+            setInspectionTargetProperty(null);
+          }}
+          onSuccess={(msg) => showToast(msg, 'success')}
+          onOpenConversation={(propId) => {
+            setStandaloneInspectionModalOpen(false);
+            setInspectionTargetProperty(null);
+            setMessagingTargetPropertyId(propId);
+            setCurrentView('messages');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
         />
       )}
 

@@ -16,7 +16,8 @@ import {
   ArrowRight,
   Receipt,
   Phone,
-  HelpCircle
+  HelpCircle,
+  MessageCircle
 } from 'lucide-react';
 import { Property, RoomAvailability, BedspaceAvailability, PropertyAvailabilityResponse } from '../types/hostelEase';
 import { api } from '../services/api';
@@ -697,15 +698,18 @@ export const BookingModal: React.FC<BookingModalProps> = ({
                 <button
                   type="button"
                   onClick={() => {
-                    if (createdBooking) {
-                      onBookingSuccess(createdBooking.bookingId, createdBooking.bookingReference);
-                    } else {
-                      onClose();
+                    const rawPhone = property.provider?.phone || '08039876543';
+                    let cleanPhone = rawPhone.replace(/[^0-9]/g, '');
+                    if (cleanPhone.startsWith('0')) {
+                      cleanPhone = '234' + cleanPhone.substring(1);
                     }
+                    const msg = encodeURIComponent(`Hello ${property.provider?.name || 'Landlord'}, I have just placed a space reservation for "${property.title}" (Ref: ${createdBooking?.bookingReference || 'HE-BK'}) on Hostel Ease. Looking forward to your confirmation!`);
+                    window.open(`https://wa.me/${cleanPhone}?text=${msg}`, '_blank');
                   }}
-                  className="w-full sm:w-auto px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md transition-colors"
+                  className="w-full sm:w-auto px-5 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
                 >
-                  Done & View My Bookings
+                  <MessageCircle className="w-4 h-4" />
+                  <span>WhatsApp Landlord</span>
                 </button>
 
                 {onOpenConversation && (
@@ -715,11 +719,25 @@ export const BookingModal: React.FC<BookingModalProps> = ({
                       onClose();
                       onOpenConversation(property.id);
                     }}
-                    className="w-full sm:w-auto px-5 py-3 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl shadow transition-colors"
+                    className="w-full sm:w-auto px-5 py-3 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl shadow transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
                   >
-                    💬 Message Landlord
+                    <span>💬 In-App DM</span>
                   </button>
                 )}
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (createdBooking) {
+                      onBookingSuccess(createdBooking.bookingId, createdBooking.bookingReference);
+                    } else {
+                      onClose();
+                    }
+                  }}
+                  className="w-full sm:w-auto px-5 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-colors cursor-pointer"
+                >
+                  Done & View Dashboard
+                </button>
               </div>
             </div>
           )}

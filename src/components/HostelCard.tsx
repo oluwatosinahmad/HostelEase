@@ -17,7 +17,9 @@ import {
   SlidersHorizontal,
   Sparkles,
   Star,
-  MessageSquare
+  MessageSquare,
+  Calendar,
+  Receipt
 } from 'lucide-react';
 import { Property } from '../types/hostelEase';
 import { formatNaira, formatDistance, getAvailabilityBadgeInfo, getPropertyTypeLabel } from '../utils/formatters';
@@ -29,6 +31,8 @@ interface HostelCardProps {
   onToggleSave: (propertyId: string, isSaved: boolean) => void;
   onToggleCompare?: (propertyId: string) => void;
   onOpenConversation?: (propertyId: string) => void;
+  onOpenBookingModal?: (property: Property) => void;
+  onOpenInspectionModal?: (property: Property) => void;
   isCompared?: boolean;
   matchScore?: number;
   matchExplanation?: string;
@@ -40,6 +44,8 @@ export const HostelCard: React.FC<HostelCardProps> = ({
   onToggleSave,
   onToggleCompare,
   onOpenConversation,
+  onOpenBookingModal,
+  onOpenInspectionModal,
   isCompared = false,
   matchScore,
   matchExplanation
@@ -256,28 +262,60 @@ export const HostelCard: React.FC<HostelCardProps> = ({
             )}
           </div>
 
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 flex-wrap justify-end">
             {onOpenConversation && (
               <button
+                type="button"
                 onClick={(e) => {
                   e.stopPropagation();
                   onOpenConversation(property.id);
                 }}
-                className="p-2 text-slate-600 dark:text-slate-300 hover:text-emerald-700 dark:hover:text-emerald-400 bg-slate-100 dark:bg-slate-800 hover:bg-emerald-50 dark:hover:bg-slate-700 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-emerald-200 transition-all flex items-center gap-1"
-                title="Chat with Landlord"
+                className="p-2 text-slate-600 dark:text-slate-300 hover:text-emerald-700 dark:hover:text-emerald-400 bg-slate-100 dark:bg-slate-800 hover:bg-emerald-50 dark:hover:bg-slate-700 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-emerald-200 transition-all flex items-center gap-1 cursor-pointer"
+                title="Chat Directly with Landlord"
               >
                 <MessageSquare className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                <span className="text-xs font-bold hidden sm:inline">Chat</span>
+                <span className="text-xs font-bold hidden xl:inline">Chat</span>
               </button>
             )}
 
-            <button
-              onClick={() => onViewDetails(property)}
-              className="px-3 py-2 text-xs font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-600 hover:text-white dark:hover:bg-emerald-600 dark:hover:text-white rounded-xl border border-emerald-200 dark:border-emerald-800 hover:border-emerald-600 transition-all flex items-center gap-1 shadow-sm"
-            >
-              <Eye className="w-3.5 h-3.5" />
-              View
-            </button>
+            {onOpenInspectionModal && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onOpenInspectionModal(property);
+                }}
+                className="px-2.5 py-2 text-xs font-bold text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl border border-slate-200 dark:border-slate-700 transition-all flex items-center gap-1 cursor-pointer"
+                title="Schedule Hostel Inspection"
+              >
+                <Calendar className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                <span>Inspect</span>
+              </button>
+            )}
+
+            {onOpenBookingModal ? (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onOpenBookingModal(property);
+                }}
+                className="px-3.5 py-2 text-xs font-black text-white bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 rounded-xl shadow-md shadow-emerald-600/25 transition-all flex items-center gap-1 cursor-pointer"
+                title="Book / Reserve This Hostel Space"
+              >
+                <Receipt className="w-3.5 h-3.5" />
+                <span>Book</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => onViewDetails(property)}
+                className="px-3 py-2 text-xs font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-600 hover:text-white dark:hover:bg-emerald-600 dark:hover:text-white rounded-xl border border-emerald-200 dark:border-emerald-800 hover:border-emerald-600 transition-all flex items-center gap-1 shadow-xs cursor-pointer"
+              >
+                <Eye className="w-3.5 h-3.5" />
+                View
+              </button>
+            )}
           </div>
         </div>
       </div>
