@@ -618,70 +618,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   : `Create ${role === 'PROVIDER' ? 'Landlord' : 'Student'} Account`}
               </button>
 
-              {/* Quick 1-Click Demo Logins */}
-              <div className="pt-3 border-t border-slate-100 dark:border-slate-800 mt-2 space-y-2">
-                <div className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider text-center">
-                  Quick Demo Access
-                </div>
-                {role === 'STUDENT' && (
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      setEmail('student@lautech.edu.ng');
-                      setPassword('Student123!');
-                      setError(null);
-                      setSubmitting(true);
-                      try {
-                        const authed = await login('student@lautech.edu.ng', 'Student123!', 'STUDENT');
-                        setIsLoggingIn(true);
-                        setTimeout(() => {
-                          setIsLoggingIn(false);
-                          setSubmitting(false);
-                          if (onSuccess) onSuccess(authed);
-                          onClose();
-                        }, 700);
-                      } catch (err: any) {
-                        setError(err.message || 'Demo Student authentication failed');
-                        setSubmitting(false);
-                      }
-                    }}
-                    disabled={submitting}
-                    className="w-full py-2 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:hover:bg-emerald-900/60 border border-emerald-200 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200 font-bold text-[11px] rounded-xl transition-colors flex items-center justify-center gap-1.5"
-                  >
-                    <span>⚡ 1-Click Student Login (student@lautech.edu.ng)</span>
-                  </button>
-                )}
-
-                {role === 'PROVIDER' && (
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      setEmail('landlord@hostelease.ng');
-                      setPassword('Provider123!');
-                      setError(null);
-                      setSubmitting(true);
-                      try {
-                        const authed = await login('landlord@hostelease.ng', 'Provider123!', 'PROVIDER');
-                        setIsLoggingIn(true);
-                        setTimeout(() => {
-                          setIsLoggingIn(false);
-                          setSubmitting(false);
-                          if (onSuccess) onSuccess(authed);
-                          onClose();
-                        }, 700);
-                      } catch (err: any) {
-                        setError(err.message || 'Demo Landlord authentication failed');
-                        setSubmitting(false);
-                      }
-                    }}
-                    disabled={submitting}
-                    className="w-full py-2 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:hover:bg-emerald-900/60 border border-emerald-200 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200 font-bold text-[11px] rounded-xl transition-colors flex items-center justify-center gap-1.5"
-                  >
-                    <span>⚡ 1-Click Landlord Login (landlord@hostelease.ng)</span>
-                  </button>
-                )}
-
-                {role === 'ADMIN' && (
+              {/* Only Admin / Platform Owner has 1-Click Demo Login */}
+              {role === 'ADMIN' && (
+                <div className="pt-3 border-t border-slate-100 dark:border-slate-800 mt-2 space-y-2">
+                  <div className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider text-center">
+                    Authorized Platform Owner Access
+                  </div>
                   <button
                     type="button"
                     onClick={async () => {
@@ -708,8 +650,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   >
                     <span>👑 1-Click Owner Demo Login (admin@hostelease.ng)</span>
                   </button>
-                )}
-              </div>
+                </div>
+              )}
             </form>
           </div>
         )}
