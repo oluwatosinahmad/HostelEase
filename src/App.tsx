@@ -1076,7 +1076,7 @@ function MainApp() {
 
               <div className="relative flex py-1 items-center">
                 <div className="flex-grow border-t border-slate-200 dark:border-slate-800"></div>
-                <span className="flex-shrink mx-3 text-[10px] text-slate-400 font-bold uppercase tracking-wider">Quick Demo Access</span>
+                <span className="flex-shrink mx-3 text-[10px] text-purple-600 dark:text-purple-400 font-bold uppercase tracking-wider">Authorized Platform Owner Access</span>
                 <div className="flex-grow border-t border-slate-200 dark:border-slate-800"></div>
               </div>
 
