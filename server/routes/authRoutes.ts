@@ -22,8 +22,8 @@ router.post('/register', (req, res: Response) => {
     });
   }
 
-  if (!['STUDENT', 'PROVIDER', 'AGENT'].includes(role)) {
-    return res.status(400).json({ error: 'Role must be STUDENT, PROVIDER, or AGENT' });
+  if (!['STUDENT', 'PROVIDER'].includes(role)) {
+    return res.status(400).json({ error: 'Role must be STUDENT or PROVIDER' });
   }
 
   if (password.length < 6) {
@@ -217,8 +217,6 @@ router.post('/login-demo', (req, res: Response) => {
     profile = db.prepare('SELECT * FROM student_profiles WHERE user_id = ?').get(user.id);
   } else if (user.role === 'PROVIDER') {
     profile = db.prepare('SELECT * FROM provider_profiles WHERE user_id = ?').get(user.id);
-  } else if (user.role === 'AGENT') {
-    profile = db.prepare('SELECT * FROM agent_profiles WHERE user_id = ?').get(user.id);
   }
 
   return res.json({
