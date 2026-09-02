@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { Property, RoomAvailability, BedspaceAvailability, PropertyAvailabilityResponse } from '../types/hostelEase';
 import { api } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import { formatNaira, formatDistance } from '../utils/formatters';
 
 interface BookingModalProps {
@@ -40,6 +41,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
   onOpenConversation,
   onShowToast
 }) => {
+  const { isAuthenticated } = useAuth();
   const [step, setStep] = useState<'SELECT' | 'REVIEW' | 'SUCCESS'>('SELECT');
   const [availability, setAvailability] = useState<PropertyAvailabilityResponse | null>(null);
   const [loadingAvailability, setLoadingAvailability] = useState<boolean>(true);
@@ -244,6 +246,54 @@ export const BookingModal: React.FC<BookingModalProps> = ({
       setSubmitting(false);
     }
   };
+
+  if (!isOpen) return null;
+
+  if (!isAuthenticated) {
+    return (
+      <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
+        <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 max-w-md w-full border border-slate-200 dark:border-slate-800 text-center space-y-4 shadow-2xl">
+          <div className="w-14 h-14 bg-amber-100 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 rounded-2xl flex items-center justify-center mx-auto shadow-inner">
+            <ShieldCheck className="w-7 h-7" />
+          </div>
+          <div className="space-y-1">
+            <h3 className="font-black text-base sm:text-lg text-slate-900 dark:text-white">Account Required to Book</h3>
+            <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+              To reserve a room and secure your bedspace through Hostel Ease Escrow, you must first create an account or sign in.
+            </p>
+          </div>
+          <div className="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 rounded-2xl text-[11px] text-amber-800 dark:text-amber-300 font-medium text-left space-y-1">
+            <div className="font-bold flex items-center gap-1.5 text-amber-900 dark:text-amber-200">
+              <ShieldCheck className="w-3.5 h-3.5" />
+              <span>Why an account is needed:</span>
+            </div>
+            <ul className="list-disc pl-4 space-y-0.5 text-[10px]">
+              <li>Generates your verified digital tenancy agreement</li>
+              <li>Protects your rent payment in secure escrow</li>
+              <li>Issues your official move-in gate pass & room keys</li>
+            </ul>
+          </div>
+          <div className="flex gap-2.5 pt-2">
+            <button
+              onClick={onClose}
+              className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-xs rounded-xl transition-colors cursor-pointer"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => {
+                onClose();
+                window.dispatchEvent(new CustomEvent('hostel_ease_open_auth', { detail: { role: 'STUDENT' } }));
+              }}
+              className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs rounded-xl shadow-md transition-colors cursor-pointer"
+            >
+              Create Account / Sign In
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-200">

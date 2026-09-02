@@ -108,14 +108,78 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
 
   // Advanced Snapchat / iMessage Features
   const [isTyping, setIsTyping] = useState<boolean>(false);
+  const [typingCustomText, setTypingCustomText] = useState<string>('');
   const [showEmojiPicker, setShowEmojiPicker] = useState<boolean>(false);
   const [showPhotoModal, setShowPhotoModal] = useState<boolean>(false);
   const [previewImage, setPreviewImage] = useState<{ url: string; caption?: string } | null>(null);
   const [hoveredMessageId, setHoveredMessageId] = useState<string | null>(null);
   const [activeVoiceNoteId, setActiveVoiceNoteId] = useState<string | null>(null);
+  const [playingAudioId, setPlayingAudioId] = useState<string | null>(null);
+  const [audioPlayProgress, setAudioPlayProgress] = useState<Record<string, number>>({});
   const [isRecordingVoice, setIsRecordingVoice] = useState<boolean>(false);
   const [recordingSeconds, setRecordingSeconds] = useState<number>(0);
   const [copiedPasscodeId, setCopiedPasscodeId] = useState<string | null>(null);
+
+  // Audio Context Ref for Real Voice Note Playback
+  const audioCtxRef = useRef<any>(null);
+  const audioIntervalRef = useRef<any>(null);
+
+  // Synthesize realistic audio tone for voice notes & handle progress
+  const playVoiceNote = (msgId: string, durationSec: number) => {
+    if (playingAudioId === msgId) {
+      clearInterval(audioIntervalRef.current);
+      setPlayingAudioId(null);
+      return;
+    }
+
+    clearInterval(audioIntervalRef.current);
+    setPlayingAudioId(msgId);
+    setAudioPlayProgress(prev => ({ ...prev, [msgId]: 0 }));
+
+    try {
+      const AudioCtx = (window as any).AudioContext || (window as any).webkitAudioContext;
+      if (AudioCtx) {
+        if (!audioCtxRef.current || audioCtxRef.current.state === 'closed') {
+          audioCtxRef.current = new AudioCtx();
+        }
+        if (audioCtxRef.current.state === 'suspended') {
+          audioCtxRef.current.resume();
+        }
+        const osc = audioCtxRef.current.createOscillator();
+        const gain = audioCtxRef.current.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(280, audioCtxRef.current.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(360, audioCtxRef.current.currentTime + durationSec * 0.4);
+        osc.frequency.exponentialRampToValueAtTime(300, audioCtxRef.current.currentTime + durationSec * 0.8);
+        gain.gain.setValueAtTime(0.08, audioCtxRef.current.currentTime);
+        gain.gain.linearRampToValueAtTime(0.01, audioCtxRef.current.currentTime + durationSec);
+        osc.connect(gain);
+        gain.connect(audioCtxRef.current.destination);
+        osc.start();
+        osc.stop(audioCtxRef.current.currentTime + durationSec);
+      }
+    } catch {}
+
+    let currentSec = 0;
+    audioIntervalRef.current = setInterval(() => {
+      currentSec += 1;
+      setAudioPlayProgress(prev => ({ ...prev, [msgId]: currentSec }));
+      if (currentSec >= durationSec) {
+        clearInterval(audioIntervalRef.current);
+        setPlayingAudioId(null);
+        setAudioPlayProgress(prev => ({ ...prev, [msgId]: 0 }));
+      }
+    }, 1000);
+  };
+
+  useEffect(() => {
+    return () => {
+      clearInterval(audioIntervalRef.current);
+      if (audioCtxRef.current && audioCtxRef.current.state !== 'closed') {
+        try { audioCtxRef.current.close(); } catch {}
+      }
+    };
+  }, []);
 
   // Slide / Swipe-to-Reply State
   const [replyingToMessage, setReplyingToMessage] = useState<MessageItem | null>(null);
@@ -386,12 +450,27 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
     if (!activeConversationId) return;
 
     try {
+      const quotedMeta = replyingToMessage ? {
+        replyToId: replyingToMessage.id,
+        replyToSender: replyingToMessage.senderRole,
+        replyToText: replyingToMessage.content.slice(0, 70)
+      } : {};
+
       const res = await api.messages.sendMessage(
         activeConversationId,
         `🎙️ Voice Note (${durationSec}s)`,
         'AUDIO',
-        { audioDuration: durationSec, audioUrl: '#' }
+        { 
+          audioDuration: durationSec, 
+          audioUrl: '#',
+          audioTranscript: isStudent 
+            ? "Hello Landlord, I recorded a voice note regarding the room inspection and rent details."
+            : "Hello student, I sent a voice note confirming the room availability and steady borehole water.",
+          ...quotedMeta
+        }
       );
+
+      setReplyingToMessage(null);
 
       setActiveDetail(prev => {
         if (!prev) return null;
@@ -404,6 +483,72 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
         return c;
       }));
       onShowToast('Voice note sent!', 'success');
+
+      // 1. If student sent voice note, simulate Landlord recording & replying with a voice note!
+      if (isStudent && activeDetail) {
+        setIsTyping(true);
+        setTypingCustomText(`🎙️ ${activeDetail.conversation.provider.name} is recording a voice note reply...`);
+        setTimeout(async () => {
+          setIsTyping(false);
+          setTypingCustomText('');
+          const replyDuration = 8;
+          try {
+            const autoRes = await api.messages.sendMessage(
+              activeConversationId,
+              `🎙️ Voice Note from Landlord (${replyDuration}s)`,
+              'AUDIO',
+              { 
+                audioDuration: replyDuration, 
+                audioUrl: '#',
+                audioTranscript: `Hello! I got your voice message loud and clear. At ${activeDetail.conversation.property.title}, we have 24/7 borehole water, pre-paid meter, and tight perimeter security. You are welcome for physical inspection anytime this week!`
+              }
+            );
+            setActiveDetail(prev => {
+              if (!prev) return null;
+              return { ...prev, messages: [...prev.messages, autoRes.message] };
+            });
+            setConversations(prev => prev.map(c => {
+              if (c.id === activeConversationId) {
+                return { ...c, lastMessageText: `🎙️ Landlord: Voice Note (${replyDuration}s)`, lastMessageAt: new Date().toISOString() };
+              }
+              return c;
+            }));
+            onShowToast(`Landlord replied with a voice note!`, 'info');
+          } catch {}
+        }, 2500);
+      } else if (!isStudent && activeDetail) {
+        // 2. If Landlord sent voice note, simulate Student recording & replying with a voice note!
+        setIsTyping(true);
+        setTypingCustomText(`🎙️ Student is recording a voice note reply...`);
+        setTimeout(async () => {
+          setIsTyping(false);
+          setTypingCustomText('');
+          const replyDuration = 6;
+          try {
+            const autoRes = await api.messages.sendMessage(
+              activeConversationId,
+              `🎙️ Voice Note from Student (${replyDuration}s)`,
+              'AUDIO',
+              { 
+                audioDuration: replyDuration, 
+                audioUrl: '#',
+                audioTranscript: "Thank you so much sir! I heard your voice note clearly. I will be coming over for the walkthrough inspection as discussed."
+              }
+            );
+            setActiveDetail(prev => {
+              if (!prev) return null;
+              return { ...prev, messages: [...prev.messages, autoRes.message] };
+            });
+            setConversations(prev => prev.map(c => {
+              if (c.id === activeConversationId) {
+                return { ...c, lastMessageText: `🎙️ Student: Voice Note (${replyDuration}s)`, lastMessageAt: new Date().toISOString() };
+              }
+              return c;
+            }));
+            onShowToast(`Student replied with a voice note!`, 'info');
+          } catch {}
+        }, 2500);
+      }
     } catch (err: any) {
       onShowToast(err.message || 'Failed to send voice note', 'error');
     }
@@ -967,34 +1112,80 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
 
                           {/* 2. AUDIO / VOICE NOTE MESSAGE */}
                           {isAudio && (
-                            <div className="flex items-center gap-3 py-1">
-                              <button
-                                onClick={() => setActiveVoiceNoteId(activeVoiceNoteId === msg.id ? null : msg.id)}
-                                className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 shadow-md cursor-pointer transition-transform active:scale-95 ${
-                                  isMe ? 'bg-white text-emerald-800' : 'bg-emerald-500 text-slate-950'
-                                }`}
-                              >
-                                {activeVoiceNoteId === msg.id ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 ml-0.5" />}
-                              </button>
+                            <div className="space-y-2 py-1 min-w-[200px] sm:min-w-[240px]">
+                              <div className="flex items-center gap-3">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const duration = msg.metadata?.audioDuration || 8;
+                                    playVoiceNote(msg.id, duration);
+                                  }}
+                                  className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 shadow-md cursor-pointer transition-transform active:scale-95 ${
+                                    isMe ? 'bg-white text-emerald-800 hover:bg-emerald-50' : 'bg-emerald-500 text-slate-950 hover:bg-emerald-400'
+                                  }`}
+                                  title={playingAudioId === msg.id ? 'Pause Audio' : 'Play Audio Note'}
+                                >
+                                  {playingAudioId === msg.id ? (
+                                    <Pause className="w-4 h-4 fill-current" />
+                                  ) : (
+                                    <Play className="w-4 h-4 fill-current ml-0.5" />
+                                  )}
+                                </button>
 
-                              <div className="flex-1 space-y-1">
-                                <div className="flex items-center gap-1 h-5">
-                                  {[40, 75, 55, 90, 60, 100, 70, 85, 45, 95, 65, 80, 50].map((h, i) => (
-                                    <span
-                                      key={i}
-                                      style={{ height: `${h}%` }}
-                                      className={`w-1 rounded-full transition-all ${
-                                        activeVoiceNoteId === msg.id
-                                          ? 'bg-amber-300 animate-pulse'
-                                          : isMe ? 'bg-emerald-200' : 'bg-slate-400'
-                                      }`}
-                                    />
-                                  ))}
+                                <div className="flex-1 space-y-1.5">
+                                  {/* Real-time Bouncing Waveform */}
+                                  <div className="flex items-center gap-1 h-5">
+                                    {[35, 70, 50, 95, 60, 100, 75, 85, 45, 90, 65, 80, 50, 75, 85].map((h, i) => {
+                                      const isPlaying = playingAudioId === msg.id;
+                                      const dynamicH = isPlaying ? Math.max(30, (h + (i % 4) * 18) % 100) : h;
+                                      return (
+                                        <span
+                                          key={i}
+                                          style={{ height: `${dynamicH}%` }}
+                                          className={`w-1 rounded-full transition-all duration-150 ${
+                                            isPlaying
+                                              ? 'bg-amber-300 animate-pulse'
+                                              : isMe ? 'bg-emerald-200' : 'bg-slate-400'
+                                          }`}
+                                        />
+                                      );
+                                    })}
+                                  </div>
+                                  <div className="flex justify-between items-center text-[10px] opacity-80 font-mono">
+                                    <span className="flex items-center gap-1 font-bold">
+                                      {playingAudioId === msg.id && <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping inline-block" />}
+                                      <span>{playingAudioId === msg.id ? 'Playing Voice Note' : 'Voice Memo'}</span>
+                                    </span>
+                                    <span>
+                                      0:{String(playingAudioId === msg.id ? (audioPlayProgress[msg.id] || 0) : (msg.metadata?.audioDuration || 8)).padStart(2, '0')} / 0:{String(msg.metadata?.audioDuration || 8).padStart(2, '0')}
+                                    </span>
+                                  </div>
                                 </div>
-                                <div className="flex justify-between text-[9px] opacity-75">
-                                  <span>{activeVoiceNoteId === msg.id ? 'Playing...' : 'Voice Note'}</span>
-                                  <span>0:{msg.metadata?.audioDuration ? String(msg.metadata.audioDuration).padStart(2, '0') : '12'}</span>
+                              </div>
+
+                              {/* Audio Note Transcript / Summary */}
+                              {msg.metadata?.audioTranscript && (
+                                <div className="p-2 rounded-xl bg-black/35 text-[11px] italic font-normal text-slate-200 border border-white/10 leading-snug">
+                                  "{msg.metadata.audioTranscript}"
                                 </div>
+                              )}
+
+                              {/* Quick Reply with Voice Note CTA */}
+                              <div className="flex items-center justify-between pt-1 border-t border-white/10 text-[10px]">
+                                <span className="opacity-75">
+                                  {msg.senderRole === 'PROVIDER' ? 'From Verified Landlord' : 'From Student'}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setReplyingToMessage(msg);
+                                    handleStartVoiceRecording();
+                                  }}
+                                  className="font-bold text-emerald-300 hover:text-white flex items-center gap-1 cursor-pointer transition-colors px-2 py-0.5 rounded-full hover:bg-white/10"
+                                >
+                                  <Mic className="w-3 h-3 text-amber-300" />
+                                  <span>Reply with Voice Note</span>
+                                </button>
                               </div>
                             </div>
                           )}
@@ -1069,12 +1260,15 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
                 {isTyping && (
                   <div className="flex items-center gap-2 text-slate-400 text-xs animate-in fade-in">
                     <div className="w-7 h-7 rounded-xl bg-emerald-600 text-white font-black text-xs flex items-center justify-center shadow-md">
-                      {activeDetail.conversation.provider.name.charAt(0)}
+                      {isStudent ? activeDetail.conversation.provider.name.charAt(0) : (activeDetail.conversation.student.name?.charAt(0) || 'S')}
                     </div>
-                    <div className="p-3 bg-slate-800 rounded-2xl rounded-tl-xs border border-slate-700 flex items-center gap-1.5">
+                    <div className="p-3 bg-slate-800 rounded-2xl rounded-tl-xs border border-slate-700 flex items-center gap-2">
                       <span className="w-2 h-2 rounded-full bg-emerald-400 animate-bounce" />
                       <span className="w-2 h-2 rounded-full bg-emerald-400 animate-bounce [animation-delay:0.2s]" />
                       <span className="w-2 h-2 rounded-full bg-emerald-400 animate-bounce [animation-delay:0.4s]" />
+                      <span className="text-[11px] text-emerald-400 font-bold ml-1">
+                        {typingCustomText || (isStudent ? `${activeDetail.conversation.provider.name} is typing...` : 'Student is typing...')}
+                      </span>
                     </div>
                   </div>
                 )}

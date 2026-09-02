@@ -320,17 +320,41 @@ function MainApp() {
     setAuthModalOpen(true);
   };
 
+  useEffect(() => {
+    const handleAuthEvent = (e: any) => {
+      const role = e.detail?.role || 'STUDENT';
+      handleOpenAuth(role);
+    };
+    window.addEventListener('hostel_ease_open_auth', handleAuthEvent);
+    return () => window.removeEventListener('hostel_ease_open_auth', handleAuthEvent);
+  }, []);
+
   const handleOpenBookingModal = (property: Property) => {
+    if (!isAuthenticated) {
+      showToast('Please create an account or sign in first to book this hostel.', 'error');
+      handleOpenAuth('STUDENT');
+      return;
+    }
     setBookingTargetProperty(property);
     setBookingModalOpen(true);
   };
 
   const handleOpenInspectionModal = (property: Property) => {
+    if (!isAuthenticated) {
+      showToast('Please create an account or sign in first to schedule a hostel inspection.', 'error');
+      handleOpenAuth('STUDENT');
+      return;
+    }
     setInspectionTargetProperty(property);
     setStandaloneInspectionModalOpen(true);
   };
 
   const handleReservePropertyById = async (propertyId: string) => {
+    if (!isAuthenticated) {
+      showToast('Please create an account or sign in first to book a hostel.', 'error');
+      handleOpenAuth('STUDENT');
+      return;
+    }
     try {
       const prop = properties.find(p => p.id === propertyId) || 
                    featuredProperties.find(p => p.id === propertyId) ||
@@ -1247,6 +1271,8 @@ function MainApp() {
               window.scrollTo({ top: 0, behavior: 'smooth' });
             }}
             onOpenBookingModal={(prop) => handleOpenBookingModal(prop)}
+            onRequestInspection={(prop) => handleOpenInspectionModal(prop)}
+            onOpenAuth={handleOpenAuth}
             onOpenAI={(prop) => handleOpenAI(prop)}
             isCompared={comparedPropertyIds.includes(selectedPropertyId)}
             onShowToast={showToast}

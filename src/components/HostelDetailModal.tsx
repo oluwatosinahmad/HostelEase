@@ -37,8 +37,9 @@ import {
   Receipt,
   Sparkles
 } from 'lucide-react';
-import { Property, MediaCategory } from '../types/hostelEase';
+import { Property, MediaCategory, UserRole } from '../types/hostelEase';
 import { api } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import { formatNaira, formatDistance, getAvailabilityBadgeInfo, getPropertyTypeLabel } from '../utils/formatters';
 import { InspectionModal } from './InspectionModal';
 import { ReportListingModal } from './ReportListingModal';
@@ -52,6 +53,8 @@ interface HostelDetailModalProps {
   onToggleCompare?: (propertyId: string) => void;
   onOpenConversation?: (propertyId: string) => void;
   onOpenBookingModal?: (property: Property) => void;
+  onRequestInspection?: (property: Property) => void;
+  onOpenAuth?: (role: UserRole) => void;
   onOpenAI?: (property: Property) => void;
   isCompared?: boolean;
   onShowToast: (message: string, type?: 'success' | 'info' | 'error') => void;
@@ -65,10 +68,13 @@ export const HostelDetailModal: React.FC<HostelDetailModalProps> = ({
   onToggleCompare,
   onOpenConversation,
   onOpenBookingModal,
+  onRequestInspection,
+  onOpenAuth,
   onOpenAI,
   isCompared = false,
   onShowToast
 }) => {
+  const { isAuthenticated } = useAuth();
   const [property, setProperty] = useState<Property | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -88,8 +94,57 @@ export const HostelDetailModal: React.FC<HostelDetailModalProps> = ({
   const [inquiryText, setInquiryText] = useState<string>('');
   const [sendingInquiry, setSendingInquiry] = useState<boolean>(false);
 
+  const handleInspectClick = () => {
+    if (!isAuthenticated) {
+      onShowToast('Please create an account or sign in first to schedule an inspection.', 'error');
+      if (onOpenAuth) {
+        onClose();
+        onOpenAuth('STUDENT');
+      } else {
+        window.dispatchEvent(new CustomEvent('hostel_ease_open_auth', { detail: { role: 'STUDENT' } }));
+        onClose();
+      }
+      return;
+    }
+    if (onRequestInspection && property) {
+      onClose();
+      onRequestInspection(property);
+    } else {
+      setInspectionModalOpen(true);
+    }
+  };
+
+  const handleBookClick = () => {
+    if (!isAuthenticated) {
+      onShowToast('Please create an account or sign in first to book a hostel.', 'error');
+      if (onOpenAuth) {
+        onClose();
+        onOpenAuth('STUDENT');
+      } else {
+        window.dispatchEvent(new CustomEvent('hostel_ease_open_auth', { detail: { role: 'STUDENT' } }));
+        onClose();
+      }
+      return;
+    }
+    if (onOpenBookingModal && property) {
+      onClose();
+      onOpenBookingModal(property);
+    }
+  };
+
   const handleSendDirectInquiry = async (customMessage?: string) => {
     if (!property) return;
+    if (!isAuthenticated) {
+      onShowToast('Please create an account or sign in first to message the landlord.', 'error');
+      if (onOpenAuth) {
+        onClose();
+        onOpenAuth('STUDENT');
+      } else {
+        window.dispatchEvent(new CustomEvent('hostel_ease_open_auth', { detail: { role: 'STUDENT' } }));
+        onClose();
+      }
+      return;
+    }
     const textToSend = (customMessage || inquiryText).trim() || `Hello! I am interested in ${property.title}. Is this room still available for rent?`;
     
     setSendingInquiry(true);
@@ -763,11 +818,8 @@ export const HostelDetailModal: React.FC<HostelDetailModalProps> = ({
                         {onOpenBookingModal && (
                           <div className="space-y-2">
                             <button
-                              onClick={() => {
-                                onClose();
-                                onOpenBookingModal(property);
-                              }}
-                              className="w-full py-3.5 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white font-black text-sm rounded-2xl shadow-lg shadow-emerald-600/30 transition-all flex items-center justify-center gap-2"
+                              onClick={handleBookClick}
+                              className="w-full py-3.5 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white font-black text-sm rounded-2xl shadow-lg shadow-emerald-600/30 transition-all flex items-center justify-center gap-2 cursor-pointer"
                             >
                               <Receipt className="w-4 h-4" />
                               Book Directly (Self-Reservation)
@@ -781,7 +833,7 @@ export const HostelDetailModal: React.FC<HostelDetailModalProps> = ({
                               onClose();
                               onOpenAI(property);
                             }}
-                            className="w-full py-2.5 bg-gradient-to-r from-emerald-900 to-slate-900 text-white rounded-2xl font-bold text-xs shadow-sm transition-all flex items-center justify-center gap-1.5 border border-emerald-500/30 hover:border-emerald-400"
+                            className="w-full py-2.5 bg-gradient-to-r from-emerald-900 to-slate-900 text-white rounded-2xl font-bold text-xs shadow-sm transition-all flex items-center justify-center gap-1.5 border border-emerald-500/30 hover:border-emerald-400 cursor-pointer"
                           >
                             <Sparkles className="w-3.5 h-3.5 text-amber-300 fill-amber-300 animate-pulse" />
                             Ask AI About This Hostel
@@ -789,8 +841,8 @@ export const HostelDetailModal: React.FC<HostelDetailModalProps> = ({
                         )}
 
                         <button
-                          onClick={() => setInspectionModalOpen(true)}
-                          className="w-full py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold text-xs rounded-2xl transition-all flex items-center justify-center gap-1.5"
+                          onClick={handleInspectClick}
+                          className="w-full py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold text-xs rounded-2xl transition-all flex items-center justify-center gap-1.5 cursor-pointer"
                         >
                           <Calendar className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                           Request Hostel Inspection
@@ -799,13 +851,23 @@ export const HostelDetailModal: React.FC<HostelDetailModalProps> = ({
                         {onOpenConversation && (
                           <button
                             onClick={() => {
+                              if (!isAuthenticated) {
+                                onShowToast('Please create an account or sign in first to message the landlord.', 'error');
+                                if (onOpenAuth) {
+                                  onClose();
+                                  onOpenAuth('STUDENT');
+                                } else {
+                                  window.dispatchEvent(new CustomEvent('hostel_ease_open_auth', { detail: { role: 'STUDENT' } }));
+                                  onClose();
+                                }
+                                return;
+                              }
                               onClose();
                               onOpenConversation(property.id);
                             }}
-                            className="w-full py-2.5 bg-slate-900 dark:bg-slate-800 hover:bg-slate-800 dark:hover:bg-slate-700 text-white rounded-2xl font-bold text-xs shadow transition-all flex items-center justify-center gap-1.5 border border-transparent dark:border-slate-700"
+                            className="w-full py-2.5 bg-slate-900 dark:bg-slate-800 hover:bg-slate-800 dark:hover:bg-slate-700 text-white rounded-2xl font-bold text-xs shadow transition-all flex items-center justify-center gap-1.5 border border-transparent dark:border-slate-700 cursor-pointer"
                           >
                             <MessageSquare className="w-3.5 h-3.5 text-emerald-400" />
-                            Message Landlord / Inquire
                           </button>
                         )}
 
