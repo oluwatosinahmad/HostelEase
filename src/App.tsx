@@ -241,12 +241,12 @@ function MainApp() {
     ? properties.filter(p => p.media?.some(m => m.mediaType === 'VIDEO') || (p as any).has4KVideo || (p as any).videoTourUrl)
     : properties.slice(0, 6);
 
-  // Auto-roll 4K video walkthrough carousel every 4 seconds smoothly
+  // Auto-roll 4K video walkthrough carousel every 3 minutes smoothly
   useEffect(() => {
     if (isVideoSliderHovered || rollingVideoList.length <= 1) return;
     const interval = setInterval(() => {
       setVideoSliderIndex(prev => (prev + 1) % rollingVideoList.length);
-    }, 4000);
+    }, 180000); // 3 minutes (180,000 ms)
     return () => clearInterval(interval);
   }, [isVideoSliderHovered, rollingVideoList.length]);
 
@@ -258,12 +258,12 @@ function MainApp() {
     return properties;
   })();
 
-  // Auto-roll Featured Verified Hostels carousel every 4 seconds smoothly
+  // Auto-roll Featured Verified Hostels carousel every 3 minutes smoothly
   useEffect(() => {
     if (isFeaturedSliderHovered || featuredRollList.length <= 1) return;
     const interval = setInterval(() => {
       setFeaturedSliderIndex(prev => (prev + 1) % featuredRollList.length);
-    }, 4000);
+    }, 180000); // 3 minutes (180,000 ms)
     return () => clearInterval(interval);
   }, [isFeaturedSliderHovered, featuredRollList.length]);
 
@@ -600,7 +600,7 @@ function MainApp() {
                 <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
                   <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 flex items-center gap-1.5 shadow-xs">
                     <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
-                    <span>Smart Auto-Rolling</span>
+                    <span>{isFeaturedSliderHovered ? '⏸️ Paused (Viewing)' : '⏱️ Rolls every 3 mins'}</span>
                   </span>
 
                   <button
@@ -702,7 +702,7 @@ function MainApp() {
                 <div className="flex items-center gap-2">
                   <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 flex items-center gap-1.5 shadow-xs">
                     <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
-                    <span>Smart Auto-Rolling</span>
+                    <span>{isVideoSliderHovered ? '⏸️ Paused (Viewing)' : '⏱️ Rolls every 3 mins'}</span>
                   </span>
 
                   <button

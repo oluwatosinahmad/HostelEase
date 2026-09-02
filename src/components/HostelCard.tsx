@@ -68,7 +68,7 @@ export const HostelCard: React.FC<HostelCardProps> = ({
   const [isSliding, setIsSliding] = useState<boolean>(false);
   const [isHovered, setIsHovered] = useState<boolean>(false);
 
-  // Automatically cycle through multiple hostel photos every 3.5 seconds when not hovered
+  // Automatically cycle through multiple hostel photos smoothly when not hovered
   useEffect(() => {
     if (!hasMultipleImages || isHovered) return;
 
@@ -76,7 +76,7 @@ export const HostelCard: React.FC<HostelCardProps> = ({
       setIsSliding(true);
       setCurrentImageIdx(prev => (prev === images.length - 1 ? 0 : prev + 1));
       setTimeout(() => setIsSliding(false), 250);
-    }, 3500);
+    }, 5500);
 
     return () => clearInterval(interval);
   }, [hasMultipleImages, images.length, isHovered]);
