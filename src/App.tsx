@@ -144,6 +144,8 @@ function MainApp() {
   const [selectedVideoTourProperty, setSelectedVideoTourProperty] = useState<Property | null>(null);
   const [videoSliderIndex, setVideoSliderIndex] = useState<number>(0);
   const [isVideoSliderHovered, setIsVideoSliderHovered] = useState<boolean>(false);
+  const [featuredSliderIndex, setFeaturedSliderIndex] = useState<number>(0);
+  const [isFeaturedSliderHovered, setIsFeaturedSliderHovered] = useState<boolean>(false);
   const [authModalOpen, setAuthModalOpen] = useState<boolean>(false);
   const [authModalDefaultRole, setAuthModalDefaultRole] = useState<UserRole>('STUDENT');
   const [aiModalOpen, setAiModalOpen] = useState<boolean>(false);
@@ -247,6 +249,23 @@ function MainApp() {
     }, 4000);
     return () => clearInterval(interval);
   }, [isVideoSliderHovered, rollingVideoList.length]);
+
+  // Featured verified hostels list for smart rolling carousel (includes all verified hostels around LAUTECH)
+  const featuredRollList = (() => {
+    const verifiedHouses = properties.filter(p => p.verificationStatus === 'APPROVED' || p.isFeatured || p.isDemo);
+    if (verifiedHouses.length >= 3) return verifiedHouses;
+    if (featuredProperties.length > 0) return featuredProperties;
+    return properties;
+  })();
+
+  // Auto-roll Featured Verified Hostels carousel every 4 seconds smoothly
+  useEffect(() => {
+    if (isFeaturedSliderHovered || featuredRollList.length <= 1) return;
+    const interval = setInterval(() => {
+      setFeaturedSliderIndex(prev => (prev + 1) % featuredRollList.length);
+    }, 4000);
+    return () => clearInterval(interval);
+  }, [isFeaturedSliderHovered, featuredRollList.length]);
 
   // Handle Save / Unsave from cards
   const handleToggleSave = async (propertyId: string, willSave: boolean) => {
@@ -563,9 +582,9 @@ function MainApp() {
               </div>
             </section>
 
-            {/* Featured Verified Hostels */}
+            {/* Featured Verified Hostels with Smart Auto-Rolling Slider */}
             <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-4">
-              <div className="flex items-end justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
                 <div>
                   <span className="text-[11px] font-extrabold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">
                     Audited Listings
@@ -578,33 +597,88 @@ function MainApp() {
                   </p>
                 </div>
 
-                <button
-                  onClick={() => setCurrentView('search')}
-                  className="text-xs font-bold text-emerald-700 dark:text-emerald-400 hover:text-emerald-800 dark:hover:text-emerald-300 flex items-center gap-1 transition-colors"
-                >
-                  See all hostels <ArrowRight className="w-3.5 h-3.5" />
-                </button>
+                <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+                  <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 flex items-center gap-1.5 shadow-xs">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
+                    <span>Smart Auto-Rolling</span>
+                  </span>
+
+                  <button
+                    type="button"
+                    onClick={() => setFeaturedSliderIndex(prev => (prev > 0 ? prev - 1 : featuredRollList.length - 1))}
+                    className="p-2 rounded-xl bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 shadow-xs transition-colors cursor-pointer"
+                    title="Previous Hostels"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setFeaturedSliderIndex(prev => (prev + 1) % featuredRollList.length)}
+                    className="p-2 rounded-xl bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 shadow-xs transition-colors cursor-pointer"
+                    title="Next Hostels"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+
+                  <button
+                    onClick={() => setCurrentView('search')}
+                    className="text-xs font-bold text-emerald-700 dark:text-emerald-400 hover:text-emerald-800 dark:hover:text-emerald-300 flex items-center gap-1 transition-colors ml-1 cursor-pointer"
+                  >
+                    See all hostels <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                {featuredProperties.slice(0, 3).map(property => (
-                  <HostelCard
-                    key={property.id}
-                    property={property}
-                    onViewDetails={(p) => setSelectedPropertyId(p.id)}
-                    onToggleSave={handleToggleSave}
-                    onToggleCompare={handleToggleCompare}
-                    onOpenConversation={(propId) => {
-                      setMessagingTargetPropertyId(propId);
-                      setCurrentView('messages');
-                      window.scrollTo({ top: 0, behavior: 'smooth' });
-                    }}
-                    onOpenBookingModal={(prop) => handleOpenBookingModal(prop)}
-                    onOpenInspectionModal={(prop) => handleOpenInspectionModal(prop)}
-                    onOpenVideoTour={(prop) => setSelectedVideoTourProperty(prop)}
-                    isCompared={comparedPropertyIds.includes(property.id)}
-                  />
-                ))}
+              {/* Rolling Carousel Container with Hover-Pause */}
+              <div 
+                onMouseEnter={() => setIsFeaturedSliderHovered(true)}
+                onMouseLeave={() => setIsFeaturedSliderHovered(false)}
+                className="space-y-4"
+              >
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {[0, 1, 2].map((offset) => {
+                    const idx = (featuredSliderIndex + offset) % featuredRollList.length;
+                    const property = featuredRollList[idx];
+                    if (!property) return null;
+
+                    return (
+                      <HostelCard
+                        key={`featured-roll-${property.id}-${offset}`}
+                        property={property}
+                        onViewDetails={(p) => setSelectedPropertyId(p.id)}
+                        onToggleSave={handleToggleSave}
+                        onToggleCompare={handleToggleCompare}
+                        onOpenConversation={(propId) => {
+                          setMessagingTargetPropertyId(propId);
+                          setCurrentView('messages');
+                          window.scrollTo({ top: 0, behavior: 'smooth' });
+                        }}
+                        onOpenBookingModal={(prop) => handleOpenBookingModal(prop)}
+                        onOpenInspectionModal={(prop) => handleOpenInspectionModal(prop)}
+                        onOpenVideoTour={(prop) => setSelectedVideoTourProperty(prop)}
+                        isCompared={comparedPropertyIds.includes(property.id)}
+                      />
+                    );
+                  })}
+                </div>
+
+                {/* Bottom Pagination Dots */}
+                <div className="flex items-center justify-center gap-1.5 pt-2">
+                  {featuredRollList.map((_, dotIdx) => (
+                    <button
+                      key={`feat-dot-${dotIdx}`}
+                      type="button"
+                      onClick={() => setFeaturedSliderIndex(dotIdx)}
+                      className={`h-1.5 rounded-full transition-all cursor-pointer ${
+                        dotIdx === featuredSliderIndex
+                          ? 'w-6 bg-emerald-600 dark:bg-emerald-400'
+                          : 'w-2 bg-slate-300 dark:bg-slate-700 hover:bg-slate-400'
+                      }`}
+                      title={`Jump to hostel ${dotIdx + 1}`}
+                    />
+                  ))}
+                </div>
               </div>
             </section>
 
