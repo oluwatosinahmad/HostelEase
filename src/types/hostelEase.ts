@@ -295,9 +295,12 @@ export interface InspectionRequest {
   privateStudentNotes?: string | null;
   feedbackRating?: number;
   feedbackComment?: string;
+  studentId?: string;
   studentName?: string;
   studentEmail?: string;
+  providerId?: string;
   providerName?: string;
+  providerEmail?: string;
   providerPhone?: string;
   createdAt: string;
   updatedAt?: string;

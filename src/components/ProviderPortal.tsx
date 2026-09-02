@@ -1113,23 +1113,58 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
         )}
 
         {/* TAB 2: MY HOSTELS LISTINGS */}
-        {activeTab === 'listings' && (
+        {activeTab === 'listings' && (() => {
+          const verifiedCount = properties.filter(p => p?.verificationStatus === 'APPROVED').length;
+          const pendingCount = properties.filter(p => p?.verificationStatus !== 'APPROVED' && p?.verificationStatus !== 'REJECTED').length;
+          const rejectedCount = properties.filter(p => p?.verificationStatus === 'REJECTED').length;
+
+          return (
           <div className="space-y-6">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
                 <h2 className="text-lg font-bold text-gray-900">My Registered Hostels</h2>
-                <p className="text-xs text-gray-500">Manage listing details, verification status, and pricing</p>
+                <p className="text-xs text-gray-500">Manage listing details, verification status, and physical audit approvals</p>
               </div>
               <button
                 onClick={() => {
                   setEditingProperty(null);
                   setActiveTab('wizard');
                 }}
-                className="px-4 py-2 bg-emerald-800 hover:bg-emerald-900 text-white text-xs font-bold rounded-xl shadow-xs flex items-center gap-1.5 cursor-pointer transition-colors"
+                className="px-4 py-2 bg-emerald-800 hover:bg-emerald-900 text-white text-xs font-bold rounded-xl shadow-xs flex items-center gap-1.5 cursor-pointer transition-colors shrink-0"
               >
                 <PlusCircle className="w-4 h-4" />
                 Add New Hostel
               </button>
+            </div>
+
+            {/* Verification Notice Banner */}
+            <div className="bg-gradient-to-r from-emerald-50 via-teal-50 to-blue-50 border border-emerald-200 p-4 rounded-2xl flex items-start gap-3 shadow-xs">
+              <ShieldCheck className="w-5 h-5 text-emerald-700 shrink-0 mt-0.5" />
+              <div className="text-xs space-y-1">
+                <h4 className="font-bold text-emerald-950">Hostel Ease Verification Standard for LAUTECH Landlords</h4>
+                <p className="text-gray-600 leading-relaxed">
+                  Every new hostel submission is audited by the Hostel Ease admin team to verify borehole water, electricity sub-meters, gate security, and genuine room photos before going live on public student search.
+                </p>
+              </div>
+            </div>
+
+            {/* Verification Filter Tabs */}
+            <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+              <span className="text-xs font-bold text-gray-500">Filter:</span>
+              <span className="px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-800 text-white shadow-xs">
+                All Hostels ({properties.length})
+              </span>
+              <span className="px-3 py-1.5 rounded-xl text-xs font-bold bg-white text-emerald-800 border border-emerald-200">
+                ✓ Verified ({verifiedCount})
+              </span>
+              <span className="px-3 py-1.5 rounded-xl text-xs font-bold bg-white text-amber-800 border border-amber-200">
+                ⏳ Pending Verification ({pendingCount})
+              </span>
+              {rejectedCount > 0 && (
+                <span className="px-3 py-1.5 rounded-xl text-xs font-bold bg-white text-rose-800 border border-rose-200">
+                  ❌ Needs Action ({rejectedCount})
+                </span>
+              )}
             </div>
 
             {(!properties || properties.length === 0) ? (
@@ -1156,8 +1191,14 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
               </div>
             ) : (
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                {properties.map((prop, idx) => (
-                  <div key={prop?.id || `prop-${idx}`} className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-xs hover:shadow-md transition-all">
+                {properties.map((prop, idx) => {
+                  const isVerified = prop?.verificationStatus === 'APPROVED';
+                  const isRejected = prop?.verificationStatus === 'REJECTED';
+
+                  return (
+                  <div key={prop?.id || `prop-${idx}`} className={`bg-white rounded-2xl border overflow-hidden shadow-xs hover:shadow-md transition-all ${
+                    isVerified ? 'border-emerald-200' : isRejected ? 'border-rose-300' : 'border-amber-200'
+                  }`}>
                     <div className="h-44 relative bg-gray-100">
                       <img
                         src={prop?.coverImage || 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=600&q=80'}
@@ -1167,11 +1208,29 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
                           (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=600&q=80';
                         }}
                       />
-                      <span className={`absolute top-3 right-3 text-[10px] font-bold px-2.5 py-1 rounded-full shadow-xs ${
-                        prop?.verificationStatus === 'APPROVED' ? 'bg-emerald-600 text-white' :
-                        prop?.verificationStatus === 'DRAFT' ? 'bg-gray-700 text-white' : 'bg-amber-500 text-white'
+                      
+                      {/* Prominent Verification Badge */}
+                      <span className={`absolute top-3 right-3 text-[10px] font-black px-2.5 py-1 rounded-full shadow-md flex items-center gap-1 ${
+                        isVerified ? 'bg-emerald-600 text-white' :
+                        isRejected ? 'bg-rose-600 text-white' :
+                        'bg-amber-500 text-white animate-pulse'
                       }`}>
-                        {prop?.verificationStatus === 'APPROVED' ? '✓ Verified' : (prop?.verificationStatus || 'DRAFT')}
+                        {isVerified ? (
+                          <>
+                            <ShieldCheck className="w-3 h-3" />
+                            <span>✓ Verified by Admin</span>
+                          </>
+                        ) : isRejected ? (
+                          <>
+                            <AlertCircle className="w-3 h-3" />
+                            <span>Action Required</span>
+                          </>
+                        ) : (
+                          <>
+                            <Clock className="w-3 h-3" />
+                            <span>⏳ Pending Verification</span>
+                          </>
+                        )}
                       </span>
                     </div>
 
@@ -1182,6 +1241,35 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
                           <MapPin className="w-3.5 h-3.5 text-gray-400 shrink-0" />
                           {prop?.address || 'LAUTECH Area'} • {prop?.distanceFromCampusKm || 0.8}km from campus
                         </p>
+                      </div>
+
+                      {/* Verification Explanation Card */}
+                      <div className={`p-2.5 rounded-xl text-[11px] font-medium leading-relaxed border ${
+                        isVerified ? 'bg-emerald-50 text-emerald-900 border-emerald-200' :
+                        isRejected ? 'bg-rose-50 text-rose-900 border-rose-200' :
+                        'bg-amber-50 text-amber-900 border-amber-200'
+                      }`}>
+                        {isVerified ? (
+                          <div className="flex items-center gap-1.5">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                            <span><strong>Live & Verified:</strong> Students across LAUTECH can view, inspect, and book this hostel.</span>
+                          </div>
+                        ) : isRejected ? (
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-1.5 font-bold text-rose-800">
+                              <AlertCircle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                              <span>Rejection Note from Admin:</span>
+                            </div>
+                            <p className="text-rose-700 text-[10px]">
+                              {prop?.rejectionReason || 'Please provide clearer room interior photos and confirm prepaid sub-meter installation.'}
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1.5">
+                            <Clock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                            <span><strong>Under Review:</strong> Admin team is auditing your hostel specs before activating public search.</span>
+                          </div>
+                        )}
                       </div>
 
                       <div className="p-3 bg-gray-50 rounded-xl space-y-1 text-xs">
@@ -1250,11 +1338,13 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
                       )}
                     </div>
                   </div>
-                ))}
+                );
+                })}
               </div>
             )}
           </div>
-        )}
+          );
+        })()}
 
         {/* TAB 3: ROOMS & BEDSPACES INVENTORY */}
         {activeTab === 'rooms' && (

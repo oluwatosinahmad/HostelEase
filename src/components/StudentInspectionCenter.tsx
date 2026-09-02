@@ -277,10 +277,31 @@ export const StudentInspectionCenter: React.FC<StudentInspectionCenterProps> = (
                       isCompleted ? 'bg-slate-100 text-slate-800' :
                       'bg-rose-100 text-rose-900'
                     }`}>
-                      {insp.status.replace(/_/g, ' ')}
+                      {isConfirmed ? '✓ Confirmed by Landlord' : isPending ? '⏳ Awaiting Landlord' : insp.status.replace(/_/g, ' ')}
                     </span>
                   </div>
                 </div>
+
+                {/* Confirmed Banner with Meeting Guidance */}
+                {isConfirmed && (
+                  <div className="p-3.5 bg-emerald-50 rounded-2xl border border-emerald-300 text-xs text-emerald-950 space-y-1.5 animate-in fade-in">
+                    <div className="flex items-center gap-2 font-black text-emerald-900">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <span>🎉 Inspection Confirmed by Landlord ({insp.providerName || 'Accommodation Owner'})!</span>
+                    </div>
+                    <p className="text-emerald-800 text-[11px] leading-relaxed">
+                      The accommodation provider has approved your appointment for <strong>{insp.preferredDate} at {insp.preferredTime}</strong>. Meeting point: <strong>{insp.nearbyLandmark ? `Near ${insp.nearbyLandmark}` : insp.areaName}</strong>. You can chat with the landlord or proceed to secure your bedspace below!
+                    </p>
+                  </div>
+                )}
+
+                {/* Pending Confirmation Banner */}
+                {isPending && (
+                  <div className="p-3 bg-amber-50 rounded-2xl border border-amber-200 text-xs text-amber-950 flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-amber-600 shrink-0" />
+                    <span><strong>Awaiting Landlord Confirmation:</strong> The landlord was notified and is reviewing your requested inspection slot for {insp.preferredDate} at {insp.preferredTime}.</span>
+                  </div>
+                )}
 
                 {/* Reschedule Proposal Alert Banner */}
                 {isReschedule && (
@@ -424,14 +445,15 @@ export const StudentInspectionCenter: React.FC<StudentInspectionCenterProps> = (
                       Chat with Provider
                     </button>
 
-                    {/* Reserve Space CTA (for completed or confirmed inspections) */}
-                    {onReserveHostel && (isCompleted || isConfirmed) && (
+                    {/* Reserve & Pay Space CTA */}
+                    {onReserveHostel && (
                       <button
                         onClick={() => onReserveHostel(insp.propertyId)}
-                        className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white font-bold text-xs rounded-xl shadow-xs transition-all flex items-center gap-1.5"
+                        className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white font-black text-xs rounded-xl shadow-md hover:shadow-lg transition-all flex items-center gap-1.5 cursor-pointer"
+                        title="Book & Pay for this hostel"
                       >
                         <Receipt className="w-3.5 h-3.5" />
-                        Reserve This Hostel
+                        <span>Book & Pay for Hostel</span>
                       </button>
                     )}
 

@@ -69,6 +69,21 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
     }
     loadUser();
+
+    const handleUserUpdate = (e: any) => {
+      if (e.detail) {
+        setUser(e.detail);
+      } else {
+        const stored = localStorage.getItem('hostel_ease_user');
+        if (stored) {
+          try {
+            setUser(JSON.parse(stored));
+          } catch {}
+        }
+      }
+    };
+    window.addEventListener('hostel_ease_user_updated', handleUserUpdate);
+    return () => window.removeEventListener('hostel_ease_user_updated', handleUserUpdate);
   }, []);
 
   const login = async (email: string, password: string, role?: UserRole): Promise<User> => {
@@ -107,11 +122,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const updateProfile = async (data: any) => {
-    await api.auth.updateProfile(data);
-    const { user: updatedUser } = await api.auth.getMe();
-    if (updatedUser) {
-      setUser(updatedUser);
-      localStorage.setItem('hostel_ease_user', JSON.stringify(updatedUser));
+    try {
+      await api.student.updateProfile(data);
+    } catch {}
+    const stored = localStorage.getItem('hostel_ease_user');
+    if (stored) {
+      try {
+        const u = JSON.parse(stored);
+        setUser(u);
+      } catch {}
     }
   };
 

@@ -337,7 +337,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                             <button
                               onClick={() => {
                                 onNavigate('student-dashboard');
-                                if (onNavigateToDashboardTab) onNavigateToDashboardTab('preferences');
+                                if (onNavigateToDashboardTab) onNavigateToDashboardTab('profile_security');
                                 setProfileDropdownOpen(false);
                               }}
                               className="w-full text-left px-4 py-2 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2.5"
@@ -591,7 +591,11 @@ export const Navbar: React.FC<NavbarProps> = ({
             {isStudent && (
               <>
                 <button
-                  onClick={() => { onNavigate('student-dashboard'); setMobileMenuOpen(false); }}
+                  onClick={() => {
+                    onNavigate('student-dashboard');
+                    if (onNavigateToDashboardTab) onNavigateToDashboardTab('profile_security');
+                    setMobileMenuOpen(false);
+                  }}
                   className="w-full flex items-center gap-2.5 p-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800"
                 >
                   <UserIcon className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />

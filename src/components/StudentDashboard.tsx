@@ -130,6 +130,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
   const [profileLevel, setProfileLevel] = useState<string>('');
   const [profileMatricNo, setProfileMatricNo] = useState<string>('');
   const [profileGender, setProfileGender] = useState<string>('ANY');
+  const [profileAvatarUrl, setProfileAvatarUrl] = useState<string>('');
   const [savingProfile, setSavingProfile] = useState<boolean>(false);
 
   // Password Change State
@@ -174,6 +175,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
         setProfileLevel(data.user.level || '');
         setProfileMatricNo(data.user.matricNo || '');
         setProfileGender(data.user.gender || 'ANY');
+        setProfileAvatarUrl(data.user.avatarUrl || user?.avatarUrl || '');
       }
 
       // Populate preferences form state
@@ -255,7 +257,8 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
         department: profileDepartment,
         level: profileLevel,
         matricNo: profileMatricNo,
-        gender: profileGender
+        gender: profileGender,
+        avatarUrl: profileAvatarUrl
       });
       onShowToast('Personal profile details updated!', 'success');
       loadDashboard();
@@ -1957,52 +1960,125 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
       {activeTab === 'profile_security' && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in fade-in">
           {/* Profile Form */}
-          <form onSubmit={handleSaveProfile} className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 space-y-4 shadow-sm">
-            <h3 className="font-bold text-sm text-slate-900 flex items-center gap-2">
-              <UserIcon className="w-4 h-4 text-emerald-600" />
-              Personal Profile Details
-            </h3>
+          <form onSubmit={handleSaveProfile} className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 space-y-5 shadow-sm">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="font-black text-sm text-slate-900 flex items-center gap-2">
+                  <UserIcon className="w-4 h-4 text-emerald-600" />
+                  Personal Student Profile & Credentials
+                </h3>
+                <p className="text-[11px] text-slate-500">Update your official student identity, matric number, and contact info.</p>
+              </div>
+            </div>
+
+            {/* Avatar Selection & Preview */}
+            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
+              <label className="block text-xs font-bold text-slate-700">Profile Picture / Avatar</label>
+              
+              <div className="flex items-center gap-4">
+                <div className="relative">
+                  <UserAvatar fullName={profileFullName || 'Student'} avatarUrl={profileAvatarUrl} size="lg" />
+                </div>
+                <div className="text-xs space-y-1">
+                  <p className="font-bold text-slate-900">Choose Student Avatar or Paste Image Link</p>
+                  <p className="text-[11px] text-slate-500">Pick from presets below or paste a custom photo URL.</p>
+                </div>
+              </div>
+
+              {/* Avatar Presets */}
+              <div className="space-y-1.5 pt-1">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Quick Presets</span>
+                <div className="flex items-center gap-2.5 overflow-x-auto pb-1 scrollbar-none">
+                  {[
+                    { id: 'av-1', label: 'Tech Scholar', url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80' },
+                    { id: 'av-2', label: 'Male Scholar', url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=400&q=80' },
+                    { id: 'av-3', label: 'Female Medic', url: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=400&q=80' },
+                    { id: 'av-4', label: 'Engineer', url: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=400&q=80' },
+                    { id: 'av-5', label: 'Creative', url: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=400&q=80' },
+                    { id: 'av-6', label: 'Scientist', url: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&w=400&q=80' }
+                  ].map((av) => (
+                    <button
+                      key={av.id}
+                      type="button"
+                      onClick={() => setProfileAvatarUrl(av.url)}
+                      className={`relative rounded-full p-0.5 transition-all cursor-pointer ${
+                        profileAvatarUrl === av.url ? 'ring-2 ring-emerald-500 ring-offset-2 scale-105' : 'opacity-70 hover:opacity-100'
+                      }`}
+                      title={av.label}
+                    >
+                      <img src={av.url} alt={av.label} className="w-9 h-9 rounded-full object-cover" />
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <input
+                  type="url"
+                  value={profileAvatarUrl}
+                  onChange={(e) => setProfileAvatarUrl(e.target.value)}
+                  placeholder="Or paste custom image URL (e.g. https://...)"
+                  className="w-full text-xs bg-white border border-slate-200 rounded-xl p-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                />
+              </div>
+            </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">Full Name</label>
+              <label className="block text-xs font-bold text-slate-700 mb-1">Account Full Name</label>
               <input
                 type="text"
                 value={profileFullName}
                 onChange={(e) => setProfileFullName(e.target.value)}
                 required
-                className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5"
+                placeholder="e.g. Babatunde Adeleke"
+                className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
               />
             </div>
 
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">Phone Number</label>
-              <input
-                type="text"
-                value={profilePhone}
-                onChange={(e) => setProfilePhone(e.target.value)}
-                placeholder="e.g. 08012345678"
-                className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5"
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Department</label>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Phone / WhatsApp</label>
+                <input
+                  type="text"
+                  value={profilePhone}
+                  onChange={(e) => setProfilePhone(e.target.value)}
+                  placeholder="e.g. 08012345678"
+                  className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Gender</label>
+                <select
+                  value={profileGender}
+                  onChange={(e) => setProfileGender(e.target.value)}
+                  className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                >
+                  <option value="ANY">Any / Unspecified</option>
+                  <option value="MALE">Male (Gentleman)</option>
+                  <option value="FEMALE">Female (Lady)</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Department / Course</label>
                 <input
                   type="text"
                   value={profileDepartment}
                   onChange={(e) => setProfileDepartment(e.target.value)}
                   placeholder="e.g. Computer Science"
-                  className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5"
+                  className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Level</label>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Academic Level</label>
                 <select
                   value={profileLevel}
                   onChange={(e) => setProfileLevel(e.target.value)}
-                  className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5"
+                  className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                 >
                   <option value="">Select Level</option>
                   <option value="100">100 Level (Fresher)</option>
@@ -2016,13 +2092,13 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">Matric / JAMB Number</label>
+              <label className="block text-xs font-bold text-slate-700 mb-1">Matric / JAMB Registration Number</label>
               <input
                 type="text"
                 value={profileMatricNo}
                 onChange={(e) => setProfileMatricNo(e.target.value)}
-                placeholder="e.g. 2026/LAU/CSC/0123"
-                className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-mono"
+                placeholder="e.g. 20/47CS/0118 or JAMB Reg No"
+                className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-mono focus:ring-2 focus:ring-emerald-500 focus:outline-none"
               />
             </div>
 
@@ -2030,9 +2106,10 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
               <button
                 type="submit"
                 disabled={savingProfile}
-                className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow disabled:opacity-50"
+                className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow transition-all disabled:opacity-50 cursor-pointer flex items-center gap-1.5"
               >
-                {savingProfile ? 'Saving...' : 'Update Profile'}
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                <span>{savingProfile ? 'Saving Changes...' : 'Save Profile Changes'}</span>
               </button>
             </div>
           </form>

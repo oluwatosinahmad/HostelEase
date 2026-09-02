@@ -114,6 +114,12 @@ export function getCurrentUser(): any {
   return null;
 }
 
+export function getUserScopedKey(baseKey: string): string {
+  const user = getCurrentUser();
+  if (!user || !user.id) return `${baseKey}_anon`;
+  return `${baseKey}_${user.id}`;
+}
+
 export function getLocalProperties(providerId?: string): Property[] {
   let all: Property[] = [];
   try {
@@ -323,6 +329,15 @@ export function saveLocalInspection(item: InspectionRequest) {
     window.dispatchEvent(new CustomEvent('hostel_ease_inspections_updated', { detail: item }));
   } catch (err) {
     console.error('Failed to save local inspection:', err);
+  }
+}
+
+export function saveLocalInspections(items: InspectionRequest[]) {
+  try {
+    localStorage.setItem('hostel_ease_inspections', JSON.stringify(items));
+    window.dispatchEvent(new CustomEvent('hostel_ease_inspections_updated'));
+  } catch (err) {
+    console.error('Failed to save local inspections:', err);
   }
 }
 
@@ -1690,27 +1705,65 @@ export const api = {
     },
 
     async saveProperty(propertyId: string, notes?: string): Promise<{ isSaved: boolean }> {
-      const res = await fetch(`${API_BASE}/properties/${propertyId}/save`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
-        body: JSON.stringify({ notes })
-      });
-      return handleResponse(res);
+      try {
+        const res = await fetch(`${API_BASE}/properties/${propertyId}/save`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+          body: JSON.stringify({ notes })
+        });
+        const contentType = res.headers.get('content-type') || '';
+        if (res.ok && contentType.includes('application/json')) {
+          return await res.json();
+        }
+      } catch (err) {}
+
+      const key = getUserScopedKey('hostel_ease_saved');
+      const saved: string[] = JSON.parse(localStorage.getItem(key) || '[]');
+      if (!saved.includes(propertyId)) {
+        saved.push(propertyId);
+        localStorage.setItem(key, JSON.stringify(saved));
+      }
+      window.dispatchEvent(new CustomEvent('hostel_ease_saved_updated'));
+      return { isSaved: true };
     },
 
     async unsaveProperty(propertyId: string): Promise<{ isSaved: boolean }> {
-      const res = await fetch(`${API_BASE}/properties/${propertyId}/save`, {
-        method: 'DELETE',
-        headers: { ...getAuthHeader() }
-      });
-      return handleResponse(res);
+      try {
+        const res = await fetch(`${API_BASE}/properties/${propertyId}/save`, {
+          method: 'DELETE',
+          headers: { ...getAuthHeader() }
+        });
+        const contentType = res.headers.get('content-type') || '';
+        if (res.ok && contentType.includes('application/json')) {
+          return await res.json();
+        }
+      } catch (err) {}
+
+      const key = getUserScopedKey('hostel_ease_saved');
+      const saved: string[] = JSON.parse(localStorage.getItem(key) || '[]');
+      const updated = saved.filter(id => id !== propertyId);
+      localStorage.setItem(key, JSON.stringify(updated));
+      window.dispatchEvent(new CustomEvent('hostel_ease_saved_updated'));
+      return { isSaved: false };
     },
 
     async getSaved(): Promise<{ savedProperties: Property[] }> {
-      const res = await fetch(`${API_BASE}/saved-properties`, {
-        headers: { ...getAuthHeader() }
-      });
-      return handleResponse(res);
+      try {
+        const res = await fetch(`${API_BASE}/saved-properties`, {
+          headers: { ...getAuthHeader() }
+        });
+        const contentType = res.headers.get('content-type') || '';
+        if (res.ok && contentType.includes('application/json')) {
+          const data = await res.json();
+          if (data && Array.isArray(data.savedProperties)) return data;
+        }
+      } catch (err) {}
+
+      const key = getUserScopedKey('hostel_ease_saved');
+      const savedIds: string[] = JSON.parse(localStorage.getItem(key) || '[]');
+      const allProps = [...getLocalProperties('all'), ...DEFAULT_PROPERTIES];
+      const savedProps = allProps.filter(p => savedIds.includes(p.id));
+      return { savedProperties: savedProps };
     }
   },
 
@@ -1724,7 +1777,8 @@ export const api = {
       studentPhone?: string;
       notes?: string;
     }): Promise<{ message: string; inspectionId: string }> {
-      const foundProp = DEFAULT_PROPERTIES.find(p => p.id === propertyId || p.slug === propertyId) || DEFAULT_PROPERTIES[0];
+      const allProps = [...getLocalProperties('all'), ...DEFAULT_PROPERTIES];
+      const foundProp = allProps.find(p => p.id === propertyId || p.slug === propertyId) || DEFAULT_PROPERTIES[0];
       const currentUser = getCurrentUser();
       const mockId = `insp-${Date.now()}`;
 
@@ -1734,7 +1788,7 @@ export const api = {
         propertyTitle: foundProp.title,
         propertyAddress: foundProp.nearbyLandmark ? `Near ${foundProp.nearbyLandmark}, Ogbomoso` : 'Under G, Ogbomoso',
         nearbyLandmark: foundProp.nearbyLandmark,
-        areaName: foundProp.area?.name || 'Under G (LAUTECH)',
+        areaName: foundProp.area?.name || (foundProp as any).areaName || 'Under G (LAUTECH)',
         coverImage: foundProp.coverImage,
         roomId: data.roomId,
         inspectionType: data.inspectionType,
@@ -1743,10 +1797,12 @@ export const api = {
         studentPhone: data.studentPhone || currentUser?.phone || '08031234567',
         notes: data.notes,
         status: 'PENDING',
+        studentId: currentUser?.id || 'usr-student-default',
         studentName: currentUser?.fullName || 'Student User',
         studentEmail: currentUser?.email || 'student@hostelease.ng',
-        providerName: foundProp.provider?.name || 'Chief Oladimeji Alao',
-        providerPhone: foundProp.provider?.phone || '08039876543',
+        providerId: foundProp.provider?.id || (foundProp as any).providerId || 'usr-provider-default',
+        providerName: foundProp.provider?.name || (foundProp as any).providerName || 'Chief Oladimeji Alao',
+        providerPhone: foundProp.provider?.phone || (foundProp as any).providerPhone || '08039876543',
         createdAt: new Date().toISOString()
       };
 
@@ -1769,13 +1825,13 @@ export const api = {
       saveLocalInspection(newInsp);
 
       // 1. Send direct message to Landlord's DM inbox
-      const inspectionMsg = `📅 Inspection Request: ${data.inspectionType} inspection requested for ${foundProp.title} on ${data.preferredDate} at ${data.preferredTime}. Student Phone: ${data.studentPhone || currentUser?.phone || '08031234567'}. Hello Landlord, I have scheduled an inspection for your hostel.`;
+      const inspectionMsg = `📅 New Inspection Request: ${data.inspectionType} inspection requested for ${foundProp.title} on ${data.preferredDate} at ${data.preferredTime}. Student Phone: ${data.studentPhone || currentUser?.phone || '08031234567'}. Hello Landlord, I have scheduled an inspection for your hostel.`;
       api.messages.startConversation(foundProp.id, inspectionMsg).catch(() => {});
 
       // 2. Add notification for Student
       addIsolatedNotification({
         userId: currentUser?.id || 'usr-student-default',
-        title: 'Inspection Appointment Booked',
+        title: 'Inspection Appointment Booked 📅',
         message: `Scheduled ${data.inspectionType} inspection for ${foundProp.title} on ${data.preferredDate} at ${data.preferredTime}.`,
         linkUrl: '/student',
         role: 'STUDENT'
@@ -1783,22 +1839,25 @@ export const api = {
 
       // 3. Add notification for Landlord
       addIsolatedNotification({
-        userId: foundProp.provider?.id || 'usr-provider-default',
-        title: 'New Inspection Request',
-        message: `A student requested a ${data.inspectionType.toLowerCase()} inspection for ${foundProp.title} on ${data.preferredDate} at ${data.preferredTime}.`,
+        userId: foundProp.provider?.id || (foundProp as any).providerId || 'usr-provider-default',
+        title: 'New Student Inspection Request 📅',
+        message: `${currentUser?.fullName || 'A student'} requested a ${data.inspectionType.toLowerCase()} inspection for ${foundProp.title} on ${data.preferredDate} at ${data.preferredTime}.`,
         linkUrl: '/provider',
         role: 'PROVIDER'
       });
 
       window.dispatchEvent(new CustomEvent('hostel_ease_conversations_updated'));
+      window.dispatchEvent(new CustomEvent('hostel_ease_inspections_updated'));
 
       return {
-        message: 'Inspection request submitted successfully. The landlord will review and confirm your slot.',
+        message: 'Inspection request submitted successfully! Landlord has been notified to confirm your slot.',
         inspectionId: mockId
       };
     },
 
     async getAll(filters: { status?: string; type?: string } = {}): Promise<{ inspections: InspectionRequest[] }> {
+      const currentUser = getCurrentUser();
+      let serverInspections: InspectionRequest[] = [];
       try {
         const params = new URLSearchParams();
         if (filters.status && filters.status !== 'ALL') params.append('status', filters.status);
@@ -1810,15 +1869,8 @@ export const api = {
         const contentType = res.headers.get('content-type') || '';
         if (res.ok && contentType.includes('application/json')) {
           const json = await res.json();
-          if (json.inspections && json.inspections.length > 0) {
-            const local = getLocalInspections();
-            const merged = [...json.inspections];
-            for (const l of local) {
-              if (!merged.some(i => i.id === l.id)) {
-                merged.unshift(l);
-              }
-            }
-            return { inspections: merged };
+          if (json.inspections && Array.isArray(json.inspections)) {
+            serverInspections = json.inspections;
           }
         }
       } catch (err) {
@@ -1826,7 +1878,33 @@ export const api = {
       }
 
       const local = getLocalInspections();
-      let filtered = [...local];
+      const merged = [...serverInspections];
+      for (const l of local) {
+        if (!merged.some(i => i.id === l.id)) {
+          merged.unshift(l);
+        }
+      }
+
+      // Filter strictly by logged-in user
+      let filtered = [...merged];
+      if (currentUser) {
+        if (currentUser.role === 'STUDENT') {
+          filtered = filtered.filter(i => 
+            (i as any).studentId === currentUser.id || 
+            (i as any).studentEmail?.toLowerCase() === currentUser.email?.toLowerCase() ||
+            (currentUser.email === 'student@hostelease.ng' && (i.studentEmail === 'student@hostelease.ng' || (i as any).studentId === 'usr-student-default'))
+          );
+        } else if (currentUser.role === 'PROVIDER' || currentUser.role === 'LANDLORD') {
+          filtered = filtered.filter(i => 
+            (i as any).providerId === currentUser.id || 
+            (i as any).providerEmail?.toLowerCase() === currentUser.email?.toLowerCase() ||
+            (currentUser.email === 'landlord@hostelease.ng' && (i.providerEmail === 'landlord@hostelease.ng' || (i as any).providerId === 'usr-provider-default'))
+          );
+        }
+      } else {
+        filtered = [];
+      }
+
       if (filters.status && filters.status !== 'ALL') {
         filtered = filtered.filter(i => i.status === filters.status);
       }
@@ -1837,38 +1915,110 @@ export const api = {
     },
 
     async accept(id: string, message?: string): Promise<{ message: string; virtualMeetingUrl?: string }> {
-      const res = await fetch(`${API_BASE}/inspections/${id}/accept`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
-        body: JSON.stringify({ message })
-      });
-      return handleResponse(res);
+      try {
+        const res = await fetch(`${API_BASE}/inspections/${id}/accept`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+          body: JSON.stringify({ message })
+        });
+        if (res.ok) return await res.json();
+      } catch (err) {}
+
+      const local = getLocalInspections();
+      const updated = local.map(i => i.id === id ? { ...i, status: 'CONFIRMED' as const, providerResponse: message, confirmedAt: new Date().toISOString() } : i);
+      saveLocalInspections(updated);
+
+      const found = local.find(i => i.id === id);
+      if (found) {
+        addIsolatedNotification({
+          userId: (found as any).studentId || 'usr-student-default',
+          title: 'Inspection Confirmed by Landlord! 🎉',
+          message: `Your inspection for ${found.propertyTitle} on ${found.preferredDate} at ${found.preferredTime} was confirmed. You can now visit or book!`,
+          linkUrl: '/student',
+          role: 'STUDENT'
+        });
+      }
+
+      window.dispatchEvent(new CustomEvent('hostel_ease_inspections_updated'));
+      return { message: 'Inspection accepted and confirmed', virtualMeetingUrl: 'https://meet.jit.si/HostelEaseInspection' };
     },
 
     async decline(id: string, reason?: string): Promise<{ message: string }> {
-      const res = await fetch(`${API_BASE}/inspections/${id}/decline`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
-        body: JSON.stringify({ reason })
-      });
-      return handleResponse(res);
+      try {
+        const res = await fetch(`${API_BASE}/inspections/${id}/decline`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+          body: JSON.stringify({ reason })
+        });
+        if (res.ok) return await res.json();
+      } catch (err) {}
+
+      const local = getLocalInspections();
+      const updated = local.map(i => i.id === id ? { ...i, status: 'CANCELLED' as const, declineReason: reason } : i);
+      saveLocalInspections(updated);
+      window.dispatchEvent(new CustomEvent('hostel_ease_inspections_updated'));
+      return { message: 'Inspection request declined' };
     },
 
     async reschedule(id: string, data: { alternativeDate: string; alternativeTime: string; message?: string }): Promise<{ message: string }> {
-      const res = await fetch(`${API_BASE}/inspections/${id}/reschedule`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
-        body: JSON.stringify(data)
-      });
-      return handleResponse(res);
+      try {
+        const res = await fetch(`${API_BASE}/inspections/${id}/reschedule`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+          body: JSON.stringify(data)
+        });
+        if (res.ok) return await res.json();
+      } catch (err) {}
+
+      const local = getLocalInspections();
+      const updated = local.map(i => i.id === id ? {
+        ...i,
+        status: 'RESCHEDULE_REQUESTED' as const,
+        proposedAlternativeDate: data.alternativeDate,
+        proposedAlternativeTime: data.alternativeTime,
+        rescheduleReason: data.message
+      } : i);
+      saveLocalInspections(updated);
+
+      const found = local.find(i => i.id === id);
+      if (found) {
+        addIsolatedNotification({
+          userId: (found as any).studentId || 'usr-student-default',
+          title: 'Landlord Proposed New Inspection Time 📅',
+          message: `Alternative slot for ${found.propertyTitle}: ${data.alternativeDate} at ${data.alternativeTime}.`,
+          linkUrl: '/student',
+          role: 'STUDENT'
+        });
+      }
+
+      window.dispatchEvent(new CustomEvent('hostel_ease_inspections_updated'));
+      return { message: 'Reschedule proposal sent to student' };
     },
 
     async confirmReschedule(id: string): Promise<{ message: string }> {
-      const res = await fetch(`${API_BASE}/inspections/${id}/confirm-reschedule`, {
-        method: 'PATCH',
-        headers: { ...getAuthHeader() }
+      try {
+        const res = await fetch(`${API_BASE}/inspections/${id}/confirm-reschedule`, {
+          method: 'PATCH',
+          headers: { ...getAuthHeader() }
+        });
+        if (res.ok) return await res.json();
+      } catch (err) {}
+
+      const local = getLocalInspections();
+      const updated = local.map(i => {
+        if (i.id === id) {
+          return {
+            ...i,
+            status: 'CONFIRMED' as const,
+            preferredDate: i.proposedAlternativeDate || i.preferredDate,
+            preferredTime: i.proposedAlternativeTime || i.preferredTime
+          };
+        }
+        return i;
       });
-      return handleResponse(res);
+      saveLocalInspections(updated);
+      window.dispatchEvent(new CustomEvent('hostel_ease_inspections_updated'));
+      return { message: 'Rescheduled appointment confirmed' };
     },
 
     async updateStatus(id: string, status: string, providerResponse?: string): Promise<{ message: string }> {
@@ -2043,6 +2193,8 @@ export const api = {
     },
 
     async getConversations(): Promise<{ conversations: ConversationItem[] }> {
+      const currentUser = getCurrentUser();
+      let serverConvs: ConversationItem[] = [];
       try {
         const res = await fetch(`${API_BASE}/messages/conversations`, {
           headers: { ...getAuthHeader() }
@@ -2050,8 +2202,8 @@ export const api = {
         const contentType = res.headers.get('content-type') || '';
         if (res.ok && contentType.includes('application/json')) {
           const data = await res.json();
-          if (data.conversations && data.conversations.length > 0) {
-            return data;
+          if (data.conversations && Array.isArray(data.conversations)) {
+            serverConvs = data.conversations;
           }
         }
       } catch (err) {
@@ -2059,68 +2211,66 @@ export const api = {
       }
 
       let local = getLocalConversations();
-      if (local.length === 0) {
-        const allProps = [...getLocalProperties('all'), ...DEFAULT_PROPERTIES];
-        const p1 = allProps[0] || DEFAULT_PROPERTIES[0];
-        const p2 = allProps[1] || DEFAULT_PROPERTIES[1];
-        const p3 = allProps[2] || DEFAULT_PROPERTIES[2];
-
-        local = [
-          {
-            id: `conv-${p1.id}`,
-            propertyId: p1.id,
-            propertyTitle: p1.title,
-            propertyAddress: p1.address,
-            propertyCoverImage: p1.coverImage,
-            areaName: (p1 as any).areaName || p1.area?.name || 'Under G',
-            studentId: 'usr-student-default',
-            studentName: 'Ahmad Adelopo',
-            providerId: p1.provider?.id || 'usr-provider-1',
-            providerName: p1.provider?.name || 'Engr. Segun Adeyemi',
-            lastMessageText: 'Hello Ahmad! I will be waiting at the lodge gate by 2:00 PM for your inspection tour.',
-            lastMessageAt: new Date(Date.now() - 3600000).toISOString(),
-            unreadCount: 0,
-            status: 'ACTIVE',
-            createdAt: new Date(Date.now() - 86400000).toISOString()
-          },
-          {
-            id: `conv-${p2.id}`,
-            propertyId: p2.id,
-            propertyTitle: p2.title,
-            propertyAddress: p2.address,
-            propertyCoverImage: p2.coverImage,
-            areaName: (p2 as any).areaName || p2.area?.name || 'Adenike',
-            studentId: 'usr-student-default',
-            studentName: 'Ahmad Adelopo',
-            providerId: p2.provider?.id || 'usr-provider-2',
-            providerName: p2.provider?.name || 'Chief Oladimeji Alao',
-            lastMessageText: 'Good day! Room 4 is still available with steady water and prepaid meter for the 2026/2027 session.',
-            lastMessageAt: new Date(Date.now() - 7200000).toISOString(),
-            unreadCount: 1,
-            status: 'ACTIVE',
-            createdAt: new Date(Date.now() - 172800000).toISOString()
-          },
-          {
-            id: `conv-${p3.id}`,
-            propertyId: p3.id,
-            propertyTitle: p3.title,
-            propertyAddress: p3.address,
-            propertyCoverImage: p3.coverImage,
-            areaName: (p3 as any).areaName || p3.area?.name || 'Isale General',
-            studentId: 'usr-student-default',
-            studentName: 'Ahmad Adelopo',
-            providerId: p3.provider?.id || 'usr-provider-3',
-            providerName: p3.provider?.name || 'Alhaji Rasheed Akanni',
-            lastMessageText: 'The total fee covers annual rent and caution deposit with zero agency commission.',
-            lastMessageAt: new Date(Date.now() - 14400000).toISOString(),
-            unreadCount: 0,
-            status: 'ACTIVE',
-            createdAt: new Date(Date.now() - 259200000).toISOString()
-          }
-        ];
-        saveLocalConversations(local);
+      const merged = [...serverConvs];
+      for (const l of local) {
+        if (!merged.some(c => c.id === l.id)) {
+          merged.unshift(l);
+        }
       }
-      return { conversations: local };
+
+      // If demo student and no conversations, seed demo conversations for that demo account only
+      if (currentUser && (currentUser.email === 'student@hostelease.ng' || currentUser.email === 'student@lautech.edu.ng' || currentUser.id === 'usr-student-default')) {
+        const hasMyConvs = merged.some(c => c.studentId === currentUser.id || c.studentId === 'usr-student-default');
+        if (!hasMyConvs) {
+          const allProps = [...getLocalProperties('all'), ...DEFAULT_PROPERTIES];
+          const p1 = allProps[0] || DEFAULT_PROPERTIES[0];
+          const p2 = allProps[1] || DEFAULT_PROPERTIES[1];
+          const p3 = allProps[2] || DEFAULT_PROPERTIES[2];
+          const demoConvs: ConversationItem[] = [
+            {
+              id: `conv-${p1.id}-demo`,
+              propertyId: p1.id,
+              propertyTitle: p1.title,
+              propertyAddress: p1.address,
+              propertyCoverImage: p1.coverImage,
+              areaName: (p1 as any).areaName || p1.area?.name || 'Under G',
+              studentId: currentUser.id,
+              studentName: currentUser.fullName || 'Ahmad Adelopo',
+              providerId: p1.provider?.id || 'usr-provider-1',
+              providerName: p1.provider?.name || 'Engr. Segun Adeyemi',
+              lastMessageText: 'Hello Ahmad! I will be waiting at the lodge gate by 2:00 PM for your inspection tour.',
+              lastMessageAt: new Date(Date.now() - 3600000).toISOString(),
+              unreadCount: 0,
+              status: 'ACTIVE',
+              createdAt: new Date(Date.now() - 86400000).toISOString()
+            }
+          ];
+          merged.unshift(...demoConvs);
+          saveLocalConversations(merged);
+        }
+      }
+
+      // Filter strictly by logged-in user
+      let filtered = [...merged];
+      if (currentUser) {
+        if (currentUser.role === 'STUDENT') {
+          filtered = filtered.filter(c => 
+            c.studentId === currentUser.id || 
+            (c as any).studentEmail?.toLowerCase() === currentUser.email?.toLowerCase() ||
+            (currentUser.email === 'student@hostelease.ng' && (c.studentId === 'usr-student-default' || (c as any).studentEmail === 'student@hostelease.ng'))
+          );
+        } else if (currentUser.role === 'PROVIDER' || currentUser.role === 'LANDLORD') {
+          filtered = filtered.filter(c => 
+            c.providerId === currentUser.id || 
+            (c as any).providerEmail?.toLowerCase() === currentUser.email?.toLowerCase() ||
+            (currentUser.email === 'landlord@hostelease.ng' && (c.providerId === 'usr-provider-default' || (c as any).providerEmail === 'landlord@hostelease.ng'))
+          );
+        }
+      } else {
+        filtered = [];
+      }
+
+      return { conversations: filtered };
     },
 
     async getConversation(id: string): Promise<ConversationDetail> {
@@ -2332,8 +2482,8 @@ export const api = {
         if (res.ok) return await res.json();
       } catch {}
 
-      const convs = getLocalConversations();
-      const totalUnread = convs.reduce((sum, c) => sum + (c.unreadCount || 0), 0);
+      const userConvs = (await this.getConversations()).conversations;
+      const totalUnread = userConvs.reduce((sum, c) => sum + (c.unreadCount || 0), 0);
       return { unreadCount: totalUnread };
     },
 
@@ -4187,6 +4337,8 @@ export const api = {
     },
 
     async getAll(status?: string): Promise<{ bookings: BookingItem[] }> {
+      const currentUser = getCurrentUser();
+      let serverBookings: BookingItem[] = [];
       try {
         const query = status && status !== 'ALL' ? `?status=${status}` : '';
         const res = await fetch(`${API_BASE}/bookings${query}`, {
@@ -4195,15 +4347,8 @@ export const api = {
         const contentType = res.headers.get('content-type') || '';
         if (res.ok && contentType.includes('application/json')) {
           const json = await res.json();
-          if (json.bookings && json.bookings.length > 0) {
-            const local = getLocalBookings();
-            const merged = [...json.bookings];
-            for (const l of local) {
-              if (!merged.some(b => b.id === l.id || b.bookingReference === l.bookingReference)) {
-                merged.unshift(l);
-              }
-            }
-            return { bookings: status && status !== 'ALL' ? merged.filter(b => b.status === status) : merged };
+          if (json.bookings && Array.isArray(json.bookings)) {
+            serverBookings = json.bookings;
           }
         }
       } catch (err) {
@@ -4211,7 +4356,36 @@ export const api = {
       }
 
       const local = getLocalBookings();
-      const filtered = status && status !== 'ALL' ? local.filter(b => b.status === status) : local;
+      const merged = [...serverBookings];
+      for (const l of local) {
+        if (!merged.some(b => b.id === l.id || b.bookingReference === l.bookingReference)) {
+          merged.unshift(l);
+        }
+      }
+
+      // Filter strictly by current logged in user
+      let filtered = [...merged];
+      if (currentUser) {
+        if (currentUser.role === 'STUDENT') {
+          filtered = filtered.filter(b => 
+            (b as any).userId === currentUser.id || 
+            b.studentEmail?.toLowerCase() === currentUser.email?.toLowerCase() ||
+            (currentUser.email === 'student@hostelease.ng' && ((b as any).userId === 'usr-student-default' || b.studentEmail === 'student@hostelease.ng'))
+          );
+        } else if (currentUser.role === 'PROVIDER' || currentUser.role === 'LANDLORD') {
+          filtered = filtered.filter(b => 
+            (b as any).providerId === currentUser.id || 
+            b.providerEmail?.toLowerCase() === currentUser.email?.toLowerCase() ||
+            (currentUser.email === 'landlord@hostelease.ng' && ((b as any).providerId === 'usr-provider-default' || b.providerEmail === 'landlord@hostelease.ng'))
+          );
+        }
+      } else {
+        filtered = [];
+      }
+
+      if (status && status !== 'ALL') {
+        filtered = filtered.filter(b => b.status === status);
+      }
       return { bookings: filtered };
     },
 
@@ -4592,30 +4766,47 @@ export const api = {
         } catch {}
       }
 
-      // Pull saved preferences from localStorage if exists
+      // Pull saved preferences from user-scoped localStorage
+      const prefKey = getUserScopedKey('hostel_ease_preferences');
       let currentPrefs = DEFAULT_STUDENT_DASHBOARD.preferences;
-      const storedPrefs = localStorage.getItem('hostel_ease_preferences');
+      const storedPrefs = localStorage.getItem(prefKey);
       if (storedPrefs) {
         try {
           currentPrefs = { ...currentPrefs, ...JSON.parse(storedPrefs) };
         } catch {}
       }
 
-      const localBookings = getLocalBookings();
-      const localInspections = getLocalInspections();
-      
-      const firstActive = localBookings.find(b => b.status === 'CONFIRMED' || b.status === 'PENDING');
-      const pendingBookings = localBookings.filter(b => b.status === 'PENDING');
-      const firstInsp = localInspections[0];
+      // Fetch user-isolated bookings and inspections
+      const allBookings = (await api.bookings.getAll()).bookings;
+      const allInspections = (await api.inspections.getAll()).inspections;
+      const savedResult = await api.properties.getSaved();
+      const userSavedHostels = savedResult.savedProperties || [];
+      const unreadRes = await api.messages.getUnreadCount();
+
+      const firstActive = allBookings.find(b => b.status === 'CONFIRMED' || b.status === 'PENDING');
+      const pendingBookings = allBookings.filter(b => b.status === 'PENDING');
+      const firstInsp = allInspections.find(i => i.status === 'CONFIRMED' || i.status === 'PENDING');
 
       return {
         ...DEFAULT_STUDENT_DASHBOARD,
         user: currentUser,
         preferences: currentPrefs,
+        savedHostels: userSavedHostels.map(p => ({
+          ...p,
+          savedId: `saved-${p.id}`,
+          savedAt: new Date().toISOString(),
+          priceChanged: false,
+          priceChangeDetails: null,
+          availabilityChanged: false,
+          availabilityAlert: null
+        })),
+        recentInspections: allInspections.slice(0, 5),
         summary: {
           ...DEFAULT_STUDENT_DASHBOARD.summary,
-          activeBookingsCount: localBookings.length,
-          pendingInspectionsCount: localInspections.filter(i => i.status === 'PENDING').length
+          activeBookingsCount: allBookings.length,
+          pendingInspectionsCount: allInspections.filter(i => i.status === 'PENDING').length,
+          savedCount: userSavedHostels.length,
+          unreadMessagesCount: unreadRes.unreadCount
         },
         activeBooking: firstActive ? {
           id: firstActive.id,
@@ -4641,7 +4832,7 @@ export const api = {
             phone: firstActive.providerPhone || '08039876543',
             email: firstActive.providerEmail || 'landlord@hostelease.ng'
           }
-        } : DEFAULT_STUDENT_DASHBOARD.activeBooking,
+        } : null,
         pendingBookings: pendingBookings.map(b => ({
           id: b.id,
           bookingReference: b.bookingReference,
@@ -4664,7 +4855,7 @@ export const api = {
             name: firstInsp.providerName || 'Landlord',
             phone: firstInsp.providerPhone || '08039876543'
           }
-        } : DEFAULT_STUDENT_DASHBOARD.upcomingInspection
+        } : null
       };
     },
 
@@ -4680,7 +4871,8 @@ export const api = {
       } catch (err) {
         console.warn('Preferences endpoint unreachable, using local preferences.');
       }
-      const stored = localStorage.getItem('hostel_ease_preferences');
+      const prefKey = getUserScopedKey('hostel_ease_preferences');
+      const stored = localStorage.getItem(prefKey);
       const prefs = stored ? JSON.parse(stored) : DEFAULT_STUDENT_PREFERENCES;
       return { preferences: prefs };
     },
@@ -4699,9 +4891,10 @@ export const api = {
       } catch (err) {
         console.warn('Backend save preferences unreachable, storing locally.');
       }
-      const current = localStorage.getItem('hostel_ease_preferences');
+      const prefKey = getUserScopedKey('hostel_ease_preferences');
+      const current = localStorage.getItem(prefKey);
       const merged = current ? { ...JSON.parse(current), ...preferences } : { ...DEFAULT_STUDENT_PREFERENCES, ...preferences };
-      localStorage.setItem('hostel_ease_preferences', JSON.stringify(merged));
+      localStorage.setItem(prefKey, JSON.stringify(merged));
       return { success: true, message: 'Housing preferences saved successfully.' };
     },
 
@@ -4812,7 +5005,7 @@ export const api = {
       matricNo?: string;
       gender?: string;
       avatarUrl?: string;
-    }): Promise<{ success: boolean; message: string }> {
+    }): Promise<{ success: boolean; message: string; user: any }> {
       try {
         const res = await fetch(`${API_BASE}/student/profile`, {
           method: 'PUT',
@@ -4821,7 +5014,12 @@ export const api = {
         });
         const contentType = res.headers.get('content-type') || '';
         if (res.ok && contentType.includes('application/json')) {
-          return await res.json();
+          const json = await res.json();
+          if (json.user) {
+            localStorage.setItem('hostel_ease_user', JSON.stringify(json.user));
+            window.dispatchEvent(new CustomEvent('hostel_ease_user_updated', { detail: json.user }));
+            return json;
+          }
         }
       } catch (err) {
         console.warn('Backend update profile unreachable, updating local storage.');
@@ -4829,7 +5027,22 @@ export const api = {
       const stored = localStorage.getItem('hostel_ease_user');
       const userObj = stored ? { ...JSON.parse(stored), ...data } : { ...DEFAULT_STUDENT_DASHBOARD.user, ...data };
       localStorage.setItem('hostel_ease_user', JSON.stringify(userObj));
-      return { success: true, message: 'Student profile updated successfully.' };
+
+      // Update registered users registry for login persistence
+      try {
+        const regRaw = localStorage.getItem('hostel_ease_registered_users');
+        if (regRaw) {
+          const regList = JSON.parse(regRaw);
+          const idx = regList.findIndex((u: any) => u.email?.toLowerCase() === userObj.email?.toLowerCase() || u.id === userObj.id);
+          if (idx >= 0) {
+            regList[idx] = { ...regList[idx], ...userObj, studentDetails: { ...regList[idx].studentDetails, matricNo: data.matricNo, matricNumber: data.matricNo, department: data.department, level: data.level, avatarUrl: data.avatarUrl } };
+            localStorage.setItem('hostel_ease_registered_users', JSON.stringify(regList));
+          }
+        }
+      } catch {}
+
+      window.dispatchEvent(new CustomEvent('hostel_ease_user_updated', { detail: userObj }));
+      return { success: true, message: 'Student profile updated successfully.', user: userObj };
     },
 
     async getNotificationPreferences(): Promise<{ notificationPreferences: StudentNotificationPreferences }> {
@@ -5176,33 +5389,120 @@ export const api = {
   // Phase 12 Move-In & Post-Booking Service
   moveIn: {
     async getCurrentStudentMoveIn(): Promise<{ hasActiveMoveIn: boolean; moveIn: any }> {
-      const res = await fetch(`${API_BASE}/move-in/student/current`, {
-        headers: { ...getAuthHeader() }
-      });
-      return handleResponse(res);
+      try {
+        const res = await fetch(`${API_BASE}/move-in/student/current`, {
+          headers: { ...getAuthHeader() }
+        });
+        const contentType = res.headers.get('content-type') || '';
+        if (res.ok && contentType.includes('application/json')) {
+          const data = await res.json();
+          if (data && data.hasActiveMoveIn && data.moveIn) return data;
+        }
+      } catch (err) {
+        console.warn('Backend move-in endpoint unreachable, using local booking records.');
+      }
+
+      // Fallback: Check user's bookings
+      const currentUser = getCurrentUser();
+      const userBookings = (await api.bookings.getAll()).bookings;
+      
+      // Look for confirmed or paid booking strictly for this student
+      const activeBooking = userBookings.find(b => 
+        (b.status === 'CONFIRMED' || b.paymentStatus === 'PAID')
+      ) || (currentUser && (currentUser.email === 'student@hostelease.ng' || currentUser.email === 'student@lautech.edu.ng') ? userBookings[0] : null);
+
+      if (!activeBooking) {
+        return { hasActiveMoveIn: false, moveIn: null };
+      }
+
+      const allProps = [...getLocalProperties('all'), ...DEFAULT_PROPERTIES];
+      const foundProp = allProps.find(p => p.id === activeBooking.propertyId) || DEFAULT_PROPERTIES[0];
+
+      const moveInData = {
+        bookingId: activeBooking.id,
+        bookingReference: activeBooking.bookingReference || 'HE-BOOK-84920',
+        propertyId: activeBooking.propertyId,
+        propertyTitle: activeBooking.propertyTitle || foundProp.title,
+        propertyAddress: foundProp.address || `${activeBooking.areaName}, Ogbomoso`,
+        areaName: activeBooking.areaName || foundProp.area?.name || 'Under G, Ogbomoso',
+        distanceFromCampusKm: activeBooking.distanceFromCampusKm || foundProp.distanceFromCampusKm || 0.6,
+        coverImage: activeBooking.propertyCoverImage || foundProp.coverImage,
+        roomName: activeBooking.roomName || 'Room 4 (Self-Contain)',
+        roomType: activeBooking.roomType || 'SELF_CONTAIN',
+        bedspaceNumber: activeBooking.bedspaceNumber,
+        moveInDate: activeBooking.moveInDate || new Date().toISOString().split('T')[0],
+        academicSession: activeBooking.academicSession || '2025/2026 Academic Session',
+        totalCost: activeBooking.totalCost || 220000,
+        rentAmount: activeBooking.rentAmount || 180000,
+        status: 'READY_FOR_MOVE_IN',
+        paymentStatus: activeBooking.paymentStatus || 'PAID',
+        paidAt: activeBooking.paidAt || new Date().toISOString(),
+        keysHandedOver: true,
+        gatePasscode: 'PIN-8421-LAUTECH',
+        provider: {
+          id: (foundProp as any).providerId || 'usr-provider-default',
+          name: activeBooking.providerName || foundProp.provider?.name || 'Chief Oladimeji Alao',
+          phone: activeBooking.providerPhone || foundProp.provider?.phone || '08039876543',
+          email: activeBooking.providerEmail || (foundProp.provider as any)?.email || 'landlord@hostelease.ng'
+        },
+        checklist: {
+          items: [
+            { id: 'chk_payment', title: 'Complete Annual Rent & Caution Deposit Payment', category: 'FINANCIAL', isCompleted: true, completedAt: new Date().toISOString(), isMandatory: true },
+            { id: 'chk_tenancy_agreement', title: 'Review & Sign Digital Tenancy Agreement', category: 'DOCUMENT', isCompleted: true, completedAt: new Date().toISOString(), isMandatory: true },
+            { id: 'chk_inspection_pass', title: 'Obtain Gate Passcode & Security Clearance', category: 'ACCESS', isCompleted: true, completedAt: new Date().toISOString(), isMandatory: true },
+            { id: 'chk_rules', title: 'Acknowledge Hostel House Rules & Quiet Hours', category: 'COMPLIANCE', isCompleted: true, isMandatory: true },
+            { id: 'chk_condition_report', title: 'Verify Electrical Sockets, Water Flow & Complete Room Condition Form', category: 'INSPECTION', isCompleted: false, isMandatory: false },
+            { id: 'chk_keys', title: 'Collect Physical Room Keys & Gate Padlock Key from Caretaker', category: 'HANDOVER', isCompleted: false, isMandatory: true }
+          ]
+        },
+        inventory: [
+          { item: 'Window Mosquito Nets & Burglar Proofing', condition: 'NEW / INTACT' },
+          { item: 'Ceiling Fan & Wall Switch', condition: 'TESTED & WORKING' },
+          { item: 'Bathroom Shower & Water Tap Flow', condition: 'GOOD PRESSURE' },
+          { item: 'Prepaid Sub-meter', condition: 'CONNECTED' }
+        ],
+        directions: {
+          walkingMinutes: 8,
+          landmarkDirections: foundProp.nearbyLandmark ? `Located adjacent to ${foundProp.nearbyLandmark}, Under G gate axis.` : 'Take Under G road past the commercial hub, turn right at the paved lane.',
+          kekeDropPoint: 'Under G First Junction / Hostel Gate',
+          coordinates: { lat: 8.158, lng: 4.256 }
+        }
+      };
+
+      return { hasActiveMoveIn: true, moveIn: moveInData };
     },
 
     async getStudentHistory(): Promise<{ stays: any[] }> {
-      const res = await fetch(`${API_BASE}/move-in/student/history`, {
-        headers: { ...getAuthHeader() }
-      });
-      return handleResponse(res);
+      try {
+        const res = await fetch(`${API_BASE}/move-in/student/history`, {
+          headers: { ...getAuthHeader() }
+        });
+        if (res.ok) return await res.json();
+      } catch (err) {}
+      return { stays: [] };
     },
 
     async getMoveIn(bookingId: string): Promise<any> {
-      const res = await fetch(`${API_BASE}/move-in/${bookingId}`, {
-        headers: { ...getAuthHeader() }
-      });
-      return handleResponse(res);
+      try {
+        const res = await fetch(`${API_BASE}/move-in/${bookingId}`, {
+          headers: { ...getAuthHeader() }
+        });
+        if (res.ok) return await res.json();
+      } catch (err) {}
+      const cur = await this.getCurrentStudentMoveIn();
+      return cur.moveIn;
     },
 
     async updateChecklist(bookingId: string, items: any[]): Promise<{ message: string; isCompleted: boolean }> {
-      const res = await fetch(`${API_BASE}/move-in/${bookingId}/checklist`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
-        body: JSON.stringify({ items })
-      });
-      return handleResponse(res);
+      try {
+        const res = await fetch(`${API_BASE}/move-in/${bookingId}/checklist`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+          body: JSON.stringify({ items })
+        });
+        if (res.ok) return await res.json();
+      } catch (err) {}
+      return { message: 'Checklist updated successfully', isCompleted: items.every(i => i.isCompleted) };
     },
 
     async confirmArrival(bookingId: string): Promise<{ message: string; status: string }> {
