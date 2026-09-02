@@ -73,6 +73,39 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
   const { user, loginDemo } = useAuth();
   const docInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const landlordPhotoInputRef = useRef<HTMLInputElement>(null);
+
+  const handleLandlordPhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 8 * 1024 * 1024) {
+      onShowToast('Photo file is too large (max 8MB)', 'error');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result as string;
+      if (dataUrl && user) {
+        const updatedUser = { ...user, avatarUrl: dataUrl };
+        localStorage.setItem('hostel_ease_user', JSON.stringify(updatedUser));
+        
+        try {
+          const registeredUsers = JSON.parse(localStorage.getItem('hostel_ease_registered_users') || '[]');
+          const idx = registeredUsers.findIndex((u: any) => u.email?.toLowerCase() === user.email?.toLowerCase());
+          if (idx !== -1) {
+            registeredUsers[idx] = { ...registeredUsers[idx], avatarUrl: dataUrl };
+            localStorage.setItem('hostel_ease_registered_users', JSON.stringify(registeredUsers));
+          }
+        } catch (e) {}
+
+        window.dispatchEvent(new CustomEvent('hostel_ease_user_profile_updated', { detail: updatedUser }));
+        onShowToast('Landlord profile photo updated successfully!', 'success');
+      }
+    };
+    reader.readAsDataURL(file);
+  };
 
   // Active Tab
   const [activeTab, setActiveTab] = useState<
@@ -1893,7 +1926,48 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
               <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-xs space-y-5">
                 <div>
                   <h3 className="text-base font-bold text-gray-900">Landlord Profile & Verification</h3>
-                  <p className="text-xs text-gray-500">Upload official identity documents for your verified badge</p>
+                  <p className="text-xs text-gray-500">Upload official identity documents and profile photo for your verified badge</p>
+                </div>
+
+                {/* Landlord Profile Photo Box */}
+                <div className="flex items-center gap-4 p-4 bg-emerald-50/60 rounded-xl border border-emerald-100">
+                  <div className="relative flex-shrink-0">
+                    <img
+                      src={user?.avatarUrl || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=300&q=80'}
+                      alt="Landlord Profile"
+                      className="w-14 h-14 rounded-full object-cover ring-2 ring-emerald-600 shadow-md"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => landlordPhotoInputRef.current?.click()}
+                      className="absolute -bottom-1 -right-1 p-1 bg-emerald-700 hover:bg-emerald-800 text-white rounded-full shadow-md transition-transform hover:scale-110 cursor-pointer"
+                      title="Upload Landlord Photo"
+                    >
+                      <Camera className="w-3 h-3" />
+                    </button>
+                  </div>
+
+                  <div className="space-y-1 flex-1 min-w-0">
+                    <h4 className="text-xs font-bold text-gray-900">Landlord Display Picture</h4>
+                    <p className="text-[11px] text-gray-500">Visible to students across hostel cards, direct chats & vouchers</p>
+                    
+                    <input
+                      ref={landlordPhotoInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handleLandlordPhotoUpload}
+                      className="hidden"
+                    />
+
+                    <button
+                      type="button"
+                      onClick={() => landlordPhotoInputRef.current?.click()}
+                      className="px-3 py-1.5 bg-emerald-800 hover:bg-emerald-900 text-white text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 cursor-pointer hover:scale-105"
+                    >
+                      <Upload className="w-3 h-3" />
+                      <span>Upload Picture from Device</span>
+                    </button>
+                  </div>
                 </div>
 
                 <div className="p-4 bg-gray-50 rounded-xl space-y-2 text-xs">

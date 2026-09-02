@@ -238,7 +238,9 @@ export const DEFAULT_PROPERTIES: Property[] = [
     media: [
       { id: 'm-1', url: 'https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?auto=format&fit=crop&w=1000&q=80', caption: 'Living Space', displayOrder: 1, isCover: true, mediaType: 'IMAGE', category: 'BEDROOM' },
       { id: 'm-2', url: 'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?auto=format&fit=crop&w=1000&q=80', caption: 'Bathroom', displayOrder: 2, isCover: false, mediaType: 'IMAGE', category: 'BATHROOM' },
-      { id: 'm-3', url: 'https://images.unsplash.com/photo-1507089947368-19c1da9775ae?auto=format&fit=crop&w=1000&q=80', caption: 'Kitchenette', displayOrder: 3, isCover: false, mediaType: 'IMAGE', category: 'KITCHEN' }
+      { id: 'm-3', url: 'https://images.unsplash.com/photo-1507089947368-19c1da9775ae?auto=format&fit=crop&w=1000&q=80', caption: 'Kitchenette', displayOrder: 3, isCover: false, mediaType: 'IMAGE', category: 'KITCHEN' },
+      { id: 'm-3b', url: 'https://images.unsplash.com/photo-1598928506311-c55ded91a20c?auto=format&fit=crop&w=1000&q=80', caption: 'Study Desk & Natural Light', displayOrder: 4, isCover: false, mediaType: 'IMAGE', category: 'BEDROOM' },
+      { id: 'm-vid-1', url: 'https://assets.mixkit.co/videos/preview/mixkit-modern-apartment-living-room-interior-41525-large.mp4', caption: 'Verified 4K Video Tour: Emerald Heights', displayOrder: 5, isCover: false, mediaType: 'VIDEO', category: 'EXTERIOR' }
     ]
   },
   {
@@ -295,7 +297,9 @@ export const DEFAULT_PROPERTIES: Property[] = [
     ],
     media: [
       { id: 'm-4', url: 'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?auto=format&fit=crop&w=1000&q=80', caption: 'Room View', displayOrder: 1, isCover: true, mediaType: 'IMAGE', category: 'BEDROOM' },
-      { id: 'm-5', url: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1000&q=80', caption: 'Exterior View', displayOrder: 2, isCover: false, mediaType: 'IMAGE', category: 'EXTERIOR' }
+      { id: 'm-5', url: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1000&q=80', caption: 'Exterior View', displayOrder: 2, isCover: false, mediaType: 'IMAGE', category: 'EXTERIOR' },
+      { id: 'm-5b', url: 'https://images.unsplash.com/photo-1513694203232-719a280e022f?auto=format&fit=crop&w=1000&q=80', caption: 'Tiled Floor & Wardrobe', displayOrder: 3, isCover: false, mediaType: 'IMAGE', category: 'BEDROOM' },
+      { id: 'm-vid-2', url: 'https://assets.mixkit.co/videos/preview/mixkit-bright-kitchen-and-dining-area-in-modern-home-41526-large.mp4', caption: 'Verified 4K Video Tour: Peace Haven', displayOrder: 4, isCover: false, mediaType: 'VIDEO', category: 'EXTERIOR' }
     ]
   },
   {
@@ -351,7 +355,10 @@ export const DEFAULT_PROPERTIES: Property[] = [
       }
     ],
     media: [
-      { id: 'm-6', url: 'https://images.unsplash.com/photo-1507089947368-19c1da9775ae?auto=format&fit=crop&w=1000&q=80', caption: 'Apartment View', displayOrder: 1, isCover: true, mediaType: 'IMAGE', category: 'BEDROOM' }
+      { id: 'm-6', url: 'https://images.unsplash.com/photo-1507089947368-19c1da9775ae?auto=format&fit=crop&w=1000&q=80', caption: 'Apartment View', displayOrder: 1, isCover: true, mediaType: 'IMAGE', category: 'BEDROOM' },
+      { id: 'm-6b', url: 'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&w=1000&q=80', caption: 'Spacious Hallway & Lounge', displayOrder: 2, isCover: false, mediaType: 'IMAGE', category: 'BEDROOM' },
+      { id: 'm-6c', url: 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=1000&q=80', caption: 'Furnished Study Nook', displayOrder: 3, isCover: false, mediaType: 'IMAGE', category: 'BEDROOM' },
+      { id: 'm-vid-3', url: 'https://assets.mixkit.co/videos/preview/mixkit-living-room-in-a-luxurious-home-41528-large.mp4', caption: 'Verified 4K Video Tour: Scholars Court', displayOrder: 4, isCover: false, mediaType: 'VIDEO', category: 'EXTERIOR' }
     ]
   },
   {

@@ -423,22 +423,14 @@ export const HostelDetailModal: React.FC<HostelDetailModalProps> = ({
                 {/* Main Media Display Viewport */}
                 <div className="relative aspect-[16/9] md:aspect-[21/10] bg-slate-950 rounded-2xl overflow-hidden shadow-inner flex items-center justify-center">
                   {currentMedia.mediaType === 'VIDEO' ? (
-                    <div className="w-full h-full flex flex-col items-center justify-center text-white bg-slate-900 p-6 text-center">
-                      <div className="w-16 h-16 rounded-full bg-emerald-600/30 text-emerald-400 border border-emerald-500/40 flex items-center justify-center mb-3">
-                        <Video className="w-8 h-8" />
-                      </div>
-                      <h4 className="font-bold text-base text-white mb-1">Genuine Video Walkthrough</h4>
-                      <p className="text-xs text-slate-400 max-w-sm mb-4">
-                        Take a 360-degree video inspection of this lodge without visiting physically.
-                      </p>
-                      <a
-                        href={currentMedia.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition-all shadow-md flex items-center gap-1.5"
-                      >
-                        Watch Video Tour
-                      </a>
+                    <div className="w-full h-full bg-black relative flex items-center justify-center">
+                      <video
+                        src={currentMedia.url}
+                        controls
+                        playsInline
+                        autoPlay
+                        className="w-full h-full object-cover"
+                      />
                     </div>
                   ) : (
                     <img

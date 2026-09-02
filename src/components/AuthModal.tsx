@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { 
   X, 
   Building2, 
@@ -14,7 +14,10 @@ import {
   ArrowLeft,
   KeyRound,
   Camera,
-  Check
+  Check,
+  Upload,
+  Trash2,
+  Image as ImageIcon
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { UserRole } from '../types/hostelEase';
@@ -26,6 +29,13 @@ const PRESET_STUDENT_AVATARS = [
   { id: 'av-4', url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=300&q=80', label: 'Male 2' },
   { id: 'av-5', url: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=300&q=80', label: 'Female 3' },
   { id: 'av-6', url: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=300&q=80', label: 'Male 3' }
+];
+
+const PRESET_LANDLORD_AVATARS = [
+  { id: 'l-1', url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=300&q=80', label: 'Landlord 1' },
+  { id: 'l-2', url: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=300&q=80', label: 'Landlord 2' },
+  { id: 'l-3', url: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=300&q=80', label: 'Landlord 3' },
+  { id: 'l-4', url: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=300&q=80', label: 'Landlady 1' }
 ];
 
 interface AuthModalProps {
@@ -62,6 +72,27 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [accessRestricted, setAccessRestricted] = useState<boolean>(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 8 * 1024 * 1024) {
+      setError('Image file is too large (max 8MB). Please choose a smaller photo.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      if (result) {
+        setAvatarUrl(result);
+        setError(null);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
 
   if (!isOpen) return null;
 
@@ -91,6 +122,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     setError(null);
     setAccessRestricted(false);
     
+    // Switch default avatar if needed
+    if (newRole === 'PROVIDER' && avatarUrl === PRESET_STUDENT_AVATARS[0].url) {
+      setAvatarUrl(PRESET_LANDLORD_AVATARS[0].url);
+    } else if (newRole === 'STUDENT' && avatarUrl === PRESET_LANDLORD_AVATARS[0].url) {
+      setAvatarUrl(PRESET_STUDENT_AVATARS[0].url);
+    }
+
     if (fullName && (!emailManuallyEdited || email.endsWith('@lautech.edu.ng') || email.endsWith('@hostelease.ng'))) {
       setEmail(formatEmailFromName(fullName, newRole));
     } else if (newRole === 'ADMIN') {
@@ -142,7 +180,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           fullName: fullName.trim(),
           phone: phone.trim() || undefined,
           role,
-          avatarUrl: role === 'STUDENT' ? avatarUrl : undefined,
+          avatarUrl: avatarUrl || undefined,
           studentDetails: role === 'STUDENT' ? { 
             matricNo: matricNo.trim() || undefined,
             matricNumber: matricNo.trim() || undefined,
@@ -150,7 +188,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             level,
             avatarUrl
           } : undefined,
-          providerDetails: role === 'PROVIDER' ? { businessName } : undefined
+          providerDetails: role === 'PROVIDER' ? { 
+            businessName: businessName.trim() || undefined,
+            avatarUrl 
+          } : undefined
         });
       }
 
@@ -533,59 +574,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       className="w-full text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                     />
                   </div>
-
-                  {/* Profile Picture Avatar Selector */}
-                  <div className="space-y-2 bg-slate-50 dark:bg-slate-800/60 p-3 rounded-2xl border border-slate-200 dark:border-slate-700">
-                    <div className="flex items-center justify-between">
-                      <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase flex items-center gap-1.5">
-                        <Camera className="w-3.5 h-3.5 text-emerald-600" />
-                        <span>Student Profile Photo (Visible to Landlord)</span>
-                      </label>
-                      <button
-                        type="button"
-                        onClick={() => setCustomAvatarInput(!customAvatarInput)}
-                        className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline"
-                      >
-                        {customAvatarInput ? 'Choose preset' : 'Enter photo URL'}
-                      </button>
-                    </div>
-
-                    {!customAvatarInput ? (
-                      <div className="flex items-center gap-2 overflow-x-auto py-1 scrollbar-none">
-                        {PRESET_STUDENT_AVATARS.map((av) => (
-                          <button
-                            key={av.id}
-                            type="button"
-                            onClick={() => setAvatarUrl(av.url)}
-                            className={`relative rounded-full p-0.5 transition-all flex-shrink-0 ${
-                              avatarUrl === av.url
-                                ? 'ring-2 ring-emerald-500 scale-105 shadow-sm'
-                                : 'opacity-70 hover:opacity-100'
-                            }`}
-                          >
-                            <img
-                              src={av.url}
-                              alt={av.label}
-                              className="w-9 h-9 rounded-full object-cover"
-                            />
-                            {avatarUrl === av.url && (
-                              <div className="absolute -bottom-0.5 -right-0.5 bg-emerald-600 text-white rounded-full p-0.5">
-                                <Check className="w-2.5 h-2.5" />
-                              </div>
-                            )}
-                          </button>
-                        ))}
-                      </div>
-                    ) : (
-                      <input
-                        type="url"
-                        placeholder="Paste image URL (https://...)"
-                        value={avatarUrl}
-                        onChange={(e) => setAvatarUrl(e.target.value)}
-                        className="w-full text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-slate-900 dark:text-white placeholder:text-slate-400 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                      />
-                    )}
-                  </div>
                 </div>
               )}
 
@@ -599,6 +587,121 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     onChange={(e) => setBusinessName(e.target.value)}
                     className="w-full text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                   />
+                </div>
+              )}
+
+              {/* Profile Picture Upload for Both Students and Landlords */}
+              {mode === 'register' && role !== 'ADMIN' && (
+                <div className="space-y-3 bg-slate-50 dark:bg-slate-800/70 p-3.5 rounded-2xl border border-slate-200 dark:border-slate-700">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase flex items-center gap-1.5">
+                      <Camera className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                      <span>{role === 'PROVIDER' ? 'Landlord Display Picture' : 'Student Profile Photo'}</span>
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setCustomAvatarInput(!customAvatarInput)}
+                      className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline cursor-pointer"
+                    >
+                      {customAvatarInput ? 'Use file/presets' : 'Paste web URL'}
+                    </button>
+                  </div>
+
+                  {/* Hidden File Input for Device / Camera Upload */}
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageUpload}
+                    className="hidden"
+                  />
+
+                  {customAvatarInput ? (
+                    <input
+                      type="url"
+                      placeholder="Paste image URL (https://...)"
+                      value={avatarUrl}
+                      onChange={(e) => setAvatarUrl(e.target.value)}
+                      className="w-full text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-slate-900 dark:text-white placeholder:text-slate-400 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                    />
+                  ) : (
+                    <div className="flex items-center gap-3.5">
+                      {/* Avatar Preview */}
+                      <div className="relative flex-shrink-0">
+                        <img
+                          src={avatarUrl || (role === 'PROVIDER' ? PRESET_LANDLORD_AVATARS[0].url : PRESET_STUDENT_AVATARS[0].url)}
+                          alt="Profile Preview"
+                          className="w-14 h-14 rounded-full object-cover ring-2 ring-emerald-500 shadow-md"
+                        />
+                        <div className="absolute -bottom-1 -right-1 bg-emerald-600 text-white rounded-full p-1 shadow">
+                          <Check className="w-2.5 h-2.5" />
+                        </div>
+                      </div>
+
+                      {/* Upload CTA and Actions */}
+                      <div className="space-y-1.5 flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <button
+                            type="button"
+                            onClick={() => fileInputRef.current?.click()}
+                            className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all cursor-pointer hover:scale-105"
+                          >
+                            <Upload className="w-3.5 h-3.5" />
+                            <span>Upload Your Photo</span>
+                          </button>
+
+                          {avatarUrl && (
+                            <button
+                              type="button"
+                              onClick={() => setAvatarUrl(role === 'PROVIDER' ? PRESET_LANDLORD_AVATARS[0].url : PRESET_STUDENT_AVATARS[0].url)}
+                              className="p-1.5 text-slate-400 hover:text-rose-500 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors cursor-pointer"
+                              title="Reset to default avatar"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+                        <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                          Supports camera selfies, JPG, PNG & WebP (Max 8MB)
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Preset Avatars Bar */}
+                  {!customAvatarInput && (
+                    <div className="pt-2 border-t border-slate-200/60 dark:border-slate-700/60">
+                      <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider block mb-1.5">
+                        Or select quick preset avatar:
+                      </span>
+                      <div className="flex items-center gap-2 overflow-x-auto py-1 scrollbar-none">
+                        {(role === 'PROVIDER' ? PRESET_LANDLORD_AVATARS : PRESET_STUDENT_AVATARS).map((av) => (
+                          <button
+                            key={av.id}
+                            type="button"
+                            onClick={() => setAvatarUrl(av.url)}
+                            className={`relative rounded-full p-0.5 transition-all flex-shrink-0 cursor-pointer ${
+                              avatarUrl === av.url
+                                ? 'ring-2 ring-emerald-500 scale-110 shadow-sm'
+                                : 'opacity-70 hover:opacity-100'
+                            }`}
+                            title={av.label}
+                          >
+                            <img
+                              src={av.url}
+                              alt={av.label}
+                              className="w-8 h-8 rounded-full object-cover"
+                            />
+                            {avatarUrl === av.url && (
+                              <div className="absolute -bottom-0.5 -right-0.5 bg-emerald-600 text-white rounded-full p-0.5">
+                                <Check className="w-2 h-2" />
+                              </div>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Calendar, 
   Clock, 
@@ -39,7 +39,9 @@ import {
   Bot,
   KeyRound,
   Users,
-  HelpCircle
+  HelpCircle,
+  Upload,
+  Camera
 } from 'lucide-react';
 import { 
   StudentDashboardData, 
@@ -133,6 +135,26 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
   const [profileGender, setProfileGender] = useState<string>(() => (user as any)?.gender || 'ANY');
   const [profileAvatarUrl, setProfileAvatarUrl] = useState<string>(() => user?.avatarUrl || '');
   const [savingProfile, setSavingProfile] = useState<boolean>(false);
+  const studentAvatarFileRef = useRef<HTMLInputElement>(null);
+
+  const handleStudentAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 8 * 1024 * 1024) {
+      alert('Photo is too large (max 8MB). Please choose a smaller image.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      if (result) {
+        setProfileAvatarUrl(result);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
 
   useEffect(() => {
     if (user) {
@@ -2109,22 +2131,70 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
             </div>
 
             {/* Avatar Selection & Preview */}
-            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
-              <label className="block text-xs font-bold text-slate-700">Profile Picture / Avatar</label>
+            <div className="p-4 sm:p-5 bg-slate-50 rounded-2xl border border-slate-200 space-y-4">
+              <div className="flex items-center justify-between">
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                  Student Profile Picture / Photo
+                </label>
+                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-md">
+                  Visible to Verified Landlords
+                </span>
+              </div>
               
-              <div className="flex items-center gap-4">
+              <input
+                ref={studentAvatarFileRef}
+                type="file"
+                accept="image/*"
+                onChange={handleStudentAvatarUpload}
+                className="hidden"
+              />
+
+              <div className="flex items-center gap-4 flex-wrap">
                 <div className="relative">
                   <UserAvatar fullName={profileFullName || 'Student'} avatarUrl={profileAvatarUrl} size="lg" />
+                  <button
+                    type="button"
+                    onClick={() => studentAvatarFileRef.current?.click()}
+                    className="absolute -bottom-1 -right-1 p-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-full shadow-md transition-transform hover:scale-110 cursor-pointer"
+                    title="Upload new picture"
+                  >
+                    <Camera className="w-3 h-3" />
+                  </button>
                 </div>
-                <div className="text-xs space-y-1">
-                  <p className="font-bold text-slate-900">Choose Student Avatar or Paste Image Link</p>
-                  <p className="text-[11px] text-slate-500">Pick from presets below or paste a custom photo URL.</p>
+
+                <div className="text-xs space-y-1.5 flex-1 min-w-[200px]">
+                  <p className="font-bold text-slate-900">Upload Real Picture or Choose Avatar</p>
+                  
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => studentAvatarFileRef.current?.click()}
+                      className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black flex items-center gap-1.5 shadow-sm transition-all cursor-pointer hover:scale-105"
+                    >
+                      <Upload className="w-3.5 h-3.5" />
+                      <span>Upload Photo from Device / Camera</span>
+                    </button>
+
+                    {profileAvatarUrl && (
+                      <button
+                        type="button"
+                        onClick={() => setProfileAvatarUrl('')}
+                        className="px-2.5 py-2 text-slate-500 hover:text-rose-600 bg-white border border-slate-200 rounded-xl text-xs font-semibold transition-colors cursor-pointer"
+                        title="Remove custom photo"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-slate-500">
+                    Supports selfies or gallery photos (JPG, PNG, WebP up to 8MB)
+                  </p>
                 </div>
               </div>
 
               {/* Avatar Presets */}
-              <div className="space-y-1.5 pt-1">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Quick Presets</span>
+              <div className="space-y-1.5 pt-2 border-t border-slate-200/60">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Or Select Quick Preset:</span>
                 <div className="flex items-center gap-2.5 overflow-x-auto pb-1 scrollbar-none">
                   {[
                     { id: 'av-1', label: 'Tech Scholar', url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80' },
@@ -2155,7 +2225,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                   value={profileAvatarUrl}
                   onChange={(e) => setProfileAvatarUrl(e.target.value)}
                   placeholder="Or paste custom image URL (e.g. https://...)"
-                  className="w-full text-xs bg-white border border-slate-200 rounded-xl p-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                  className="w-full text-xs bg-white border border-slate-200 rounded-xl p-2.5 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                 />
               </div>
             </div>
