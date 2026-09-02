@@ -85,6 +85,23 @@ const API_BASE = '/api';
 const apiCache = new Map<string, { data: any; timestamp: number }>();
 const CACHE_TTL = 45000; // 45 seconds for public queries
 
+// Safe automatic purge of legacy un-scoped demo items from previous platform versions
+try {
+  if (typeof window !== 'undefined' && window.localStorage) {
+    if (localStorage.getItem('hostel_ease_conversations')) {
+      localStorage.removeItem('hostel_ease_conversations');
+    }
+    const rawBk = localStorage.getItem('hostel_ease_bookings');
+    if (rawBk && rawBk.includes('HE-BK-2026-8891')) {
+      localStorage.removeItem('hostel_ease_bookings');
+    }
+    const rawInsp = localStorage.getItem('hostel_ease_inspections');
+    if (rawInsp && rawInsp.includes('insp-seed-1')) {
+      localStorage.removeItem('hostel_ease_inspections');
+    }
+  }
+} catch {}
+
 export async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutMs = 8000): Promise<Response> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'hostel-ease-shell-v1';
+const CACHE_NAME = 'hostel-ease-shell-v2-isolated';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
@@ -38,6 +38,22 @@ self.addEventListener('fetch', (event) => {
 
   // Never cache sensitive authenticated auth or payment APIs in service worker
   if (request.url.includes('/api/auth') || request.url.includes('/api/payments') || request.url.includes('/api/bookings')) {
+    return;
+  }
+
+  // Network-First for HTML navigation so deployed changes are instantly visible!
+  if (request.mode === 'navigate' || request.destination === 'document') {
+    event.respondWith(
+      fetch(request)
+        .then((networkResponse) => {
+          if (networkResponse && networkResponse.status === 200) {
+            const clone = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+          }
+          return networkResponse;
+        })
+        .catch(() => caches.match('/index.html') || caches.match('/'))
+    );
     return;
   }
 
