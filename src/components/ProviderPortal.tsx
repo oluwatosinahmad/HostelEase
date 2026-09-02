@@ -1270,10 +1270,45 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
                     <div className="p-5 space-y-3">
                       <div>
                         <h3 className="text-base font-bold text-gray-900">{prop?.title || 'Hostel Accommodation'}</h3>
-                        <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
+                        <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5 flex-wrap">
                           <MapPin className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-                          {prop?.address || 'LAUTECH Area'} • {prop?.distanceFromCampusKm || 0.8}km from campus
+                          <span>{prop?.address || 'LAUTECH Area'}</span>
+                          <span>•</span>
+                          <span className="font-semibold text-emerald-800 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200">
+                            {prop?.distanceFromCampusKm && prop.distanceFromCampusKm < 1 
+                              ? `${Math.round(prop.distanceFromCampusKm * 1000)}m` 
+                              : `${prop?.distanceFromCampusKm || 0.8}km`} from {(prop as any)?.selectedGate || 'Campus Gate'}
+                          </span>
                         </p>
+                      </div>
+
+                      {/* 4K Video Tour Status Pill */}
+                      <div className="flex items-center justify-between text-[11px] p-2.5 rounded-xl bg-slate-900 text-white">
+                        <span className="flex items-center gap-1.5 font-bold">
+                          <Video className="w-3.5 h-3.5 text-emerald-400" />
+                          <span>4K Video Walkthrough:</span>
+                        </span>
+                        {(prop as any)?.videoVerificationStatus === 'APPROVED' ? (
+                          <span className="px-2 py-0.5 bg-emerald-600 text-white rounded-lg text-[10px] font-black flex items-center gap-1">
+                            <ShieldCheck className="w-3 h-3" />
+                            <span>✓ Verified 4K Tour</span>
+                          </span>
+                        ) : (prop as any)?.has4KVideo || (prop as any)?.media?.some((m: any) => m.mediaType === 'VIDEO') ? (
+                          <span className="px-2 py-0.5 bg-amber-500/30 text-amber-300 border border-amber-500/40 rounded-lg text-[10px] font-black animate-pulse">
+                            ⏳ Pending Admin Audit
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingProperty(prop);
+                              setActiveTab('wizard');
+                            }}
+                            className="px-2 py-0.5 bg-emerald-700 hover:bg-emerald-600 text-white rounded-lg text-[10px] font-bold cursor-pointer"
+                          >
+                            + Upload 4K Video
+                          </button>
+                        )}
                       </div>
 
                       {/* Verification Explanation Card */}

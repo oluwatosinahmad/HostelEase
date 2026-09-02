@@ -470,7 +470,8 @@ export const DEFAULT_PROPERTIES: Property[] = [
       }
     ],
     media: [
-      { id: 'm-8', url: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1000&q=80', caption: 'Room View', displayOrder: 1, isCover: true, mediaType: 'IMAGE', category: 'BEDROOM' }
+      { id: 'm-8', url: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1000&q=80', caption: 'Room View', displayOrder: 1, isCover: true, mediaType: 'IMAGE', category: 'BEDROOM' },
+      { id: 'm-vid-4', url: 'https://assets.mixkit.co/videos/preview/mixkit-kitchen-and-dining-room-in-a-modern-apartment-43098-large.mp4', caption: 'Verified 4K Video Tour: Grace Villa', displayOrder: 2, isCover: false, mediaType: 'VIDEO', category: 'EXTERIOR' }
     ]
   },
   {
@@ -526,7 +527,8 @@ export const DEFAULT_PROPERTIES: Property[] = [
       }
     ],
     media: [
-      { id: 'm-9', url: 'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=1000&q=80', caption: 'Residency View', displayOrder: 1, isCover: true, mediaType: 'IMAGE', category: 'EXTERIOR' }
+      { id: 'm-9', url: 'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=1000&q=80', caption: 'Residency View', displayOrder: 1, isCover: true, mediaType: 'IMAGE', category: 'EXTERIOR' },
+      { id: 'm-vid-5', url: 'https://assets.mixkit.co/videos/preview/mixkit-curtains-opening-to-show-a-sunny-terrace-41527-large.mp4', caption: 'Verified 4K Video Tour: Royal Palm', displayOrder: 2, isCover: false, mediaType: 'VIDEO', category: 'EXTERIOR' }
     ]
   }
 ];

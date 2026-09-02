@@ -44,7 +44,9 @@ import {
   Camera,
   Download,
   LogOut,
-  UserCheck
+  UserCheck,
+  Video,
+  Play
 } from 'lucide-react';
 import { 
   Area, 
@@ -2145,6 +2147,76 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                 </label>
               ))}
             </div>
+
+            {/* 🎥 4K Video Walkthrough Audit Box */}
+            {(() => {
+              const videoItem = (selectedHostelForReview as any).media?.find((m: any) => m.mediaType === 'VIDEO') ||
+                                (selectedHostelForReview as any).mediaItems?.find((m: any) => m.type === 'VIDEO') ||
+                                ((selectedHostelForReview as any).videoTourUrl ? { url: (selectedHostelForReview as any).videoTourUrl } : null);
+              const isVideoApproved = (selectedHostelForReview as any).videoVerificationStatus === 'APPROVED';
+
+              if (!videoItem) return null;
+
+              return (
+                <div className="bg-slate-900/90 border border-emerald-500/40 rounded-xl p-3.5 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-300">
+                      <Video className="w-4 h-4 text-emerald-400" />
+                      <span>4K Video Walkthrough Audit & Verification</span>
+                    </div>
+                    <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${
+                      isVideoApproved
+                        ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                        : 'bg-amber-500/20 text-amber-300 border border-amber-500/40 animate-pulse'
+                    }`}>
+                      {isVideoApproved ? '✓ 4K VIDEO VERIFIED' : '⏳ PENDING 4K AUDIT'}
+                    </span>
+                  </div>
+
+                  <div className="aspect-video max-h-48 rounded-lg overflow-hidden bg-black mx-auto">
+                    <video
+                      src={videoItem.url}
+                      controls
+                      playsInline
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between gap-2 pt-1">
+                    <p className="text-[10px] text-slate-400 truncate">
+                      Verify room interior, borehole flow, and gating uncut footage.
+                    </p>
+                    <div className="flex gap-1.5 flex-shrink-0">
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          await api.admin.approveVideoWalkthrough(selectedHostelForReview.id);
+                          (selectedHostelForReview as any).videoVerificationStatus = 'APPROVED';
+                          onShowToast('✓ 4K Video Walkthrough verified & landlord notified!', 'success');
+                        }}
+                        className="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold rounded-lg transition-colors cursor-pointer shadow-sm"
+                      >
+                        ✓ Approve 4K Video
+                      </button>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const reason = prompt('Reason for 4K video rejection / required adjustment:');
+                          if (reason !== null) {
+                            await api.admin.rejectVideoWalkthrough(selectedHostelForReview.id, reason);
+                            (selectedHostelForReview as any).videoVerificationStatus = 'REJECTED';
+                            onShowToast('Video rejected with adjustment instructions sent to landlord.', 'info');
+                          }
+                        }}
+                        className="px-2.5 py-1 bg-rose-950/80 hover:bg-rose-900 text-rose-300 border border-rose-800 text-[11px] font-bold rounded-lg transition-colors cursor-pointer"
+                      >
+                        Request Retake
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* Decision Selector */}
             <div className="space-y-2">

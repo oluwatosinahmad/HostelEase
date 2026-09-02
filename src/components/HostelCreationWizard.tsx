@@ -115,7 +115,19 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
   const [address, setAddress] = useState(init?.address || '');
   const [nearbyLandmark, setNearbyLandmark] = useState(init?.nearbyLandmark || '');
   const [distanceKm, setDistanceKm] = useState(init?.distanceFromCampusKm?.toString() || '0.8');
+  const [selectedGate, setSelectedGate] = useState<string>(init?.selectedGate || 'Under-G Gate');
+  const [walkingMinutes, setWalkingMinutes] = useState<string>(init?.walkingMinutes?.toString() || '4');
   const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null);
+  const videoInputRef = useRef<HTMLInputElement>(null);
+
+  const handleQuickDistanceSelect = (km: number, mins: number, gateName?: string) => {
+    setDistanceKm(km.toString());
+    setWalkingMinutes(mins.toString());
+    const gate = gateName || selectedGate;
+    const distanceMeters = Math.round(km * 1000);
+    const landmarkText = `${distanceMeters < 1000 ? `${distanceMeters}m` : `${km}km`} from ${gate}, ${mins} mins walk`;
+    setNearbyLandmark(landmarkText);
+  };
 
   // Step 3: Rooms
   const [roomsList, setRoomsList] = useState<RoomConfig[]>(initialData?.roomsList || [
@@ -300,7 +312,38 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
     };
     setMediaList(prev => [...prev, newItem]);
     setCustomVideoUrl('');
-    onShowToast('Video walkthrough tour added!', 'success');
+    onShowToast('Video walkthrough tour added! Pending admin audit.', 'success');
+  };
+
+  const handleVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    try {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const videoDataUrl = reader.result as string;
+        const newVideoItem: MediaUploadItem = {
+          id: `vid-upload-${Date.now()}`,
+          url: videoDataUrl,
+          filename: file.name,
+          originalName: file.name,
+          mediaType: 'VIDEO',
+          category: 'VIDEO_WALKTHROUGH',
+          caption: '4K Room & Compound Walkthrough (Pending Admin Audit)',
+          isCover: false
+        };
+        setMediaList(prev => [...prev.filter(m => m.mediaType !== 'VIDEO'), newVideoItem]);
+        onShowToast('4K video walkthrough uploaded! Submitted for admin verification.', 'success');
+      };
+      reader.readAsDataURL(file);
+    } catch (err: any) {
+      onShowToast(err.message || 'Failed to process video file', 'error');
+    } finally {
+      setIsUploading(false);
+      if (videoInputRef.current) videoInputRef.current.value = '';
+    }
   };
 
   const handleToggleAmenity = (key: string) => {
@@ -342,6 +385,11 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
         address: finalAddress,
         nearbyLandmark: nearbyLandmark.trim() || undefined,
         distanceFromCampusKm: parseFloat(distanceKm) || 1.0,
+        selectedGate,
+        walkingMinutes: parseInt(walkingMinutes, 10) || 5,
+        has4KVideo: mediaList.some(m => m.mediaType === 'VIDEO'),
+        videoTourUrl: mediaList.find(m => m.mediaType === 'VIDEO')?.url,
+        videoVerificationStatus: editingProperty?.videoVerificationStatus || (mediaList.some(m => m.mediaType === 'VIDEO') ? 'PENDING_AUDIT' : 'NONE'),
         propertyType,
         genderPreference,
         totalRooms: roomsList.reduce((acc, r) => acc + (r.total || 1), 0),
@@ -674,28 +722,109 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
                   </div>
                 </div>
               )}
+            </div>
 
-              <div className="flex items-center gap-2 pt-1 flex-wrap">
-                <span className="text-[11px] text-slate-500 dark:text-slate-400 font-semibold">Quick Distance:</span>
-                {[
-                  { label: '0.3 km (Walking 3 min)', val: '0.3' },
-                  { label: '0.8 km (Walking 8 min)', val: '0.8' },
-                  { label: '1.5 km (Short Bike)', val: '1.5' },
-                  { label: '2.5 km (Bike / Keke)', val: '2.5' }
-                ].map(d => (
-                  <button
-                    key={d.val}
-                    type="button"
-                    onClick={() => setDistanceKm(d.val)}
-                    className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition-all ${
-                      distanceKm === d.val 
-                        ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm' 
-                        : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
-                    }`}
+            {/* Dedicated Landlord Quick Distance Component */}
+            <div className="bg-slate-50 dark:bg-slate-800/80 p-4 sm:p-5 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-3">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase flex items-center gap-1.5">
+                  <Footprints className="w-4 h-4 text-emerald-600" />
+                  Quick Distance to LAUTECH Campus Gate (Set by You) *
+                </label>
+                <span className="text-[11px] font-mono font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-lg border border-emerald-200 dark:border-emerald-800">
+                  {parseFloat(distanceKm) < 1 ? `${Math.round(parseFloat(distanceKm) * 1000)}m` : `${distanceKm} km`} • {walkingMinutes} mins walk
+                </span>
+              </div>
+
+              {/* 1-Tap Quick Distance Presets */}
+              <div className="space-y-1.5">
+                <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400">1-Tap Distance Presets:</span>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {[
+                    { label: '150m (Gate-to-Gate)', km: 0.15, mins: 2 },
+                    { label: '300m (3 mins walk)', km: 0.3, mins: 3 },
+                    { label: '500m (5 mins walk)', km: 0.5, mins: 5 },
+                    { label: '800m (8 mins walk)', km: 0.8, mins: 8 },
+                    { label: '1.2 km (12 mins walk)', km: 1.2, mins: 12 },
+                    { label: '2.0 km (Campus Shuttle)', km: 2.0, mins: 18 }
+                  ].map(p => (
+                    <button
+                      key={p.label}
+                      type="button"
+                      onClick={() => handleQuickDistanceSelect(p.km, p.mins)}
+                      className={`p-2 rounded-xl text-left border transition-all text-xs cursor-pointer ${
+                        Math.abs(parseFloat(distanceKm) - p.km) < 0.05
+                          ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm font-bold'
+                          : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-emerald-400'
+                      }`}
+                    >
+                      <div className="font-bold">{p.label}</div>
+                      <div className={`text-[10px] ${Math.abs(parseFloat(distanceKm) - p.km) < 0.05 ? 'text-emerald-100' : 'text-slate-400'}`}>
+                        {Math.round(p.km * 1000)}m to campus
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Detailed Distance Customizer */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Target Campus Gate
+                  </label>
+                  <select
+                    value={selectedGate}
+                    onChange={(e) => {
+                      setSelectedGate(e.target.value);
+                      handleQuickDistanceSelect(parseFloat(distanceKm) || 0.5, parseInt(walkingMinutes, 10) || 5, e.target.value);
+                    }}
+                    className="w-full text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-slate-900 dark:text-white font-medium focus:ring-2 focus:ring-emerald-500 focus:outline-none cursor-pointer"
                   >
-                    {d.label}
-                  </button>
-                ))}
+                    <option value="Under-G Gate">Under-G Gate (South)</option>
+                    <option value="Adenike Gate">Adenike Gate (East)</option>
+                    <option value="Main Campus Gate">Main Campus Gate (North)</option>
+                    <option value="Stadium Road Gate">Stadium Road Gate</option>
+                    <option value="Aroje Gate">Aroje / General Gate</option>
+                    <option value="Old Poly Road Gate">Old Poly Road Gate</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Distance (in Kilometers)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.05"
+                    min="0.05"
+                    max="15"
+                    value={distanceKm}
+                    onChange={(e) => {
+                      setDistanceKm(e.target.value);
+                      const km = parseFloat(e.target.value) || 0.5;
+                      const estMins = Math.max(1, Math.round(km * 10));
+                      setWalkingMinutes(estMins.toString());
+                    }}
+                    placeholder="e.g. 0.3 for 300m"
+                    className="w-full text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-slate-900 dark:text-white font-bold focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Walking Time (Minutes)
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="60"
+                    value={walkingMinutes}
+                    onChange={(e) => setWalkingMinutes(e.target.value)}
+                    placeholder="e.g. 3 mins"
+                    className="w-full text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-slate-900 dark:text-white font-bold focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                  />
+                </div>
               </div>
             </div>
 
@@ -1165,22 +1294,86 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
               </div>
             </div>
 
-            {/* Video Tour Link */}
-            <div className="flex items-center gap-2 pt-2">
-              <input
-                type="url"
-                placeholder="Or paste online video tour URL (YouTube, Vimeo, Cloud)..."
-                value={customVideoUrl}
-                onChange={(e) => setCustomVideoUrl(e.target.value)}
-                className="flex-1 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-              />
-              <button
-                type="button"
-                onClick={handleAddVideoTour}
-                className="px-3 py-2 bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs rounded-xl"
-              >
-                Add Video Tour
-              </button>
+            {/* 🎥 Dedicated 4K Verified Video Walkthrough Card */}
+            <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-emerald-950 p-5 rounded-2xl border border-emerald-500/30 text-white space-y-4 shadow-xl">
+              <div className="flex items-start justify-between gap-3">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-500 text-slate-950 uppercase tracking-wide flex items-center gap-1">
+                      <ShieldCheck className="w-3 h-3" />
+                      Virtual Campus Inspection
+                    </span>
+                    <span className="text-[10px] text-emerald-300 font-bold">Admin Verified Audit Standard</span>
+                  </div>
+                  <h4 className="text-sm font-black text-white flex items-center gap-1.5">
+                    <Video className="w-4 h-4 text-emerald-400" />
+                    4K Video Walkthrough Tour (For Student Confidence)
+                  </h4>
+                  <p className="text-[11px] text-slate-300 leading-relaxed">
+                    Upload an uncut 4K video showing the lodge compound, front gate, room interior, bathroom, and prepaid meter. Each video is reviewed and verified by the Hostel Ease admin team before going live on the homepage Virtual Campus Inspection.
+                  </p>
+                </div>
+              </div>
+
+              {/* Video Upload Actions */}
+              <div className="flex flex-col sm:flex-row gap-3">
+                <input
+                  type="file"
+                  ref={videoInputRef}
+                  onChange={handleVideoUpload}
+                  accept="video/mp4,video/webm,video/*"
+                  className="hidden"
+                />
+                <button
+                  type="button"
+                  onClick={() => videoInputRef.current?.click()}
+                  disabled={isUploading}
+                  className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                >
+                  <Camera className="w-4 h-4" />
+                  <span>{isUploading ? 'Uploading Video...' : 'Upload 4K Video from Device / Camera'}</span>
+                </button>
+
+                <div className="flex-1 flex gap-2">
+                  <input
+                    type="url"
+                    placeholder="Or paste 4K video link (YouTube, Drive, Cloud MP4)..."
+                    value={customVideoUrl}
+                    onChange={(e) => setCustomVideoUrl(e.target.value)}
+                    className="flex-1 text-xs bg-slate-900/90 border border-slate-700 rounded-xl px-3 py-2 text-white placeholder:text-slate-400 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAddVideoTour}
+                    className="px-3 py-2 bg-slate-700 hover:bg-slate-600 text-white font-bold text-xs rounded-xl transition-colors cursor-pointer"
+                  >
+                    Add URL
+                  </button>
+                </div>
+              </div>
+
+              {/* Active Video Tour Status Preview */}
+              {mediaList.some(m => m.mediaType === 'VIDEO') && (
+                <div className="bg-slate-950/80 p-3.5 rounded-xl border border-emerald-500/40 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-emerald-300 flex items-center gap-1.5">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                      4K Video Attached & Ready for Admin Audit
+                    </span>
+                    <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 animate-pulse">
+                      ⏳ Pending Admin Verification
+                    </span>
+                  </div>
+                  <div className="aspect-video max-w-sm rounded-lg overflow-hidden bg-black mx-auto">
+                    <video
+                      src={mediaList.find(m => m.mediaType === 'VIDEO')?.url}
+                      controls
+                      playsInline
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Uploaded Media Items */}

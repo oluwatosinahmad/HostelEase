@@ -3651,6 +3651,85 @@ export const api = {
       };
     },
 
+    async approveVideoWalkthrough(id: string): Promise<{ message: string; success: boolean }> {
+      try {
+        const res = await fetch(`${API_BASE}/admin/properties/${id}/video/approve`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...getAuthHeader() }
+        });
+        if (res.ok) return await res.json();
+      } catch {}
+
+      // Update property in local storage
+      const all = getLocalProperties('all');
+      const target = all.find(p => p.id === id);
+      if (target) {
+        (target as any).videoVerificationStatus = 'APPROVED';
+        (target as any).has4KVideo = true;
+        if (target.media) {
+          target.media.forEach(m => {
+            if (m.mediaType === 'VIDEO') {
+              (m as any).verified = true;
+              (m as any).verificationStatus = 'APPROVED';
+            }
+          });
+        }
+        saveLocalProperty(target);
+
+        // Send isolated notification to Landlord
+        addIsolatedNotification({
+          userId: target.provider?.id || (target as any).providerId || 'usr-provider-default',
+          title: '🎉 4K Video Walkthrough Verified!',
+          message: `Congratulations! Your 4K uncut video tour for "${target.title}" has passed admin audit and is now featured live on the 4K Verified Video Walkthroughs Spotlight.`,
+          linkUrl: '/provider',
+          role: 'PROVIDER'
+        });
+      }
+
+      window.dispatchEvent(new CustomEvent('hostel_ease_properties_updated'));
+      window.dispatchEvent(new CustomEvent('hostel_ease_notifications_updated'));
+
+      return {
+        message: '4K Video Walkthrough verified and activated successfully.',
+        success: true
+      };
+    },
+
+    async rejectVideoWalkthrough(id: string, reason?: string): Promise<{ message: string; success: boolean }> {
+      try {
+        const res = await fetch(`${API_BASE}/admin/properties/${id}/video/reject`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+          body: JSON.stringify({ reason })
+        });
+        if (res.ok) return await res.json();
+      } catch {}
+
+      const all = getLocalProperties('all');
+      const target = all.find(p => p.id === id);
+      if (target) {
+        (target as any).videoVerificationStatus = 'REJECTED';
+        (target as any).videoRejectionReason = reason || 'Video walkthrough requires clearer lighting of the bathroom/kitchen and uncut entrance footage.';
+        saveLocalProperty(target);
+
+        addIsolatedNotification({
+          userId: target.provider?.id || (target as any).providerId || 'usr-provider-default',
+          title: '⚠️ 4K Video Tour Needs Adjustment',
+          message: `Admin Audit Update for "${target.title}": ${reason || 'Please provide an uncut 4K video showing compound gate, room interior, bathroom, and prepaid meter.'}`,
+          linkUrl: '/provider',
+          role: 'PROVIDER'
+        });
+      }
+
+      window.dispatchEvent(new CustomEvent('hostel_ease_properties_updated'));
+      window.dispatchEvent(new CustomEvent('hostel_ease_notifications_updated'));
+
+      return {
+        message: '4K Video Walkthrough rejected with feedback sent to landlord.',
+        success: true
+      };
+    },
+
     async getReports(status?: string, category?: string): Promise<{ reports: any[] }> {
       const params = new URLSearchParams();
       if (status && status !== 'all') params.append('status', status);
