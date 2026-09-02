@@ -576,7 +576,11 @@ export const Navbar: React.FC<NavbarProps> = ({
             </button>
             {isAuthenticated && isStudent && (
               <button
-                onClick={() => { onNavigate('student-dashboard'); setMobileMenuOpen(false); }}
+                onClick={() => { 
+                  onNavigate('student-dashboard'); 
+                  if (onNavigateToDashboardTab) onNavigateToDashboardTab('overview');
+                  setMobileMenuOpen(false); 
+                }}
                 className={`p-2.5 rounded-xl text-xs font-bold text-center flex flex-col items-center gap-1 ${
                   activeView === 'student-dashboard' ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300' : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
                 }`}

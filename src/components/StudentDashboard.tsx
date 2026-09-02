@@ -22,6 +22,7 @@ import {
   ShieldCheck,
   History,
   ArrowRight,
+  ArrowLeft,
   Eye,
   SlidersHorizontal,
   Bell,
@@ -419,8 +420,10 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-      {/* 1. TOP HERO GREETING & PROFILE BANNER */}
-      <div className="bg-gradient-to-r from-emerald-950 via-teal-950 to-slate-950 text-white rounded-3xl p-6 sm:p-8 shadow-xl relative overflow-hidden flex flex-col lg:flex-row lg:items-center justify-between gap-6 border border-emerald-500/20">
+      {/* 1. TOP HERO GREETING & PROFILE BANNER (Only on Dashboard Overview) */}
+      {activeTab === 'overview' && (
+        <>
+          <div className="bg-gradient-to-r from-emerald-950 via-teal-950 to-slate-950 text-white rounded-3xl p-6 sm:p-8 shadow-xl relative overflow-hidden flex flex-col lg:flex-row lg:items-center justify-between gap-6 border border-emerald-500/20">
         <div className="space-y-3 max-w-2xl z-10">
           <div className="flex items-center gap-3">
             <UserAvatar 
@@ -699,6 +702,58 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
               <ArrowRight className="w-4 h-4" />
             </button>
           </div>
+        </div>
+      )}
+        </>
+      )}
+
+      {/* SUB-PAGE HEADER (Shows only on Profile, Preferences, Bookings, Inspections, etc.) */}
+      {activeTab !== 'overview' && (
+        <div className="bg-white rounded-3xl p-5 sm:p-6 border border-slate-200 shadow-xs flex items-center justify-between flex-wrap gap-4 animate-in fade-in">
+          <div className="flex items-center gap-3.5">
+            <button
+              onClick={() => setActiveTab('overview')}
+              className="p-2.5 rounded-2xl bg-slate-100 hover:bg-emerald-50 hover:text-emerald-800 text-slate-700 transition-all flex items-center gap-1.5 text-xs font-bold border border-slate-200 cursor-pointer shadow-xs"
+              title="Return to Dashboard Hub"
+            >
+              <ArrowLeft className="w-4 h-4 text-slate-600" />
+              <span className="hidden sm:inline">Dashboard</span>
+            </button>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800 uppercase tracking-wide">
+                  Student Portal
+                </span>
+                <span className="text-[11px] text-slate-400 font-medium">
+                  {dashboardData?.user.fullName || user?.fullName || 'Account Settings'}
+                </span>
+              </div>
+              <h1 className="text-xl sm:text-2xl font-black text-slate-900 mt-0.5">
+                {activeTab === 'profile_security' && 'My Profile & Account Settings'}
+                {activeTab === 'preferences' && 'Accommodation Preferences & Budget'}
+                {activeTab === 'bookings' && 'My Hostel Bookings & Reservations'}
+                {activeTab === 'inspections' && 'My Scheduled Inspections'}
+                {activeTab === 'shortlist' && 'My Saved Hostels'}
+                {activeTab === 'search_history' && 'Search History'}
+              </h1>
+              <p className="text-xs text-slate-500">
+                {activeTab === 'profile_security' && 'Update your account name, matric/JAMB number, profile picture, phone, and password.'}
+                {activeTab === 'preferences' && 'Configure your preferred locations, budget, and required facilities.'}
+                {activeTab === 'bookings' && 'View your active hostel bookings, invoices, and move-in status.'}
+                {activeTab === 'inspections' && 'Track scheduled physical and virtual hostel walkthrough appointments.'}
+                {activeTab === 'shortlist' && 'Compare and manage hostels shortlisted on your account.'}
+                {activeTab === 'search_history' && 'Past searches and queries around LAUTECH campus.'}
+              </p>
+            </div>
+          </div>
+
+          <button
+            onClick={() => setActiveTab('overview')}
+            className="px-4 py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 text-xs font-bold rounded-xl transition flex items-center gap-1.5 shadow-xs cursor-pointer"
+          >
+            <span>Back to Dashboard</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </button>
         </div>
       )}
 
