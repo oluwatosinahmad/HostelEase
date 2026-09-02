@@ -119,6 +119,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     localStorage.removeItem('hostel_ease_user');
     setToken(null);
     setUser(null);
+    window.dispatchEvent(new CustomEvent('hostel_ease_user_logged_out'));
   };
 
   const updateProfile = async (data: any) => {

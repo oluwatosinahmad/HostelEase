@@ -258,7 +258,7 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
 
   useEffect(() => {
     fetchAllProviderData(selectedPropertyId);
-  }, [selectedPropertyId]);
+  }, [selectedPropertyId, user?.id, user?.email]);
 
   // Real-time listener for incoming student messages, bookings, inspections & notifications
   useEffect(() => {

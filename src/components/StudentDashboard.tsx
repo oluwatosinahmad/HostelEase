@@ -173,12 +173,22 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
   const [prefMoveInFlexible, setPrefMoveInFlexible] = useState<boolean>(true);
   const [savingPrefs, setSavingPrefs] = useState<boolean>(false);
 
+  // Isolated User Bookings & Inspections
+  const [allStudentBookings, setAllStudentBookings] = useState<any[]>([]);
+  const [allStudentInspections, setAllStudentInspections] = useState<any[]>([]);
+
   // Fetch complete aggregated dashboard
   const loadDashboard = async () => {
     setLoading(true);
     try {
-      const data = await api.student.getDashboard();
+      const [data, bkRes, inspRes] = await Promise.all([
+        api.student.getDashboard(),
+        api.bookings.getAll().catch(() => ({ bookings: [] })),
+        api.inspections.getAll().catch(() => ({ inspections: [] }))
+      ]);
       setDashboardData(data);
+      setAllStudentBookings(bkRes.bookings || []);
+      setAllStudentInspections(inspRes.inspections || []);
 
       // Populate profile state
       if (data.user) {
@@ -234,9 +244,21 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
   useEffect(() => {
     const handleLogout = () => {
       setDashboardData(DEFAULT_STUDENT_DASHBOARD);
+      setAllStudentBookings([]);
+      setAllStudentInspections([]);
+    };
+    const handleUpdates = () => {
+      api.bookings.getAll().then(r => setAllStudentBookings(r.bookings || [])).catch(() => {});
+      api.inspections.getAll().then(r => setAllStudentInspections(r.inspections || [])).catch(() => {});
     };
     window.addEventListener('hostel_ease_user_logged_out', handleLogout);
-    return () => window.removeEventListener('hostel_ease_user_logged_out', handleLogout);
+    window.addEventListener('hostel_ease_bookings_updated', handleUpdates);
+    window.addEventListener('hostel_ease_inspections_updated', handleUpdates);
+    return () => {
+      window.removeEventListener('hostel_ease_user_logged_out', handleLogout);
+      window.removeEventListener('hostel_ease_bookings_updated', handleUpdates);
+      window.removeEventListener('hostel_ease_inspections_updated', handleUpdates);
+    };
   }, []);
 
   // Time-aware greeting
@@ -1705,89 +1727,107 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
             </div>
           )}
 
-          {/* Active Booking Detailed View */}
-          {activeBooking ? (
-            <div className="p-6 bg-slate-50 rounded-3xl border border-slate-200 space-y-4">
-              <div className="flex items-start justify-between flex-wrap gap-3">
-                <div>
-                  <span className="px-2 py-0.5 rounded text-[10px] font-black bg-emerald-100 text-emerald-800 uppercase">
-                    Primary Reservation
-                  </span>
-                  <h3 className="text-base font-black text-slate-900 mt-1">{activeBooking.propertyTitle}</h3>
-                  <p className="text-xs text-slate-500">{activeBooking.propertyAddress}</p>
-                </div>
+          {/* Active Bookings Detailed View */}
+          {(() => {
+            const bookingsToRender = allStudentBookings.length > 0 
+              ? allStudentBookings 
+              : (activeBooking ? [activeBooking] : []);
 
-                <div className="flex items-center gap-2">
-                  <span className="px-3 py-1 rounded-full bg-slate-200 text-slate-800 font-bold text-xs">
-                    {activeBooking.status}
-                  </span>
-                  <span className={`px-3 py-1 rounded-full font-bold text-xs ${
-                    activeBooking.paymentStatus === 'PAID' ? 'bg-emerald-600 text-white' : 'bg-rose-600 text-white'
-                  }`}>
-                    {activeBooking.paymentStatus}
-                  </span>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-white p-4 rounded-2xl border border-slate-200 text-xs">
-                <div>
-                  <span className="text-slate-400 font-bold uppercase text-[10px]">Reference</span>
-                  <p className="font-mono font-bold text-slate-900 mt-0.5">{activeBooking.bookingReference}</p>
-                </div>
-                <div>
-                  <span className="text-slate-400 font-bold uppercase text-[10px]">Room Type</span>
-                  <p className="font-bold text-slate-900 mt-0.5">{activeBooking.roomName}</p>
-                </div>
-                <div>
-                  <span className="text-slate-400 font-bold uppercase text-[10px]">Move-In Date</span>
-                  <p className="font-bold text-emerald-800 mt-0.5">{formatDate(activeBooking.moveInDate)}</p>
-                </div>
-                <div>
-                  <span className="text-slate-400 font-bold uppercase text-[10px]">Total Cost</span>
-                  <p className="font-black text-slate-900 mt-0.5">{formatNaira(activeBooking.totalCost)}</p>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-end gap-2 pt-2">
-                {activeBooking.paymentStatus !== 'PAID' && activeBooking.status === 'CONFIRMED' && (
+            if (bookingsToRender.length === 0) {
+              return (
+                <div className="p-12 text-center text-slate-400 space-y-3">
+                  <Building2 className="w-10 h-10 mx-auto text-slate-300" />
+                  <p className="text-sm font-bold text-slate-700">You don't have any bookings yet.</p>
+                  <p className="text-xs text-slate-500">Find your preferred lodge, book a room space, and manage everything here.</p>
                   <button
-                    onClick={() => {
-                      setSelectedBookingForPayment({
-                        id: activeBooking.id,
-                        bookingReference: activeBooking.bookingReference,
-                        propertyTitle: activeBooking.propertyTitle,
-                        roomName: activeBooking.roomName,
-                        totalCost: activeBooking.totalCost,
-                        totalPayable: activeBooking.totalCost + 2500
-                      });
-                    }}
-                    className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs rounded-xl shadow"
+                    onClick={onNavigateToSearch}
+                    className="px-5 py-2.5 bg-emerald-600 text-white font-bold text-xs rounded-xl shadow"
                   >
-                    Pay Now ({formatNaira(activeBooking.totalCost + 2500)})
+                    Find a Hostel
                   </button>
-                )}
+                </div>
+              );
+            }
 
-                <button
-                  onClick={() => setSelectedBookingDetailId(activeBooking.id)}
-                  className="px-4 py-2 bg-slate-900 text-white font-bold text-xs rounded-xl"
-                >
-                  View Details & Voucher
-                </button>
+            return (
+              <div className="space-y-4">
+                {bookingsToRender.map((bk, idx) => (
+                  <div key={bk.id || idx} className="p-6 bg-slate-50 rounded-3xl border border-slate-200 space-y-4">
+                    <div className="flex items-start justify-between flex-wrap gap-3">
+                      <div>
+                        <span className="px-2 py-0.5 rounded text-[10px] font-black bg-emerald-100 text-emerald-800 uppercase">
+                          {idx === 0 ? 'Primary Reservation' : `Reservation #${idx + 1}`}
+                        </span>
+                        <h3 className="text-base font-black text-slate-900 mt-1">{bk.propertyTitle}</h3>
+                        <p className="text-xs text-slate-500">{bk.areaName || `${bk.propertyAddress || 'Ogbomoso'}`}</p>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <span className={`px-3 py-1 rounded-full font-bold text-xs ${
+                          bk.status === 'CONFIRMED' ? 'bg-emerald-100 text-emerald-800' :
+                          bk.status === 'CANCELLED' ? 'bg-rose-100 text-rose-800' :
+                          'bg-amber-100 text-amber-800'
+                        }`}>
+                          {bk.status}
+                        </span>
+                        <span className={`px-3 py-1 rounded-full font-bold text-xs ${
+                          bk.paymentStatus === 'PAID' ? 'bg-emerald-600 text-white' : 'bg-rose-600 text-white'
+                        }`}>
+                          {bk.paymentStatus || 'UNPAID'}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-white p-4 rounded-2xl border border-slate-200 text-xs">
+                      <div>
+                        <span className="text-slate-400 font-bold uppercase text-[10px]">Reference</span>
+                        <p className="font-mono font-bold text-slate-900 mt-0.5">{bk.bookingReference}</p>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 font-bold uppercase text-[10px]">Room Type</span>
+                        <p className="font-bold text-slate-900 mt-0.5">{bk.roomName || 'Ensuite Room'}</p>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 font-bold uppercase text-[10px]">Move-In Date</span>
+                        <p className="font-bold text-emerald-800 mt-0.5">{formatDate(bk.moveInDate)}</p>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 font-bold uppercase text-[10px]">Total Cost</span>
+                        <p className="font-black text-slate-900 mt-0.5">{formatNaira(bk.totalCost)}</p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-end gap-2 pt-2">
+                      {bk.paymentStatus !== 'PAID' && bk.status === 'CONFIRMED' && (
+                        <button
+                          onClick={() => {
+                            setSelectedBookingForPayment({
+                              id: bk.id,
+                              bookingReference: bk.bookingReference,
+                              propertyTitle: bk.propertyTitle,
+                              roomName: bk.roomName || 'Ensuite Room',
+                              totalCost: bk.totalCost,
+                              totalPayable: bk.totalCost + 2500
+                            });
+                          }}
+                          className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs rounded-xl shadow"
+                        >
+                          Pay Now ({formatNaira(bk.totalCost + 2500)})
+                        </button>
+                      )}
+
+                      <button
+                        onClick={() => setSelectedBookingDetailId(bk.id)}
+                        className="px-4 py-2 bg-slate-900 text-white font-bold text-xs rounded-xl"
+                      >
+                        View Details & Voucher
+                      </button>
+                    </div>
+                  </div>
+                ))}
               </div>
-            </div>
-          ) : (
-            <div className="p-12 text-center text-slate-400 space-y-3">
-              <Building2 className="w-10 h-10 mx-auto text-slate-300" />
-              <p className="text-sm font-bold text-slate-700">You don't have any bookings yet.</p>
-              <p className="text-xs text-slate-500">Find your preferred lodge, book a room space, and manage everything here.</p>
-              <button
-                onClick={onNavigateToSearch}
-                className="px-5 py-2.5 bg-emerald-600 text-white font-bold text-xs rounded-xl shadow"
-              >
-                Find a Hostel
-              </button>
-            </div>
-          )}
+            );
+          })()}
         </div>
       )}
 
@@ -1803,44 +1843,57 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
             </div>
           </div>
 
-          {(!dashboardData?.recentInspections || dashboardData.recentInspections.length === 0) ? (
-            <div className="p-12 text-center text-slate-400 space-y-3">
-              <Calendar className="w-10 h-10 mx-auto text-slate-300" />
-              <p className="text-sm font-bold text-slate-700">No scheduled hostel inspections yet.</p>
-              <p className="text-xs text-slate-500">Before reserving, request a free physical tour or video walkthrough of any hostel.</p>
-              <button
-                onClick={onNavigateToSearch}
-                className="px-5 py-2.5 bg-emerald-600 text-white font-bold text-xs rounded-xl shadow"
-              >
-                Browse Hostels to Inspect
-              </button>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {dashboardData.recentInspections.map(ins => (
-                <div key={ins.id} className="p-5 bg-slate-50 rounded-3xl border border-slate-200 space-y-3">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <span className="px-2 py-0.5 rounded text-[10px] font-black bg-emerald-100 text-emerald-800">
-                        {ins.inspectionType} TOUR
-                      </span>
-                      <h4 className="font-bold text-sm text-slate-900 mt-1">{ins.propertyTitle}</h4>
-                    </div>
-                    <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-slate-200 text-slate-800">
-                      {ins.status}
-                    </span>
-                  </div>
+          {(() => {
+            const displayInspections = allStudentInspections.length > 0 
+              ? allStudentInspections 
+              : (dashboardData?.recentInspections || []);
 
-                  <div className="flex items-center gap-4 text-xs text-slate-600">
-                    <span className="flex items-center gap-1">
-                      <Calendar className="w-3.5 h-3.5 text-emerald-600" />
-                      {formatDate(ins.preferredDate)}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Clock className="w-3.5 h-3.5 text-emerald-600" />
-                      {ins.preferredTime}
-                    </span>
-                  </div>
+            if (displayInspections.length === 0) {
+              return (
+                <div className="p-12 text-center text-slate-400 space-y-3">
+                  <Calendar className="w-10 h-10 mx-auto text-slate-300" />
+                  <p className="text-sm font-bold text-slate-700">No scheduled hostel inspections yet.</p>
+                  <p className="text-xs text-slate-500">Before reserving, request a free physical tour or video walkthrough of any hostel.</p>
+                  <button
+                    onClick={onNavigateToSearch}
+                    className="px-5 py-2.5 bg-emerald-600 text-white font-bold text-xs rounded-xl shadow"
+                  >
+                    Browse Hostels to Inspect
+                  </button>
+                </div>
+              );
+            }
+
+            return (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {displayInspections.map(ins => (
+                  <div key={ins.id} className="p-5 bg-slate-50 rounded-3xl border border-slate-200 space-y-3">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <span className="px-2 py-0.5 rounded text-[10px] font-black bg-emerald-100 text-emerald-800">
+                          {ins.inspectionType} TOUR
+                        </span>
+                        <h4 className="font-bold text-sm text-slate-900 mt-1">{ins.propertyTitle}</h4>
+                      </div>
+                      <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
+                        ins.status === 'CONFIRMED' ? 'bg-emerald-100 text-emerald-800' :
+                        ins.status === 'DECLINED' || ins.status === 'CANCELLED' ? 'bg-rose-100 text-rose-800' :
+                        'bg-slate-200 text-slate-800'
+                      }`}>
+                        {ins.status}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-4 text-xs text-slate-600">
+                      <span className="flex items-center gap-1">
+                        <Calendar className="w-3.5 h-3.5 text-emerald-600" />
+                        {formatDate(ins.preferredDate)}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Clock className="w-3.5 h-3.5 text-emerald-600" />
+                        {ins.preferredTime}
+                      </span>
+                    </div>
 
                   <div className="pt-2 flex items-center justify-end gap-2">
                     {onOpenConversation && (
@@ -1855,7 +1908,8 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                 </div>
               ))}
             </div>
-          )}
+            );
+          })()}
         </div>
       )}
 

@@ -93,11 +93,23 @@ try {
     }
     const rawBk = localStorage.getItem('hostel_ease_bookings');
     if (rawBk && rawBk.includes('HE-BK-2026-8891')) {
-      localStorage.removeItem('hostel_ease_bookings');
+      try {
+        const parsed = JSON.parse(rawBk);
+        if (Array.isArray(parsed)) {
+          const cleaned = parsed.filter((b: any) => b.bookingReference !== 'HE-BK-2026-8891' && b.id !== 'bk-seed-1');
+          localStorage.setItem('hostel_ease_bookings', JSON.stringify(cleaned));
+        }
+      } catch {}
     }
     const rawInsp = localStorage.getItem('hostel_ease_inspections');
     if (rawInsp && rawInsp.includes('insp-seed-1')) {
-      localStorage.removeItem('hostel_ease_inspections');
+      try {
+        const parsed = JSON.parse(rawInsp);
+        if (Array.isArray(parsed)) {
+          const cleaned = parsed.filter((i: any) => i.id !== 'insp-seed-1');
+          localStorage.setItem('hostel_ease_inspections', JSON.stringify(cleaned));
+        }
+      } catch {}
     }
   }
 } catch {}
@@ -137,7 +149,7 @@ export function getUserScopedKey(baseKey: string): string {
   return `${baseKey}_${user.id}`;
 }
 
-export function getLocalProperties(providerId?: string): Property[] {
+export function getLocalProperties(providerId?: string, providerEmail?: string): Property[] {
   let all: Property[] = [];
   try {
     const raw = localStorage.getItem('hostel_ease_properties');
@@ -153,20 +165,37 @@ export function getLocalProperties(providerId?: string): Property[] {
 
   if (!providerId || providerId === 'all') return all;
 
+  const cleanEmail = (providerEmail || '').toLowerCase().trim();
+  const isDefaultProvider = providerId === 'usr-provider-default' || cleanEmail === 'landlord@hostelease.ng' || cleanEmail === 'provider@hostelease.ng';
+
   return all.filter(p => {
-    if ((p as any).providerId === providerId) return true;
-    if (p.provider?.id === providerId) return true;
-    if (providerId === 'usr-provider-default' && (p.isDemo || !(p as any).providerId)) return true;
+    const pEmail = ((p as any).providerEmail || (p.provider as any)?.email || '').toLowerCase().trim();
+    const pId = (p as any).providerId || p.provider?.id;
+
+    // Match by email if provided
+    if (cleanEmail && pEmail && pEmail === cleanEmail) return true;
+    // Match by provider ID
+    if (pId && pId === providerId) return true;
+    // Match default demo landlord
+    if (isDefaultProvider && (p.isDemo || !pId || pId === 'usr-provider-default')) return true;
+
     return false;
   });
 }
 
 export function saveLocalProperty(prop: Property) {
   try {
+    const user = getCurrentUser();
+    if (user?.email && !(prop as any).providerEmail) {
+      (prop as any).providerEmail = user.email.toLowerCase().trim();
+    }
+    if (user?.id && !(prop as any).providerId) {
+      (prop as any).providerId = user.id;
+    }
     let all = getLocalProperties('all');
     const existingIndex = all.findIndex(p => p.id === prop.id);
     if (existingIndex >= 0) {
-      all[existingIndex] = prop;
+      all[existingIndex] = { ...all[existingIndex], ...prop };
     } else {
       all.unshift(prop);
     }
@@ -174,12 +203,12 @@ export function saveLocalProperty(prop: Property) {
 
     const memIdx = DEFAULT_PROPERTIES.findIndex(p => p.id === prop.id);
     if (memIdx >= 0) {
-      DEFAULT_PROPERTIES[memIdx] = prop;
+      DEFAULT_PROPERTIES[memIdx] = { ...DEFAULT_PROPERTIES[memIdx], ...prop };
     } else {
       DEFAULT_PROPERTIES.unshift(prop);
     }
 
-    window.dispatchEvent(new CustomEvent('hostel_ease_properties_updated'));
+    window.dispatchEvent(new CustomEvent('hostel_ease_properties_updated', { detail: prop }));
   } catch (err) {
     console.error('Failed to save local property:', err);
   }
@@ -1261,6 +1290,7 @@ function handleClientSideFallbackLogin(payload: { email?: string; password?: str
       providerDetails: { businessName: isDemoProvider ? 'Adeleke Heritage Properties Ogbomoso' : `${providerName} Accommodations` }
     };
     const mockToken = `he_prov_token_${Date.now()}`;
+    saveLocalRegisteredUsers([...registeredUsers, providerUser]);
     localStorage.setItem('hostel_ease_token', mockToken);
     localStorage.setItem('hostel_ease_user', JSON.stringify(providerUser));
     return { message: 'Login successful', token: mockToken, user: providerUser };
@@ -1297,6 +1327,7 @@ function handleClientSideFallbackLogin(payload: { email?: string; password?: str
     }
   };
   const mockToken = `he_stud_token_${Date.now()}`;
+  saveLocalRegisteredUsers([...registeredUsers, studentUser]);
   localStorage.setItem('hostel_ease_token', mockToken);
   localStorage.setItem('hostel_ease_user', JSON.stringify(studentUser));
   return { message: 'Login successful', token: mockToken, user: studentUser };
@@ -1439,19 +1470,24 @@ export const api = {
           }
 
           const fallbackRole = data.role === 'PROVIDER' ? 'PROVIDER' : 'STUDENT';
+          const cleanEmail = (data.email || '').toLowerCase().trim();
+          const stableId = fallbackRole === 'PROVIDER'
+            ? `usr-prov-${cleanEmail.replace(/[^a-z0-9]/g, '-')}`
+            : `usr-stud-${cleanEmail.replace(/[^a-z0-9]/g, '-')}`;
+
           const defaultAvatar = fallbackRole === 'STUDENT'
             ? 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80'
             : 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=300&q=80';
           const mockUser = {
-            id: `usr-${Date.now()}`,
+            id: stableId,
             fullName: data.fullName || (fallbackRole === 'PROVIDER' ? 'Hostel Landlord' : 'Student User'),
-            email: data.email,
+            email: cleanEmail,
             role: fallbackRole,
             phone: data.phone || '08012345678',
             avatarUrl: data.avatarUrl || defaultAvatar,
             isActive: 1,
             accountStatus: 'ACTIVE',
-            providerDetails: fallbackRole === 'PROVIDER' ? { businessName: data.providerDetails?.businessName || 'Verified Accommodations' } : undefined,
+            providerDetails: fallbackRole === 'PROVIDER' ? { businessName: data.providerDetails?.businessName || `${data.fullName || 'Landlord'} Accommodations` } : undefined,
             studentDetails: fallbackRole === 'STUDENT' ? { 
               matricNo: data.studentDetails?.matricNo || data.studentDetails?.matricNumber || '2024/04812',
               matricNumber: data.studentDetails?.matricNo || data.studentDetails?.matricNumber || '2024/04812',
@@ -1459,6 +1495,17 @@ export const api = {
               level: data.studentDetails?.level || '300L'
             } : undefined
           };
+
+          // CRITICAL: Persist newly registered accounts into local registered users database!
+          const registered = getLocalRegisteredUsers();
+          const existingIdx = registered.findIndex(u => u.email?.toLowerCase().trim() === cleanEmail);
+          if (existingIdx >= 0) {
+            registered[existingIdx] = mockUser;
+          } else {
+            registered.push(mockUser);
+          }
+          saveLocalRegisteredUsers(registered);
+
           const mockToken = `he_token_${Date.now()}`;
           localStorage.setItem('hostel_ease_token', mockToken);
           localStorage.setItem('hostel_ease_user', JSON.stringify(mockUser));
@@ -1784,6 +1831,9 @@ export const api = {
       const currentUser = getCurrentUser();
       const mockId = `insp-${Date.now()}`;
 
+      const cEmail = (currentUser?.email || 'student@hostelease.ng').toLowerCase().trim();
+      const cId = currentUser?.id || 'usr-student-default';
+
       const newInsp: InspectionRequest = {
         id: mockId,
         propertyId: foundProp.id,
@@ -1799,14 +1849,15 @@ export const api = {
         studentPhone: data.studentPhone || currentUser?.phone || '08031234567',
         notes: data.notes,
         status: 'PENDING',
-        studentId: currentUser?.id || 'usr-student-default',
+        studentId: cId,
         studentName: currentUser?.fullName || 'Student User',
-        studentEmail: currentUser?.email || 'student@hostelease.ng',
+        studentEmail: cEmail,
         providerId: foundProp.provider?.id || (foundProp as any).providerId || 'usr-provider-default',
         providerName: foundProp.provider?.name || (foundProp as any).providerName || 'Chief Oladimeji Alao',
         providerPhone: foundProp.provider?.phone || (foundProp as any).providerPhone || '08039876543',
         createdAt: new Date().toISOString()
       };
+      (newInsp as any).providerEmail = ((foundProp.provider as any)?.email || (foundProp as any).providerEmail || 'landlord@hostelease.ng').toLowerCase().trim();
 
       try {
         const res = await fetch(`${API_BASE}/inspections/properties/${propertyId}`, {
@@ -1890,18 +1941,26 @@ export const api = {
       // Filter strictly by logged-in user
       let filtered = [...merged];
       if (currentUser) {
+        const cEmail = (currentUser.email || '').toLowerCase().trim();
+        const cId = currentUser.id;
         if (currentUser.role === 'STUDENT') {
-          filtered = filtered.filter(i => 
-            (i as any).studentId === currentUser.id || 
-            (i as any).studentEmail?.toLowerCase() === currentUser.email?.toLowerCase() ||
-            (currentUser.email === 'student@hostelease.ng' && (i.studentEmail === 'student@hostelease.ng' || (i as any).studentId === 'usr-student-default'))
-          );
+          filtered = filtered.filter(i => {
+            const iEmail = (i.studentEmail || (i as any).studentEmail || '').toLowerCase().trim();
+            const iStudentId = i.studentId || (i as any).studentId;
+            if (iStudentId && iStudentId === cId) return true;
+            if (cEmail && iEmail && iEmail === cEmail) return true;
+            if (cEmail === 'student@hostelease.ng' && (iStudentId === 'usr-student-default' || iEmail === 'student@hostelease.ng')) return true;
+            return false;
+          });
         } else if (currentUser.role === 'PROVIDER' || currentUser.role === 'LANDLORD') {
-          filtered = filtered.filter(i => 
-            (i as any).providerId === currentUser.id || 
-            (i as any).providerEmail?.toLowerCase() === currentUser.email?.toLowerCase() ||
-            (currentUser.email === 'landlord@hostelease.ng' && (i.providerEmail === 'landlord@hostelease.ng' || (i as any).providerId === 'usr-provider-default'))
-          );
+          filtered = filtered.filter(i => {
+            const iProvEmail = ((i as any).providerEmail || '').toLowerCase().trim();
+            const iProvId = (i as any).providerId;
+            if (iProvId && iProvId === cId) return true;
+            if (cEmail && iProvEmail && iProvEmail === cEmail) return true;
+            if (cEmail === 'landlord@hostelease.ng' && (iProvId === 'usr-provider-default' || iProvEmail === 'landlord@hostelease.ng')) return true;
+            return false;
+          });
         }
       } else {
         filtered = [];
@@ -2477,7 +2536,7 @@ export const api = {
       } catch {}
 
       const user = getCurrentUser();
-      const props = getLocalProperties(user?.id);
+      const props = getLocalProperties(user?.id, user?.email);
       const totalCapacity = props.reduce((sum, p) => sum + (Number(p.totalRooms) || (p.rooms?.length || 1)), 0);
       const availableSpaces = props.reduce((sum, p) => sum + (Number((p as any).availableRooms ?? p.totalRooms) || 1), 0);
       const totalRevenue = props.reduce((sum, p) => sum + (p.priceSummary?.rentAmount || (p as any).pricing?.rentAmount || 0), 0);
@@ -2509,7 +2568,7 @@ export const api = {
       } catch {}
 
       const user = getCurrentUser();
-      const myProps = getLocalProperties(user?.id);
+      const myProps = getLocalProperties(user?.id, user?.email);
       const totalCapacity = myProps.reduce((sum, p) => sum + (Number(p.totalRooms) || (p.rooms?.length || 1)), 0);
       const availableSpaces = myProps.reduce((sum, p) => sum + (Number((p as any).availableRooms ?? p.totalRooms) || 1), 0);
       const totalRevenue = myProps.reduce((sum, p) => sum + (p.priceSummary?.rentAmount || (p as any).pricing?.rentAmount || 0), 0);
@@ -2559,6 +2618,7 @@ export const api = {
     async getMyListings(): Promise<{ properties: Property[] }> {
       const user = getCurrentUser();
       const currentUserId = user?.id || 'usr-provider-default';
+      const currentUserEmail = (user?.email || '').toLowerCase().trim();
 
       try {
         const res = await fetch(`${API_BASE}/provider/properties`, {
@@ -2567,7 +2627,7 @@ export const api = {
         if (res.ok) {
           const data = await res.json();
           if (data && Array.isArray(data.properties)) {
-            const localProps = getLocalProperties(currentUserId);
+            const localProps = getLocalProperties(currentUserId, currentUserEmail);
             const merged = [...data.properties];
             localProps.forEach(lp => {
               if (!merged.some(p => p.id === lp.id)) merged.unshift(lp);
@@ -2579,7 +2639,7 @@ export const api = {
         console.warn('Backend getMyListings offline, using local provider store:', err);
       }
 
-      const myProps = getLocalProperties(currentUserId);
+      const myProps = getLocalProperties(currentUserId, currentUserEmail);
       return { properties: myProps };
     },
 
@@ -2717,6 +2777,7 @@ export const api = {
         createdAt: new Date().toISOString()
       };
       (newProp as any).providerId = currentUserId;
+      (newProp as any).providerEmail = (user?.email || '').toLowerCase().trim();
 
       saveLocalProperty(newProp);
 
@@ -4167,13 +4228,16 @@ export const api = {
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         studentName: currentUser?.fullName || 'Student',
-        studentEmail: currentUser?.email || 'student@hostelease.ng',
+        studentEmail: (currentUser?.email || 'student@hostelease.ng').toLowerCase().trim(),
         studentPhone: currentUser?.phone || '08031234567',
-        studentMatricNumber: currentUser?.matricNo || '2024/09876',
+        studentMatricNumber: currentUser?.matricNo || (currentUser as any)?.studentDetails?.matricNo || '2024/09876',
         providerName: foundProp.provider?.name || 'Chief Oladimeji Alao',
-        providerEmail: (foundProp.provider as any)?.email || 'landlord@hostelease.ng',
+        providerEmail: ((foundProp.provider as any)?.email || (foundProp as any).providerEmail || 'landlord@hostelease.ng').toLowerCase().trim(),
         providerPhone: foundProp.provider?.phone || '08039876543'
       };
+      (localItem as any).userId = currentUser?.id || 'usr-student-default';
+      (localItem as any).studentId = currentUser?.id || 'usr-student-default';
+      (localItem as any).providerId = foundProp.provider?.id || (foundProp as any).providerId || 'usr-provider-default';
 
       try {
         const res = await fetch(`${API_BASE}/bookings/reserve`, {
@@ -4265,18 +4329,26 @@ export const api = {
       // Filter strictly by current logged in user
       let filtered = [...merged];
       if (currentUser) {
+        const cEmail = (currentUser.email || '').toLowerCase().trim();
+        const cId = currentUser.id;
         if (currentUser.role === 'STUDENT') {
-          filtered = filtered.filter(b => 
-            (b as any).userId === currentUser.id || 
-            b.studentEmail?.toLowerCase() === currentUser.email?.toLowerCase() ||
-            (currentUser.email === 'student@hostelease.ng' && ((b as any).userId === 'usr-student-default' || b.studentEmail === 'student@hostelease.ng'))
-          );
+          filtered = filtered.filter(b => {
+            const bEmail = (b.studentEmail || '').toLowerCase().trim();
+            const bUserId = (b as any).userId || (b as any).studentId;
+            if (bUserId && bUserId === cId) return true;
+            if (cEmail && bEmail && bEmail === cEmail) return true;
+            if (cEmail === 'student@hostelease.ng' && (bUserId === 'usr-student-default' || bEmail === 'student@hostelease.ng')) return true;
+            return false;
+          });
         } else if (currentUser.role === 'PROVIDER' || currentUser.role === 'LANDLORD') {
-          filtered = filtered.filter(b => 
-            (b as any).providerId === currentUser.id || 
-            b.providerEmail?.toLowerCase() === currentUser.email?.toLowerCase() ||
-            (currentUser.email === 'landlord@hostelease.ng' && ((b as any).providerId === 'usr-provider-default' || b.providerEmail === 'landlord@hostelease.ng'))
-          );
+          filtered = filtered.filter(b => {
+            const bEmail = (b.providerEmail || '').toLowerCase().trim();
+            const bProvId = (b as any).providerId;
+            if (bProvId && bProvId === cId) return true;
+            if (cEmail && bEmail && bEmail === cEmail) return true;
+            if (cEmail === 'landlord@hostelease.ng' && (bProvId === 'usr-provider-default' || bEmail === 'landlord@hostelease.ng')) return true;
+            return false;
+          });
         }
       } else {
         filtered = [];
