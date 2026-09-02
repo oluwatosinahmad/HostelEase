@@ -293,9 +293,17 @@ export const ProviderBookingDashboard: React.FC<ProviderBookingDashboardProps> =
                     🎓 Student: <strong>{b.studentName}</strong> ({b.studentDepartment || 'Computer Science'}{b.studentLevel ? ` • ${b.studentLevel}` : ''}) • 📅 Move-in: <strong>{b.moveInDate}</strong>
                   </p>
 
-                  <p className="text-xs font-black text-emerald-700">
-                    Total 1st Year Cost: {formatNaira(b.totalCost)}
-                  </p>
+                  <div className="pt-1.5 flex items-center gap-2 flex-wrap text-xs">
+                    <span className="font-extrabold text-slate-800">
+                      Disclosed Rent: {formatNaira(b.rentAmount || b.totalCost)}
+                    </span>
+                    <span className="text-[10px] font-bold text-amber-800 bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-200">
+                      5% Platform Fee: -{formatNaira((b.rentAmount || b.totalCost) * 0.05)}
+                    </span>
+                    <span className="text-[10px] font-black text-emerald-900 bg-emerald-100 px-2 py-0.5 rounded-lg border border-emerald-300 shadow-xs">
+                      Net Payout to You: {formatNaira((b.rentAmount || b.totalCost) * 0.95)}
+                    </span>
+                  </div>
                 </div>
               </div>
 

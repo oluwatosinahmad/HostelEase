@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   MapPin, 
   ShieldCheck, 
@@ -66,6 +66,20 @@ export const HostelCard: React.FC<HostelCardProps> = ({
   const hasMultipleImages = images.length > 1;
   const [currentImageIdx, setCurrentImageIdx] = useState<number>(0);
   const [isSliding, setIsSliding] = useState<boolean>(false);
+  const [isHovered, setIsHovered] = useState<boolean>(false);
+
+  // Automatically cycle through multiple hostel photos every 3.5 seconds when not hovered
+  useEffect(() => {
+    if (!hasMultipleImages || isHovered) return;
+
+    const interval = setInterval(() => {
+      setIsSliding(true);
+      setCurrentImageIdx(prev => (prev === images.length - 1 ? 0 : prev + 1));
+      setTimeout(() => setIsSliding(false), 250);
+    }, 3500);
+
+    return () => clearInterval(interval);
+  }, [hasMultipleImages, images.length, isHovered]);
 
   // Deterministic viewers counter for authentic social proof
   const liveViewers = Math.abs(property.id.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0) % 5) + 2;
@@ -125,6 +139,8 @@ export const HostelCard: React.FC<HostelCardProps> = ({
   return (
     <div 
       onClick={() => onViewDetails(property)}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
       className={`group bg-white dark:bg-slate-900 rounded-3xl border shadow-xs hover:shadow-2xl hover:-translate-y-1.5 transition-all duration-300 overflow-hidden flex flex-col cursor-pointer ${
         isCompared 
           ? 'border-purple-500 ring-2 ring-purple-400/30' 

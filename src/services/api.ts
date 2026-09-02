@@ -4195,6 +4195,12 @@ export const api = {
       const totalCost = rentAmount + serviceCharge + cautionDeposit + otherCharges;
       const currentUser = getCurrentUser();
 
+      // 5% Booking Commission Agreement:
+      // Suppose rent is ₦200,000 -> 5% commission = ₦10,000 -> Landlord receives ₦190,000 net
+      const commissionRate = 0.05;
+      const platformCommission = Math.round(rentAmount * commissionRate);
+      const netLandlordPayout = rentAmount - platformCommission;
+
       const bookingId = `bk-${Date.now()}`;
       const bookingReference = `HE-BK-${Math.floor(100000 + Math.random() * 900000)}`;
       const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString();
@@ -4238,6 +4244,9 @@ export const api = {
       (localItem as any).userId = currentUser?.id || 'usr-student-default';
       (localItem as any).studentId = currentUser?.id || 'usr-student-default';
       (localItem as any).providerId = foundProp.provider?.id || (foundProp as any).providerId || 'usr-provider-default';
+      (localItem as any).commissionRate = 0.05;
+      (localItem as any).platformCommission = platformCommission;
+      (localItem as any).netLandlordPayout = netLandlordPayout;
 
       try {
         const res = await fetch(`${API_BASE}/bookings/reserve`, {
@@ -4258,8 +4267,20 @@ export const api = {
 
       saveLocalBooking(localItem);
 
-      // 1. Send direct message to Landlord's DM inbox
-      const bookingMsg = `📋 Reservation Request Placed (${bookingReference}) for ${room?.name || 'Ensuite Room'}. Move-in: ${data.moveInDate}. Total: ₦${totalCost.toLocaleString()}. Hello Landlord, I have submitted a reservation request for your property. Looking forward to your confirmation!`;
+      // 1. Send direct message (DM) to Landlord with 5% commission agreement breakdown
+      const bookingMsg = `📋 NEW BOOKING RESERVATION (${bookingReference})
+Hostel: ${foundProp.title} — ${room?.name || 'Ensuite Room'}
+👤 Student: ${currentUser?.fullName || 'Student'} (${currentUser?.phone || 'No phone'})
+📅 Move-In Date: ${data.moveInDate}
+Session: ${data.academicSession || '2026/2027'} (12 Months)
+
+💰 FINANCIAL SETTLEMENT BREAKDOWN (5% Agreement):
+• Disclosed Rent: ₦${rentAmount.toLocaleString()}
+• 5% Hostel Ease Commission: ₦${platformCommission.toLocaleString()} (platform facilitation fee)
+• Net Landlord Payout: ₦${netLandlordPayout.toLocaleString()} (agreed amount to be disbursed upon student move-in verification)
+
+Hello Landlord, a student has booked your accommodation under our standard 5% commission agreement. Please review and confirm the space!`;
+
       api.messages.startConversation(foundProp.id, bookingMsg).catch(() => {});
 
       // 2. Add notification for Student
@@ -4271,11 +4292,11 @@ export const api = {
         role: 'STUDENT'
       });
 
-      // 3. Add notification for Landlord
+      // 3. Add notification for Landlord with 5% commission agreement details
       addIsolatedNotification({
-        userId: foundProp.provider?.id || 'usr-provider-default',
-        title: 'New Reservation Request',
-        message: `A student placed a reservation request for ${foundProp.title} (Ref: ${bookingReference}). Please review and confirm.`,
+        userId: foundProp.provider?.id || (foundProp as any).providerId || 'usr-provider-default',
+        title: `New Booking: ₦${rentAmount.toLocaleString()} (5% Commission: ₦${platformCommission.toLocaleString()})`,
+        message: `Student ${currentUser?.fullName || 'Student'} reserved ${foundProp.title} (Ref: ${bookingReference}). Disclosed Rent: ₦${rentAmount.toLocaleString()} | 5% Platform Commission: ₦${platformCommission.toLocaleString()} | Net Landlord Payout: ₦${netLandlordPayout.toLocaleString()}.`,
         linkUrl: '/provider',
         role: 'PROVIDER'
       });
@@ -4294,7 +4315,10 @@ export const api = {
           serviceCharge,
           agencyFee: 0,
           cautionDeposit,
-          otherCharges
+          otherCharges,
+          commissionRate: 0.05,
+          platformCommission,
+          netLandlordPayout
         }
       };
     },
