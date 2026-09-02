@@ -124,14 +124,26 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
   const [headerSearchQuery, setHeaderSearchQuery] = useState<string>('');
 
   // Profile Edit State
-  const [profileFullName, setProfileFullName] = useState<string>('');
-  const [profilePhone, setProfilePhone] = useState<string>('');
-  const [profileDepartment, setProfileDepartment] = useState<string>('');
-  const [profileLevel, setProfileLevel] = useState<string>('');
-  const [profileMatricNo, setProfileMatricNo] = useState<string>('');
-  const [profileGender, setProfileGender] = useState<string>('ANY');
-  const [profileAvatarUrl, setProfileAvatarUrl] = useState<string>('');
+  const [profileFullName, setProfileFullName] = useState<string>(() => user?.fullName || '');
+  const [profilePhone, setProfilePhone] = useState<string>(() => user?.phone || '');
+  const [profileDepartment, setProfileDepartment] = useState<string>(() => (user as any)?.department || (user as any)?.studentDetails?.department || '');
+  const [profileLevel, setProfileLevel] = useState<string>(() => (user as any)?.level || (user as any)?.studentDetails?.level || '');
+  const [profileMatricNo, setProfileMatricNo] = useState<string>(() => (user as any)?.matricNo || (user as any)?.matricNumber || (user as any)?.studentDetails?.matricNo || (user as any)?.studentDetails?.matricNumber || '');
+  const [profileGender, setProfileGender] = useState<string>(() => (user as any)?.gender || 'ANY');
+  const [profileAvatarUrl, setProfileAvatarUrl] = useState<string>(() => user?.avatarUrl || '');
   const [savingProfile, setSavingProfile] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (user) {
+      setProfileFullName(user.fullName || '');
+      setProfilePhone(user.phone || '');
+      setProfileDepartment((user as any)?.department || (user as any)?.studentDetails?.department || '');
+      setProfileLevel((user as any)?.level || (user as any)?.studentDetails?.level || '');
+      setProfileMatricNo((user as any)?.matricNo || (user as any)?.matricNumber || (user as any)?.studentDetails?.matricNo || (user as any)?.studentDetails?.matricNumber || '');
+      setProfileGender((user as any)?.gender || 'ANY');
+      setProfileAvatarUrl(user.avatarUrl || '');
+    }
+  }, [user]);
 
   // Password Change State
   const [currentPassword, setCurrentPassword] = useState<string>('');
@@ -171,11 +183,19 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
       if (data.user) {
         setProfileFullName(data.user.fullName || '');
         setProfilePhone(data.user.phone || '');
-        setProfileDepartment(data.user.department || '');
-        setProfileLevel(data.user.level || '');
-        setProfileMatricNo(data.user.matricNo || '');
+        setProfileDepartment(data.user.department || (data.user as any).studentDetails?.department || '');
+        setProfileLevel(data.user.level || (data.user as any).studentDetails?.level || '');
+        setProfileMatricNo(data.user.matricNo || (data.user as any).matricNumber || (data.user as any).studentDetails?.matricNo || (data.user as any).studentDetails?.matricNumber || '');
         setProfileGender(data.user.gender || 'ANY');
         setProfileAvatarUrl(data.user.avatarUrl || user?.avatarUrl || '');
+      } else if (user) {
+        setProfileFullName(user.fullName || '');
+        setProfilePhone(user.phone || '');
+        setProfileDepartment((user as any).department || (user as any).studentDetails?.department || '');
+        setProfileLevel((user as any).level || (user as any).studentDetails?.level || '');
+        setProfileMatricNo((user as any).matricNo || (user as any).matricNumber || (user as any).studentDetails?.matricNo || (user as any).studentDetails?.matricNumber || '');
+        setProfileGender((user as any).gender || 'ANY');
+        setProfileAvatarUrl(user.avatarUrl || '');
       }
 
       // Populate preferences form state
@@ -208,6 +228,14 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
 
   useEffect(() => {
     loadDashboard();
+  }, [user?.id, user?.email]);
+
+  useEffect(() => {
+    const handleLogout = () => {
+      setDashboardData(DEFAULT_STUDENT_DASHBOARD);
+    };
+    window.addEventListener('hostel_ease_user_logged_out', handleLogout);
+    return () => window.removeEventListener('hostel_ease_user_logged_out', handleLogout);
   }, []);
 
   // Time-aware greeting

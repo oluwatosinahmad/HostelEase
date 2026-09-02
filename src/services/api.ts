@@ -243,11 +243,10 @@ export function getLocalBookings(): BookingItem[] {
     const raw = localStorage.getItem('hostel_ease_bookings');
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      if (Array.isArray(parsed)) return parsed;
     }
   } catch {}
-  localStorage.setItem('hostel_ease_bookings', JSON.stringify(SEED_BOOKINGS));
-  return SEED_BOOKINGS;
+  return [];
 }
 
 export function saveLocalBooking(item: BookingItem) {
@@ -309,11 +308,10 @@ export function getLocalInspections(): InspectionRequest[] {
     const raw = localStorage.getItem('hostel_ease_inspections');
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      if (Array.isArray(parsed)) return parsed;
     }
   } catch {}
-  localStorage.setItem('hostel_ease_inspections', JSON.stringify(SEED_INSPECTIONS));
-  return SEED_INSPECTIONS;
+  return [];
 }
 
 export function saveLocalInspection(item: InspectionRequest) {
@@ -1046,63 +1044,25 @@ function generateOfflineFallbackResponse(url?: string): any {
       id: cId,
       property: {
         id: 'prop-1',
-        title: 'Harmony Heights Lodge',
-        priceSummary: { rentAmount: 250000, totalMandatoryCost: 285000 },
+        title: 'Hostel Accommodation',
+        priceSummary: { rentAmount: 200000, totalMandatoryCost: 200000 },
         area: { name: 'Under G' }
       },
       provider: {
         id: 'user-provider-1',
-        name: 'Chief Adeleke (Landlord)',
+        name: 'Verified Landlord',
         phone: '08031234567',
         isVerified: true
       },
       student: {
         id: 'user-student-1',
-        name: 'Tunde Adeyemi'
+        name: 'Student User'
       },
-      messages: [
-        {
-          id: 'msg-1',
-          senderId: 'user-provider-1',
-          senderRole: 'PROVIDER',
-          content: 'Hello! Thank you for your inquiry about Harmony Heights Lodge in Under G. How can I assist you?',
-          createdAt: new Date(Date.now() - 3600000).toISOString()
-        },
-        {
-          id: 'msg-2',
-          senderId: 'user-student-1',
-          senderRole: 'STUDENT',
-          content: 'Good day sir, is the self-contain room with solar inverter still available for 2026/2027 session?',
-          createdAt: new Date(Date.now() - 1800000).toISOString()
-        },
-        {
-          id: 'msg-3',
-          senderId: 'user-provider-1',
-          senderRole: 'PROVIDER',
-          content: 'Yes, it is very much available. You can schedule an inspection or book directly through Hostel Ease to freeze your rate.',
-          createdAt: new Date(Date.now() - 600000).toISOString()
-        }
-      ]
+      messages: []
     };
   }
   if (cleanUrl.includes('/messages/conversations')) {
-    return {
-      conversations: [
-        {
-          id: 'conv-1',
-          propertyId: 'prop-1',
-          propertyTitle: 'Harmony Heights Lodge',
-          propertyCoverImage: 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=600&q=80',
-          areaName: 'Under G',
-          rentAmount: 250000,
-          otherUserName: 'Chief Adeleke (Landlord)',
-          otherUserRole: 'PROVIDER',
-          lastMessageText: 'Yes, it is very much available. You can schedule an inspection or book directly through Hostel Ease.',
-          lastMessageAt: new Date().toISOString(),
-          unreadCount: 0
-        }
-      ]
-    };
+    return { conversations: [] };
   }
 
   // Bookings availability
@@ -1327,16 +1287,41 @@ function handleClientSideFallbackLogin(payload: { email?: string; password?: str
 
 // Local messaging helpers for seamless 100% reliable chat
 function getLocalConversations(): ConversationItem[] {
+  const currentUser = getCurrentUser();
+  if (!currentUser || !currentUser.id) return [];
   try {
-    const raw = localStorage.getItem('hostel_ease_conversations');
+    const key = `hostel_ease_conversations_${currentUser.id}`;
+    const raw = localStorage.getItem(key);
     if (raw) return JSON.parse(raw);
   } catch {}
   return [];
 }
 
 function saveLocalConversations(convs: ConversationItem[]) {
+  const currentUser = getCurrentUser();
+  if (!currentUser || !currentUser.id) return;
   try {
-    localStorage.setItem('hostel_ease_conversations', JSON.stringify(convs));
+    const key = `hostel_ease_conversations_${currentUser.id}`;
+    localStorage.setItem(key, JSON.stringify(convs));
+  } catch {}
+}
+
+function saveConversationToBothParties(conv: ConversationItem) {
+  try {
+    if (conv.studentId) {
+      const sKey = `hostel_ease_conversations_${conv.studentId}`;
+      const sRaw = localStorage.getItem(sKey);
+      const sExisting: ConversationItem[] = sRaw ? JSON.parse(sRaw) : [];
+      const sUpdated = [conv, ...sExisting.filter(c => c.id !== conv.id)];
+      localStorage.setItem(sKey, JSON.stringify(sUpdated));
+    }
+    if (conv.providerId) {
+      const pKey = `hostel_ease_conversations_${conv.providerId}`;
+      const pRaw = localStorage.getItem(pKey);
+      const pExisting: ConversationItem[] = pRaw ? JSON.parse(pRaw) : [];
+      const pUpdated = [conv, ...pExisting.filter(c => c.id !== conv.id)];
+      localStorage.setItem(pKey, JSON.stringify(pUpdated));
+    }
   } catch {}
 }
 
@@ -2133,11 +2118,11 @@ export const api = {
 
       const userRaw = localStorage.getItem('hostel_ease_user');
       const currentUser = userRaw ? JSON.parse(userRaw) : null;
-      const sId = studentId || currentUser?.id || 'usr-student-default';
-      const sName = currentUser?.fullName || 'Ahmad Adelopo';
+      const sId = studentId || currentUser?.id || `usr-student-${Date.now()}`;
+      const sName = currentUser?.fullName || 'Student User';
       const provName = property.provider?.name || (property.provider as any)?.businessName || (property as any).businessName || 'Verified Landlord';
       const provId = property.provider?.id || (property as any).providerId || `usr-prov-${property.id}`;
-      const convId = `conv-${property.id}`;
+      const convId = `conv_${sId}_${property.id}`;
       
       const conv: ConversationItem = {
         id: convId,
@@ -2150,43 +2135,28 @@ export const api = {
         studentName: sName,
         providerId: provId,
         providerName: provName,
-        lastMessageText: initialMessage || `Hello! Is ${property.title} available for the 2026/2027 academic session?`,
+        lastMessageText: initialMessage || `Inquiry for ${property.title}`,
         lastMessageAt: new Date().toISOString(),
         unreadCount: 0,
         status: 'ACTIVE',
         createdAt: new Date().toISOString()
       };
 
-      const existingConvs = getLocalConversations();
-      const updatedConvs = [conv, ...existingConvs.filter(c => c.id !== convId && c.propertyId !== property.id)];
-      saveLocalConversations(updatedConvs);
+      saveConversationToBothParties(conv);
 
-      // Seed initial messages if none exist
-      let msgs = getLocalMessages(convId);
-      if (msgs.length === 0) {
-        msgs = [
-          {
-            id: `msg-${Date.now()}-1`,
-            conversationId: convId,
-            senderId: sId,
-            senderRole: 'STUDENT',
-            messageType: 'TEXT',
-            content: initialMessage || `Hello! Is ${property.title} available for rent for the 2026/2027 session?`,
-            isRead: true,
-            createdAt: new Date(Date.now() - 300000).toISOString()
-          },
-          {
-            id: `msg-${Date.now()}-2`,
-            conversationId: convId,
-            senderId: provId,
-            senderRole: 'PROVIDER',
-            messageType: 'TEXT',
-            content: `Hello ${sName.split(' ')[0]}! Yes, we have available rooms at ${property.title}. Clean borehole water is running 24/7 and electricity is steady. Would you like to schedule an inspection tour this week?`,
-            isRead: true,
-            createdAt: new Date().toISOString()
-          }
-        ];
-        saveLocalMessages(convId, msgs);
+      // Save initial message if user actually wrote one
+      if (initialMessage) {
+        const firstMsg: MessageItem = {
+          id: `msg-${Date.now()}-1`,
+          conversationId: convId,
+          senderId: sId,
+          senderRole: 'STUDENT',
+          messageType: 'TEXT',
+          content: initialMessage,
+          isRead: true,
+          createdAt: new Date().toISOString()
+        };
+        saveLocalMessages(convId, [firstMsg]);
       }
 
       return { conversationId: convId, conversation: conv };
@@ -2194,80 +2164,23 @@ export const api = {
 
     async getConversations(): Promise<{ conversations: ConversationItem[] }> {
       const currentUser = getCurrentUser();
-      let serverConvs: ConversationItem[] = [];
-      try {
-        const res = await fetch(`${API_BASE}/messages/conversations`, {
-          headers: { ...getAuthHeader() }
-        });
-        const contentType = res.headers.get('content-type') || '';
-        if (res.ok && contentType.includes('application/json')) {
-          const data = await res.json();
-          if (data.conversations && Array.isArray(data.conversations)) {
-            serverConvs = data.conversations;
-          }
-        }
-      } catch (err) {
-        console.warn('Backend getConversations unreachable, using local storage.');
+      if (!currentUser || !currentUser.id) {
+        return { conversations: [] };
       }
 
       let local = getLocalConversations();
-      const merged = [...serverConvs];
-      for (const l of local) {
-        if (!merged.some(c => c.id === l.id)) {
-          merged.unshift(l);
-        }
-      }
-
-      // If demo student and no conversations, seed demo conversations for that demo account only
-      if (currentUser && (currentUser.email === 'student@hostelease.ng' || currentUser.email === 'student@lautech.edu.ng' || currentUser.id === 'usr-student-default')) {
-        const hasMyConvs = merged.some(c => c.studentId === currentUser.id || c.studentId === 'usr-student-default');
-        if (!hasMyConvs) {
-          const allProps = [...getLocalProperties('all'), ...DEFAULT_PROPERTIES];
-          const p1 = allProps[0] || DEFAULT_PROPERTIES[0];
-          const p2 = allProps[1] || DEFAULT_PROPERTIES[1];
-          const p3 = allProps[2] || DEFAULT_PROPERTIES[2];
-          const demoConvs: ConversationItem[] = [
-            {
-              id: `conv-${p1.id}-demo`,
-              propertyId: p1.id,
-              propertyTitle: p1.title,
-              propertyAddress: p1.address,
-              propertyCoverImage: p1.coverImage,
-              areaName: (p1 as any).areaName || p1.area?.name || 'Under G',
-              studentId: currentUser.id,
-              studentName: currentUser.fullName || 'Ahmad Adelopo',
-              providerId: p1.provider?.id || 'usr-provider-1',
-              providerName: p1.provider?.name || 'Engr. Segun Adeyemi',
-              lastMessageText: 'Hello Ahmad! I will be waiting at the lodge gate by 2:00 PM for your inspection tour.',
-              lastMessageAt: new Date(Date.now() - 3600000).toISOString(),
-              unreadCount: 0,
-              status: 'ACTIVE',
-              createdAt: new Date(Date.now() - 86400000).toISOString()
-            }
-          ];
-          merged.unshift(...demoConvs);
-          saveLocalConversations(merged);
-        }
-      }
-
       // Filter strictly by logged-in user
-      let filtered = [...merged];
-      if (currentUser) {
-        if (currentUser.role === 'STUDENT') {
-          filtered = filtered.filter(c => 
-            c.studentId === currentUser.id || 
-            (c as any).studentEmail?.toLowerCase() === currentUser.email?.toLowerCase() ||
-            (currentUser.email === 'student@hostelease.ng' && (c.studentId === 'usr-student-default' || (c as any).studentEmail === 'student@hostelease.ng'))
-          );
-        } else if (currentUser.role === 'PROVIDER' || currentUser.role === 'LANDLORD') {
-          filtered = filtered.filter(c => 
-            c.providerId === currentUser.id || 
-            (c as any).providerEmail?.toLowerCase() === currentUser.email?.toLowerCase() ||
-            (currentUser.email === 'landlord@hostelease.ng' && (c.providerId === 'usr-provider-default' || (c as any).providerEmail === 'landlord@hostelease.ng'))
-          );
-        }
-      } else {
-        filtered = [];
+      let filtered = [...local];
+      if (currentUser.role === 'STUDENT') {
+        filtered = filtered.filter(c => 
+          c.studentId === currentUser.id || 
+          (c as any).studentEmail?.toLowerCase() === currentUser.email?.toLowerCase()
+        );
+      } else if (currentUser.role === 'PROVIDER' || currentUser.role === 'LANDLORD') {
+        filtered = filtered.filter(c => 
+          c.providerId === currentUser.id || 
+          (c as any).providerEmail?.toLowerCase() === currentUser.email?.toLowerCase()
+        );
       }
 
       return { conversations: filtered };
@@ -2287,17 +2200,14 @@ export const api = {
         console.warn('Backend getConversation unreachable, using local storage.');
       }
 
+      const currentUser = getCurrentUser();
       const allProps = [...getLocalProperties('all'), ...DEFAULT_PROPERTIES];
       const convs = getLocalConversations();
       
       // Look up specific conversation by id or by propertyId
       let convItem = convs.find(c => c.id === id || c.propertyId === id || c.id === `conv-${id}`);
       
-      if (!convItem && convs.length > 0) {
-        convItem = convs[0];
-      }
-
-      const targetPropertyId = convItem ? convItem.propertyId : id.replace('conv-', '');
+      const targetPropertyId = convItem ? convItem.propertyId : id.replace(/^conv_.*?_/, '').replace('conv-', '');
       const prop = allProps.find(p => p.id === targetPropertyId) || {
         id: targetPropertyId,
         title: convItem?.propertyTitle || 'Hostel Accommodation',
@@ -2315,35 +2225,7 @@ export const api = {
       };
 
       const finalConvId = convItem?.id || id;
-      let msgs = getLocalMessages(finalConvId);
-
-      if (msgs.length === 0) {
-        const provName = convItem?.providerName || prop.provider?.name || 'Verified Landlord';
-        const stName = convItem?.studentName || 'Ahmad Adelopo';
-        msgs = [
-          {
-            id: `msg-${Date.now()}-1`,
-            conversationId: finalConvId,
-            senderId: convItem?.studentId || 'usr-student-default',
-            senderRole: 'STUDENT',
-            messageType: 'TEXT',
-            content: `Hello! Is ${prop.title} available for rent for the 2026/2027 session?`,
-            isRead: true,
-            createdAt: new Date(Date.now() - 3600000).toISOString()
-          },
-          {
-            id: `msg-${Date.now()}-2`,
-            conversationId: finalConvId,
-            senderId: prop.provider?.id || convItem?.providerId || 'usr-provider-default',
-            senderRole: 'PROVIDER',
-            messageType: 'TEXT',
-            content: `Hello ${stName.split(' ')[0]}! Yes, we have available rooms at ${prop.title}. The lodge has steady borehole water and prepaid meters. What time would be convenient for an inspection tour?`,
-            isRead: true,
-            createdAt: new Date(Date.now() - 1800000).toISOString()
-          }
-        ];
-        saveLocalMessages(finalConvId, msgs);
-      }
+      const msgs = getLocalMessages(finalConvId);
 
       const rentVal = Number((prop as any).rentAmount ?? prop.priceSummary?.rentAmount ?? 220000);
       const totalVal = Number((prop as any).totalMandatoryCost ?? prop.priceSummary?.totalMandatoryCost ?? rentVal);
@@ -2363,8 +2245,8 @@ export const api = {
             coverImage: prop.coverImage || convItem?.propertyCoverImage || 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=1200&q=80'
           },
           student: {
-            id: convItem?.studentId || 'usr-student-default',
-            name: convItem?.studentName || 'Ahmad Adelopo'
+            id: convItem?.studentId || currentUser?.id || 'usr-student',
+            name: convItem?.studentName || currentUser?.fullName || 'Student User'
           },
           provider: {
             id: prop.provider?.id || convItem?.providerId || 'usr-provider-default',
@@ -2383,7 +2265,7 @@ export const api = {
       const isProvider = currentUser?.role === 'PROVIDER' || currentUser?.role === 'LANDLORD';
       const senderRole: 'STUDENT' | 'PROVIDER' = isProvider ? 'PROVIDER' : 'STUDENT';
       const senderId = currentUser?.id || (isProvider ? 'usr-provider-default' : 'usr-student-default');
-      const senderName = currentUser?.fullName || (isProvider ? 'Landlord' : 'Ahmad Adelopo');
+      const senderName = currentUser?.fullName || (isProvider ? 'Landlord' : 'Student User');
 
       const newMsg: MessageItem = {
         id: `msg-${Date.now()}`,
@@ -4855,7 +4737,38 @@ export const api = {
             name: firstInsp.providerName || 'Landlord',
             phone: firstInsp.providerPhone || '08039876543'
           }
-        } : null
+        } : null,
+        urgentAction: firstInsp ? {
+          type: 'INSPECTION_REMINDER' as const,
+          priority: 1,
+          badge: firstInsp.status === 'CONFIRMED' ? 'Confirmed Tour' : 'Inspection Pending',
+          badgeColor: firstInsp.status === 'CONFIRMED' ? 'bg-emerald-100 text-emerald-900 border-emerald-300' : 'bg-amber-100 text-amber-900 border-amber-300',
+          title: `Scheduled ${firstInsp.inspectionType === 'PHYSICAL' ? 'Physical' : 'Virtual'} Tour: ${firstInsp.propertyTitle}`,
+          message: `Your inspection is scheduled for ${firstInsp.preferredDate} at ${firstInsp.preferredTime}. Meet landlord ${firstInsp.providerName || 'caretaker'}.`,
+          actionLabel: 'View Inspection Details',
+          actionType: 'VIEW_INSPECTIONS',
+          inspectionId: firstInsp.id
+        } : null,
+        actionQueue: firstInsp ? [{
+          type: 'INSPECTION_REMINDER' as const,
+          priority: 1,
+          badge: firstInsp.status === 'CONFIRMED' ? 'Confirmed Tour' : 'Inspection Pending',
+          badgeColor: firstInsp.status === 'CONFIRMED' ? 'bg-emerald-100 text-emerald-900 border-emerald-300' : 'bg-amber-100 text-amber-900 border-amber-300',
+          title: `Scheduled ${firstInsp.inspectionType === 'PHYSICAL' ? 'Physical' : 'Virtual'} Tour: ${firstInsp.propertyTitle}`,
+          message: `Your inspection is scheduled for ${firstInsp.preferredDate} at ${firstInsp.preferredTime}.`,
+          actionLabel: 'View Tour',
+          actionType: 'VIEW_INSPECTIONS',
+          inspectionId: firstInsp.id
+        }] : [],
+        recentMessages: (await api.messages.getConversations()).conversations.slice(0, 3).map(c => ({
+          id: `msg-${c.id}`,
+          propertyId: c.propertyId,
+          content: c.lastMessageText || 'No message content yet',
+          createdAt: c.lastMessageAt || new Date().toISOString(),
+          isRead: c.unreadCount === 0 ? 1 : 0,
+          propertyTitle: c.propertyTitle,
+          otherPartyName: c.providerName
+        }))
       };
     },
 
