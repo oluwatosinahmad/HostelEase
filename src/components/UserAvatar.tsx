@@ -8,17 +8,20 @@ interface UserAvatarProps {
 }
 
 export const UserAvatar: React.FC<UserAvatarProps> = ({
-  fullName = 'Student',
+  fullName,
   avatarUrl,
   size = 'md',
   className = ''
 }) => {
+  const safeName = (typeof fullName === 'string' && fullName.trim()) ? fullName.trim() : 'Student';
+
   const getInitials = (name: string): string => {
-    const parts = name.trim().split(/\s+/);
+    if (!name || typeof name !== 'string') return 'HE';
+    const parts = name.trim().split(/\s+/).filter(Boolean);
     if (parts.length >= 2) {
       return (parts[0][0] + parts[1][0]).toUpperCase();
     }
-    return (name.substring(0, 2) || 'ST').toUpperCase();
+    return (name.substring(0, 2) || 'HE').toUpperCase();
   };
 
   const sizeClasses = {
@@ -28,7 +31,7 @@ export const UserAvatar: React.FC<UserAvatarProps> = ({
     xl: 'w-16 h-16 text-lg font-bold'
   };
 
-  const initials = getInitials(fullName);
+  const initials = getInitials(safeName);
 
   // Generate a deterministic soft gradient based on name
   const bgGradients = [
@@ -37,7 +40,7 @@ export const UserAvatar: React.FC<UserAvatarProps> = ({
     'from-cyan-600 to-emerald-700',
     'from-emerald-700 to-slate-800'
   ];
-  const charCode = fullName.charCodeAt(0) || 0;
+  const charCode = safeName.charCodeAt(0) || 0;
   const gradient = bgGradients[charCode % bgGradients.length];
 
   const [hasError, setHasError] = React.useState(false);
