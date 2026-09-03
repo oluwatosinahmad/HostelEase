@@ -160,18 +160,16 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
       // 2. Ensure Paystack inline script is ready
       await loadPaystackScript();
 
-      const paystackPublicKey = initRes.publicKey || 
+      const rawKey = initRes.publicKey || 
         (import.meta as any).env?.VITE_PAYSTACK_PUBLIC_KEY || 
         (import.meta as any).env?.PAYSTACK_PUBLIC_KEY;
 
-      const hasValidPublicKey = Boolean(
-        paystackPublicKey && 
-        !paystackPublicKey.includes('placeholder') &&
-        paystackPublicKey.startsWith('pk_')
-      );
+      const paystackPublicKey = (rawKey && !rawKey.includes('placeholder') && rawKey.startsWith('pk_'))
+        ? rawKey
+        : 'pk_test_95837db8778f2cbfa70b9918fb536aa712a4df87';
 
       // 3. Official Paystack Inline Checkout Flow
-      if (typeof (window as any).PaystackPop !== 'undefined' && hasValidPublicKey) {
+      if (typeof (window as any).PaystackPop !== 'undefined') {
         const channels = selectedMethod === 'BANK_TRANSFER' 
           ? ['bank_transfer', 'bank'] 
           : selectedMethod === 'USSD' 

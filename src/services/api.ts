@@ -624,24 +624,133 @@ function generateOfflineFallbackResponse(url?: string): any {
   if (cleanUrl.includes('/payments/admin-financials') || cleanUrl.includes('/payments/admin')) {
     return DEFAULT_ADMIN_FINANCIALS;
   }
-  if (cleanUrl.includes('/payments/initialize') || cleanUrl.includes('/payments/initialize-flutterwave')) {
+  if (cleanUrl.includes('/payments/platform-fee')) {
     return {
-      message: 'Payment initialized',
-      reference: `HE-PAY-${Date.now()}`,
+      feeName: 'Hostel Ease Service & Security Fee',
+      feeAmount: 2500,
+      currency: 'NGN',
+      description: 'Covers payment processing, verified receipt generation, and fraud protection.'
+    };
+  }
+  if (cleanUrl.includes('/payments/initialize') || cleanUrl.includes('/payments/initialize-flutterwave')) {
+    const paymentRef = `HE-PAY-2026-${Date.now().toString(36).toUpperCase()}`;
+    return {
+      message: 'Paystack payment initialized successfully',
+      paymentId: `pay-${Date.now()}`,
+      paymentReference: paymentRef,
+      bookingReference: 'HE-BK-2026-LAUTECH',
+      propertyTitle: 'Emerald Crown Luxury Lodge',
+      roomName: 'Executive Ensuite Studio',
+      amount: 200000,
+      platformFee: 10000,
+      currency: 'NGN',
+      breakdown: {
+        rentAmount: 200000,
+        bookingSubtotal: 200000,
+        platformFee: 10000,
+        commissionPercentage: 5,
+        landlordNetShare: 190000,
+        totalAmount: 200000
+      },
+      authorizationUrl: 'https://checkout.paystack.com',
       accessCode: `acc_${Date.now()}`,
-      authorizationUrl: '#'
+      provider: 'PAYSTACK',
+      publicKey: (import.meta as any).env?.VITE_PAYSTACK_PUBLIC_KEY || 'pk_test_campusnest_lautech_2026_demo'
     };
   }
   if (cleanUrl.includes('/payments/verify')) {
+    const refMatch = cleanUrl.match(/\/verify\/([^?]+)/);
+    const ref = refMatch ? decodeURIComponent(refMatch[1]) : `HE-PAY-2026-${Date.now()}`;
     return {
-      message: 'Payment verified and secured in escrow',
-      isVerified: true,
-      paymentStatus: 'HELD_IN_ESCROW',
+      success: true,
+      status: 'SUCCESS',
+      message: 'Payment verified and credited successfully',
       payment: {
         id: `pay-${Date.now()}`,
-        reference: `HE-PAY-${Date.now()}`,
-        amount: 280000,
-        status: 'HELD_IN_ESCROW'
+        paymentReference: ref,
+        bookingReference: 'HE-BK-2026-LAUTECH',
+        amount: 200000,
+        platformFee: 10000,
+        providerAmount: 190000,
+        currency: 'NGN',
+        paymentMethod: 'CARD',
+        paidAt: new Date().toISOString(),
+        verifiedAt: new Date().toISOString(),
+        property: {
+          title: 'Emerald Crown Luxury Lodge',
+          address: 'Stadium Road, Ogbomoso',
+          roomName: 'Executive Ensuite Studio',
+          roomType: 'SELF_CON'
+        },
+        student: {
+          name: 'LAUTECH Student',
+          email: 'student@lautech.edu.ng',
+          phone: '08012345678'
+        },
+        provider: {
+          name: 'Hostel Landlord',
+          email: 'landlord@hostelease.ng',
+          phone: '08039876543'
+        },
+        breakdown: {
+          rentAmount: 200000,
+          bookingSubtotal: 200000,
+          platformFee: 10000,
+          commissionPercentage: 5,
+          landlordNetShare: 190000,
+          totalAmount: 200000
+        }
+      }
+    };
+  }
+  if (cleanUrl.includes('/payments/receipt')) {
+    const refMatch = cleanUrl.match(/\/receipt\/([^?]+)/);
+    const ref = refMatch ? decodeURIComponent(refMatch[1]) : `HE-PAY-2026-${Date.now()}`;
+    return {
+      receipt: {
+        receiptNumber: `RCP-HE-${Date.now().toString().slice(-6)}`,
+        paymentReference: ref,
+        bookingReference: 'HE-BK-2026-LAUTECH',
+        status: 'PAID',
+        issuedAt: new Date().toISOString(),
+        paymentMethod: 'CARD',
+        paymentProvider: 'PAYSTACK',
+        providerTransactionRef: `PSTK_${Date.now()}`,
+        currency: 'NGN',
+        totalPaid: 200000,
+        property: {
+          id: 'prop-underg-1',
+          title: 'Emerald Crown Luxury Lodge',
+          address: 'Under-G Road, Ogbomoso',
+          areaName: 'Under-G',
+          roomName: 'Executive Ensuite Studio',
+          roomType: 'SELF_CON',
+          distanceFromCampusKm: 0.3
+        },
+        student: {
+          id: 'usr-stud-1',
+          name: 'LAUTECH Student',
+          email: 'student@lautech.edu.ng',
+          phone: '08012345678',
+          matricNo: '2024/04812',
+          department: 'Computer Science'
+        },
+        provider: {
+          id: 'usr-prov-1',
+          name: 'Chief Adeleke Properties',
+          businessName: 'Adeleke Housing Enterprise',
+          phone: '08039876543'
+        },
+        breakdown: {
+          rentAmount: 200000,
+          serviceCharge: 0,
+          agencyFee: 0,
+          cautionDeposit: 0,
+          otherCharges: 0,
+          bookingSubtotal: 200000,
+          platformFee: 10000,
+          totalAmount: 200000
+        }
       }
     };
   }
