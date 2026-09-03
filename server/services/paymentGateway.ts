@@ -71,8 +71,8 @@ export class PaystackAdapter implements PaymentGatewayProvider {
   }
 
   async initializePayment(params: InitializePaymentParams): Promise<InitializePaymentResult> {
-    if (!this.secretKey) {
-      throw new Error('Paystack secret key is not configured in environment variables');
+    if (!this.secretKey || this.secretKey === 'sk_test_placeholder_key') {
+      throw new Error('Paystack secret key is not configured in .env. Please provide a valid Paystack test key (starts with sk_test_).');
     }
 
     // Paystack amounts are in kobo (1 NGN = 100 kobo)
@@ -90,7 +90,7 @@ export class PaystackAdapter implements PaymentGatewayProvider {
         reference: params.reference,
         callback_url: params.callbackUrl,
         metadata: params.metadata,
-        channels: params.channels || ['card', 'bank', 'ussd', 'bank_transfer']
+        channels: params.channels && params.channels.length > 0 ? params.channels : ['card', 'bank_transfer', 'ussd']
       })
     });
 
@@ -108,8 +108,8 @@ export class PaystackAdapter implements PaymentGatewayProvider {
   }
 
   async verifyPayment(reference: string): Promise<VerifyPaymentResult> {
-    if (!this.secretKey) {
-      throw new Error('Paystack secret key is not configured in environment variables');
+    if (!this.secretKey || this.secretKey === 'sk_test_placeholder_key') {
+      throw new Error('Paystack secret key is not configured in .env. Please provide a valid Paystack test key (starts with sk_test_).');
     }
 
     const response = await fetch(`https://api.paystack.co/transaction/verify/${encodeURIComponent(reference)}`, {
@@ -404,16 +404,20 @@ export class TestGatewayAdapter implements PaymentGatewayProvider {
 // Gateway Factory Resolver
 // --------------------------------------------------------------------------
 export function getPaymentGateway(preferredProvider?: string): PaymentGatewayProvider {
-  const provider = (preferredProvider || process.env.PAYMENT_PROVIDER || 'TEST_GATEWAY').toUpperCase();
+  const provider = (preferredProvider || process.env.PAYMENT_PROVIDER || 'PAYSTACK').toUpperCase();
 
-  if (provider === 'PAYSTACK' && process.env.PAYSTACK_SECRET_KEY) {
+  if (provider === 'PAYSTACK') {
     return new PaystackAdapter();
   }
 
-  if (provider === 'FLUTTERWAVE' && process.env.FLUTTERWAVE_SECRET_KEY) {
+  if (provider === 'FLUTTERWAVE') {
     return new FlutterwaveAdapter();
   }
 
-  // Fallback to robust Test Gateway for seamless developer testing and zero external friction
-  return new TestGatewayAdapter();
+  // Fallback to Test Gateway only when explicitly requested
+  if (provider === 'TEST_GATEWAY') {
+    return new TestGatewayAdapter();
+  }
+
+  return new PaystackAdapter();
 }

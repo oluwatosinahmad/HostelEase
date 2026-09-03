@@ -40,16 +40,30 @@ export const UserAvatar: React.FC<UserAvatarProps> = ({
   const charCode = fullName.charCodeAt(0) || 0;
   const gradient = bgGradients[charCode % bgGradients.length];
 
-  if (avatarUrl && avatarUrl.startsWith('http')) {
+  const [hasError, setHasError] = React.useState(false);
+
+  // Reset error if avatarUrl changes
+  React.useEffect(() => {
+    setHasError(false);
+  }, [avatarUrl]);
+
+  const isValidImage = Boolean(
+    avatarUrl && 
+    !hasError && 
+    (avatarUrl.startsWith('http://') || 
+     avatarUrl.startsWith('https://') || 
+     avatarUrl.startsWith('data:') || 
+     avatarUrl.startsWith('blob:') || 
+     avatarUrl.startsWith('/'))
+  );
+
+  if (isValidImage && avatarUrl) {
     return (
       <img
         src={avatarUrl}
         alt={fullName}
         className={`rounded-full object-cover border border-slate-200/80 shadow-xs ${sizeClasses[size]} ${className}`}
-        onError={(e) => {
-          // If image fails, replace with initials
-          e.currentTarget.style.display = 'none';
-        }}
+        onError={() => setHasError(true)}
       />
     );
   }

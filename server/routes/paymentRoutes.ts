@@ -106,20 +106,29 @@ router.post('/initialize', authenticate, async (req: AuthenticatedRequest, res: 
     }
 
     // 2. Authoritative Price Calculation (Zero trust on frontend values)
+    // Student pays exactly the single accommodation total.
+    // 5% platform commission is earned on successful booking, remainder is landlord share.
     const bookingTotal = Number(booking.total_cost);
-    const platformFee = getActivePlatformFee();
-    const totalToPay = bookingTotal + platformFee;
-    const providerEarning = bookingTotal; // Provider receives full booking cost
+    const platformCommission = Math.round(bookingTotal * 0.05); // 5% Commission
+    const providerEarning = bookingTotal - platformCommission; // Landlord 95% share
+    const totalToPay = bookingTotal; // Single transaction, student does NOT pay twice
 
     if (totalToPay <= 0) {
       return res.status(400).json({ error: 'Invalid total payment amount calculated' });
     }
 
-    // 3. Generate Payment Reference & Record
+    // 3. Generate Unique Payment Reference & Record
     const paymentRef = generatePaymentReference();
     const paymentId = `pay-${crypto.randomUUID()}`;
-    const selectedProvider = paymentProvider || 'TEST_GATEWAY';
-    const selectedMethod = paymentMethod || 'CARD';
+    const selectedProvider = 'PAYSTACK';
+    const selectedMethod = (paymentMethod || 'CARD').toUpperCase();
+
+    // Map channels for Paystack
+    const channels = selectedMethod === 'BANK_TRANSFER'
+      ? ['bank_transfer', 'bank']
+      : selectedMethod === 'USSD'
+      ? ['ussd']
+      : ['card', 'bank_transfer', 'ussd'];
 
     const breakdown = {
       rentAmount: booking.rent_amount,
@@ -128,12 +137,21 @@ router.post('/initialize', authenticate, async (req: AuthenticatedRequest, res: 
       cautionDeposit: booking.caution_deposit,
       otherCharges: booking.other_charges,
       bookingSubtotal: bookingTotal,
-      platformFee: platformFee,
+      platformFee: platformCommission,
+      commissionPercentage: 5,
+      landlordNetShare: providerEarning,
       totalAmount: totalToPay
     };
 
     // Insert Payment within Atomic Transaction
     db.transaction(() => {
+      // Check if there was a previous pending payment for this booking and mark expired
+      db.prepare(`
+        UPDATE payments
+        SET status = 'EXPIRED', updated_at = datetime('now')
+        WHERE booking_id = ? AND status = 'PENDING'
+      `).run(booking.id);
+
       db.prepare(`
         INSERT INTO payments (
           id, payment_reference, booking_id, student_id, provider_id, property_id,
@@ -152,7 +170,7 @@ router.post('/initialize', authenticate, async (req: AuthenticatedRequest, res: 
         booking.propertyProviderId,
         booking.property_id,
         totalToPay,
-        platformFee,
+        platformCommission,
         providerEarning,
         selectedProvider,
         selectedMethod,
@@ -181,15 +199,16 @@ router.post('/initialize', authenticate, async (req: AuthenticatedRequest, res: 
       `).run(booking.id);
     })();
 
-    // 4. Initialize Gateway
+    // 4. Initialize Gateway with Paystack
     const gateway = getPaymentGateway(selectedProvider);
-    const callbackUrl = `${process.env.APP_URL || 'http://localhost:3001'}/payment/verify?reference=${paymentRef}`;
+    const callbackUrl = `${process.env.APP_URL || 'http://localhost:3000'}/payment/verify?reference=${paymentRef}`;
 
     const gatewayResult = await gateway.initializePayment({
       email: userEmail,
       amount: totalToPay,
       reference: paymentRef,
       callbackUrl,
+      channels,
       metadata: {
         bookingId: booking.id,
         bookingReference: booking.booking_reference,
@@ -201,18 +220,20 @@ router.post('/initialize', authenticate, async (req: AuthenticatedRequest, res: 
     });
 
     res.status(201).json({
-      message: 'Payment initialized successfully',
+      message: 'Paystack payment initialized successfully',
       paymentId,
       paymentReference: paymentRef,
       bookingReference: booking.booking_reference,
       propertyTitle: booking.propertyTitle,
       roomName: booking.roomName,
       amount: totalToPay,
-      platformFee,
+      platformFee: platformCommission,
       currency: 'NGN',
       breakdown,
       authorizationUrl: gatewayResult.authorizationUrl,
-      provider: gatewayResult.provider
+      accessCode: gatewayResult.accessCode,
+      provider: gatewayResult.provider,
+      publicKey: process.env.PAYSTACK_PUBLIC_KEY || process.env.VITE_PAYSTACK_PUBLIC_KEY || ''
     });
   } catch (err: any) {
     console.error('Payment initialization failed:', err);
@@ -308,6 +329,33 @@ router.get('/verify/:reference', authenticate, async (req: AuthenticatedRequest,
     const verification = await gateway.verifyPayment(payment.payment_reference);
 
     if (verification.success && verification.status === 'SUCCESS') {
+      // Strict Security Verification: Ensure verified currency and amount match expected database values
+      const expectedAmount = Number(payment.amount);
+      const verifiedAmount = Number(verification.amount);
+
+      if (verification.currency && verification.currency.toUpperCase() !== 'NGN') {
+        return res.status(400).json({
+          success: false,
+          status: 'FAILED',
+          error: `Currency mismatch: Expected NGN, received ${verification.currency}`
+        });
+      }
+
+      // Check if student attempted to underpay (tolerating <= 1 Naira for roundings)
+      if (verifiedAmount < (expectedAmount - 1)) {
+        db.prepare(`
+          UPDATE payments
+          SET status = 'FAILED', updated_at = datetime('now')
+          WHERE id = ?
+        `).run(payment.id);
+
+        return res.status(400).json({
+          success: false,
+          status: 'FAILED',
+          error: `Payment underpaid: Expected ₦${expectedAmount.toLocaleString()}, received ₦${verifiedAmount.toLocaleString()}`
+        });
+      }
+
       // Execute Atomic Database Transaction
       db.transaction(() => {
         const now = new Date().toISOString();
@@ -365,7 +413,7 @@ router.get('/verify/:reference', authenticate, async (req: AuthenticatedRequest,
             ) VALUES (?, ?, ?, 'PLATFORM_FEE_DEDUCTED', ?, 'NGN', 'HOSTEL_EASE_SETTLEMENT', 'PLATFORM_REVENUE', ?)
           `).run(
             ledgerId2, payment.id, payment.booking_id, payment.platform_fee,
-            `Platform service fee earned on ${payment.payment_reference}`
+            `5% Platform service fee earned on ${payment.payment_reference}`
           );
         }
 
@@ -400,7 +448,7 @@ router.get('/verify/:reference', authenticate, async (req: AuthenticatedRequest,
           `notif-${crypto.randomUUID()}`,
           payment.provider_id,
           'Student Payment Received! 💰',
-          `Student ${payment.studentName} paid ₦${Number(payment.provider_amount).toLocaleString()} for ${payment.propertyTitle} (${payment.roomName}).`,
+          `Student ${payment.studentName} paid ₦${Number(payment.amount).toLocaleString()} for ${payment.propertyTitle} (${payment.roomName}). Your net payout is ₦${Number(payment.provider_amount).toLocaleString()}.`,
           `/provider/financials`
         );
 
@@ -458,23 +506,28 @@ router.get('/verify/:reference', authenticate, async (req: AuthenticatedRequest,
         }
       });
     } else {
-      // Mark as Failed/Declined
-      db.prepare(`
-        UPDATE payments
-        SET status = 'FAILED', updated_at = datetime('now')
-        WHERE id = ?
-      `).run(payment.id);
+      const isAbandoned = verification.status === 'ABANDONED';
+      const statusToRecord = isAbandoned ? 'ABANDONED' : 'FAILED';
 
       db.prepare(`
+        UPDATE payments
+        SET status = ?, updated_at = datetime('now')
+        WHERE id = ?
+      `).run(statusToRecord, payment.id);
+
+      // Keep booking in pending_payment state so student can safely retry
+      db.prepare(`
         UPDATE bookings
-        SET payment_status = 'UNPAID', updated_at = datetime('now')
+        SET payment_status = 'PENDING_PAYMENT', updated_at = datetime('now')
         WHERE id = ?
       `).run(payment.booking_id);
 
       return res.status(400).json({
         success: false,
-        status: 'FAILED',
-        error: verification.gatewayResponse || 'Payment transaction could not be verified by the gateway'
+        status: statusToRecord,
+        error: isAbandoned 
+          ? 'Payment was not completed. You can retry whenever you are ready.' 
+          : (verification.gatewayResponse || 'Payment was not completed. Please try again.')
       });
     }
   } catch (err: any) {

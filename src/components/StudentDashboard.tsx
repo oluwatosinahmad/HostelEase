@@ -151,6 +151,38 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
       const result = reader.result as string;
       if (result) {
         setProfileAvatarUrl(result);
+
+        // Instantly synchronize with localStorage and Navbar so picture shows immediately
+        try {
+          const stored = localStorage.getItem('hostel_ease_user');
+          if (stored) {
+            const parsed = JSON.parse(stored);
+            const updatedUser = { ...parsed, avatarUrl: result };
+            localStorage.setItem('hostel_ease_user', JSON.stringify(updatedUser));
+
+            // Also update in registered users cache
+            try {
+              const registered = JSON.parse(localStorage.getItem('hostel_ease_registered_users') || '[]');
+              const idx = registered.findIndex((u: any) => u.email?.toLowerCase() === updatedUser.email?.toLowerCase());
+              if (idx >= 0) {
+                registered[idx] = { ...registered[idx], avatarUrl: result };
+                localStorage.setItem('hostel_ease_registered_users', JSON.stringify(registered));
+              }
+            } catch {}
+
+            window.dispatchEvent(new CustomEvent('hostel_ease_user_updated', { detail: updatedUser }));
+          }
+
+          // Asynchronously update profile in backend API
+          api.student.updateProfile({ 
+            fullName: user?.fullName || 'Student',
+            avatarUrl: result 
+          }).catch(() => {});
+        } catch (err) {
+          console.error('Failed to auto-sync avatar upload:', err);
+        }
+
+        onShowToast('Profile picture uploaded successfully! 📸', 'success');
       }
     };
     reader.readAsDataURL(file);

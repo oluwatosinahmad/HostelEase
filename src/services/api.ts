@@ -4712,6 +4712,8 @@ Hello Landlord, a student has booked your accommodation under our standard 5% co
       currency: string;
       breakdown: any;
       authorizationUrl: string;
+      accessCode?: string;
+      publicKey?: string;
       provider: string;
     }> {
       const res = await fetch(`${API_BASE}/payments/initialize`, {
@@ -5103,7 +5105,7 @@ Hello Landlord, a student has booked your accommodation under our standard 5% co
     },
 
     async updateProfile(data: {
-      fullName: string;
+      fullName?: string;
       phone?: string;
       department?: string;
       level?: string;

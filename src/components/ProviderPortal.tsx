@@ -100,8 +100,9 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
           }
         } catch (e) {}
 
+        window.dispatchEvent(new CustomEvent('hostel_ease_user_updated', { detail: updatedUser }));
         window.dispatchEvent(new CustomEvent('hostel_ease_user_profile_updated', { detail: updatedUser }));
-        onShowToast('Landlord profile photo updated successfully!', 'success');
+        onShowToast('Landlord profile photo updated successfully! 📸', 'success');
       }
     };
     reader.readAsDataURL(file);
