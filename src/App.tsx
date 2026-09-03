@@ -605,7 +605,7 @@ function MainApp() {
 
                   <button
                     type="button"
-                    onClick={() => setFeaturedSliderIndex(prev => (prev > 0 ? prev - 1 : featuredRollList.length - 1))}
+                    onClick={() => setFeaturedSliderIndex(prev => (featuredRollList.length > 0 ? (prev > 0 ? prev - 1 : featuredRollList.length - 1) : 0))}
                     className="p-2 rounded-xl bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 shadow-xs transition-colors cursor-pointer"
                     title="Previous Hostels"
                   >
@@ -614,7 +614,7 @@ function MainApp() {
 
                   <button
                     type="button"
-                    onClick={() => setFeaturedSliderIndex(prev => (prev + 1) % featuredRollList.length)}
+                    onClick={() => setFeaturedSliderIndex(prev => (featuredRollList.length > 0 ? (prev + 1) % featuredRollList.length : 0))}
                     className="p-2 rounded-xl bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 shadow-xs transition-colors cursor-pointer"
                     title="Next Hostels"
                   >
@@ -637,30 +637,37 @@ function MainApp() {
                 className="space-y-4"
               >
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {[0, 1, 2].map((offset) => {
-                    const idx = (featuredSliderIndex + offset) % featuredRollList.length;
-                    const property = featuredRollList[idx];
-                    if (!property) return null;
+                  {featuredRollList.length > 0 ? (
+                    [0, 1, 2].map((offset) => {
+                      const idx = (featuredSliderIndex + offset) % featuredRollList.length;
+                      const property = featuredRollList[idx];
+                      if (!property) return null;
 
-                    return (
-                      <HostelCard
-                        key={`featured-roll-${property.id}-${offset}`}
-                        property={property}
-                        onViewDetails={(p) => setSelectedPropertyId(p.id)}
-                        onToggleSave={handleToggleSave}
-                        onToggleCompare={handleToggleCompare}
-                        onOpenConversation={(propId) => {
-                          setMessagingTargetPropertyId(propId);
-                          setCurrentView('messages');
-                          window.scrollTo({ top: 0, behavior: 'smooth' });
-                        }}
-                        onOpenBookingModal={(prop) => handleOpenBookingModal(prop)}
-                        onOpenInspectionModal={(prop) => handleOpenInspectionModal(prop)}
-                        onOpenVideoTour={(prop) => setSelectedVideoTourProperty(prop)}
-                        isCompared={comparedPropertyIds.includes(property.id)}
-                      />
-                    );
-                  })}
+                      return (
+                        <HostelCard
+                          key={`featured-roll-${property.id}-${offset}`}
+                          property={property}
+                          onViewDetails={(p) => setSelectedPropertyId(p.id)}
+                          onToggleSave={handleToggleSave}
+                          onToggleCompare={handleToggleCompare}
+                          onOpenConversation={(propId) => {
+                            setMessagingTargetPropertyId(propId);
+                            setCurrentView('messages');
+                            window.scrollTo({ top: 0, behavior: 'smooth' });
+                          }}
+                          onOpenBookingModal={(prop) => handleOpenBookingModal(prop)}
+                          onOpenInspectionModal={(prop) => handleOpenInspectionModal(prop)}
+                          onOpenVideoTour={(prop) => setSelectedVideoTourProperty(prop)}
+                          isCompared={comparedPropertyIds.includes(property.id)}
+                        />
+                      );
+                    })
+                  ) : (
+                    <div className="col-span-full py-8 text-center text-slate-400">
+                      <div className="w-7 h-7 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+                      <p className="text-xs font-bold">Discovering verified LAUTECH hostels...</p>
+                    </div>
+                  )}
                 </div>
 
                 {/* Bottom Pagination Dots */}
@@ -707,7 +714,7 @@ function MainApp() {
 
                   <button
                     type="button"
-                    onClick={() => setVideoSliderIndex(prev => (prev > 0 ? prev - 1 : rollingVideoList.length - 1))}
+                    onClick={() => setVideoSliderIndex(prev => (rollingVideoList.length > 0 ? (prev > 0 ? prev - 1 : rollingVideoList.length - 1) : 0))}
                     className="p-2 rounded-xl bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 shadow-xs transition-colors cursor-pointer"
                     title="Previous Video"
                   >
@@ -716,7 +723,7 @@ function MainApp() {
 
                   <button
                     type="button"
-                    onClick={() => setVideoSliderIndex(prev => (prev + 1) % rollingVideoList.length)}
+                    onClick={() => setVideoSliderIndex(prev => (rollingVideoList.length > 0 ? (prev + 1) % rollingVideoList.length : 0))}
                     className="p-2 rounded-xl bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 shadow-xs transition-colors cursor-pointer"
                     title="Next Video"
                   >
@@ -732,19 +739,20 @@ function MainApp() {
                 className="space-y-4"
               >
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {[0, 1, 2].map((offset) => {
-                    const idx = (videoSliderIndex + offset) % rollingVideoList.length;
-                    const property = rollingVideoList[idx];
-                    if (!property) return null;
+                  {rollingVideoList.length > 0 ? (
+                    [0, 1, 2].map((offset) => {
+                      const idx = (videoSliderIndex + offset) % rollingVideoList.length;
+                      const property = rollingVideoList[idx];
+                      if (!property) return null;
 
-                    const durationText = offset === 0 ? '1:45' : offset === 1 ? '2:10' : '1:30';
+                      const durationText = offset === 0 ? '1:45' : offset === 1 ? '2:10' : '1:30';
 
-                    return (
-                      <div
-                        key={`vid-roll-${property.id}-${offset}`}
-                        onClick={() => setSelectedVideoTourProperty(property)}
-                        className="group relative bg-slate-900 rounded-3xl overflow-hidden shadow-lg border border-slate-800 hover:border-emerald-500/50 hover:shadow-2xl transition-all duration-300 cursor-pointer flex flex-col hover:-translate-y-1.5"
-                      >
+                      return (
+                        <div
+                          key={`vid-roll-${property.id}-${offset}`}
+                          onClick={() => setSelectedVideoTourProperty(property)}
+                          className="group relative bg-slate-900 rounded-3xl overflow-hidden shadow-lg border border-slate-800 hover:border-emerald-500/50 hover:shadow-2xl transition-all duration-300 cursor-pointer flex flex-col hover:-translate-y-1.5"
+                        >
                         {/* Video Thumbnail with Hover Zoom */}
                         <div className="relative aspect-video overflow-hidden">
                           <img
@@ -781,7 +789,7 @@ function MainApp() {
                           <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between text-white">
                             <span className="text-[11px] font-bold truncate flex items-center gap-1">
                               <MapPin className="w-3 h-3 text-emerald-400" />
-                              {property.area.name}
+                              {property.area?.name || (property as any).areaName || 'LAUTECH Area'}
                             </span>
                             <span className="text-xs font-black text-emerald-400">
                               {formatNaira(property.priceSummary?.rentAmount)}/yr
@@ -815,7 +823,7 @@ function MainApp() {
                         </div>
                       </div>
                     );
-                  })}
+                  })) : null}
                 </div>
 
                 {/* Bottom Slide Pagination Dots */}
@@ -1679,8 +1687,10 @@ function MainApp() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <MainApp />
-    </AuthProvider>
+    <ErrorBoundary>
+      <AuthProvider>
+        <MainApp />
+      </AuthProvider>
+    </ErrorBoundary>
   );
 }

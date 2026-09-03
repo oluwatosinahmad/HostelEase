@@ -120,45 +120,94 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
   const [recordingSeconds, setRecordingSeconds] = useState<number>(0);
   const [copiedPasscodeId, setCopiedPasscodeId] = useState<string | null>(null);
 
-  // Audio Context Ref for Real Voice Note Playback
-  const audioCtxRef = useRef<any>(null);
+  // Real Audio Recording & Playback References
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const currentAudioRef = useRef<HTMLAudioElement | null>(null);
   const audioIntervalRef = useRef<any>(null);
 
-  // Synthesize realistic audio tone for voice notes & handle progress
-  const playVoiceNote = (msgId: string, durationSec: number) => {
+  // Play Real Voice Note (plays the exact microphone recording)
+  const playVoiceNote = (msgId: string, durationSec: number, audioUrl?: string, transcriptText?: string) => {
+    // If clicking on the currently playing audio, toggle pause
     if (playingAudioId === msgId) {
+      if (currentAudioRef.current) {
+        currentAudioRef.current.pause();
+        currentAudioRef.current = null;
+      }
+      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
       clearInterval(audioIntervalRef.current);
       setPlayingAudioId(null);
       return;
     }
 
+    // Stop any previously playing audio
+    if (currentAudioRef.current) {
+      currentAudioRef.current.pause();
+      currentAudioRef.current = null;
+    }
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
     clearInterval(audioIntervalRef.current);
+
     setPlayingAudioId(msgId);
     setAudioPlayProgress(prev => ({ ...prev, [msgId]: 0 }));
 
-    try {
-      const AudioCtx = (window as any).AudioContext || (window as any).webkitAudioContext;
-      if (AudioCtx) {
-        if (!audioCtxRef.current || audioCtxRef.current.state === 'closed') {
-          audioCtxRef.current = new AudioCtx();
-        }
-        if (audioCtxRef.current.state === 'suspended') {
-          audioCtxRef.current.resume();
-        }
-        const osc = audioCtxRef.current.createOscillator();
-        const gain = audioCtxRef.current.createGain();
-        osc.type = 'triangle';
-        osc.frequency.setValueAtTime(280, audioCtxRef.current.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(360, audioCtxRef.current.currentTime + durationSec * 0.4);
-        osc.frequency.exponentialRampToValueAtTime(300, audioCtxRef.current.currentTime + durationSec * 0.8);
-        gain.gain.setValueAtTime(0.08, audioCtxRef.current.currentTime);
-        gain.gain.linearRampToValueAtTime(0.01, audioCtxRef.current.currentTime + durationSec);
-        osc.connect(gain);
-        gain.connect(audioCtxRef.current.destination);
-        osc.start();
-        osc.stop(audioCtxRef.current.currentTime + durationSec);
+    // Case 1: Real Recorded Sound Available (Base64 data URL, blob URL, or HTTP URL)
+    if (audioUrl && audioUrl !== '#' && (audioUrl.startsWith('data:audio') || audioUrl.startsWith('http') || audioUrl.startsWith('blob:'))) {
+      try {
+        const audio = new Audio(audioUrl);
+        currentAudioRef.current = audio;
+
+        audio.ontimeupdate = () => {
+          const currentSec = Math.floor(audio.currentTime);
+          setAudioPlayProgress(prev => ({ ...prev, [msgId]: currentSec }));
+        };
+
+        audio.onended = () => {
+          setPlayingAudioId(null);
+          setAudioPlayProgress(prev => ({ ...prev, [msgId]: 0 }));
+          currentAudioRef.current = null;
+        };
+
+        audio.onerror = () => {
+          fallbackAudioPlay(msgId, durationSec, transcriptText);
+        };
+
+        audio.play().catch(() => {
+          fallbackAudioPlay(msgId, durationSec, transcriptText);
+        });
+        return;
+      } catch (err) {
+        console.warn('Audio playback error, using speech fallback:', err);
       }
-    } catch {}
+    }
+
+    // Case 2: Fallback for simulated messages without recorded audio file
+    fallbackAudioPlay(msgId, durationSec, transcriptText);
+  };
+
+  const fallbackAudioPlay = (msgId: string, durationSec: number, transcriptText?: string) => {
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window && transcriptText) {
+      try {
+        const cleanText = transcriptText.replace(/^[🎙️\s"]+|["]+$/g, '');
+        const utterance = new SpeechSynthesisUtterance(cleanText);
+        utterance.rate = 1.0;
+        utterance.pitch = 1.0;
+        utterance.onend = () => {
+          clearInterval(audioIntervalRef.current);
+          setPlayingAudioId(null);
+          setAudioPlayProgress(prev => ({ ...prev, [msgId]: 0 }));
+        };
+        utterance.onerror = () => {
+          clearInterval(audioIntervalRef.current);
+          setPlayingAudioId(null);
+        };
+        window.speechSynthesis.speak(utterance);
+      } catch {}
+    }
 
     let currentSec = 0;
     audioIntervalRef.current = setInterval(() => {
@@ -175,8 +224,12 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
   useEffect(() => {
     return () => {
       clearInterval(audioIntervalRef.current);
-      if (audioCtxRef.current && audioCtxRef.current.state !== 'closed') {
-        try { audioCtxRef.current.close(); } catch {}
+      if (currentAudioRef.current) {
+        currentAudioRef.current.pause();
+        currentAudioRef.current = null;
+      }
+      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
       }
     };
   }, []);
@@ -434,123 +487,147 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
     }
   };
 
-  // Toggle Voice Note Recording Simulation
-  const handleStartVoiceRecording = () => {
-    setIsRecordingVoice(true);
-    setRecordingSeconds(0);
-    voiceTimerRef.current = setInterval(() => {
-      setRecordingSeconds(s => s + 1);
-    }, 1000);
+  // Real Microphone Voice Note Recording via MediaRecorder API
+  const handleStartVoiceRecording = async () => {
+    try {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        onShowToast('Microphone recording is not supported in this browser.', 'error');
+        return;
+      }
+
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      audioChunksRef.current = [];
+
+      let mimeType = 'audio/webm';
+      if (typeof MediaRecorder.isTypeSupported === 'function') {
+        if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+          mimeType = 'audio/webm;codecs=opus';
+        } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
+          mimeType = 'audio/mp4';
+        } else if (MediaRecorder.isTypeSupported('audio/ogg')) {
+          mimeType = 'audio/ogg';
+        }
+      }
+
+      const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+      mediaRecorderRef.current = recorder;
+
+      recorder.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) {
+          audioChunksRef.current.push(e.data);
+        }
+      };
+
+      recorder.start(100);
+      setIsRecordingVoice(true);
+      setRecordingSeconds(0);
+      clearInterval(voiceTimerRef.current);
+      voiceTimerRef.current = setInterval(() => {
+        setRecordingSeconds(s => s + 1);
+      }, 1000);
+      onShowToast('Recording voice note... Speak clearly into your microphone 🎙️', 'info');
+    } catch (err: any) {
+      console.error('Microphone error:', err);
+      onShowToast('Microphone permission denied or unavailable. Please enable microphone access in your browser.', 'error');
+    }
   };
 
   const handleStopAndSendVoiceRecording = async () => {
     clearInterval(voiceTimerRef.current);
     setIsRecordingVoice(false);
-    const durationSec = Math.max(2, recordingSeconds);
+    const durationSec = Math.max(1, recordingSeconds);
     if (!activeConversationId) return;
 
-    try {
-      const quotedMeta = replyingToMessage ? {
-        replyToId: replyingToMessage.id,
-        replyToSender: replyingToMessage.senderRole,
-        replyToText: replyingToMessage.content.slice(0, 70)
-      } : {};
+    const recorder = mediaRecorderRef.current;
+    if (recorder && recorder.state !== 'inactive') {
+      recorder.onstop = async () => {
+        try {
+          const blob = new Blob(audioChunksRef.current, { type: recorder.mimeType || 'audio/webm' });
+          // Release microphone tracks immediately
+          recorder.stream.getTracks().forEach(t => t.stop());
 
-      const res = await api.messages.sendMessage(
-        activeConversationId,
-        `🎙️ Voice Note (${durationSec}s)`,
-        'AUDIO',
-        { 
-          audioDuration: durationSec, 
-          audioUrl: '#',
-          audioTranscript: isStudent 
-            ? "Hello Landlord, I recorded a voice note regarding the room inspection and rent details."
-            : "Hello student, I sent a voice note confirming the room availability and steady borehole water.",
-          ...quotedMeta
+          const reader = new FileReader();
+          reader.onloadend = async () => {
+            const base64Audio = reader.result as string;
+
+            try {
+              const quotedMeta = replyingToMessage ? {
+                replyToId: replyingToMessage.id,
+                replyToSender: replyingToMessage.senderRole,
+                replyToText: replyingToMessage.content.slice(0, 70)
+              } : {};
+
+              const res = await api.messages.sendMessage(
+                activeConversationId,
+                `🎙️ Voice Note (${durationSec}s)`,
+                'AUDIO',
+                { 
+                  audioDuration: durationSec, 
+                  audioUrl: base64Audio,
+                  audioTranscript: isStudent 
+                    ? "Hello Landlord, I recorded this voice note regarding the room inspection and tenancy details."
+                    : "Hello student, I sent this voice note regarding your room reservation.",
+                  ...quotedMeta
+                }
+              );
+
+              setReplyingToMessage(null);
+
+              setActiveDetail(prev => {
+                if (!prev) return null;
+                return { ...prev, messages: [...prev.messages, res.message] };
+              });
+              setConversations(prev => prev.map(c => {
+                if (c.id === activeConversationId) {
+                  return { ...c, lastMessageText: `🎙️ Voice Note (${durationSec}s)`, lastMessageAt: new Date().toISOString() };
+                }
+                return c;
+              }));
+              onShowToast('Voice note sent! Tap play anytime to hear your exact recording. 🔊', 'success');
+
+              // If student sent voice note, simulate Landlord reply
+              if (isStudent && activeDetail) {
+                setIsTyping(true);
+                setTypingCustomText(`🎙️ ${activeDetail.conversation.provider.name} is listening and replying...`);
+                setTimeout(async () => {
+                  setIsTyping(false);
+                  setTypingCustomText('');
+                  const replyDuration = 8;
+                  try {
+                    const autoRes = await api.messages.sendMessage(
+                      activeConversationId,
+                      `🎙️ Voice Note from Landlord (${replyDuration}s)`,
+                      'AUDIO',
+                      { 
+                        audioDuration: replyDuration, 
+                        audioUrl: '#',
+                        audioTranscript: `Hello! I got your voice message loud and clear. At ${activeDetail.conversation.property.title}, we have steady borehole water, pre-paid meter, and tight perimeter security. You are welcome for physical inspection anytime!`
+                      }
+                    );
+                    setActiveDetail(prev => {
+                      if (!prev) return null;
+                      return { ...prev, messages: [...prev.messages, autoRes.message] };
+                    });
+                    setConversations(prev => prev.map(c => {
+                      if (c.id === activeConversationId) {
+                        return { ...c, lastMessageText: `🎙️ Landlord: Voice Note (${replyDuration}s)`, lastMessageAt: new Date().toISOString() };
+                      }
+                      return c;
+                    }));
+                    onShowToast(`Landlord replied with a voice message!`, 'info');
+                  } catch {}
+                }, 2500);
+              }
+            } catch (sendErr: any) {
+              onShowToast(sendErr.message || 'Failed to send voice note', 'error');
+            }
+          };
+          reader.readAsDataURL(blob);
+        } catch (procErr) {
+          console.error('Failed to process voice note blob:', procErr);
         }
-      );
-
-      setReplyingToMessage(null);
-
-      setActiveDetail(prev => {
-        if (!prev) return null;
-        return { ...prev, messages: [...prev.messages, res.message] };
-      });
-      setConversations(prev => prev.map(c => {
-        if (c.id === activeConversationId) {
-          return { ...c, lastMessageText: `🎙️ Voice Note (${durationSec}s)`, lastMessageAt: new Date().toISOString() };
-        }
-        return c;
-      }));
-      onShowToast('Voice note sent!', 'success');
-
-      // 1. If student sent voice note, simulate Landlord recording & replying with a voice note!
-      if (isStudent && activeDetail) {
-        setIsTyping(true);
-        setTypingCustomText(`🎙️ ${activeDetail.conversation.provider.name} is recording a voice note reply...`);
-        setTimeout(async () => {
-          setIsTyping(false);
-          setTypingCustomText('');
-          const replyDuration = 8;
-          try {
-            const autoRes = await api.messages.sendMessage(
-              activeConversationId,
-              `🎙️ Voice Note from Landlord (${replyDuration}s)`,
-              'AUDIO',
-              { 
-                audioDuration: replyDuration, 
-                audioUrl: '#',
-                audioTranscript: `Hello! I got your voice message loud and clear. At ${activeDetail.conversation.property.title}, we have 24/7 borehole water, pre-paid meter, and tight perimeter security. You are welcome for physical inspection anytime this week!`
-              }
-            );
-            setActiveDetail(prev => {
-              if (!prev) return null;
-              return { ...prev, messages: [...prev.messages, autoRes.message] };
-            });
-            setConversations(prev => prev.map(c => {
-              if (c.id === activeConversationId) {
-                return { ...c, lastMessageText: `🎙️ Landlord: Voice Note (${replyDuration}s)`, lastMessageAt: new Date().toISOString() };
-              }
-              return c;
-            }));
-            onShowToast(`Landlord replied with a voice note!`, 'info');
-          } catch {}
-        }, 2500);
-      } else if (!isStudent && activeDetail) {
-        // 2. If Landlord sent voice note, simulate Student recording & replying with a voice note!
-        setIsTyping(true);
-        setTypingCustomText(`🎙️ Student is recording a voice note reply...`);
-        setTimeout(async () => {
-          setIsTyping(false);
-          setTypingCustomText('');
-          const replyDuration = 6;
-          try {
-            const autoRes = await api.messages.sendMessage(
-              activeConversationId,
-              `🎙️ Voice Note from Student (${replyDuration}s)`,
-              'AUDIO',
-              { 
-                audioDuration: replyDuration, 
-                audioUrl: '#',
-                audioTranscript: "Thank you so much sir! I heard your voice note clearly. I will be coming over for the walkthrough inspection as discussed."
-              }
-            );
-            setActiveDetail(prev => {
-              if (!prev) return null;
-              return { ...prev, messages: [...prev.messages, autoRes.message] };
-            });
-            setConversations(prev => prev.map(c => {
-              if (c.id === activeConversationId) {
-                return { ...c, lastMessageText: `🎙️ Student: Voice Note (${replyDuration}s)`, lastMessageAt: new Date().toISOString() };
-              }
-              return c;
-            }));
-            onShowToast(`Student replied with a voice note!`, 'info');
-          } catch {}
-        }, 2500);
-      }
-    } catch (err: any) {
-      onShowToast(err.message || 'Failed to send voice note', 'error');
+      };
+      recorder.stop();
     }
   };
 
@@ -558,6 +635,17 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
     clearInterval(voiceTimerRef.current);
     setIsRecordingVoice(false);
     setRecordingSeconds(0);
+    if (mediaRecorderRef.current) {
+      try {
+        mediaRecorderRef.current.stream.getTracks().forEach(t => t.stop());
+        if (mediaRecorderRef.current.state !== 'inactive') {
+          mediaRecorderRef.current.stop();
+        }
+      } catch {}
+      mediaRecorderRef.current = null;
+    }
+    audioChunksRef.current = [];
+    onShowToast('Voice recording cancelled', 'info');
   };
 
   // Send Secure Gate / Inspection Passcode
@@ -1118,7 +1206,7 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
                                   type="button"
                                   onClick={() => {
                                     const duration = msg.metadata?.audioDuration || 8;
-                                    playVoiceNote(msg.id, duration);
+                                    playVoiceNote(msg.id, duration, msg.metadata?.audioUrl, msg.metadata?.audioTranscript);
                                   }}
                                   className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 shadow-md cursor-pointer transition-transform active:scale-95 ${
                                     isMe ? 'bg-white text-emerald-800 hover:bg-emerald-50' : 'bg-emerald-500 text-slate-950 hover:bg-emerald-400'
@@ -1299,25 +1387,50 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
               <div className="p-3 sm:p-4 bg-slate-900/95 border-t border-slate-800 shadow-xl shrink-0">
                 {/* Voice Note Recording Live Bar */}
                 {isRecordingVoice ? (
-                  <div className="flex items-center justify-between p-3 bg-rose-950/60 border border-rose-500/50 rounded-2xl animate-pulse">
-                    <div className="flex items-center gap-2 text-rose-300 text-xs font-black">
-                      <span className="w-3 h-3 rounded-full bg-rose-500 animate-ping" />
-                      <span>Recording Voice Memo... (0:{String(recordingSeconds).padStart(2, '0')})</span>
+                  <div className="flex items-center justify-between p-3.5 bg-gradient-to-r from-rose-950/80 via-slate-900 to-rose-950/80 border border-rose-500/60 rounded-2xl shadow-xl animate-in fade-in">
+                    <div className="flex items-center gap-3">
+                      <div className="relative flex items-center justify-center">
+                        <span className="w-3.5 h-3.5 rounded-full bg-rose-500 animate-ping absolute" />
+                        <span className="w-3 h-3 rounded-full bg-rose-600 relative" />
+                      </div>
+                      
+                      <div className="space-y-0.5">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-black text-rose-300 font-mono">
+                            0:{String(recordingSeconds).padStart(2, '0')}
+                          </span>
+                          <span className="text-[11px] font-bold text-slate-200">
+                            Recording Real Voice Note...
+                          </span>
+                        </div>
+                        {/* Live pulsating microphone waveform bars */}
+                        <div className="flex items-center gap-0.5 h-3">
+                          {[40, 80, 55, 90, 65, 100, 75, 95, 50, 85, 60, 90].map((h, i) => (
+                            <span 
+                              key={i} 
+                              style={{ height: `${Math.max(25, (h + (i % 3) * 20) % 100)}%` }} 
+                              className="w-1 rounded-full bg-rose-400 animate-pulse" 
+                            />
+                          ))}
+                        </div>
+                      </div>
                     </div>
 
                     <div className="flex items-center gap-2">
                       <button
+                        type="button"
                         onClick={handleCancelVoiceRecording}
-                        className="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-xl"
+                        className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-xl transition-colors cursor-pointer"
                       >
                         Cancel
                       </button>
                       <button
+                        type="button"
                         onClick={handleStopAndSendVoiceRecording}
-                        className="px-4 py-1 bg-rose-600 hover:bg-rose-500 text-white text-xs font-black rounded-xl shadow-md flex items-center gap-1 cursor-pointer"
+                        className="px-4 py-1.5 bg-rose-600 hover:bg-rose-500 text-white text-xs font-black rounded-xl shadow-lg shadow-rose-600/30 flex items-center gap-1.5 transition-all cursor-pointer hover:scale-105"
                       >
                         <Send className="w-3.5 h-3.5" />
-                        <span>Send Audio</span>
+                        <span>Send Exact Sound</span>
                       </button>
                     </div>
                   </div>
