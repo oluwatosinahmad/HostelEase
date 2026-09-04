@@ -43,7 +43,8 @@ import {
   Copy,
   Download,
   Share2,
-  Paperclip
+  Paperclip,
+  Trash2
 } from 'lucide-react';
 import { ConversationItem, ConversationDetail, MessageItem, Property } from '../types/hostelEase';
 import { api } from '../services/api';
@@ -126,16 +127,13 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
   const audioIntervalRef = useRef<any>(null);
 
-  // Play Real Voice Note (plays the exact microphone recording)
-  const playVoiceNote = (msgId: string, durationSec: number, audioUrl?: string, transcriptText?: string) => {
+  // Play Real Voice Note (WhatsApp style playback)
+  const playVoiceNote = (msgId: string, durationSec: number, audioUrl?: string) => {
     // If clicking on the currently playing audio, toggle pause
     if (playingAudioId === msgId) {
       if (currentAudioRef.current) {
         currentAudioRef.current.pause();
         currentAudioRef.current = null;
-      }
-      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
       }
       clearInterval(audioIntervalRef.current);
       setPlayingAudioId(null);
@@ -147,15 +145,12 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
       currentAudioRef.current.pause();
       currentAudioRef.current = null;
     }
-    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-    }
     clearInterval(audioIntervalRef.current);
 
     setPlayingAudioId(msgId);
     setAudioPlayProgress(prev => ({ ...prev, [msgId]: 0 }));
 
-    // Case 1: Real Recorded Sound Available (Base64 data URL, blob URL, or HTTP URL)
+    // If real recorded audio is present (base64 Data URL, blob URL, or HTTP URL)
     if (audioUrl && audioUrl !== '#' && (audioUrl.startsWith('data:audio') || audioUrl.startsWith('http') || audioUrl.startsWith('blob:'))) {
       try {
         const audio = new Audio(audioUrl);
@@ -173,42 +168,21 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
         };
 
         audio.onerror = () => {
-          fallbackAudioPlay(msgId, durationSec, transcriptText);
+          setPlayingAudioId(null);
+          currentAudioRef.current = null;
         };
 
         audio.play().catch(() => {
-          fallbackAudioPlay(msgId, durationSec, transcriptText);
+          setPlayingAudioId(null);
+          currentAudioRef.current = null;
         });
         return;
       } catch (err) {
-        console.warn('Audio playback error, using speech fallback:', err);
+        console.warn('Audio playback error:', err);
       }
     }
 
-    // Case 2: Fallback for simulated messages without recorded audio file
-    fallbackAudioPlay(msgId, durationSec, transcriptText);
-  };
-
-  const fallbackAudioPlay = (msgId: string, durationSec: number, transcriptText?: string) => {
-    if (typeof window !== 'undefined' && 'speechSynthesis' in window && transcriptText) {
-      try {
-        const cleanText = transcriptText.replace(/^[🎙️\s"]+|["]+$/g, '');
-        const utterance = new SpeechSynthesisUtterance(cleanText);
-        utterance.rate = 1.0;
-        utterance.pitch = 1.0;
-        utterance.onend = () => {
-          clearInterval(audioIntervalRef.current);
-          setPlayingAudioId(null);
-          setAudioPlayProgress(prev => ({ ...prev, [msgId]: 0 }));
-        };
-        utterance.onerror = () => {
-          clearInterval(audioIntervalRef.current);
-          setPlayingAudioId(null);
-        };
-        window.speechSynthesis.speak(utterance);
-      } catch {}
-    }
-
+    // For legacy messages without recorded audio, just advance progress bar silently without fake sounds
     let currentSec = 0;
     audioIntervalRef.current = setInterval(() => {
       currentSec += 1;
@@ -227,9 +201,6 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
       if (currentAudioRef.current) {
         currentAudioRef.current.pause();
         currentAudioRef.current = null;
-      }
-      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
       }
     };
   }, []);
@@ -525,7 +496,6 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
       voiceTimerRef.current = setInterval(() => {
         setRecordingSeconds(s => s + 1);
       }, 1000);
-      onShowToast('Recording voice note... Speak clearly into your microphone 🎙️', 'info');
     } catch (err: any) {
       console.error('Microphone error:', err);
       onShowToast('Microphone permission denied or unavailable. Please enable microphone access in your browser.', 'error');
@@ -557,16 +527,14 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
                 replyToText: replyingToMessage.content.slice(0, 70)
               } : {};
 
+              // Send authentic WhatsApp-style voice note without any fake transcripts or subtitles
               const res = await api.messages.sendMessage(
                 activeConversationId,
-                `🎙️ Voice Note (${durationSec}s)`,
+                `🎙️ Voice note (${durationSec}s)`,
                 'AUDIO',
                 { 
                   audioDuration: durationSec, 
                   audioUrl: base64Audio,
-                  audioTranscript: isStudent 
-                    ? "Hello Landlord, I recorded this voice note regarding the room inspection and tenancy details."
-                    : "Hello student, I sent this voice note regarding your room reservation.",
                   ...quotedMeta
                 }
               );
@@ -579,45 +547,10 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
               });
               setConversations(prev => prev.map(c => {
                 if (c.id === activeConversationId) {
-                  return { ...c, lastMessageText: `🎙️ Voice Note (${durationSec}s)`, lastMessageAt: new Date().toISOString() };
+                  return { ...c, lastMessageText: `🎙️ Voice note (${durationSec}s)`, lastMessageAt: new Date().toISOString() };
                 }
                 return c;
               }));
-              onShowToast('Voice note sent! Tap play anytime to hear your exact recording. 🔊', 'success');
-
-              // If student sent voice note, simulate Landlord reply
-              if (isStudent && activeDetail) {
-                setIsTyping(true);
-                setTypingCustomText(`🎙️ ${activeDetail.conversation.provider.name} is listening and replying...`);
-                setTimeout(async () => {
-                  setIsTyping(false);
-                  setTypingCustomText('');
-                  const replyDuration = 8;
-                  try {
-                    const autoRes = await api.messages.sendMessage(
-                      activeConversationId,
-                      `🎙️ Voice Note from Landlord (${replyDuration}s)`,
-                      'AUDIO',
-                      { 
-                        audioDuration: replyDuration, 
-                        audioUrl: '#',
-                        audioTranscript: `Hello! I got your voice message loud and clear. At ${activeDetail.conversation.property.title}, we have steady borehole water, pre-paid meter, and tight perimeter security. You are welcome for physical inspection anytime!`
-                      }
-                    );
-                    setActiveDetail(prev => {
-                      if (!prev) return null;
-                      return { ...prev, messages: [...prev.messages, autoRes.message] };
-                    });
-                    setConversations(prev => prev.map(c => {
-                      if (c.id === activeConversationId) {
-                        return { ...c, lastMessageText: `🎙️ Landlord: Voice Note (${replyDuration}s)`, lastMessageAt: new Date().toISOString() };
-                      }
-                      return c;
-                    }));
-                    onShowToast(`Landlord replied with a voice message!`, 'info');
-                  } catch {}
-                }, 2500);
-              }
             } catch (sendErr: any) {
               onShowToast(sendErr.message || 'Failed to send voice note', 'error');
             }
@@ -645,7 +578,6 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
       mediaRecorderRef.current = null;
     }
     audioChunksRef.current = [];
-    onShowToast('Voice recording cancelled', 'info');
   };
 
   // Send Secure Gate / Inspection Passcode
@@ -1198,20 +1130,23 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
                             </div>
                           )}
 
-                          {/* 2. AUDIO / VOICE NOTE MESSAGE */}
+                          {/* 2. AUDIO / VOICE NOTE MESSAGE (WhatsApp Authentic Style) */}
                           {isAudio && (
-                            <div className="space-y-2 py-1 min-w-[200px] sm:min-w-[240px]">
+                            <div className="py-1 min-w-[210px] sm:min-w-[250px] max-w-[320px]">
                               <div className="flex items-center gap-3">
+                                {/* WhatsApp Circular Play/Pause Button */}
                                 <button
                                   type="button"
                                   onClick={() => {
-                                    const duration = msg.metadata?.audioDuration || 8;
-                                    playVoiceNote(msg.id, duration, msg.metadata?.audioUrl, msg.metadata?.audioTranscript);
+                                    const duration = msg.metadata?.audioDuration || 6;
+                                    playVoiceNote(msg.id, duration, msg.metadata?.audioUrl);
                                   }}
-                                  className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 shadow-md cursor-pointer transition-transform active:scale-95 ${
-                                    isMe ? 'bg-white text-emerald-800 hover:bg-emerald-50' : 'bg-emerald-500 text-slate-950 hover:bg-emerald-400'
+                                  className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 shadow-sm transition-transform active:scale-90 cursor-pointer ${
+                                    isMe 
+                                      ? 'bg-white text-emerald-800 hover:bg-emerald-50' 
+                                      : 'bg-emerald-500 text-white hover:bg-emerald-400'
                                   }`}
-                                  title={playingAudioId === msg.id ? 'Pause Audio' : 'Play Audio Note'}
+                                  title={playingAudioId === msg.id ? 'Pause' : 'Play'}
                                 >
                                   {playingAudioId === msg.id ? (
                                     <Pause className="w-4 h-4 fill-current" />
@@ -1220,60 +1155,55 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
                                   )}
                                 </button>
 
-                                <div className="flex-1 space-y-1.5">
-                                  {/* Real-time Bouncing Waveform */}
-                                  <div className="flex items-center gap-1 h-5">
-                                    {[35, 70, 50, 95, 60, 100, 75, 85, 45, 90, 65, 80, 50, 75, 85].map((h, i) => {
-                                      const isPlaying = playingAudioId === msg.id;
-                                      const dynamicH = isPlaying ? Math.max(30, (h + (i % 4) * 18) % 100) : h;
+                                {/* WhatsApp Waveform Track with Scrubbing / Progress Dot */}
+                                <div className="flex-1 space-y-1">
+                                  <div 
+                                    onClick={() => {
+                                      const duration = msg.metadata?.audioDuration || 6;
+                                      playVoiceNote(msg.id, duration, msg.metadata?.audioUrl);
+                                    }}
+                                    className="relative flex items-center gap-[2px] h-6 cursor-pointer py-1"
+                                  >
+                                    {[30, 60, 45, 80, 50, 95, 70, 40, 85, 60, 100, 75, 45, 90, 65, 80, 50, 70, 90, 55, 35, 65, 85, 40].map((h, i) => {
+                                      const progress = (audioPlayProgress[msg.id] || 0) / (msg.metadata?.audioDuration || 6);
+                                      const barProgress = i / 24;
+                                      const isPlayed = barProgress <= progress;
+
                                       return (
                                         <span
                                           key={i}
-                                          style={{ height: `${dynamicH}%` }}
-                                          className={`w-1 rounded-full transition-all duration-150 ${
-                                            isPlaying
-                                              ? 'bg-amber-300 animate-pulse'
-                                              : isMe ? 'bg-emerald-200' : 'bg-slate-400'
+                                          style={{ height: `${h}%` }}
+                                          className={`w-[2.5px] rounded-full transition-colors duration-100 ${
+                                            isPlayed 
+                                              ? (isMe ? 'bg-white' : 'bg-emerald-400') 
+                                              : (isMe ? 'bg-emerald-400/50' : 'bg-slate-500')
                                           }`}
                                         />
                                       );
                                     })}
+
+                                    {/* Scrubber Dot */}
+                                    {playingAudioId === msg.id && (
+                                      <div 
+                                        style={{
+                                          left: `${Math.min(100, Math.max(0, ((audioPlayProgress[msg.id] || 0) / (msg.metadata?.audioDuration || 6)) * 100))}%`
+                                        }}
+                                        className="absolute top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-white shadow-md -ml-1 pointer-events-none transition-all duration-100"
+                                      />
+                                    )}
                                   </div>
-                                  <div className="flex justify-between items-center text-[10px] opacity-80 font-mono">
-                                    <span className="flex items-center gap-1 font-bold">
-                                      {playingAudioId === msg.id && <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping inline-block" />}
-                                      <span>{playingAudioId === msg.id ? 'Playing Voice Note' : 'Voice Memo'}</span>
-                                    </span>
+
+                                  {/* WhatsApp Duration & Badge */}
+                                  <div className="flex justify-between items-center text-[10px] font-mono opacity-85">
                                     <span>
-                                      0:{String(playingAudioId === msg.id ? (audioPlayProgress[msg.id] || 0) : (msg.metadata?.audioDuration || 8)).padStart(2, '0')} / 0:{String(msg.metadata?.audioDuration || 8).padStart(2, '0')}
+                                      0:{String(playingAudioId === msg.id ? (audioPlayProgress[msg.id] || 0) : (msg.metadata?.audioDuration || 6)).padStart(2, '0')}
+                                    </span>
+                                    <span className="text-[9px] opacity-75 font-sans flex items-center gap-0.5">
+                                      <Mic className="w-2.5 h-2.5 inline" />
+                                      <span>Voice note</span>
                                     </span>
                                   </div>
                                 </div>
-                              </div>
-
-                              {/* Audio Note Transcript / Summary */}
-                              {msg.metadata?.audioTranscript && (
-                                <div className="p-2 rounded-xl bg-black/35 text-[11px] italic font-normal text-slate-200 border border-white/10 leading-snug">
-                                  "{msg.metadata.audioTranscript}"
-                                </div>
-                              )}
-
-                              {/* Quick Reply with Voice Note CTA */}
-                              <div className="flex items-center justify-between pt-1 border-t border-white/10 text-[10px]">
-                                <span className="opacity-75">
-                                  {msg.senderRole === 'PROVIDER' ? 'From Verified Landlord' : 'From Student'}
-                                </span>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setReplyingToMessage(msg);
-                                    handleStartVoiceRecording();
-                                  }}
-                                  className="font-bold text-emerald-300 hover:text-white flex items-center gap-1 cursor-pointer transition-colors px-2 py-0.5 rounded-full hover:bg-white/10"
-                                >
-                                  <Mic className="w-3 h-3 text-amber-300" />
-                                  <span>Reply with Voice Note</span>
-                                </button>
                               </div>
                             </div>
                           )}
@@ -1385,54 +1315,51 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
 
               {/* ADVANCED MESSAGE COMPOSER (SNAPCHAT / iMESSAGE TOOLBAR) */}
               <div className="p-3 sm:p-4 bg-slate-900/95 border-t border-slate-800 shadow-xl shrink-0">
-                {/* Voice Note Recording Live Bar */}
+                {/* Voice Note Recording Live Bar (WhatsApp Authentic Style) */}
                 {isRecordingVoice ? (
-                  <div className="flex items-center justify-between p-3.5 bg-gradient-to-r from-rose-950/80 via-slate-900 to-rose-950/80 border border-rose-500/60 rounded-2xl shadow-xl animate-in fade-in">
-                    <div className="flex items-center gap-3">
-                      <div className="relative flex items-center justify-center">
-                        <span className="w-3.5 h-3.5 rounded-full bg-rose-500 animate-ping absolute" />
-                        <span className="w-3 h-3 rounded-full bg-rose-600 relative" />
+                  <div className="flex items-center justify-between p-2.5 bg-slate-800/95 border border-slate-700/80 rounded-2xl shadow-xl animate-in fade-in">
+                    {/* Discard / Trash Can on the left */}
+                    <button
+                      type="button"
+                      onClick={handleCancelVoiceRecording}
+                      className="p-2 text-rose-400 hover:text-rose-300 hover:bg-rose-950/40 rounded-full transition-colors cursor-pointer shrink-0"
+                      title="Discard Voice Note"
+                    >
+                      <Trash2 className="w-5 h-5" />
+                    </button>
+
+                    {/* Center: Live Pulsing Mic, Timer and Soundwave */}
+                    <div className="flex items-center gap-2.5 flex-1 px-3 min-w-0">
+                      <div className="relative flex items-center justify-center shrink-0">
+                        <span className="w-3 h-3 rounded-full bg-rose-500 animate-ping absolute" />
+                        <span className="w-2.5 h-2.5 rounded-full bg-rose-600 relative" />
                       </div>
-                      
-                      <div className="space-y-0.5">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-black text-rose-300 font-mono">
-                            0:{String(recordingSeconds).padStart(2, '0')}
-                          </span>
-                          <span className="text-[11px] font-bold text-slate-200">
-                            Recording Real Voice Note...
-                          </span>
-                        </div>
-                        {/* Live pulsating microphone waveform bars */}
-                        <div className="flex items-center gap-0.5 h-3">
-                          {[40, 80, 55, 90, 65, 100, 75, 95, 50, 85, 60, 90].map((h, i) => (
-                            <span 
-                              key={i} 
-                              style={{ height: `${Math.max(25, (h + (i % 3) * 20) % 100)}%` }} 
-                              className="w-1 rounded-full bg-rose-400 animate-pulse" 
-                            />
-                          ))}
-                        </div>
+
+                      <span className="text-xs sm:text-sm font-black text-white font-mono tracking-wider shrink-0">
+                        0:{String(recordingSeconds).padStart(2, '0')}
+                      </span>
+
+                      {/* WhatsApp soundwave bars */}
+                      <div className="flex items-center gap-1 h-4 flex-1 max-w-[160px] overflow-hidden">
+                        {[40, 80, 55, 90, 65, 100, 75, 95, 50, 85, 60, 90, 70, 85, 45, 95].map((h, i) => (
+                          <span 
+                            key={i} 
+                            style={{ height: `${Math.max(25, (h + (i % 3) * 20) % 100)}%` }} 
+                            className="w-[2px] rounded-full bg-emerald-400 animate-pulse shrink-0" 
+                          />
+                        ))}
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={handleCancelVoiceRecording}
-                        className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-xl transition-colors cursor-pointer"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleStopAndSendVoiceRecording}
-                        className="px-4 py-1.5 bg-rose-600 hover:bg-rose-500 text-white text-xs font-black rounded-xl shadow-lg shadow-rose-600/30 flex items-center gap-1.5 transition-all cursor-pointer hover:scale-105"
-                      >
-                        <Send className="w-3.5 h-3.5" />
-                        <span>Send Exact Sound</span>
-                      </button>
-                    </div>
+                    {/* WhatsApp Green Circular Send Button */}
+                    <button
+                      type="button"
+                      onClick={handleStopAndSendVoiceRecording}
+                      className="w-10 h-10 bg-emerald-500 hover:bg-emerald-400 text-white rounded-full flex items-center justify-center shadow-lg shadow-emerald-500/30 transition-transform active:scale-95 cursor-pointer shrink-0"
+                      title="Send Voice Note"
+                    >
+                      <Send className="w-4 h-4 ml-0.5" />
+                    </button>
                   </div>
                 ) : (
                   <div>
