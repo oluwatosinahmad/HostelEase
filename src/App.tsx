@@ -110,6 +110,7 @@ function MainApp() {
 
   const [searchViewMode, setSearchViewMode] = useState<'list' | 'map'>('list');
   const [messagingTargetPropertyId, setMessagingTargetPropertyId] = useState<string | null>(null);
+  const [targetMapAddress, setTargetMapAddress] = useState<string>('');
 
   // Admin Direct Login State
   const [adminLoginEmail, setAdminLoginEmail] = useState('admin@hostelease.ng');
@@ -977,6 +978,7 @@ function MainApp() {
                   }}
                   comparedIds={comparedPropertyIds}
                   onShowToast={showToast}
+                  targetAddress={targetMapAddress}
                 />
               </div>
             ) : (
@@ -1136,6 +1138,15 @@ function MainApp() {
               setSelectedPropertyId(id);
             }}
             onShowToast={showToast}
+            onViewOnMap={(address) => {
+              setCurrentView('search');
+              setSearchViewMode('map');
+              setTargetMapAddress(address);
+              setTimeout(() => {
+                const mapEl = document.querySelector('input[placeholder*="Search house address"]');
+                mapEl?.scrollIntoView({ behavior: 'smooth' });
+              }, 150);
+            }}
           />
         )}
 
@@ -1539,6 +1550,16 @@ function MainApp() {
             onOpenAI={(prop) => handleOpenAI(prop)}
             isCompared={comparedPropertyIds.includes(selectedPropertyId)}
             onShowToast={showToast}
+            onViewOnMap={(address) => {
+              setSelectedPropertyId(null);
+              setCurrentView('search');
+              setSearchViewMode('map');
+              setTargetMapAddress(address);
+              setTimeout(() => {
+                const mapEl = document.querySelector('input[placeholder*="Search house address"]');
+                mapEl?.scrollIntoView({ behavior: 'smooth' });
+              }, 150);
+            }}
           />
         )}
       </Suspense>

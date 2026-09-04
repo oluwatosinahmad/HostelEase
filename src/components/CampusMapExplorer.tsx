@@ -16,11 +16,30 @@ import {
   Home,
   CheckCircle2,
   Bookmark,
-  MessageSquare
+  MessageSquare,
+  Search,
+  Compass,
+  Car,
+  Footprints,
+  Clock,
+  Locate,
+  Share2,
+  Copy,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 import { MapMarker, CampusLandmark, Area } from '../types/hostelEase';
 import { api } from '../services/api';
 import { formatNaira, formatDistance } from '../utils/formatters';
+import { 
+  geocodeAddress, 
+  computeRoute, 
+  getCurrentUserLocation, 
+  getGoogleMapsDirectionsUrl, 
+  getGoogleMapsPlaceUrl,
+  GeocodedPlace, 
+  RouteResult 
+} from '../services/mapService';
 
 interface CampusMapExplorerProps {
   filters: any;
@@ -30,6 +49,8 @@ interface CampusMapExplorerProps {
   onOpenConversation?: (propertyId: string) => void;
   comparedIds?: string[];
   onShowToast: (message: string, type?: 'success' | 'info' | 'error') => void;
+  initialSearchQuery?: string;
+  targetAddress?: string;
 }
 
 export const CampusMapExplorer: React.FC<CampusMapExplorerProps> = ({
@@ -39,20 +60,51 @@ export const CampusMapExplorer: React.FC<CampusMapExplorerProps> = ({
   onToggleCompare,
   onOpenConversation,
   comparedIds = [],
-  onShowToast
+  onShowToast,
+  initialSearchQuery = '',
+  targetAddress = ''
 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
+  const tileLayerRef = useRef<L.TileLayer | null>(null);
   const markersGroupRef = useRef<L.LayerGroup | null>(null);
   const landmarksGroupRef = useRef<L.LayerGroup | null>(null);
-  const routeLayerRef = useRef<L.Polyline | null>(null);
+  const searchPinLayerRef = useRef<L.Marker | null>(null);
+  const userLocationMarkerRef = useRef<L.LayerGroup | null>(null);
+  const routePolylineRef = useRef<L.Polyline | null>(null);
 
+  // Data & State
   const [markersData, setMarkersData] = useState<MapMarker[]>([]);
   const [landmarksData, setLandmarksData] = useState<CampusLandmark[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [selectedMarker, setSelectedMarker] = useState<MapMarker | null>(null);
   const [activeAreaFocus, setActiveAreaFocus] = useState<string>('all');
-  const [mapLayerType, setMapLayerType] = useState<'streets' | 'satellite'>('streets');
+  const [mapLayerType, setMapLayerType] = useState<'streets' | 'satellite' | 'terrain'>('streets');
+
+  // Google Maps Address Search & Location Pin State
+  const [searchQuery, setSearchQuery] = useState<string>(initialSearchQuery || targetAddress || '');
+  const [isSearchingAddress, setIsSearchingAddress] = useState<boolean>(false);
+  const [activePlace, setActivePlace] = useState<GeocodedPlace | null>(null);
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [locatingUser, setLocatingUser] = useState<boolean>(false);
+
+  // Directions & Routing State
+  const [showDirectionsPanel, setShowDirectionsPanel] = useState<boolean>(false);
+  const [travelMode, setTravelMode] = useState<'driving' | 'walking'>('driving');
+  const [activeRoute, setActiveRoute] = useState<RouteResult | null>(null);
+  const [calculatingRoute, setCalculatingRoute] = useState<boolean>(false);
+  const [showTurnSteps, setShowTurnSteps] = useState<boolean>(false);
+
+  // Quick Suggestion Pills
+  const POPULAR_SEARCH_SUGGESTIONS = [
+    'No. 59, Olubere Avenue, Oluyole, Ibadan',
+    'Under-G Road, Ogbomoso',
+    'Adenike Street, Ogbomoso',
+    'LAUTECH Main Campus Gate',
+    'Stadium Area, Ogbomoso',
+    'Bodija, Ibadan',
+    'Ring Road, Ibadan'
+  ];
 
   // Load Map Data
   useEffect(() => {
@@ -69,66 +121,264 @@ export const CampusMapExplorer: React.FC<CampusMapExplorerProps> = ({
       });
   }, [filters]);
 
+  // Google Maps Tile URLs
+  const GOOGLE_TILE_URLS = {
+    streets: 'https://mt1.google.com/vt/lyrs=m&hl=en&x={x}&y={y}&z={z}',
+    satellite: 'https://mt1.google.com/vt/lyrs=y&hl=en&x={x}&y={y}&z={z}', // Google Hybrid with street names and highway labels
+    terrain: 'https://mt1.google.com/vt/lyrs=p&hl=en&x={x}&y={y}&z={z}'
+  };
+
   // Initialize Map
   useEffect(() => {
     if (!mapContainerRef.current) return;
 
     if (!mapInstanceRef.current) {
-      // Create Leaflet Map centered on LAUTECH Campus
+      // Default center: LAUTECH Campus
       const map = L.map(mapContainerRef.current, {
         center: [8.1438, 4.2638],
         zoom: 14,
-        zoomControl: false
+        zoomControl: false,
+        attributionControl: false
       });
 
-      // OpenStreetMap Tiles (Fast, high-contrast, free)
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; OpenStreetMap contributors | LAUTECH Campus Edition',
-        maxZoom: 19
+      // Google Maps Tile Layer
+      const tileLayer = L.tileLayer(GOOGLE_TILE_URLS.streets, {
+        maxZoom: 20,
+        subdomains: ['mt0', 'mt1', 'mt2', 'mt3']
       }).addTo(map);
 
-      // Custom Zoom Controls
+      tileLayerRef.current = tileLayer;
+
+      // Custom Zoom Control placed top-right like Google Maps
       L.control.zoom({ position: 'bottomright' }).addTo(map);
 
-      // Marker & Landmark Layer Groups
+      // Layer Groups
       const markersGroup = L.layerGroup().addTo(map);
       const landmarksGroup = L.layerGroup().addTo(map);
+      const userLocGroup = L.layerGroup().addTo(map);
 
       markersGroupRef.current = markersGroup;
       landmarksGroupRef.current = landmarksGroup;
+      userLocationMarkerRef.current = userLocGroup;
       mapInstanceRef.current = map;
+
+      // Trigger user location check on load
+      getCurrentUserLocation().then(loc => {
+        setUserLocation(loc);
+        renderUserLocationDot(loc.lat, loc.lng, map, userLocGroup);
+      });
     }
 
     return () => {
-      // Keep map instance mounted across renders
+      // Clean cleanup on component unmount
     };
   }, []);
 
-  // Draw Route to LAUTECH Campus Gate when Marker is Selected
+  // Update Tile Layer when Layer Type Changes (Streets / Satellite / Terrain)
   useEffect(() => {
     const map = mapInstanceRef.current;
     if (!map) return;
 
-    if (routeLayerRef.current) {
-      map.removeLayer(routeLayerRef.current);
-      routeLayerRef.current = null;
+    if (tileLayerRef.current) {
+      map.removeLayer(tileLayerRef.current);
     }
 
-    if (selectedMarker) {
-      const lautechGate: [number, number] = [8.1438, 4.2638];
-      const hostelLoc: [number, number] = [selectedMarker.lat, selectedMarker.lng];
+    const newTileLayer = L.tileLayer(GOOGLE_TILE_URLS[mapLayerType], {
+      maxZoom: 20,
+      subdomains: ['mt0', 'mt1', 'mt2', 'mt3']
+    }).addTo(map);
 
-      const polyline = L.polyline([lautechGate, hostelLoc], {
-        color: '#10b981',
-        weight: 4,
-        opacity: 0.85,
-        dashArray: '8, 8',
-        lineCap: 'round'
+    tileLayerRef.current = newTileLayer;
+  }, [mapLayerType]);
+
+  // Handle Initial Search Query or Target Address if provided
+  useEffect(() => {
+    const queryToRun = initialSearchQuery || targetAddress;
+    if (queryToRun && mapInstanceRef.current) {
+      setSearchQuery(queryToRun);
+      handleSearchAddress(queryToRun);
+    }
+  }, [initialSearchQuery, targetAddress]);
+
+  // Render User Current GPS Location Dot (Google Maps Blue Pulse Dot)
+  const renderUserLocationDot = (lat: number, lng: number, map: L.Map, group: L.LayerGroup) => {
+    group.clearLayers();
+
+    // Pulse Circle + Blue Dot
+    const userLocationIcon = L.divIcon({
+      className: 'google-user-location-marker',
+      html: `
+        <div class="relative flex items-center justify-center w-8 h-8 -translate-x-1/2 -translate-y-1/2">
+          <span class="absolute w-8 h-8 rounded-full bg-blue-500/25 animate-ping"></span>
+          <span class="absolute w-5 h-5 rounded-full bg-blue-500/30 border border-blue-400"></span>
+          <span class="relative w-3.5 h-3.5 rounded-full bg-blue-600 border-2 border-white shadow-lg"></span>
+        </div>
+      `,
+      iconSize: [32, 32],
+      iconAnchor: [16, 16]
+    });
+
+    const marker = L.marker([lat, lng], { icon: userLocationIcon });
+    marker.bindTooltip('<strong>You Are Here</strong><br><span class="text-[10px] text-slate-500">Your Current GPS Location</span>', {
+      direction: 'top',
+      className: 'custom-leaflet-tooltip'
+    });
+    group.addLayer(marker);
+  };
+
+  // Re-center on User Current Location
+  const handleLocateMe = async () => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+
+    setLocatingUser(true);
+    try {
+      const loc = await getCurrentUserLocation();
+      setUserLocation(loc);
+      if (userLocationMarkerRef.current) {
+        renderUserLocationDot(loc.lat, loc.lng, map, userLocationMarkerRef.current);
+      }
+      map.flyTo([loc.lat, loc.lng], 16, { duration: 1.2 });
+      onShowToast('Centered on your current location', 'info');
+    } catch {
+      onShowToast('Could not retrieve GPS location', 'error');
+    } finally {
+      setLocatingUser(false);
+    }
+  };
+
+  // Search Address / Paste Address (Google Maps Experience)
+  const handleSearchAddress = async (customQuery?: string) => {
+    const textToSearch = (customQuery || searchQuery).trim();
+    if (!textToSearch) return;
+
+    const map = mapInstanceRef.current;
+    if (!map) return;
+
+    setIsSearchingAddress(true);
+    try {
+      const place = await geocodeAddress(textToSearch);
+      if (!place) {
+        onShowToast(`Could not find location for "${textToSearch}"`, 'error');
+        setIsSearchingAddress(false);
+        return;
+      }
+
+      setActivePlace(place);
+      setSelectedMarker(null); // Clear selected hostel marker
+
+      // 1. Remove previous searched pin
+      if (searchPinLayerRef.current) {
+        map.removeLayer(searchPinLayerRef.current);
+        searchPinLayerRef.current = null;
+      }
+
+      // 2. Drop authentic Google Maps Red Drop-Pin with House Symbol
+      const googleRedPinIcon = L.divIcon({
+        className: 'google-maps-red-pin',
+        html: `
+          <div class="relative flex flex-col items-center cursor-pointer group transform -translate-x-1/2 -translate-y-full hover:scale-110 transition-transform">
+            <!-- Pin Head with House Icon -->
+            <div class="w-10 h-10 rounded-full bg-gradient-to-br from-red-500 to-rose-600 border-2 border-white shadow-2xl flex items-center justify-center text-white ring-4 ring-red-500/20">
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 fill-current" viewBox="0 0 24 24">
+                <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/>
+              </svg>
+            </div>
+            <!-- Pin Pointer Stem -->
+            <div class="w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[8px] border-t-rose-600 -mt-0.5"></div>
+            <!-- Pin Shadow -->
+            <div class="w-4 h-1.5 bg-black/30 rounded-full blur-[1px] -mt-0.5"></div>
+          </div>
+        `,
+        iconSize: [40, 48],
+        iconAnchor: [20, 46]
+      });
+
+      const pinMarker = L.marker([place.lat, place.lng], { icon: googleRedPinIcon });
+      pinMarker.bindTooltip(`
+        <div class="p-1 space-y-0.5">
+          <strong class="text-xs text-slate-900 font-black">🏠 ${place.streetName || place.displayName.split(',')[0]}</strong>
+          <p class="text-[10px] text-slate-600">${place.formattedAddress}</p>
+        </div>
+      `, {
+        direction: 'top',
+        className: 'custom-leaflet-tooltip',
+        offset: [0, -45]
+      });
+
+      pinMarker.addTo(map);
+      searchPinLayerRef.current = pinMarker;
+
+      // 3. Smooth animated flyTo zoom down to street level (Zoom 17-18 shows full street names)
+      map.flyTo([place.lat, place.lng], 17, {
+        duration: 1.5,
+        easeLinearity: 0.25
+      });
+
+      onShowToast(`Located: ${place.streetName || place.displayName.slice(0, 45)}`, 'success');
+
+      // 4. If directions panel is active or user location exists, compute route immediately
+      if (userLocation) {
+        handleComputeDirections(userLocation, { lat: place.lat, lng: place.lng });
+      }
+    } catch (err) {
+      console.error('Search address error:', err);
+      onShowToast('Failed to find address', 'error');
+    } finally {
+      setIsSearchingAddress(false);
+    }
+  };
+
+  // Compute Live Driving or Walking Route from Origin to Destination
+  const handleComputeDirections = async (
+    origin: { lat: number; lng: number },
+    destination: { lat: number; lng: number }
+  ) => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+
+    setCalculatingRoute(true);
+    try {
+      const route = await computeRoute(origin, destination, travelMode);
+      setActiveRoute(route);
+      setShowDirectionsPanel(true);
+
+      // Remove existing route polyline
+      if (routePolylineRef.current) {
+        map.removeLayer(routePolylineRef.current);
+        routePolylineRef.current = null;
+      }
+
+      // Render Google Maps Cobalt Blue Polyline
+      const polyline = L.polyline(route.coordinates, {
+        color: '#1a73e8', // Authentic Google Maps Blue
+        weight: 6,
+        opacity: 0.9,
+        lineCap: 'round',
+        lineJoin: 'round'
       }).addTo(map);
 
-      routeLayerRef.current = polyline;
+      routePolylineRef.current = polyline;
+
+      // Fit map bounds to show both origin ("Where I Am") and destination ("Where I Am Going")
+      const bounds = L.latLngBounds(route.coordinates);
+      map.fitBounds(bounds, { padding: [60, 60], maxZoom: 17 });
+    } catch (err) {
+      console.error('Failed to compute route:', err);
+      onShowToast('Could not calculate route', 'error');
+    } finally {
+      setCalculatingRoute(false);
     }
-  }, [selectedMarker]);
+  };
+
+  // Recalculate route when travel mode changes
+  useEffect(() => {
+    if (activePlace && userLocation && showDirectionsPanel) {
+      handleComputeDirections(userLocation, { lat: activePlace.lat, lng: activePlace.lng });
+    } else if (selectedMarker && userLocation && showDirectionsPanel) {
+      handleComputeDirections(userLocation, { lat: selectedMarker.lat, lng: selectedMarker.lng });
+    }
+  }, [travelMode]);
 
   // Update Markers & Landmarks on Map
   useEffect(() => {
@@ -188,7 +438,13 @@ export const CampusMapExplorer: React.FC<CampusMapExplorerProps> = ({
 
       marker.on('click', () => {
         setSelectedMarker(m);
+        setActivePlace(null);
         map.panTo([m.lat, m.lng], { animate: true, duration: 0.6 });
+
+        // If user location is known, compute route to this hostel
+        if (userLocation) {
+          handleComputeDirections(userLocation, { lat: m.lat, lng: m.lng });
+        }
       });
 
       markersGroupRef.current?.addLayer(marker);
@@ -208,7 +464,6 @@ export const CampusMapExplorer: React.FC<CampusMapExplorerProps> = ({
       if (area.centerLat && area.centerLng) {
         map.setView([area.centerLat, area.centerLng], 15, { animate: true });
       } else {
-        // Fallback matching markers
         const areaMarkers = markersData.filter(m => m.area.id === area.id);
         if (areaMarkers.length > 0) {
           map.setView([areaMarkers[0].lat, areaMarkers[0].lng], 15, { animate: true });
@@ -217,78 +472,407 @@ export const CampusMapExplorer: React.FC<CampusMapExplorerProps> = ({
     }
   };
 
+  // Clear current route and search pin
+  const handleClearRouteAndSearch = () => {
+    const map = mapInstanceRef.current;
+    if (map) {
+      if (routePolylineRef.current) {
+        map.removeLayer(routePolylineRef.current);
+        routePolylineRef.current = null;
+      }
+      if (searchPinLayerRef.current) {
+        map.removeLayer(searchPinLayerRef.current);
+        searchPinLayerRef.current = null;
+      }
+    }
+    setActivePlace(null);
+    setSelectedMarker(null);
+    setActiveRoute(null);
+    setShowDirectionsPanel(false);
+    setSearchQuery('');
+  };
+
   return (
-    <div className="relative w-full h-[650px] sm:h-[720px] rounded-3xl overflow-hidden border border-slate-200 shadow-xl bg-slate-100">
+    <div className="relative w-full h-[680px] sm:h-[750px] rounded-3xl overflow-hidden border border-slate-300 dark:border-slate-800 shadow-2xl bg-slate-100 font-sans">
       {/* Map Container */}
       <div ref={mapContainerRef} className="w-full h-full z-0" />
 
-      {/* Top Floating Controls: Area Quick Focus Selector */}
-      <div className="absolute top-4 left-4 right-4 z-10 flex items-center justify-between gap-2 pointer-events-none">
-        <div className="flex items-center gap-1.5 overflow-x-auto py-1 px-2 bg-white/90 backdrop-blur-md rounded-2xl shadow-lg border border-slate-200/80 pointer-events-auto max-w-full">
-          <button
-            onClick={() => handleAreaFocus('all')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
-              activeAreaFocus === 'all'
-                ? 'bg-slate-900 text-white shadow-sm'
-                : 'text-slate-700 hover:bg-slate-100'
-            }`}
-          >
-            🏫 LAUTECH Campus
-          </button>
+      {/* ========================================================================= */}
+      {/* TOP FLOATING GOOGLE MAPS SEARCH BAR & CONTROLS                            */}
+      {/* ========================================================================= */}
+      <div className="absolute top-4 left-4 right-4 z-20 flex flex-col gap-2 max-w-xl pointer-events-auto">
+        {/* Google Maps Search Box */}
+        <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 flex items-center p-1.5 gap-2 transition-shadow focus-within:shadow-2xl focus-within:border-blue-500">
+          <div className="pl-2.5 text-slate-400">
+            <Search className="w-4 h-4 text-blue-600" />
+          </div>
 
-          {areas.slice(0, 7).map(a => (
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                handleSearchAddress();
+              }
+            }}
+            placeholder="Search house address or paste e.g. No. 59, Olubere Avenue, Oluyole, Ibadan..."
+            className="flex-1 bg-transparent text-xs sm:text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none py-1.5 font-medium"
+          />
+
+          {searchQuery && (
             <button
-              key={a.id}
-              onClick={() => handleAreaFocus(a)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
-                activeAreaFocus === a.id
-                  ? 'bg-emerald-600 text-white shadow-sm'
-                  : 'text-slate-700 hover:bg-slate-100'
-              }`}
+              type="button"
+              onClick={() => {
+                setSearchQuery('');
+                handleClearRouteAndSearch();
+              }}
+              className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-white rounded-full transition-colors cursor-pointer"
+              title="Clear search"
             >
-              📍 {a.name}
+              <X className="w-3.5 h-3.5" />
             </button>
-          ))}
+          )}
+
+          <button
+            type="button"
+            onClick={() => handleSearchAddress()}
+            disabled={isSearchingAddress || !searchQuery.trim()}
+            className="px-4 py-2 bg-[#1a73e8] hover:bg-blue-700 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center gap-1.5 cursor-pointer shrink-0"
+          >
+            {isSearchingAddress ? (
+              <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <Navigation className="w-3.5 h-3.5 rotate-45" />
+            )}
+            <span>Locate</span>
+          </button>
         </div>
 
-        {/* Recenter Button */}
+        {/* Quick Suggestion Pills (Address Samples) */}
+        {!activePlace && !selectedMarker && (
+          <div className="flex items-center gap-1.5 overflow-x-auto py-1 px-1 scrollbar-none">
+            <span className="text-[10px] font-black uppercase text-slate-600 dark:text-slate-300 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md px-2 py-1 rounded-lg shrink-0 shadow-sm">
+              Try:
+            </span>
+            {POPULAR_SEARCH_SUGGESTIONS.map((sug, idx) => (
+              <button
+                key={idx}
+                type="button"
+                onClick={() => {
+                  setSearchQuery(sug);
+                  handleSearchAddress(sug);
+                }}
+                className="px-2.5 py-1 bg-white/95 dark:bg-slate-900/95 hover:bg-blue-50 dark:hover:bg-blue-950/40 text-slate-700 dark:text-slate-200 hover:text-blue-600 border border-slate-200 dark:border-slate-700 rounded-xl text-[11px] font-medium whitespace-nowrap shadow-sm transition-colors cursor-pointer shrink-0"
+              >
+                📍 {sug}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* ========================================================================= */}
+      {/* TOP-RIGHT MAP CONTROLS: LAYER TYPE & GPS LOCATE ME                        */}
+      {/* ========================================================================= */}
+      <div className="absolute top-4 right-4 z-10 hidden sm:flex flex-col gap-2 pointer-events-auto">
+        {/* Google Maps Layer Switcher: Map vs Satellite */}
+        <div className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-md rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 p-1 flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => setMapLayerType('streets')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              mapLayerType === 'streets'
+                ? 'bg-[#1a73e8] text-white shadow-sm'
+                : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+            }`}
+          >
+            🗺️ Map
+          </button>
+          <button
+            type="button"
+            onClick={() => setMapLayerType('satellite')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              mapLayerType === 'satellite'
+                ? 'bg-[#1a73e8] text-white shadow-sm'
+                : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+            }`}
+          >
+            🛰️ Satellite
+          </button>
+          <button
+            type="button"
+            onClick={() => setMapLayerType('terrain')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              mapLayerType === 'terrain'
+                ? 'bg-[#1a73e8] text-white shadow-sm'
+                : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+            }`}
+          >
+            🏔️ Terrain
+          </button>
+        </div>
+
+        {/* GPS Locate Me Button */}
         <button
-          onClick={() => handleAreaFocus('all')}
-          className="p-2.5 bg-white/95 backdrop-blur-md text-slate-800 rounded-2xl shadow-lg border border-slate-200 pointer-events-auto hover:bg-slate-50 transition-colors flex items-center gap-1 font-bold text-xs"
-          title="Re-center on LAUTECH Campus"
+          type="button"
+          onClick={handleLocateMe}
+          disabled={locatingUser}
+          className="self-end p-3 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md text-slate-800 dark:text-white rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 hover:bg-blue-50 dark:hover:bg-slate-800 transition-colors flex items-center gap-1.5 font-bold text-xs cursor-pointer"
+          title="Zoom to My Current Location"
         >
-          <Navigation className="w-4 h-4 text-emerald-600" />
-          <span className="hidden sm:inline">Center</span>
+          <Locate className={`w-4 h-4 text-blue-600 ${locatingUser ? 'animate-spin' : ''}`} />
+          <span className="hidden md:inline">My Location</span>
         </button>
       </div>
 
-      {/* Loading Overlay */}
-      {loading && (
-        <div className="absolute inset-0 z-20 bg-white/60 backdrop-blur-xs flex items-center justify-center">
-          <div className="bg-slate-900 text-white px-4 py-2.5 rounded-2xl shadow-xl flex items-center gap-2 text-xs font-bold animate-pulse">
-            <Layers className="w-4 h-4 text-emerald-400 animate-spin" />
-            Loading LAUTECH Accommodations Map...
+      {/* ========================================================================= */}
+      {/* GOOGLE MAPS WATERMARK (Authentic Look & Terms Compliance)                 */}
+      {/* ========================================================================= */}
+      <div className="absolute bottom-2 left-3 z-10 pointer-events-none flex items-center gap-2">
+        <div className="bg-white/85 dark:bg-slate-900/85 backdrop-blur-xs px-2.5 py-1 rounded-md shadow border border-slate-300 dark:border-slate-700 flex items-center gap-1.5">
+          <span className="text-[11px] font-black tracking-tight text-slate-800 dark:text-slate-200">
+            <span className="text-[#4285F4]">G</span>
+            <span className="text-[#EA4335]">o</span>
+            <span className="text-[#FBBC05]">o</span>
+            <span className="text-[#4285F4]">g</span>
+            <span className="text-[#34A853]">l</span>
+            <span className="text-[#EA4335]">e</span> Maps Edition
+          </span>
+          <span className="text-[9px] text-slate-400">• Street & Satellite Data</span>
+        </div>
+      </div>
+
+      {/* ========================================================================= */}
+      {/* GOOGLE MAPS DIRECTIONS & ROUTING DRAWER ("Where I Am" vs "Where I Go")     */}
+      {/* ========================================================================= */}
+      {showDirectionsPanel && (activePlace || selectedMarker) && (
+        <div className="absolute top-20 right-4 left-4 sm:left-auto sm:w-[380px] z-30 animate-in slide-in-from-right-4 duration-200">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl p-4 sm:p-5 shadow-2xl border-2 border-blue-500/40 space-y-3 relative">
+            <button
+              onClick={() => setShowDirectionsPanel(false)}
+              className="absolute top-3 right-3 p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-white bg-slate-100 dark:bg-slate-800 rounded-full transition-colors cursor-pointer"
+              title="Close Directions"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+
+            {/* Travel Mode Toggle (Driving vs Walking) */}
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-black uppercase tracking-wider text-blue-600">
+                Route & Navigation:
+              </span>
+              <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
+                <button
+                  type="button"
+                  onClick={() => setTravelMode('driving')}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1 transition-all cursor-pointer ${
+                    travelMode === 'driving' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-600 dark:text-slate-300'
+                  }`}
+                >
+                  <Car className="w-3.5 h-3.5" />
+                  <span>Drive</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTravelMode('walking')}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1 transition-all cursor-pointer ${
+                    travelMode === 'walking' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-600 dark:text-slate-300'
+                  }`}
+                >
+                  <Footprints className="w-3.5 h-3.5" />
+                  <span>Walk</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Origin & Destination Addresses */}
+            <div className="space-y-2 bg-slate-50 dark:bg-slate-850 p-3 rounded-2xl border border-slate-200 dark:border-slate-800 text-xs">
+              <div className="flex items-start gap-2">
+                <div className="w-3 h-3 rounded-full bg-blue-600 border-2 border-white ring-2 ring-blue-500/30 mt-0.5 shrink-0" />
+                <div className="min-w-0 flex-1">
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">From (Your Location):</span>
+                  <p className="font-bold text-slate-900 dark:text-white truncate">
+                    {userLocation ? '📍 Your Current GPS Location' : '🏫 LAUTECH Campus Gate'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="border-l-2 border-dashed border-slate-300 dark:border-slate-700 ml-1.5 h-3 my-0.5" />
+
+              <div className="flex items-start gap-2">
+                <div className="w-3.5 h-3.5 text-red-600 mt-0.5 shrink-0">
+                  <MapPin className="w-3.5 h-3.5 fill-current" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">To (Destination House):</span>
+                  <p className="font-bold text-slate-900 dark:text-white truncate">
+                    {activePlace ? activePlace.displayName : selectedMarker?.title}
+                  </p>
+                  <p className="text-[10px] text-slate-500 truncate">
+                    {activePlace ? activePlace.formattedAddress : `${selectedMarker?.area.name}, Ogbomoso`}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Distance & Travel Time Metric Card */}
+            {activeRoute ? (
+              <div className="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-950/40 rounded-2xl border border-blue-200 dark:border-blue-900/50">
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-1 text-base font-black text-blue-700 dark:text-blue-300">
+                    <Clock className="w-4 h-4" />
+                    <span>{activeRoute.durationMinutes} mins</span>
+                  </div>
+                  <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300">
+                    {activeRoute.distanceKm} km via road network
+                  </span>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setShowTurnSteps(!showTurnSteps)}
+                  className="px-2.5 py-1 text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/60 rounded-xl transition-colors flex items-center gap-1 cursor-pointer"
+                >
+                  <span>Steps</span>
+                  {showTurnSteps ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                </button>
+              </div>
+            ) : calculatingRoute ? (
+              <div className="p-3 text-center text-xs font-bold text-blue-600 flex items-center justify-center gap-2">
+                <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                Calculating fastest route...
+              </div>
+            ) : null}
+
+            {/* Step-by-Step Directions */}
+            {showTurnSteps && activeRoute && (
+              <div className="max-h-36 overflow-y-auto space-y-1 p-2 bg-slate-50 dark:bg-slate-800/80 rounded-2xl text-[11px] border border-slate-200 dark:border-slate-700">
+                {activeRoute.steps.map((step, idx) => (
+                  <div key={idx} className="flex items-start gap-2 py-0.5">
+                    <span className="w-4 h-4 rounded-full bg-blue-600 text-white font-bold text-[9px] flex items-center justify-center shrink-0 mt-0.5">
+                      {idx + 1}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium text-slate-800 dark:text-slate-200">{step.instruction}</p>
+                      <span className="text-[9px] text-slate-400">{step.distanceKm} km</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Launch Turn-by-Turn in Official Google Maps App */}
+            <div className="flex items-center gap-2 pt-1">
+              <a
+                href={getGoogleMapsDirectionsUrl(
+                  userLocation || { lat: 8.1438, lng: 4.2638 },
+                  activePlace ? { lat: activePlace.lat, lng: activePlace.lng } : { lat: selectedMarker?.lat || 8.1438, lng: selectedMarker?.lng || 4.2638 },
+                  travelMode === 'walking' ? 'walking' : 'driving'
+                )}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 py-2.5 bg-[#1a73e8] hover:bg-blue-700 text-white font-black text-xs rounded-xl shadow-lg transition-all flex items-center justify-center gap-1.5 text-center cursor-pointer"
+              >
+                <Compass className="w-4 h-4" />
+                <span>Start Live in Google Maps</span>
+              </a>
+
+              <button
+                type="button"
+                onClick={() => {
+                  const targetCoord = activePlace ? `${activePlace.lat},${activePlace.lng}` : `${selectedMarker?.lat},${selectedMarker?.lng}`;
+                  navigator.clipboard.writeText(targetCoord);
+                  onShowToast('GPS Coordinates copied to clipboard', 'success');
+                }}
+                className="p-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-200 rounded-xl transition-colors cursor-pointer"
+                title="Copy Coordinates"
+              >
+                <Copy className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         </div>
       )}
 
-      {/* Bottom Floating Legend / Quick Counter */}
-      <div className="absolute bottom-4 left-4 z-10 hidden sm:flex items-center gap-3 px-3.5 py-2 bg-slate-950/85 backdrop-blur-md text-white rounded-2xl shadow-lg text-[11px] font-semibold border border-slate-800">
-        <span className="flex items-center gap-1.5 text-emerald-400">
-          <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
-          {markersData.length} Hostels Found
-        </span>
-        <span>•</span>
-        <span className="text-slate-300">Tap any price pin for lodge preview</span>
-      </div>
+      {/* ========================================================================= */}
+      {/* SEARCHED HOUSE / PLACE PREVIEW CARD (When address found)                  */}
+      {/* ========================================================================= */}
+      {activePlace && !showDirectionsPanel && (
+        <div className="absolute bottom-4 right-4 left-4 sm:left-auto sm:w-[380px] z-30 animate-in slide-in-from-bottom-4 duration-200">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl p-5 shadow-2xl border-2 border-red-500/40 space-y-3 relative">
+            <button
+              onClick={() => setActivePlace(null)}
+              className="absolute top-3 right-3 p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-white bg-slate-100 dark:bg-slate-800 rounded-full transition-colors cursor-pointer"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
 
-      {/* Selected Hostel Preview Card Modal / Floating Drawer */}
-      {selectedMarker && (
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-red-100 dark:bg-red-950/80 text-red-600 flex items-center justify-center shrink-0 shadow-inner">
+                <MapPin className="w-5 h-5 fill-current" />
+              </div>
+              <div className="min-w-0 space-y-0.5">
+                <span className="text-[10px] font-black uppercase text-red-600 bg-red-50 dark:bg-red-950/60 px-2 py-0.5 rounded-md">
+                  House / Street Location
+                </span>
+                <h4 className="font-black text-sm text-slate-900 dark:text-white truncate pt-0.5">
+                  {activePlace.streetName || activePlace.displayName.split(',')[0]}
+                </h4>
+                <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2">
+                  {activePlace.formattedAddress}
+                </p>
+                <p className="text-[10px] font-mono text-slate-400">
+                  📍 {activePlace.lat.toFixed(5)}° N, {activePlace.lng.toFixed(5)}° E
+                </p>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex items-center gap-2 pt-1 border-t border-slate-100 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={() => {
+                  if (userLocation) {
+                    handleComputeDirections(userLocation, { lat: activePlace.lat, lng: activePlace.lng });
+                  } else {
+                    getCurrentUserLocation().then(loc => {
+                      setUserLocation(loc);
+                      handleComputeDirections(loc, { lat: activePlace.lat, lng: activePlace.lng });
+                    });
+                  }
+                }}
+                className="flex-1 py-2.5 bg-[#1a73e8] hover:bg-blue-700 text-white font-black text-xs rounded-xl shadow-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <Navigation className="w-3.5 h-3.5" />
+                <span>Get Directions</span>
+              </button>
+
+              <a
+                href={getGoogleMapsPlaceUrl({ lat: activePlace.lat, lng: activePlace.lng }, activePlace.displayName)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-3.5 py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-white font-bold text-xs rounded-xl transition-colors flex items-center gap-1 cursor-pointer"
+                title="Open in Google Maps"
+              >
+                <ExternalLink className="w-3.5 h-3.5" />
+                <span>Google Maps</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* SELECTED HOSTEL PREVIEW DRAWER (When hostel pin clicked)                  */}
+      {/* ========================================================================= */}
+      {selectedMarker && !showDirectionsPanel && (
         <div className="absolute bottom-4 right-4 left-4 sm:left-auto sm:w-96 z-30 animate-in fade-in slide-in-from-bottom-4 duration-200">
-          <div className="bg-white rounded-3xl p-4 sm:p-5 shadow-2xl border-2 border-emerald-500/40 space-y-3 relative">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl p-4 sm:p-5 shadow-2xl border-2 border-emerald-500/40 space-y-3 relative">
             <button
               onClick={() => setSelectedMarker(null)}
-              className="absolute top-3 right-3 p-1 text-slate-400 hover:text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-full transition-colors"
+              className="absolute top-3 right-3 p-1 text-slate-400 hover:text-slate-700 dark:hover:text-white bg-slate-100 dark:bg-slate-800 rounded-full transition-colors cursor-pointer"
             >
               <X className="w-4 h-4" />
             </button>
@@ -314,15 +898,10 @@ export const CampusMapExplorer: React.FC<CampusMapExplorerProps> = ({
                   )}
                 </div>
 
-                <h4 className="font-bold text-xs text-slate-900 truncate">{selectedMarker.title}</h4>
-                <p className="text-[11px] text-slate-500">📍 {selectedMarker.area.name} • {formatDistance(selectedMarker.distanceKm)} from Campus</p>
-                <div className="flex items-center gap-2 text-[10px] font-bold text-emerald-800 bg-emerald-50 px-2 py-1 rounded-lg border border-emerald-100 mt-1">
-                  <span>🚶 {Math.max(3, Math.round(selectedMarker.distanceKm * 14))}m walk</span>
-                  <span>•</span>
-                  <span>🚴 {Math.max(2, Math.round(selectedMarker.distanceKm * 4))}m bike</span>
-                </div>
+                <h4 className="font-bold text-xs text-slate-900 dark:text-white truncate">{selectedMarker.title}</h4>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">📍 {selectedMarker.area.name} • {formatDistance(selectedMarker.distanceKm)} from Campus</p>
                 <div className="pt-1 flex items-baseline gap-1">
-                  <span className="text-sm font-black text-emerald-700">{formatNaira(selectedMarker.rentAmount)}</span>
+                  <span className="text-sm font-black text-emerald-700 dark:text-emerald-400">{formatNaira(selectedMarker.rentAmount)}</span>
                   <span className="text-[10px] text-slate-400 font-medium">/yr</span>
                 </div>
               </div>
@@ -331,8 +910,27 @@ export const CampusMapExplorer: React.FC<CampusMapExplorerProps> = ({
             {/* Quick Actions */}
             <div className="flex items-center gap-2 pt-1">
               <button
+                type="button"
+                onClick={() => {
+                  if (userLocation) {
+                    handleComputeDirections(userLocation, { lat: selectedMarker.lat, lng: selectedMarker.lng });
+                  } else {
+                    getCurrentUserLocation().then(loc => {
+                      setUserLocation(loc);
+                      handleComputeDirections(loc, { lat: selectedMarker.lat, lng: selectedMarker.lng });
+                    });
+                  }
+                }}
+                className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow transition-colors flex items-center gap-1 cursor-pointer"
+                title="Get Directions from My Location"
+              >
+                <Navigation className="w-3.5 h-3.5" />
+                Directions
+              </button>
+
+              <button
                 onClick={() => onSelectProperty(selectedMarker.id)}
-                className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow transition-colors flex items-center justify-center gap-1"
+                className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow transition-colors flex items-center justify-center gap-1 cursor-pointer"
               >
                 <Eye className="w-3.5 h-3.5" /> View & Book
               </button>
@@ -340,25 +938,11 @@ export const CampusMapExplorer: React.FC<CampusMapExplorerProps> = ({
               {onOpenConversation && (
                 <button
                   onClick={() => onOpenConversation(selectedMarker.id)}
-                  className="px-3 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl shadow transition-colors flex items-center gap-1"
+                  className="px-3 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl shadow transition-colors flex items-center gap-1 cursor-pointer"
                   title="Message Landlord"
                 >
                   <MessageSquare className="w-3.5 h-3.5 text-emerald-400" />
                   Chat
-                </button>
-              )}
-
-              {onToggleCompare && (
-                <button
-                  onClick={() => onToggleCompare(selectedMarker.id)}
-                  className={`px-3 py-2 text-xs font-bold rounded-xl border transition-all flex items-center gap-1 ${
-                    comparedIds.includes(selectedMarker.id)
-                      ? 'bg-purple-100 text-purple-900 border-purple-300'
-                      : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
-                  }`}
-                >
-                  <SlidersHorizontal className="w-3.5 h-3.5" />
-                  {comparedIds.includes(selectedMarker.id) ? 'Comparing' : 'Compare'}
                 </button>
               )}
             </div>

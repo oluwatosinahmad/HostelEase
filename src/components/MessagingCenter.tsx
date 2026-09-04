@@ -58,6 +58,7 @@ interface MessagingCenterProps {
   onSelectProperty?: (propertyId: string) => void;
   onRequestInspection?: (propertyId: string) => void;
   onShowToast: (message: string, type?: 'success' | 'info' | 'error') => void;
+  onViewOnMap?: (address: string) => void;
 }
 
 // Preset photo snaps for instant room inspection sharing
@@ -90,7 +91,8 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
   initialPropertyId,
   onSelectProperty,
   onRequestInspection,
-  onShowToast
+  onShowToast,
+  onViewOnMap
 }) => {
   const { user } = useAuth();
   const isStudent = user?.role === 'STUDENT';
@@ -1175,6 +1177,21 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
                       <span>Inspect Details</span>
                     </button>
 
+                    {onViewOnMap && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const addr = activeDetail.conversation.property.address || activeDetail.conversation.property.areaName || '';
+                          onViewOnMap(addr);
+                        }}
+                        className="px-2.5 py-1 text-[11px] font-bold text-sky-300 hover:text-white bg-sky-950/80 hover:bg-sky-900/80 border border-sky-500/40 rounded-xl flex items-center gap-1 whitespace-nowrap transition-colors cursor-pointer"
+                        title="View Location on Google Maps"
+                      >
+                        <MapPin className="w-3.5 h-3.5 text-sky-400" />
+                        <span>Google Map</span>
+                      </button>
+                    )}
+
                     {onSelectProperty && (
                       <button
                         onClick={() => onSelectProperty(activeDetail.conversation.property.id)}
@@ -1563,7 +1580,33 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
 
                             {/* 4. REGULAR TEXT CONTENT */}
                             {!isImage && !isAudio && !isPasscode && (
-                              <p className="leading-relaxed whitespace-pre-wrap">{msg.content}</p>
+                              <div className="space-y-1.5">
+                                <p className="leading-relaxed whitespace-pre-wrap">{msg.content}</p>
+                                {onViewOnMap && /(?:no\.?\s*\d+|street|avenue|road|close|crescent|lane|ibadan|ogbomoso|oluyole|bodija|olubere|under-?g|adenike|stadium)/i.test(msg.content) && (
+                                  <div className="pt-1">
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        let addr = msg.content;
+                                        const match = addr.match(/(?:address(?:\s+is)?[:\s]+)?(no\.?\s*\d+[^,\n.]+(?:,[^,\n.]+)*)/i);
+                                        if (match && match[1]) {
+                                          addr = match[1].trim();
+                                        }
+                                        onViewOnMap(addr);
+                                      }}
+                                      className={`px-2.5 py-1 text-[10px] font-bold rounded-xl flex items-center gap-1.5 border transition-all cursor-pointer shadow-xs ${
+                                        isMe 
+                                          ? 'bg-emerald-800/80 text-emerald-100 border-emerald-400/40 hover:bg-emerald-700' 
+                                          : 'bg-sky-950/80 text-sky-200 border-sky-500/40 hover:bg-sky-900/90'
+                                      }`}
+                                      title="Open and track this address on Google Maps"
+                                    >
+                                      <MapPin className="w-3 h-3 text-sky-400 shrink-0" />
+                                      <span>Locate on Google Maps 🗺️</span>
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
                             )}
 
                             {/* Timestamp and Delivery Ticks (WhatsApp Cyan Checks when read) */}
