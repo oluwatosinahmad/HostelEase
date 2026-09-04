@@ -2603,6 +2603,89 @@ export const api = {
         if (res.ok) return await res.json();
       } catch {}
       return { message: 'User report submitted successfully.' };
+    },
+
+    async deleteMessage(conversationId: string, messageId: string): Promise<{ success: boolean; message: string }> {
+      try {
+        const res = await fetch(`${API_BASE}/messages/conversations/${conversationId}/messages/${messageId}`, {
+          method: 'DELETE',
+          headers: { ...getAuthHeader() }
+        });
+        if (res.ok) return await res.json();
+      } catch (err) {
+        console.warn('Backend deleteMessage unreachable, deleting locally.');
+      }
+
+      // Local storage update
+      const msgs = getLocalMessages(conversationId);
+      const filtered = msgs.filter(m => m.id !== messageId);
+      saveLocalMessages(conversationId, filtered);
+
+      // Update conversation's last message
+      const convs = getLocalConversations();
+      const updated = convs.map(c => {
+        if (c.id === conversationId) {
+          const last = filtered[filtered.length - 1];
+          return {
+            ...c,
+            lastMessageText: last ? last.content : 'No messages',
+            lastMessageAt: last ? last.createdAt : c.lastMessageAt
+          };
+        }
+        return c;
+      });
+      saveLocalConversations(updated);
+
+      return { success: true, message: 'Message deleted successfully' };
+    },
+
+    async clearChat(conversationId: string): Promise<{ success: boolean; message: string }> {
+      try {
+        const res = await fetch(`${API_BASE}/messages/conversations/${conversationId}/messages`, {
+          method: 'DELETE',
+          headers: { ...getAuthHeader() }
+        });
+        if (res.ok) return await res.json();
+      } catch (err) {
+        console.warn('Backend clearChat unreachable, clearing locally.');
+      }
+
+      saveLocalMessages(conversationId, []);
+      const convs = getLocalConversations();
+      const updated = convs.map(c => {
+        if (c.id === conversationId) {
+          return {
+            ...c,
+            lastMessageText: 'Chat cleared',
+            lastMessageAt: new Date().toISOString(),
+            unreadCount: 0
+          };
+        }
+        return c;
+      });
+      saveLocalConversations(updated);
+
+      return { success: true, message: 'Chat cleared successfully' };
+    },
+
+    async deleteConversation(conversationId: string): Promise<{ success: boolean; message: string }> {
+      try {
+        const res = await fetch(`${API_BASE}/messages/conversations/${conversationId}`, {
+          method: 'DELETE',
+          headers: { ...getAuthHeader() }
+        });
+        if (res.ok) return await res.json();
+      } catch (err) {
+        console.warn('Backend deleteConversation unreachable, deleting locally.');
+      }
+
+      // Remove messages and conversation from local storage
+      localStorage.removeItem(`hostel_ease_messages_${conversationId}`);
+      const convs = getLocalConversations();
+      const filtered = convs.filter(c => c.id !== conversationId);
+      saveLocalConversations(filtered);
+
+      return { success: true, message: 'Conversation deleted successfully' };
     }
   },
 

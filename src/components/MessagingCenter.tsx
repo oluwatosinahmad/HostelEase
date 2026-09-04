@@ -44,7 +44,8 @@ import {
   Download,
   Share2,
   Paperclip,
-  Trash2
+  Trash2,
+  MoreVertical
 } from 'lucide-react';
 import { ConversationItem, ConversationDetail, MessageItem, Property } from '../types/hostelEase';
 import { api } from '../services/api';
@@ -121,6 +122,18 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
   const [recordingSeconds, setRecordingSeconds] = useState<number>(0);
   const [copiedPasscodeId, setCopiedPasscodeId] = useState<string | null>(null);
 
+  // WhatsApp Features State
+  const [playbackSpeed, setPlaybackSpeed] = useState<number>(1);
+  const [showChatMenu, setShowChatMenu] = useState<boolean>(false);
+  const [showInChatSearch, setShowInChatSearch] = useState<boolean>(false);
+  const [inChatSearchQuery, setInChatSearchQuery] = useState<string>('');
+  const [confirmDeleteModal, setConfirmDeleteModal] = useState<{
+    type: 'DELETE_MESSAGE' | 'CLEAR_CHAT' | 'DELETE_CONVERSATION';
+    messageId?: string;
+    conversationId?: string;
+    targetName?: string;
+  } | null>(null);
+
   // Real Audio Recording & Playback References
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -154,6 +167,7 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
     if (audioUrl && audioUrl !== '#' && (audioUrl.startsWith('data:audio') || audioUrl.startsWith('http') || audioUrl.startsWith('blob:'))) {
       try {
         const audio = new Audio(audioUrl);
+        audio.playbackRate = playbackSpeed;
         currentAudioRef.current = audio;
 
         audio.ontimeupdate = () => {
@@ -620,6 +634,76 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
     }
   };
 
+  // WhatsApp Style Delete Message
+  const handleDeleteMessage = async (msgId: string) => {
+    if (!activeConversationId) return;
+    try {
+      await api.messages.deleteMessage(activeConversationId, msgId);
+      setActiveDetail(prev => {
+        if (!prev) return null;
+        const filtered = prev.messages.filter(m => m.id !== msgId);
+        return { ...prev, messages: filtered };
+      });
+      setConversations(prev => prev.map(c => {
+        if (c.id === activeConversationId) {
+          const remaining = (activeDetail?.messages || []).filter(m => m.id !== msgId);
+          const last = remaining[remaining.length - 1];
+          return {
+            ...c,
+            lastMessageText: last ? last.content : 'No messages',
+            lastMessageAt: last ? last.createdAt : c.lastMessageAt
+          };
+        }
+        return c;
+      }));
+      onShowToast('Message deleted', 'info');
+    } catch (err: any) {
+      onShowToast('Failed to delete message', 'error');
+    }
+    setConfirmDeleteModal(null);
+  };
+
+  // WhatsApp Style Clear Chat
+  const handleClearChat = async () => {
+    if (!activeConversationId) return;
+    try {
+      await api.messages.clearChat(activeConversationId);
+      setActiveDetail(prev => prev ? { ...prev, messages: [] } : null);
+      setConversations(prev => prev.map(c => {
+        if (c.id === activeConversationId) {
+          return {
+            ...c,
+            lastMessageText: 'Chat cleared',
+            lastMessageAt: new Date().toISOString()
+          };
+        }
+        return c;
+      }));
+      onShowToast('Chat cleared successfully', 'success');
+    } catch (err: any) {
+      onShowToast('Failed to clear chat', 'error');
+    }
+    setConfirmDeleteModal(null);
+    setShowChatMenu(false);
+  };
+
+  // WhatsApp Style Delete Conversation
+  const handleDeleteConversation = async (convId: string) => {
+    try {
+      await api.messages.deleteConversation(convId);
+      setConversations(prev => prev.filter(c => c.id !== convId));
+      if (activeConversationId === convId) {
+        setActiveConversationId(null);
+        setActiveDetail(null);
+      }
+      onShowToast('Conversation deleted', 'success');
+    } catch (err: any) {
+      onShowToast('Failed to delete conversation', 'error');
+    }
+    setConfirmDeleteModal(null);
+    setShowChatMenu(false);
+  };
+
   // Direct In-Chat Hostel Tour & Inspection Booking Submission
   const handleBookTourSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -786,7 +870,7 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
                         : hasUnread 
                         ? 'bg-amber-950/30 hover:bg-amber-950/50 border-amber-500/40' 
                         : 'hover:bg-slate-850 bg-slate-900/40 border-transparent'
-                    }`}
+                    } group/conv`}
                   >
                     {/* Avatar with Snapchat/iMessage Active Dot */}
                     <div className="relative shrink-0">
@@ -799,15 +883,33 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
                     </div>
 
                     <div className="flex-1 min-w-0 space-y-0.5">
-                      {/* Name & Timestamp */}
+                      {/* Name & Timestamp & Delete */}
                       <div className="flex items-center justify-between gap-1">
                         <span className="text-xs font-black text-white truncate flex items-center gap-1">
                           <span>{otherPartyName}</span>
                           {isStudent && <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0 inline" />}
                         </span>
-                        <span className="text-[10px] text-slate-400 shrink-0 font-bold">
-                          {conv.lastMessageAt ? new Date(conv.lastMessageAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
-                        </span>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <span className="text-[10px] text-slate-400 font-bold">
+                            {conv.lastMessageAt ? new Date(conv.lastMessageAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+                          </span>
+                          {/* WhatsApp Style Delete Conversation Button on hover */}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setConfirmDeleteModal({
+                                type: 'DELETE_CONVERSATION',
+                                conversationId: conv.id,
+                                targetName: otherPartyName
+                              });
+                            }}
+                            className="p-1 text-slate-500 hover:text-rose-400 hover:bg-rose-950/40 rounded-lg transition-all opacity-0 group-hover/conv:opacity-100 cursor-pointer"
+                            title="Delete Conversation"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </div>
 
                       {/* Property Title */}
@@ -921,15 +1023,128 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
                       <span className="hidden sm:inline">Passcode</span>
                     </button>
 
+                    {/* In-Chat Search Button */}
                     <button
-                      onClick={() => setReportModalOpen(true)}
-                      className="p-2 text-slate-400 hover:text-rose-400 hover:bg-rose-950/50 rounded-xl transition-colors cursor-pointer"
-                      title="Report User"
+                      type="button"
+                      onClick={() => setShowInChatSearch(!showInChatSearch)}
+                      className={`p-2 rounded-xl transition-colors cursor-pointer ${
+                        showInChatSearch ? 'text-emerald-400 bg-emerald-950/60' : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                      }`}
+                      title="Search in chat"
                     >
-                      <Flag className="w-4 h-4" />
+                      <Search className="w-4 h-4" />
                     </button>
+
+                    {/* WhatsApp 3-Dots More Options Menu */}
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={() => setShowChatMenu(!showChatMenu)}
+                        className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
+                        title="More chat options"
+                      >
+                        <MoreVertical className="w-4 h-4" />
+                      </button>
+
+                      {showChatMenu && (
+                        <div className="absolute right-0 top-11 z-30 w-48 bg-slate-850 border border-slate-700 rounded-2xl p-1.5 shadow-2xl backdrop-blur-md animate-in fade-in zoom-in-95 space-y-0.5">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setShowInChatSearch(true);
+                              setShowChatMenu(false);
+                            }}
+                            className="w-full px-3 py-2 text-left text-xs font-bold text-slate-200 hover:text-white hover:bg-slate-800 rounded-xl flex items-center gap-2 transition-colors cursor-pointer"
+                          >
+                            <Search className="w-3.5 h-3.5 text-emerald-400" />
+                            <span>Search in Chat</span>
+                          </button>
+
+                          {/* Clear Chat Option */}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setConfirmDeleteModal({
+                                type: 'CLEAR_CHAT',
+                                conversationId: activeConversationId
+                              });
+                              setShowChatMenu(false);
+                            }}
+                            className="w-full px-3 py-2 text-left text-xs font-bold text-amber-300 hover:text-amber-200 hover:bg-amber-950/40 rounded-xl flex items-center gap-2 transition-colors cursor-pointer"
+                          >
+                            <Trash2 className="w-3.5 h-3.5 text-amber-400" />
+                            <span>Clear Chat</span>
+                          </button>
+
+                          {/* Delete Entire Conversation Option */}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setConfirmDeleteModal({
+                                type: 'DELETE_CONVERSATION',
+                                conversationId: activeConversationId,
+                                targetName: isStudent ? activeDetail.conversation.provider.name : activeDetail.conversation.student.name
+                              });
+                              setShowChatMenu(false);
+                            }}
+                            className="w-full px-3 py-2 text-left text-xs font-bold text-rose-400 hover:text-rose-300 hover:bg-rose-950/40 rounded-xl flex items-center gap-2 transition-colors cursor-pointer"
+                          >
+                            <Trash2 className="w-3.5 h-3.5 text-rose-500" />
+                            <span>Delete Conversation</span>
+                          </button>
+
+                          <div className="border-t border-slate-750 my-1" />
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setReportModalOpen(true);
+                              setShowChatMenu(false);
+                            }}
+                            className="w-full px-3 py-2 text-left text-xs font-bold text-slate-400 hover:text-rose-400 hover:bg-slate-800 rounded-xl flex items-center gap-2 transition-colors cursor-pointer"
+                          >
+                            <Flag className="w-3.5 h-3.5" />
+                            <span>Report User</span>
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
+
+                {/* WhatsApp In-Chat Search Bar */}
+                {showInChatSearch && (
+                  <div className="px-3 py-2 bg-slate-800/90 border border-slate-700/80 rounded-2xl flex items-center gap-2 shadow-inner animate-in slide-in-from-top-2">
+                    <Search className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <input
+                      type="text"
+                      value={inChatSearchQuery}
+                      onChange={(e) => setInChatSearchQuery(e.target.value)}
+                      placeholder="Search messages in this chat..."
+                      className="flex-1 bg-transparent text-xs text-white placeholder:text-slate-500 focus:outline-none"
+                      autoFocus
+                    />
+                    {inChatSearchQuery && (
+                      <button
+                        type="button"
+                        onClick={() => setInChatSearchQuery('')}
+                        className="p-1 text-slate-400 hover:text-white"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowInChatSearch(false);
+                        setInChatSearchQuery('');
+                      }}
+                      className="text-[11px] font-bold text-slate-400 hover:text-white px-2 py-0.5 rounded-lg hover:bg-slate-700"
+                    >
+                      Done
+                    </button>
+                  </div>
+                )}
 
                 {/* Property Compact Bar */}
                 <div className="p-2 bg-slate-800/80 rounded-2xl border border-slate-700/60 flex items-center justify-between gap-3 text-xs shadow-inner">
@@ -983,13 +1198,39 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
                     <div className="w-6 h-6 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto" />
                     <p className="text-xs text-slate-400 font-bold">Loading message history...</p>
                   </div>
-                ) : activeDetail.messages.length === 0 ? (
-                  <div className="py-20 text-center space-y-2">
-                    <p className="text-xs font-bold text-slate-300">Start the conversation with {activeDetail.conversation.provider.name}</p>
-                    <p className="text-[11px] text-slate-500">Pick a quick inquiry chip below or send a photo snap.</p>
-                  </div>
-                ) : (
-                  activeDetail.messages.map(msg => {
+                ) : (() => {
+                  const filteredMessages = inChatSearchQuery.trim()
+                    ? activeDetail.messages.filter(m => (m.content || '').toLowerCase().includes(inChatSearchQuery.toLowerCase().trim()))
+                    : activeDetail.messages;
+
+                  if (inChatSearchQuery.trim() && filteredMessages.length === 0) {
+                    return (
+                      <div className="py-16 text-center space-y-3">
+                        <div className="w-12 h-12 bg-slate-800 rounded-full flex items-center justify-center mx-auto text-slate-400">
+                          <Search className="w-5 h-5" />
+                        </div>
+                        <p className="text-xs font-bold text-slate-300">No messages match "{inChatSearchQuery}"</p>
+                        <button
+                          type="button"
+                          onClick={() => setInChatSearchQuery('')}
+                          className="px-3 py-1 bg-slate-800 text-emerald-400 hover:text-emerald-300 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                        >
+                          Clear search
+                        </button>
+                      </div>
+                    );
+                  }
+
+                  if (activeDetail.messages.length === 0) {
+                    return (
+                      <div className="py-20 text-center space-y-2">
+                        <p className="text-xs font-bold text-slate-300">Start the conversation with {activeDetail.conversation.provider.name}</p>
+                        <p className="text-[11px] text-slate-500">Pick a quick inquiry chip below or send a photo snap.</p>
+                      </div>
+                    );
+                  }
+
+                  return filteredMessages.map(msg => {
                     const isMe = msg.senderId === user?.id || (isStudent && msg.senderRole === 'STUDENT') || (!isStudent && msg.senderRole === 'PROVIDER');
                     const isImage = msg.messageType === 'IMAGE' || Boolean(msg.metadata?.imageUrl);
                     const isAudio = msg.messageType === 'AUDIO' || Boolean(msg.metadata?.audioDuration);
@@ -1083,174 +1324,257 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
                             >
                               <span>↩️ Reply</span>
                             </button>
+
+                            <div className="w-px h-3.5 bg-slate-700 mx-0.5" />
+
+                            {/* Delete Message Action in Hover Menu */}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setConfirmDeleteModal({
+                                  type: 'DELETE_MESSAGE',
+                                  messageId: msg.id,
+                                  targetName: isAudio ? 'voice note' : 'message'
+                                });
+                              }}
+                              className="px-1.5 py-0.5 text-[10px] font-bold text-rose-400 hover:text-rose-300 hover:bg-rose-950/50 rounded-full flex items-center gap-0.5 transition-colors cursor-pointer"
+                              title="Delete message"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </button>
                           </div>
                         )}
 
-                        {/* Message Bubble */}
-                        <div
-                          className={`max-w-[85%] sm:max-w-[70%] p-3.5 rounded-3xl text-xs font-medium space-y-2 shadow-lg relative ${
-                            isMe
-                              ? 'bg-gradient-to-br from-emerald-600 to-teal-700 text-white rounded-tr-xs'
-                              : 'bg-slate-800/90 text-white border border-slate-700/80 rounded-tl-xs'
-                          }`}
-                        >
-                          {/* QUOTED / REPLIED MESSAGE PREVIEW PILL */}
-                          {msg.metadata?.replyToText && (
-                            <div className="p-2.5 rounded-2xl bg-black/35 border-l-2 border-emerald-400 text-[11px] mb-1.5 space-y-0.5">
-                              <span className="font-black text-[10px] text-emerald-300 flex items-center gap-1 uppercase tracking-wider">
-                                <span>↩ Quoting</span>
-                                <span>{msg.metadata.replyToSender === 'PROVIDER' ? 'Landlord' : 'Student'}</span>
-                              </span>
-                              <p className="truncate opacity-90 text-[11px] italic font-normal">
-                                "{msg.metadata.replyToText}"
-                              </p>
-                            </div>
-                          )}
+                        {/* WhatsApp Message Bubble Row with Left-Side Delete Button */}
+                        <div className={`flex items-center gap-1.5 max-w-full ${isMe ? 'flex-row' : 'flex-row'}`}>
+                          {/* WhatsApp Left-side Delete Button */}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setConfirmDeleteModal({
+                                type: 'DELETE_MESSAGE',
+                                messageId: msg.id,
+                                targetName: isAudio ? 'voice note' : 'message'
+                              });
+                            }}
+                            className={`p-1.5 rounded-full transition-all cursor-pointer shrink-0 opacity-70 sm:opacity-0 group-hover:opacity-100 hover:scale-110 ${
+                              isAudio ? 'text-rose-400 hover:bg-rose-950/60' : 'text-slate-500 hover:text-rose-400 hover:bg-rose-950/40'
+                            }`}
+                            title={isAudio ? 'Delete voice note' : 'Delete message'}
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
 
-                          {/* 1. PHOTO SNAP MESSAGE */}
-                          {isImage && msg.metadata?.imageUrl && (
-                            <div className="space-y-1.5">
-                              <div
-                                onClick={() => setPreviewImage({ url: msg.metadata?.imageUrl!, caption: msg.metadata?.imageCaption })}
-                                className="relative rounded-2xl overflow-hidden cursor-pointer group/img border border-white/10"
-                              >
-                                <img
-                                  src={msg.metadata.imageUrl}
-                                  alt="Room Snap"
-                                  className="w-full max-h-60 object-cover group-hover/img:scale-105 transition-transform duration-300"
-                                />
-                                <div className="absolute inset-0 bg-black/20 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center text-white font-bold text-[11px] gap-1">
-                                  <Eye className="w-4 h-4" />
-                                  <span>Tap to Expand Snap</span>
-                                </div>
+                          {/* Message Bubble */}
+                          <div
+                            className={`p-3.5 rounded-3xl text-xs font-medium space-y-2 shadow-lg relative ${
+                              isMe
+                                ? 'bg-gradient-to-br from-emerald-600 to-teal-700 text-white rounded-tr-xs'
+                                : 'bg-slate-800/90 text-white border border-slate-700/80 rounded-tl-xs'
+                            }`}
+                          >
+                            {/* QUOTED / REPLIED MESSAGE PREVIEW PILL */}
+                            {msg.metadata?.replyToText && (
+                              <div className="p-2.5 rounded-2xl bg-black/35 border-l-2 border-emerald-400 text-[11px] mb-1.5 space-y-0.5">
+                                <span className="font-black text-[10px] text-emerald-300 flex items-center gap-1 uppercase tracking-wider">
+                                  <span>↩ Quoting</span>
+                                  <span>{msg.metadata.replyToSender === 'PROVIDER' ? 'Landlord' : 'Student'}</span>
+                                </span>
+                                <p className="truncate opacity-90 text-[11px] italic font-normal">
+                                  "{msg.metadata.replyToText}"
+                                </p>
                               </div>
-                              {msg.metadata.imageCaption && (
-                                <p className="text-[11px] font-medium opacity-90">{msg.metadata.imageCaption}</p>
-                              )}
-                            </div>
-                          )}
+                            )}
 
-                          {/* 2. AUDIO / VOICE NOTE MESSAGE (WhatsApp Authentic Style) */}
-                          {isAudio && (
-                            <div className="py-1 min-w-[210px] sm:min-w-[250px] max-w-[320px]">
-                              <div className="flex items-center gap-3">
-                                {/* WhatsApp Circular Play/Pause Button */}
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    const duration = msg.metadata?.audioDuration || 6;
-                                    playVoiceNote(msg.id, duration, msg.metadata?.audioUrl);
-                                  }}
-                                  className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 shadow-sm transition-transform active:scale-90 cursor-pointer ${
-                                    isMe 
-                                      ? 'bg-white text-emerald-800 hover:bg-emerald-50' 
-                                      : 'bg-emerald-500 text-white hover:bg-emerald-400'
-                                  }`}
-                                  title={playingAudioId === msg.id ? 'Pause' : 'Play'}
+                            {/* 1. PHOTO SNAP MESSAGE */}
+                            {isImage && msg.metadata?.imageUrl && (
+                              <div className="space-y-1.5">
+                                <div
+                                  onClick={() => setPreviewImage({ url: msg.metadata?.imageUrl!, caption: msg.metadata?.imageCaption })}
+                                  className="relative rounded-2xl overflow-hidden cursor-pointer group/img border border-white/10"
                                 >
-                                  {playingAudioId === msg.id ? (
-                                    <Pause className="w-4 h-4 fill-current" />
-                                  ) : (
-                                    <Play className="w-4 h-4 fill-current ml-0.5" />
-                                  )}
-                                </button>
+                                  <img
+                                    src={msg.metadata.imageUrl}
+                                    alt="Room Snap"
+                                    className="w-full max-h-60 object-cover group-hover/img:scale-105 transition-transform duration-300"
+                                  />
+                                  <div className="absolute inset-0 bg-black/20 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center text-white font-bold text-[11px] gap-1">
+                                    <Eye className="w-4 h-4" />
+                                    <span>Tap to Expand Snap</span>
+                                  </div>
+                                </div>
+                                {msg.metadata.imageCaption && (
+                                  <p className="text-[11px] font-medium opacity-90">{msg.metadata.imageCaption}</p>
+                                )}
+                              </div>
+                            )}
 
-                                {/* WhatsApp Waveform Track with Scrubbing / Progress Dot */}
-                                <div className="flex-1 space-y-1">
-                                  <div 
+                            {/* 2. AUDIO / VOICE NOTE MESSAGE (WhatsApp Authentic Style) */}
+                            {isAudio && (
+                              <div className="py-1 min-w-[220px] sm:min-w-[270px] max-w-[340px]">
+                                <div className="flex items-center gap-2.5">
+                                  {/* Direct Delete Voice Note Button on the Left Side of Voice Player */}
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setConfirmDeleteModal({
+                                        type: 'DELETE_MESSAGE',
+                                        messageId: msg.id,
+                                        targetName: 'voice note'
+                                      });
+                                    }}
+                                    className={`p-1.5 rounded-full transition-colors cursor-pointer shrink-0 ${
+                                      isMe
+                                        ? 'text-emerald-200 hover:text-rose-200 hover:bg-emerald-800/80'
+                                        : 'text-slate-400 hover:text-rose-400 hover:bg-slate-700/80'
+                                    }`}
+                                    title="Delete voice note"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+
+                                  {/* WhatsApp Circular Play/Pause Button */}
+                                  <button
+                                    type="button"
                                     onClick={() => {
                                       const duration = msg.metadata?.audioDuration || 6;
                                       playVoiceNote(msg.id, duration, msg.metadata?.audioUrl);
                                     }}
-                                    className="relative flex items-center gap-[2px] h-6 cursor-pointer py-1"
+                                    className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 shadow-sm transition-transform active:scale-90 cursor-pointer ${
+                                      isMe 
+                                        ? 'bg-white text-emerald-800 hover:bg-emerald-50' 
+                                        : 'bg-emerald-500 text-white hover:bg-emerald-400'
+                                    }`}
+                                    title={playingAudioId === msg.id ? 'Pause' : 'Play'}
                                   >
-                                    {[30, 60, 45, 80, 50, 95, 70, 40, 85, 60, 100, 75, 45, 90, 65, 80, 50, 70, 90, 55, 35, 65, 85, 40].map((h, i) => {
-                                      const progress = (audioPlayProgress[msg.id] || 0) / (msg.metadata?.audioDuration || 6);
-                                      const barProgress = i / 24;
-                                      const isPlayed = barProgress <= progress;
-
-                                      return (
-                                        <span
-                                          key={i}
-                                          style={{ height: `${h}%` }}
-                                          className={`w-[2.5px] rounded-full transition-colors duration-100 ${
-                                            isPlayed 
-                                              ? (isMe ? 'bg-white' : 'bg-emerald-400') 
-                                              : (isMe ? 'bg-emerald-400/50' : 'bg-slate-500')
-                                          }`}
-                                        />
-                                      );
-                                    })}
-
-                                    {/* Scrubber Dot */}
-                                    {playingAudioId === msg.id && (
-                                      <div 
-                                        style={{
-                                          left: `${Math.min(100, Math.max(0, ((audioPlayProgress[msg.id] || 0) / (msg.metadata?.audioDuration || 6)) * 100))}%`
-                                        }}
-                                        className="absolute top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-white shadow-md -ml-1 pointer-events-none transition-all duration-100"
-                                      />
+                                    {playingAudioId === msg.id ? (
+                                      <Pause className="w-4 h-4 fill-current" />
+                                    ) : (
+                                      <Play className="w-4 h-4 fill-current ml-0.5" />
                                     )}
-                                  </div>
+                                  </button>
 
-                                  {/* WhatsApp Duration & Badge */}
-                                  <div className="flex justify-between items-center text-[10px] font-mono opacity-85">
-                                    <span>
-                                      0:{String(playingAudioId === msg.id ? (audioPlayProgress[msg.id] || 0) : (msg.metadata?.audioDuration || 6)).padStart(2, '0')}
-                                    </span>
-                                    <span className="text-[9px] opacity-75 font-sans flex items-center gap-0.5">
-                                      <Mic className="w-2.5 h-2.5 inline" />
-                                      <span>Voice note</span>
-                                    </span>
+                                  {/* WhatsApp Waveform Track with Scrubbing / Progress Dot */}
+                                  <div className="flex-1 space-y-1">
+                                    <div 
+                                      onClick={() => {
+                                        const duration = msg.metadata?.audioDuration || 6;
+                                        playVoiceNote(msg.id, duration, msg.metadata?.audioUrl);
+                                      }}
+                                      className="relative flex items-center gap-[2px] h-6 cursor-pointer py-1"
+                                    >
+                                      {[30, 60, 45, 80, 50, 95, 70, 40, 85, 60, 100, 75, 45, 90, 65, 80, 50, 70, 90, 55, 35, 65, 85, 40].map((h, i) => {
+                                        const progress = (audioPlayProgress[msg.id] || 0) / (msg.metadata?.audioDuration || 6);
+                                        const barProgress = i / 24;
+                                        const isPlayed = barProgress <= progress;
+
+                                        return (
+                                          <span
+                                            key={i}
+                                            style={{ height: `${h}%` }}
+                                            className={`w-[2.5px] rounded-full transition-colors duration-100 ${
+                                              isPlayed 
+                                                ? (isMe ? 'bg-white' : 'bg-emerald-400') 
+                                                : (isMe ? 'bg-emerald-400/50' : 'bg-slate-500')
+                                            }`}
+                                          />
+                                        );
+                                      })}
+
+                                      {/* Scrubber Dot */}
+                                      {playingAudioId === msg.id && (
+                                        <div 
+                                          style={{
+                                            left: `${Math.min(100, Math.max(0, ((audioPlayProgress[msg.id] || 0) / (msg.metadata?.audioDuration || 6)) * 100))}%`
+                                          }}
+                                          className="absolute top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-white shadow-md -ml-1 pointer-events-none transition-all duration-100"
+                                        />
+                                      )}
+                                    </div>
+
+                                    {/* WhatsApp Duration, 1x/1.5x/2x Speed Toggle & Badge */}
+                                    <div className="flex justify-between items-center text-[10px] font-mono opacity-85">
+                                      <div className="flex items-center gap-1.5">
+                                        <span>
+                                          0:{String(playingAudioId === msg.id ? (audioPlayProgress[msg.id] || 0) : (msg.metadata?.audioDuration || 6)).padStart(2, '0')}
+                                        </span>
+                                        {/* WhatsApp 1x / 1.5x / 2x Speed Multiplier Pill */}
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            const nextSpeed = playbackSpeed === 1 ? 1.5 : playbackSpeed === 1.5 ? 2 : 1;
+                                            setPlaybackSpeed(nextSpeed);
+                                            if (currentAudioRef.current) {
+                                              currentAudioRef.current.playbackRate = nextSpeed;
+                                            }
+                                          }}
+                                          className={`px-1.5 py-0.5 rounded text-[9px] font-black tracking-wider transition-colors cursor-pointer ${
+                                            isMe
+                                              ? 'bg-emerald-800/80 text-emerald-200 hover:bg-emerald-900'
+                                              : 'bg-slate-700 text-emerald-300 hover:bg-slate-600'
+                                          }`}
+                                          title="Click to toggle playback speed: 1x, 1.5x, 2x"
+                                        >
+                                          {playbackSpeed}x
+                                        </button>
+                                      </div>
+                                      <span className="text-[9px] opacity-75 font-sans flex items-center gap-0.5">
+                                        <Mic className={`w-2.5 h-2.5 inline ${playingAudioId === msg.id ? 'text-cyan-300 animate-pulse' : ''}`} />
+                                        <span>Voice note</span>
+                                      </span>
+                                    </div>
                                   </div>
                                 </div>
                               </div>
-                            </div>
-                          )}
-
-                          {/* 3. SECURE PASSCODE MESSAGE */}
-                          {isPasscode && msg.metadata?.passcode && (
-                            <div className="p-3 bg-slate-950/80 rounded-2xl border border-amber-500/40 space-y-2">
-                              <div className="flex items-center justify-between">
-                                <span className="text-[10px] font-black text-amber-400 flex items-center gap-1 uppercase">
-                                  <Key className="w-3.5 h-3.5" />
-                                  Official Gate Tour Passcode
-                                </span>
-                                <span className="text-[9px] text-slate-400">Valid 24h</span>
-                              </div>
-                              <div className="flex items-center justify-between bg-slate-900 p-2 rounded-xl border border-slate-800">
-                                <code className="text-sm font-black text-emerald-400 font-mono tracking-widest">
-                                  {msg.metadata.passcode}
-                                </code>
-                                <button
-                                  onClick={() => {
-                                    navigator.clipboard.writeText(msg.metadata?.passcode!);
-                                    setCopiedPasscodeId(msg.id);
-                                    setTimeout(() => setCopiedPasscodeId(null), 2000);
-                                    onShowToast('Passcode copied to clipboard!', 'success');
-                                  }}
-                                  className="px-2 py-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[10px] rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
-                                >
-                                  {copiedPasscodeId === msg.id ? <Check className="w-3 h-3 text-white" /> : <Copy className="w-3 h-3" />}
-                                  <span>{copiedPasscodeId === msg.id ? 'Copied' : 'Copy'}</span>
-                                </button>
-                              </div>
-                            </div>
-                          )}
-
-                          {/* 4. REGULAR TEXT CONTENT */}
-                          {!isImage && !isAudio && !isPasscode && (
-                            <p className="leading-relaxed whitespace-pre-wrap">{msg.content}</p>
-                          )}
-
-                          {/* Timestamp and Delivery Ticks */}
-                          <div className={`flex items-center justify-end gap-1 text-[9px] pt-0.5 ${isMe ? 'text-emerald-200' : 'text-slate-400'}`}>
-                            <span>
-                              {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                            </span>
-                            {isMe && (
-                              <CheckCheck className={`w-3.5 h-3.5 ${msg.isRead ? 'text-amber-300' : 'text-emerald-200'}`} />
                             )}
+
+                            {/* 3. SECURE PASSCODE MESSAGE */}
+                            {isPasscode && msg.metadata?.passcode && (
+                              <div className="p-3 bg-slate-950/80 rounded-2xl border border-amber-500/40 space-y-2">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-[10px] font-black text-amber-400 flex items-center gap-1 uppercase">
+                                    <Key className="w-3.5 h-3.5" />
+                                    Official Gate Tour Passcode
+                                  </span>
+                                  <span className="text-[9px] text-slate-400">Valid 24h</span>
+                                </div>
+                                <div className="flex items-center justify-between bg-slate-900 p-2 rounded-xl border border-slate-800">
+                                  <code className="text-sm font-black text-emerald-400 font-mono tracking-widest">
+                                    {msg.metadata.passcode}
+                                  </code>
+                                  <button
+                                    onClick={() => {
+                                      navigator.clipboard.writeText(msg.metadata?.passcode!);
+                                      setCopiedPasscodeId(msg.id);
+                                      setTimeout(() => setCopiedPasscodeId(null), 2000);
+                                      onShowToast('Passcode copied to clipboard!', 'success');
+                                    }}
+                                    className="px-2 py-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[10px] rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
+                                  >
+                                    {copiedPasscodeId === msg.id ? <Check className="w-3 h-3 text-white" /> : <Copy className="w-3 h-3" />}
+                                    <span>{copiedPasscodeId === msg.id ? 'Copied' : 'Copy'}</span>
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* 4. REGULAR TEXT CONTENT */}
+                            {!isImage && !isAudio && !isPasscode && (
+                              <p className="leading-relaxed whitespace-pre-wrap">{msg.content}</p>
+                            )}
+
+                            {/* Timestamp and Delivery Ticks (WhatsApp Cyan Checks when read) */}
+                            <div className={`flex items-center justify-end gap-1 text-[9px] pt-0.5 ${isMe ? 'text-emerald-200' : 'text-slate-400'}`}>
+                              <span>
+                                {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                              {isMe && (
+                                <CheckCheck className={`w-3.5 h-3.5 ${msg.isRead ? 'text-cyan-400' : 'text-emerald-200'}`} />
+                              )}
+                            </div>
                           </div>
                         </div>
 
@@ -1271,8 +1595,8 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
                         )}
                       </div>
                     );
-                  })
-                )}
+                  });
+                })()}
 
                 {/* Live "Landlord is typing..." indicator */}
                 {isTyping && (
@@ -1869,6 +2193,72 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
           conversationId={activeDetail.conversation.id}
           onShowToast={onShowToast}
         />
+      )}
+
+      {/* WhatsApp Authentic Confirmation Dialog (Delete Message, Clear Chat, Delete Conversation) */}
+      {confirmDeleteModal && (
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-150">
+          <div
+            className="w-full max-w-sm bg-slate-900 border border-slate-700/90 rounded-3xl p-5 sm:p-6 shadow-2xl space-y-4 animate-in zoom-in-95 duration-150"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start gap-3.5">
+              <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 shadow-inner ${
+                confirmDeleteModal.type === 'CLEAR_CHAT'
+                  ? 'bg-amber-950/80 text-amber-400 border border-amber-600/30'
+                  : 'bg-rose-950/80 text-rose-400 border border-rose-600/30'
+              }`}>
+                <Trash2 className="w-5 h-5" />
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-base font-black text-white">
+                  {confirmDeleteModal.type === 'DELETE_MESSAGE' && 'Delete message?'}
+                  {confirmDeleteModal.type === 'CLEAR_CHAT' && 'Clear this chat?'}
+                  {confirmDeleteModal.type === 'DELETE_CONVERSATION' && 'Delete this chat?'}
+                </h3>
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  {confirmDeleteModal.type === 'DELETE_MESSAGE' && 'This message will be removed from your chat history.'}
+                  {confirmDeleteModal.type === 'CLEAR_CHAT' && 'All messages in this chat will be cleared. This action cannot be undone.'}
+                  {confirmDeleteModal.type === 'DELETE_CONVERSATION' && `Delete conversation with ${confirmDeleteModal.targetName || 'this contact'}? Messages will be removed from this device.`}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-800">
+              <button
+                type="button"
+                onClick={() => setConfirmDeleteModal(null)}
+                className="px-4 py-2.5 text-xs font-bold text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-750 rounded-xl transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (confirmDeleteModal.type === 'DELETE_MESSAGE' && confirmDeleteModal.messageId) {
+                    handleDeleteMessage(confirmDeleteModal.messageId);
+                  } else if (confirmDeleteModal.type === 'CLEAR_CHAT') {
+                    handleClearChat();
+                  } else if (confirmDeleteModal.type === 'DELETE_CONVERSATION' && confirmDeleteModal.conversationId) {
+                    handleDeleteConversation(confirmDeleteModal.conversationId);
+                  }
+                }}
+                className={`px-4 py-2.5 text-xs font-black rounded-xl shadow-lg transition-all flex items-center gap-1.5 cursor-pointer ${
+                  confirmDeleteModal.type === 'CLEAR_CHAT'
+                    ? 'bg-amber-600 hover:bg-amber-500 text-white'
+                    : 'bg-rose-600 hover:bg-rose-500 text-white'
+                }`}
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>
+                  {confirmDeleteModal.type === 'DELETE_MESSAGE' && 'Delete'}
+                  {confirmDeleteModal.type === 'CLEAR_CHAT' && 'Clear Chat'}
+                  {confirmDeleteModal.type === 'DELETE_CONVERSATION' && 'Delete Chat'}
+                </span>
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

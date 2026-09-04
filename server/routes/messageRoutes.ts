@@ -469,6 +469,98 @@ router.post('/report', authenticate, (req: AuthenticatedRequest, res: Response) 
   }
 });
 
+// ----------------------------------------------------
+// 8. DELETE SINGLE MESSAGE (WhatsApp-style delete)
+// ----------------------------------------------------
+router.delete('/conversations/:conversationId/messages/:messageId', authenticate, (req: AuthenticatedRequest, res: Response) => {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+  const { conversationId, messageId } = req.params;
+
+  try {
+    const conv = db.prepare('SELECT * FROM conversations WHERE id = ?').get(conversationId) as any;
+    if (!conv) {
+      return res.status(404).json({ error: 'Conversation not found' });
+    }
+
+    // Verify user is student or provider in this conversation
+    if (conv.student_id !== req.user.id && conv.provider_id !== req.user.id && req.user.role !== 'ADMIN') {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    db.prepare('DELETE FROM messages WHERE id = ? AND conversation_id = ?').run(messageId, conversationId);
+
+    // Update last message in conversation if necessary
+    const latest = db.prepare('SELECT content, created_at FROM messages WHERE conversation_id = ? ORDER BY created_at DESC LIMIT 1').get(conversationId) as any;
+    if (latest) {
+      db.prepare('UPDATE conversations SET last_message_text = ?, last_message_at = ? WHERE id = ?')
+        .run(latest.content, latest.created_at, conversationId);
+    } else {
+      db.prepare('UPDATE conversations SET last_message_text = ? WHERE id = ?')
+        .run('No messages', conversationId);
+    }
+
+    return res.json({ success: true, message: 'Message deleted successfully' });
+  } catch (err: any) {
+    console.error('Delete message error:', err);
+    return res.status(500).json({ error: 'Failed to delete message' });
+  }
+});
+
+// ----------------------------------------------------
+// 9. CLEAR CHAT (Delete all messages in conversation)
+// ----------------------------------------------------
+router.delete('/conversations/:conversationId/messages', authenticate, (req: AuthenticatedRequest, res: Response) => {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+  const { conversationId } = req.params;
+
+  try {
+    const conv = db.prepare('SELECT * FROM conversations WHERE id = ?').get(conversationId) as any;
+    if (!conv) {
+      return res.status(404).json({ error: 'Conversation not found' });
+    }
+
+    if (conv.student_id !== req.user.id && conv.provider_id !== req.user.id && req.user.role !== 'ADMIN') {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    db.prepare('DELETE FROM messages WHERE conversation_id = ?').run(conversationId);
+    db.prepare('UPDATE conversations SET last_message_text = ?, unread_count = 0 WHERE id = ?')
+      .run('Chat cleared', conversationId);
+
+    return res.json({ success: true, message: 'Chat cleared successfully' });
+  } catch (err: any) {
+    console.error('Clear chat error:', err);
+    return res.status(500).json({ error: 'Failed to clear chat' });
+  }
+});
+
+// ----------------------------------------------------
+// 10. DELETE CONVERSATION (WhatsApp-style delete chat thread)
+// ----------------------------------------------------
+router.delete('/conversations/:conversationId', authenticate, (req: AuthenticatedRequest, res: Response) => {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+  const { conversationId } = req.params;
+
+  try {
+    const conv = db.prepare('SELECT * FROM conversations WHERE id = ?').get(conversationId) as any;
+    if (!conv) {
+      return res.status(404).json({ error: 'Conversation not found' });
+    }
+
+    if (conv.student_id !== req.user.id && conv.provider_id !== req.user.id && req.user.role !== 'ADMIN') {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    db.prepare('DELETE FROM messages WHERE conversation_id = ?').run(conversationId);
+    db.prepare('DELETE FROM conversations WHERE id = ?').run(conversationId);
+
+    return res.json({ success: true, message: 'Conversation deleted successfully' });
+  } catch (err: any) {
+    console.error('Delete conversation error:', err);
+    return res.status(500).json({ error: 'Failed to delete conversation' });
+  }
+});
+
 function sendNotification(userId: string, title: string, message: string, type: string, linkUrl?: string) {
   try {
     db.prepare(`
