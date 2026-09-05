@@ -42,6 +42,12 @@ const KNOWN_NIGERIAN_LOCATIONS: Record<string, { lat: number; lng: number; displ
   'no. 59, olubere avenue, oluyole, ibadan': { lat: 7.3526, lng: 3.8642, displayName: 'No. 59, Olubere Avenue, Oluyole, Ibadan, Oyo State', city: 'Ibadan', state: 'Oyo' },
 
   // Ogbomoso / LAUTECH student areas
+  'aba': { lat: 8.1480, lng: 4.2700, displayName: 'Abaa / Aba Student Lodges District, Ogbomoso', city: 'Ogbomoso', state: 'Oyo' },
+  'abaa': { lat: 8.1480, lng: 4.2700, displayName: 'Abaa Student Lodges & Market Axis, Ogbomoso', city: 'Ogbomoso', state: 'Oyo' },
+  'aba area': { lat: 8.1480, lng: 4.2700, displayName: 'Aba / Abaa Student Residential Area, Ogbomoso', city: 'Ogbomoso', state: 'Oyo' },
+  'abaa area': { lat: 8.1480, lng: 4.2700, displayName: 'Abaa Student Residential Area, Ogbomoso', city: 'Ogbomoso', state: 'Oyo' },
+  'abaa road': { lat: 8.1480, lng: 4.2700, displayName: 'Abaa Road Student Axis, Ogbomoso', city: 'Ogbomoso', state: 'Oyo' },
+  'aba junction': { lat: 8.1485, lng: 4.2705, displayName: 'Abaa Junction & Central Market, Ogbomoso', city: 'Ogbomoso', state: 'Oyo' },
   'lautech': { lat: 8.1438, lng: 4.2638, displayName: 'LAUTECH Main Campus Gate, Ogbomoso', city: 'Ogbomoso', state: 'Oyo' },
   'lautech gate': { lat: 8.1438, lng: 4.2638, displayName: 'LAUTECH Senate & Main Gate, Ogbomoso', city: 'Ogbomoso', state: 'Oyo' },
   'under g': { lat: 8.1485, lng: 4.2580, displayName: 'Under-G Road, Student Lodges District, Ogbomoso', city: 'Ogbomoso', state: 'Oyo' },
@@ -50,8 +56,12 @@ const KNOWN_NIGERIAN_LOCATIONS: Record<string, { lat: number; lng: number; displ
   'adenike': { lat: 8.1360, lng: 4.2690, displayName: 'Adenike Student Area, Ogbomoso', city: 'Ogbomoso', state: 'Oyo' },
   'adenike street': { lat: 8.1360, lng: 4.2690, displayName: 'Adenike Student Area, Ogbomoso', city: 'Ogbomoso', state: 'Oyo' },
   'stadium': { lat: 8.1320, lng: 4.2540, displayName: 'Stadium Area, Ogbomoso', city: 'Ogbomoso', state: 'Oyo' },
+  'college road': { lat: 8.1420, lng: 4.2590, displayName: 'College Road / 2nd Gate, Ogbomoso', city: 'Ogbomoso', state: 'Oyo' },
   'general': { lat: 8.1510, lng: 4.2480, displayName: 'General Hospital Area, Ogbomoso', city: 'Ogbomoso', state: 'Oyo' },
+  'isale general': { lat: 8.1320, lng: 4.2690, displayName: 'Isale General Area, Ogbomoso', city: 'Ogbomoso', state: 'Oyo' },
   'caretaker': { lat: 8.1290, lng: 4.2500, displayName: 'Caretaker Junction & Lodges, Ogbomoso', city: 'Ogbomoso', state: 'Oyo' },
+  'yoaco': { lat: 8.1280, lng: 4.2580, displayName: 'Yoaco Student Area, Ogbomoso', city: 'Ogbomoso', state: 'Oyo' },
+  'aroje': { lat: 8.1520, lng: 4.2720, displayName: 'Aroje Express Corridor, Ogbomoso', city: 'Ogbomoso', state: 'Oyo' },
   'high school': { lat: 8.1520, lng: 4.2680, displayName: 'Ogbomoso High School Area, Ogbomoso', city: 'Ogbomoso', state: 'Oyo' },
   'alata': { lat: 8.1450, lng: 4.2510, displayName: 'Alata Area, Ogbomoso', city: 'Ogbomoso', state: 'Oyo' },
   'randa': { lat: 8.1370, lng: 4.2450, displayName: 'Randa Area, Ogbomoso', city: 'Ogbomoso', state: 'Oyo' },
@@ -85,7 +95,7 @@ export async function geocodeAddress(query: string): Promise<GeocodedPlace | nul
 
   // 1. Check Hyperlocal dictionary first
   for (const [key, loc] of Object.entries(KNOWN_NIGERIAN_LOCATIONS)) {
-    if (normalized.includes(key) || key.includes(normalized)) {
+    if (normalized === key || normalized.includes(key) || (key.length >= 4 && key.includes(normalized))) {
       return {
         lat: loc.lat,
         lng: loc.lng,

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { 
@@ -26,7 +26,8 @@ import {
   Share2,
   Copy,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Building2
 } from 'lucide-react';
 import { MapMarker, CampusLandmark, Area } from '../types/hostelEase';
 import { api } from '../services/api';
@@ -79,6 +80,7 @@ export const CampusMapExplorer: React.FC<CampusMapExplorerProps> = ({
   const [loading, setLoading] = useState<boolean>(true);
   const [selectedMarker, setSelectedMarker] = useState<MapMarker | null>(null);
   const [activeAreaFocus, setActiveAreaFocus] = useState<string>('all');
+  const [searchedAreaKeyword, setSearchedAreaKeyword] = useState<string | null>(null);
   const [mapLayerType, setMapLayerType] = useState<'streets' | 'satellite' | 'terrain'>('streets');
 
   // Google Maps Address Search & Location Pin State
@@ -97,14 +99,46 @@ export const CampusMapExplorer: React.FC<CampusMapExplorerProps> = ({
 
   // Quick Suggestion Pills
   const POPULAR_SEARCH_SUGGESTIONS = [
+    'Abaa Area, Ogbomoso',
     'No. 59, Olubere Avenue, Oluyole, Ibadan',
     'Under-G Road, Ogbomoso',
     'Adenike Street, Ogbomoso',
-    'LAUTECH Main Campus Gate',
     'Stadium Area, Ogbomoso',
-    'Bodija, Ibadan',
-    'Ring Road, Ibadan'
+    'General Area, Ogbomoso',
+    'LAUTECH Main Campus Gate'
   ];
+
+  // Dynamically filter displayed hostel markers based on searched location or active area pill
+  const displayedMarkers = useMemo(() => {
+    let list = markersData;
+
+    if (activeAreaFocus !== 'all') {
+      const areaMatch = areas.find(a => a.id === activeAreaFocus || a.slug === activeAreaFocus);
+      const nameToCheck = (areaMatch?.name || activeAreaFocus).toLowerCase();
+      const slugToCheck = (areaMatch?.slug || '').toLowerCase();
+      list = list.filter(m => 
+        m.area.id === activeAreaFocus || 
+        (slugToCheck && m.area.id.includes(slugToCheck)) ||
+        m.area.name.toLowerCase().includes(nameToCheck) ||
+        nameToCheck.includes(m.area.name.toLowerCase())
+      );
+    } else if (searchedAreaKeyword) {
+      const kw = searchedAreaKeyword.toLowerCase().trim();
+      const matched = list.filter(m => 
+        m.area.name.toLowerCase().includes(kw) || 
+        m.area.id.toLowerCase().includes(kw) ||
+        m.title.toLowerCase().includes(kw) ||
+        (m.address && m.address.toLowerCase().includes(kw)) ||
+        (m.landmark && m.landmark.toLowerCase().includes(kw)) ||
+        (kw.includes('aba') && (m.area.name.toLowerCase().includes('aba') || m.title.toLowerCase().includes('aba') || (m.address && m.address.toLowerCase().includes('aba'))))
+      );
+      if (matched.length > 0) {
+        list = matched;
+      }
+    }
+
+    return list;
+  }, [markersData, activeAreaFocus, searchedAreaKeyword, areas]);
 
   // Load Map Data
   useEffect(() => {
@@ -309,6 +343,38 @@ export const CampusMapExplorer: React.FC<CampusMapExplorerProps> = ({
       pinMarker.addTo(map);
       searchPinLayerRef.current = pinMarker;
 
+      // Match query with campus areas to filter and display all hostels in that location
+      const lowerQuery = textToSearch.toLowerCase();
+      const matchedArea = areas.find(a => 
+        lowerQuery === a.slug ||
+        lowerQuery === a.name.toLowerCase() ||
+        lowerQuery.includes(a.name.toLowerCase()) ||
+        a.name.toLowerCase().includes(lowerQuery) ||
+        (lowerQuery.includes('aba') && (a.slug.includes('aba') || a.name.toLowerCase().includes('aba')))
+      );
+
+      if (matchedArea) {
+        setSearchedAreaKeyword(matchedArea.name);
+        setActiveAreaFocus(matchedArea.id);
+      } else if (lowerQuery.includes('aba')) {
+        setSearchedAreaKeyword('Abaa Area');
+        setActiveAreaFocus('area-abaa');
+      } else if (lowerQuery.includes('under-g') || lowerQuery.includes('under g')) {
+        setSearchedAreaKeyword('Under G');
+        setActiveAreaFocus('area-under-g');
+      } else if (lowerQuery.includes('adenike')) {
+        setSearchedAreaKeyword('Adenike Area');
+        setActiveAreaFocus('area-adenike');
+      } else if (lowerQuery.includes('stadium')) {
+        setSearchedAreaKeyword('Stadium Road');
+        setActiveAreaFocus('area-stadium-road');
+      } else if (lowerQuery.includes('oluyole') || lowerQuery.includes('olubere')) {
+        setSearchedAreaKeyword('Oluyole Estate, Ibadan');
+        setActiveAreaFocus('area-oluyole');
+      } else {
+        setSearchedAreaKeyword(place.streetName || place.displayName.split(',')[0]);
+      }
+
       // 3. Smooth animated flyTo zoom down to street level (Zoom 17-18 shows full street names)
       map.flyTo([place.lat, place.lng], 17, {
         duration: 1.5,
@@ -411,8 +477,8 @@ export const CampusMapExplorer: React.FC<CampusMapExplorerProps> = ({
       landmarksGroupRef.current?.addLayer(lmMarker);
     });
 
-    // 2. Add Hostel Accommodation Custom Price Pills
-    markersData.forEach(m => {
+    // 2. Add Hostel Accommodation Custom Price Pills (Filtered to searched location or area)
+    displayedMarkers.forEach(m => {
       const isSelected = selectedMarker?.id === m.id;
       const isCompared = comparedIds.includes(m.id);
 
@@ -449,30 +515,38 @@ export const CampusMapExplorer: React.FC<CampusMapExplorerProps> = ({
 
       markersGroupRef.current?.addLayer(marker);
     });
-  }, [markersData, landmarksData, selectedMarker, comparedIds]);
+  }, [displayedMarkers, landmarksData, selectedMarker, comparedIds]);
 
-  // Pan to specific LAUTECH area
+  // Pan to specific area and filter hostels
   const handleAreaFocus = (area: Area | 'all') => {
     const map = mapInstanceRef.current;
     if (!map) return;
 
     if (area === 'all') {
       setActiveAreaFocus('all');
+      setSearchedAreaKeyword(null);
+      setSearchQuery('');
+      if (searchPinLayerRef.current) {
+        map.removeLayer(searchPinLayerRef.current);
+        searchPinLayerRef.current = null;
+      }
+      setActivePlace(null);
+      setSelectedMarker(null);
       map.setView([8.1438, 4.2638], 14, { animate: true });
     } else {
       setActiveAreaFocus(area.id);
-      if (area.centerLat && area.centerLng) {
-        map.setView([area.centerLat, area.centerLng], 15, { animate: true });
-      } else {
-        const areaMarkers = markersData.filter(m => m.area.id === area.id);
-        if (areaMarkers.length > 0) {
-          map.setView([areaMarkers[0].lat, areaMarkers[0].lng], 15, { animate: true });
-        }
-      }
+      setSearchedAreaKeyword(area.name);
+      setSearchQuery(area.name);
+
+      const targetLat = area.centerLat || (area.slug.includes('aba') ? 8.1480 : 8.1438);
+      const targetLng = area.centerLng || (area.slug.includes('aba') ? 4.2700 : 4.2638);
+
+      map.flyTo([targetLat, targetLng], 15, { duration: 1.2 });
+      onShowToast(`Displaying all hostels in ${area.name}`, 'info');
     }
   };
 
-  // Clear current route and search pin
+  // Clear current route and search pin, reset to all
   const handleClearRouteAndSearch = () => {
     const map = mapInstanceRef.current;
     if (map) {
@@ -490,6 +564,11 @@ export const CampusMapExplorer: React.FC<CampusMapExplorerProps> = ({
     setActiveRoute(null);
     setShowDirectionsPanel(false);
     setSearchQuery('');
+    setSearchedAreaKeyword(null);
+    setActiveAreaFocus('all');
+    if (map) {
+      map.setView([8.1438, 4.2638], 14, { animate: true });
+    }
   };
 
   return (
@@ -550,11 +629,77 @@ export const CampusMapExplorer: React.FC<CampusMapExplorerProps> = ({
           </button>
         </div>
 
+        {/* Active Location Filter Banner */}
+        {(searchedAreaKeyword || activeAreaFocus !== 'all') && (
+          <div className="flex items-center justify-between bg-white/95 dark:bg-slate-900/95 backdrop-blur-md px-3.5 py-2 rounded-2xl border-2 border-blue-500/50 shadow-xl text-xs">
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-blue-500 animate-ping"></span>
+              <span className="font-black text-slate-900 dark:text-white">
+                🏠 {displayedMarkers.length} Hostel{displayedMarkers.length === 1 ? '' : 's'} in {searchedAreaKeyword || 'Selected Area'}
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={handleClearRouteAndSearch}
+              className="text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:text-blue-800 flex items-center gap-1 cursor-pointer bg-blue-50 dark:bg-blue-950/60 px-2.5 py-1 rounded-xl transition-colors"
+            >
+              <span>Show All ({markersData.length})</span>
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
+
+        {/* Area Quick Filter Pills */}
+        <div className="flex items-center gap-1.5 overflow-x-auto py-1 px-0.5 scrollbar-none">
+          <button
+            type="button"
+            onClick={() => handleAreaFocus('all')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all flex items-center gap-1 whitespace-nowrap shadow-sm cursor-pointer shrink-0 ${
+              activeAreaFocus === 'all' && !searchedAreaKeyword
+                ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-md scale-105'
+                : 'bg-white/90 dark:bg-slate-900/90 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700'
+            }`}
+          >
+            <span>🌐 All Hostels</span>
+            <span className="text-[10px] opacity-75 font-normal">({markersData.length})</span>
+          </button>
+
+          {areas.map(a => {
+            const isAbaa = a.slug === 'abaa' || a.name.toLowerCase().includes('aba');
+            const isCurrent = activeAreaFocus === a.id || (searchedAreaKeyword && searchedAreaKeyword.toLowerCase().includes(a.name.toLowerCase()));
+            const count = markersData.filter(m => m.area.id === a.id || m.area.name.toLowerCase().includes(a.name.toLowerCase())).length;
+
+            return (
+              <button
+                key={a.id}
+                type="button"
+                onClick={() => handleAreaFocus(a)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 whitespace-nowrap shadow-sm cursor-pointer shrink-0 ${
+                  isCurrent
+                    ? 'bg-blue-600 text-white shadow-md ring-2 ring-blue-400/40 scale-105'
+                    : isAbaa
+                    ? 'bg-amber-50 dark:bg-amber-950/60 text-amber-900 dark:text-amber-300 border-2 border-amber-400 dark:border-amber-600 hover:bg-amber-100 font-black'
+                    : 'bg-white/90 dark:bg-slate-900/90 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700'
+                }`}
+              >
+                <span>📍 {a.name}</span>
+                {count > 0 && (
+                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                    isCurrent ? 'bg-white/25 text-white' : 'bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                  }`}>
+                    {count}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+
         {/* Quick Suggestion Pills (Address Samples) */}
         {!activePlace && !selectedMarker && (
           <div className="flex items-center gap-1.5 overflow-x-auto py-1 px-1 scrollbar-none">
             <span className="text-[10px] font-black uppercase text-slate-600 dark:text-slate-300 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md px-2 py-1 rounded-lg shrink-0 shadow-sm">
-              Try:
+              Quick:
             </span>
             {POPULAR_SEARCH_SUGGESTIONS.map((sug, idx) => (
               <button
@@ -859,6 +1004,77 @@ export const CampusMapExplorer: React.FC<CampusMapExplorerProps> = ({
                 <ExternalLink className="w-3.5 h-3.5" />
                 <span>Google Maps</span>
               </a>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* SEARCHED / FILTERED AREA HOSTELS DRAWER (Shows list of hostels in area)   */}
+      {/* ========================================================================= */}
+      {(searchedAreaKeyword || activeAreaFocus !== 'all') && displayedMarkers.length > 0 && !selectedMarker && !showDirectionsPanel && (
+        <div className="absolute bottom-4 left-4 right-4 sm:right-auto sm:max-w-lg z-20 animate-in fade-in slide-in-from-bottom-4 duration-200 pointer-events-auto">
+          <div className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-md rounded-3xl p-3.5 sm:p-4 shadow-2xl border-2 border-blue-500/30 space-y-2.5">
+            <div className="flex items-center justify-between px-1">
+              <div className="flex items-center gap-2">
+                <span className="p-1 rounded-lg bg-blue-100 dark:bg-blue-950 text-blue-600">
+                  <Building2 className="w-4 h-4" />
+                </span>
+                <div>
+                  <h4 className="text-xs font-black text-slate-900 dark:text-white flex items-center gap-1.5">
+                    <span>Hostels in {searchedAreaKeyword || 'Selected Area'}</span>
+                    <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-blue-600 text-white font-black">
+                      {displayedMarkers.length}
+                    </span>
+                  </h4>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400">Click any hostel below or its pin on the map</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleClearRouteAndSearch}
+                className="text-[11px] text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 font-bold p-1 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                title="Reset to all hostels"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="flex gap-3 overflow-x-auto pb-1 pt-0.5 scrollbar-thin">
+              {displayedMarkers.map(marker => (
+                <div
+                  key={marker.id}
+                  onClick={() => {
+                    setSelectedMarker(marker);
+                    const map = mapInstanceRef.current;
+                    if (map) map.panTo([marker.lat, marker.lng], { animate: true });
+                  }}
+                  className="w-56 shrink-0 bg-slate-50 dark:bg-slate-800/90 hover:bg-white dark:hover:bg-slate-800 rounded-2xl p-2.5 border border-slate-200 dark:border-slate-700 hover:border-blue-500 shadow-sm hover:shadow-md cursor-pointer transition-all hover:-translate-y-0.5"
+                >
+                  <div className="relative rounded-xl overflow-hidden mb-2 aspect-video bg-slate-200">
+                    <img src={marker.coverImage} alt={marker.title} className="w-full h-full object-cover" />
+                    <span className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded text-[9px] font-black bg-slate-950/80 text-white backdrop-blur-xs">
+                      {marker.propertyType.replace(/_/g, ' ')}
+                    </span>
+                    {marker.verificationStatus === 'APPROVED' && (
+                      <span className="absolute top-1.5 right-1.5 p-1 rounded-full bg-emerald-500 text-white shadow-xs">
+                        <ShieldCheck className="w-2.5 h-2.5" />
+                      </span>
+                    )}
+                  </div>
+                  <h5 className="font-bold text-xs text-slate-900 dark:text-white truncate" title={marker.title}>{marker.title}</h5>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">📍 {marker.area.name} • {formatDistance(marker.distanceKm)}</p>
+                  <div className="flex items-center justify-between pt-2 mt-1.5 border-t border-slate-200/80 dark:border-slate-700">
+                    <span className="font-black text-xs text-emerald-700 dark:text-emerald-400">
+                      {formatNaira(marker.rentAmount)}
+                      <span className="text-[9px] font-normal text-slate-400">/yr</span>
+                    </span>
+                    <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400 flex items-center gap-0.5">
+                      Select <ArrowRight className="w-3 h-3" />
+                    </span>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         </div>

@@ -41,7 +41,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
   onOpenConversation,
   onShowToast
 }) => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user, isProvider, isAdmin } = useAuth();
   const [step, setStep] = useState<'SELECT' | 'REVIEW' | 'SUCCESS'>('SELECT');
   const [availability, setAvailability] = useState<PropertyAvailabilityResponse | null>(null);
   const [loadingAvailability, setLoadingAvailability] = useState<boolean>(true);
@@ -640,25 +640,27 @@ export const BookingModal: React.FC<BookingModalProps> = ({
                 </div>
               </div>
 
-              {/* 5% Booking Commission Agreement Box */}
-              <div className="p-3.5 bg-emerald-50/80 rounded-2xl border border-emerald-200 text-emerald-950 text-[11px] space-y-1.5">
-                <div className="flex items-center justify-between font-black">
-                  <span className="flex items-center gap-1.5 text-emerald-900">
-                    <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
-                    5% Booking Commission Agreement
-                  </span>
-                  <span className="bg-emerald-600 text-white px-2 py-0.5 rounded text-[10px] font-black">
-                    Standard 5%
-                  </span>
+              {/* 5% Booking Commission Agreement Box (Landlords & Admin Only - Hidden from Students) */}
+              {(isProvider || isAdmin) && (
+                <div className="p-3.5 bg-emerald-50/80 rounded-2xl border border-emerald-200 text-emerald-950 text-[11px] space-y-1.5">
+                  <div className="flex items-center justify-between font-black">
+                    <span className="flex items-center gap-1.5 text-emerald-900">
+                      <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+                      5% Booking Commission Agreement (Landlord Portal)
+                    </span>
+                    <span className="bg-emerald-600 text-white px-2 py-0.5 rounded text-[10px] font-black">
+                      Standard 5%
+                    </span>
+                  </div>
+                  <p className="text-slate-600 text-[10px] leading-relaxed">
+                    Per Hostel Ease policy: For this {formatNaira(currentRoom.pricing.rentAmount)} accommodation, Hostel Ease receives a 5% platform facilitation commission ({formatNaira(currentRoom.pricing.rentAmount * 0.05)}). Landlord receives the agreed net payout of {formatNaira(currentRoom.pricing.rentAmount * 0.95)} upon student move-in verification.
+                  </p>
+                  <div className="flex items-center justify-between pt-1 border-t border-emerald-200/60 font-mono text-[10px] text-emerald-900">
+                    <span>Hostel Ease 5% Fee: {formatNaira(currentRoom.pricing.rentAmount * 0.05)}</span>
+                    <span className="font-black">Net Landlord Payout: {formatNaira(currentRoom.pricing.rentAmount * 0.95)}</span>
+                  </div>
                 </div>
-                <p className="text-slate-600 text-[10px] leading-relaxed">
-                  Per Hostel Ease policy: For this {formatNaira(currentRoom.pricing.rentAmount)} accommodation, Hostel Ease receives a 5% platform facilitation commission ({formatNaira(currentRoom.pricing.rentAmount * 0.05)}). Landlord receives the agreed net payout of {formatNaira(currentRoom.pricing.rentAmount * 0.95)} upon student move-in verification.
-                </p>
-                <div className="flex items-center justify-between pt-1 border-t border-emerald-200/60 font-mono text-[10px] text-emerald-900">
-                  <span>Hostel Ease 5% Fee: {formatNaira(currentRoom.pricing.rentAmount * 0.05)}</span>
-                  <span className="font-black">Net Landlord Payout: {formatNaira(currentRoom.pricing.rentAmount * 0.95)}</span>
-                </div>
-              </div>
+              )}
 
               {/* Next Steps Advisory */}
               <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 text-amber-900 text-[11px] space-y-1">
@@ -667,7 +669,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
                   What happens when you confirm?
                 </p>
                 <p className="text-amber-800">
-                  Your space will be held and submitted to Landlord <strong>{property.provider?.name}</strong> along with the 5% commission agreement settlement notice. The provider has 48 hours to confirm your reservation. (No online payment required in Phase 5).
+                  Your space will be held and submitted to Landlord <strong>{property.provider?.name}</strong> for review. The provider has 48 hours to confirm your reservation. (No online payment required at this stage).
                 </p>
               </div>
 
@@ -749,10 +751,12 @@ export const BookingModal: React.FC<BookingModalProps> = ({
                   <span className="font-black text-emerald-700">{formatNaira(createdBooking.totalCost)}</span>
                 </div>
 
-                <div className="flex justify-between items-center text-[11px] pt-2 border-t border-slate-200 text-slate-600">
-                  <span className="font-medium">5% Commission Agreement</span>
-                  <span className="font-bold text-emerald-800">5% Platform Fee ({formatNaira(createdBooking.totalCost * 0.05)})</span>
-                </div>
+                {(isProvider || isAdmin) && (
+                  <div className="flex justify-between items-center text-[11px] pt-2 border-t border-slate-200 text-slate-600">
+                    <span className="font-medium">5% Commission Agreement (Landlord View)</span>
+                    <span className="font-bold text-emerald-800">5% Platform Fee ({formatNaira(createdBooking.totalCost * 0.05)})</span>
+                  </div>
+                )}
               </div>
 
               {/* Next Steps */}
@@ -762,7 +766,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
                   Next Steps:
                 </h4>
                 <ul className="space-y-1.5 text-emerald-900 text-[11px] list-disc list-inside">
-                  <li>Landlord automatically notified with the <strong>5% booking commission agreement breakdown</strong>.</li>
+                  <li>Landlord automatically notified with your reservation details.</li>
                   <li>The landlord has <strong>48 hours</strong> to review and confirm.</li>
                   <li>You will receive an in-app notification immediately once confirmed.</li>
                   <li>You can track the status in your <strong>"My Bookings"</strong> dashboard.</li>

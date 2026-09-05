@@ -155,6 +155,15 @@ export function getLocalProperties(providerId?: string, providerEmail?: string):
     const raw = localStorage.getItem('hostel_ease_properties');
     if (raw) {
       all = JSON.parse(raw);
+      // Auto-merge any newly added default properties (like Abaa & Oluyole)
+      const existingIds = new Set(all.map(p => p.id));
+      const missing = DEFAULT_PROPERTIES.filter(p => !existingIds.has(p.id));
+      if (missing.length > 0) {
+        all = [...all, ...missing];
+        try {
+          localStorage.setItem('hostel_ease_properties', JSON.stringify(all));
+        } catch {}
+      }
     } else {
       all = [...DEFAULT_PROPERTIES];
       localStorage.setItem('hostel_ease_properties', JSON.stringify(all));
@@ -581,6 +590,46 @@ function generateOfflineFallbackResponse(url?: string): any {
         locationPreferences: [],
         confidenceScore: 0.95
       }
+    };
+  }
+  if (cleanUrl.includes('/discovery/map-markers') || cleanUrl.includes('/map-markers')) {
+    const allProps = getLocalProperties();
+    return {
+      campusCenter: {
+        name: 'LAUTECH Ogbomoso Campus',
+        lat: 8.1438,
+        lng: 4.2638,
+        zoom: 14
+      },
+      markers: allProps.map(p => ({
+        id: p.id,
+        title: p.title,
+        slug: p.slug,
+        address: p.address,
+        nearbyLandmark: p.nearbyLandmark,
+        lat: p.latitude || 8.1458,
+        lng: p.longitude || 4.2625,
+        distanceFromCampusKm: p.distanceFromCampusKm || 0.5,
+        propertyType: p.propertyType,
+        verificationStatus: p.verificationStatus,
+        availabilityStatus: p.availabilityStatus,
+        isFeatured: p.isFeatured || false,
+        completenessScore: p.completenessScore || 95,
+        area: {
+          id: p.area?.id || 'area-under-g',
+          name: p.area?.name || 'Under G'
+        },
+        rentAmount: p.priceSummary?.rentAmount || 220000,
+        totalMandatoryCost: p.priceSummary?.totalMandatoryCost || 250000,
+        coverImage: p.coverImage || (p.media?.[0]?.url || 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?w=600')
+      })),
+      campusLandmarks: [
+        { name: 'LAUTECH Senate Building', lat: 8.1435, lng: 4.2635, desc: 'Central University Administration' },
+        { name: 'Under-G Main Campus Gate', lat: 8.1458, lng: 4.2648, desc: 'Busiest Student Entrance & Commercial Hub' },
+        { name: 'College of Health Sciences Gate', lat: 8.1385, lng: 4.2695, desc: 'Medical & Pre-Clinical Student Hub' },
+        { name: 'LAUTECH Sports Complex', lat: 8.1390, lng: 4.2560, desc: 'Stadium, Gymnasium & Track' },
+        { name: 'Abaa Junction & Market', lat: 8.1485, lng: 4.2705, desc: 'Abaa Student Market & Lodge Corridor' }
+      ]
     };
   }
   if (cleanUrl.includes('/properties/map-data')) {

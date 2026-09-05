@@ -37,6 +37,36 @@ export const DEFAULT_AREAS: Area[] = [
     maxRent: 380000
   },
   {
+    id: 'area-abaa',
+    universityId: 'univ-lautech',
+    name: 'Abaa Area',
+    slug: 'abaa',
+    description: 'Fastest-growing student hostel hub adjacent to Under-G, featuring newly developed self-contains, serene study lodges, prepaid meters, and 24/7 borehole water.',
+    landmark: 'Abaa Junction & Central Market',
+    approxDistanceMinKm: 0.6,
+    approxDistanceMaxKm: 1.8,
+    centerLat: 8.1480,
+    centerLng: 4.2700,
+    propertyCount: 15,
+    minRent: 170000,
+    maxRent: 350000
+  },
+  {
+    id: 'area-oluyole',
+    universityId: 'univ-ui',
+    name: 'Oluyole Estate, Ibadan',
+    slug: 'oluyole-ibadan',
+    description: 'Upscale residential neighborhood in Ibadan with tarred roads, high-grade security estates, reliable utilities, and peaceful residential quarters.',
+    landmark: 'Olubere Avenue & Ring Road Axis',
+    approxDistanceMinKm: 2.0,
+    approxDistanceMaxKm: 5.0,
+    centerLat: 7.3526,
+    centerLng: 3.8642,
+    propertyCount: 8,
+    minRent: 450000,
+    maxRent: 1200000
+  },
+  {
     id: 'area-adenike',
     universityId: 'univ-lautech',
     name: 'Adenike Area',
@@ -529,6 +559,231 @@ export const DEFAULT_PROPERTIES: Property[] = [
     media: [
       { id: 'm-9', url: 'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=1000&q=80', caption: 'Residency View', displayOrder: 1, isCover: true, mediaType: 'IMAGE', category: 'EXTERIOR' },
       { id: 'm-vid-5', url: 'https://assets.mixkit.co/videos/preview/mixkit-curtains-opening-to-show-a-sunny-terrace-41527-large.mp4', caption: 'Verified 4K Video Tour: Royal Palm', displayOrder: 2, isCover: false, mediaType: 'VIDEO', category: 'EXTERIOR' }
+    ]
+  },
+  {
+    id: 'prop-abaa-1',
+    title: 'Abaa Royal Crest Executive Lodge',
+    slug: 'abaa-royal-crest-executive-lodge-ogbomoso',
+    description: 'Premier modern student lodge in the heart of Abaa Area. Equipped with 24/7 borehole pumping system, dedicated prepaid electrical meters, ceramic tiles, and strict perimeter gated security.',
+    address: 'Plot 8, Abaa Central Road, Abaa Area, Ogbomoso',
+    nearbyLandmark: 'Near Abaa Junction Market, 5 mins to Under-G Gate',
+    latitude: 8.1482,
+    longitude: 4.2705,
+    distanceFromCampusKm: 0.7,
+    propertyType: 'SELF_CONTAIN',
+    genderPreference: 'ANY',
+    totalRooms: 14,
+    verificationStatus: 'APPROVED',
+    availabilityStatus: 'AVAILABLE',
+    isDemo: true,
+    isFeatured: true,
+    completenessScore: 100,
+    createdAt: '2026-08-22T10:00:00Z',
+    area: {
+      id: 'area-abaa',
+      name: 'Abaa Area',
+      slug: 'abaa',
+      landmark: 'Abaa Junction & Central Market'
+    },
+    coverImage: 'https://images.unsplash.com/photo-1595526114035-0d45ed16cfbf?auto=format&fit=crop&w=1000&q=80',
+    coverImageCaption: 'Spacious Ensuite Self-Contain in Abaa',
+    priceSummary: {
+      period: 'YEARLY',
+      rentAmount: 240000,
+      serviceCharge: 12000,
+      agencyFee: 20000,
+      cautionFee: 15000,
+      otherMandatoryCharges: 8000,
+      legalFee: 0,
+      totalMandatoryCost: 295000,
+      totalRefundableCost: 15000,
+      isNegotiable: false
+    },
+    keyAmenities: AMENITIES_LIST,
+    rooms: [
+      {
+        id: 'room-abaa-101',
+        name: 'Executive Studio A1',
+        type: 'SELF_CONTAIN',
+        maxOccupants: 1,
+        quantityTotal: 14,
+        quantityAvailable: 5,
+        isEnsuite: true,
+        isFurnished: true
+      }
+    ],
+    media: [
+      { id: 'm-ab-1', url: 'https://images.unsplash.com/photo-1595526114035-0d45ed16cfbf?auto=format&fit=crop&w=1000&q=80', caption: 'Main Room Space', displayOrder: 1, isCover: true, mediaType: 'IMAGE', category: 'BEDROOM' },
+      { id: 'm-ab-2', url: 'https://images.unsplash.com/photo-1584622650111-993a426fbf0a?auto=format&fit=crop&w=1000&q=80', caption: 'Bathroom', displayOrder: 2, isCover: false, mediaType: 'IMAGE', category: 'BATHROOM' }
+    ]
+  },
+  {
+    id: 'prop-abaa-2',
+    title: 'Golden Palm Student Suites, Abaa',
+    slug: 'golden-palm-student-suites-abaa',
+    description: 'Affordable and highly accessible student hostel located in Abaa. Features constant electricity feeder, solar inverter backup for nighttime reading, and clean running water.',
+    address: '14 Shalom Avenue, Abaa, Ogbomoso',
+    nearbyLandmark: 'Behind Abaa Central Mosque',
+    latitude: 8.1475,
+    longitude: 4.2692,
+    distanceFromCampusKm: 0.8,
+    propertyType: 'SELF_CONTAIN',
+    genderPreference: 'ANY',
+    totalRooms: 12,
+    verificationStatus: 'APPROVED',
+    availabilityStatus: 'AVAILABLE',
+    isDemo: true,
+    isFeatured: true,
+    completenessScore: 96,
+    createdAt: '2026-08-23T10:00:00Z',
+    area: {
+      id: 'area-abaa',
+      name: 'Abaa Area',
+      slug: 'abaa',
+      landmark: 'Abaa Junction & Central Market'
+    },
+    coverImage: 'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&w=1000&q=80',
+    coverImageCaption: 'Quiet Student Room in Abaa',
+    priceSummary: {
+      period: 'YEARLY',
+      rentAmount: 210000,
+      serviceCharge: 10000,
+      agencyFee: 15000,
+      cautionFee: 15000,
+      otherMandatoryCharges: 5000,
+      legalFee: 0,
+      totalMandatoryCost: 255000,
+      totalRefundableCost: 15000,
+      isNegotiable: false
+    },
+    keyAmenities: AMENITIES_LIST,
+    rooms: [
+      {
+        id: 'room-abaa-201',
+        name: 'Standard Room Suite',
+        type: 'SELF_CONTAIN',
+        maxOccupants: 1,
+        quantityTotal: 12,
+        quantityAvailable: 3,
+        isEnsuite: true,
+        isFurnished: false
+      }
+    ],
+    media: [
+      { id: 'm-ab-3', url: 'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&w=1000&q=80', caption: 'Room Interior', displayOrder: 1, isCover: true, mediaType: 'IMAGE', category: 'BEDROOM' }
+    ]
+  },
+  {
+    id: 'prop-abaa-3',
+    title: 'Abaa Premier Scholars Lodge',
+    slug: 'abaa-premier-scholars-lodge',
+    description: 'Serene self-contain complex built specifically for serious university scholars. Quiet study atmosphere, dedicated caretaker, fast campus shuttle access, and ample security.',
+    address: '22 Peace Corridor, Abaa Area, Ogbomoso',
+    nearbyLandmark: 'Close to Abaa-Under G connecting link road',
+    latitude: 8.1490,
+    longitude: 4.2718,
+    distanceFromCampusKm: 0.9,
+    propertyType: 'SELF_CONTAIN',
+    genderPreference: 'ANY',
+    totalRooms: 10,
+    verificationStatus: 'APPROVED',
+    availabilityStatus: 'AVAILABLE',
+    isDemo: true,
+    isFeatured: false,
+    completenessScore: 95,
+    createdAt: '2026-08-24T10:00:00Z',
+    area: {
+      id: 'area-abaa',
+      name: 'Abaa Area',
+      slug: 'abaa',
+      landmark: 'Abaa Junction & Central Market'
+    },
+    coverImage: 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=1000&q=80',
+    coverImageCaption: 'Premier Scholars Lodge in Abaa',
+    priceSummary: {
+      period: 'YEARLY',
+      rentAmount: 260000,
+      serviceCharge: 10000,
+      agencyFee: 20000,
+      cautionFee: 20000,
+      otherMandatoryCharges: 10000,
+      legalFee: 0,
+      totalMandatoryCost: 320000,
+      totalRefundableCost: 20000,
+      isNegotiable: false
+    },
+    keyAmenities: AMENITIES_LIST,
+    rooms: [
+      {
+        id: 'room-abaa-301',
+        name: 'Deluxe Suite',
+        type: 'SELF_CONTAIN',
+        maxOccupants: 1,
+        quantityTotal: 10,
+        quantityAvailable: 4,
+        isEnsuite: true,
+        isFurnished: true
+      }
+    ],
+    media: [
+      { id: 'm-ab-4', url: 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=1000&q=80', caption: 'Study Lodge Living Room', displayOrder: 1, isCover: true, mediaType: 'IMAGE', category: 'BEDROOM' }
+    ]
+  },
+  {
+    id: 'prop-oluyole-1',
+    title: 'Olubere Executive Residence, Oluyole',
+    slug: 'olubere-executive-residence-oluyole-ibadan',
+    description: 'High-end furnished accommodation located in prestigious Oluyole Estate. 24-hour guarded security, perimeter electrical fence, prepaid meter, and steady borehole water system.',
+    address: 'No. 59, Olubere Avenue, Oluyole, Ibadan',
+    nearbyLandmark: 'Olubere Avenue, off Ring Road, Oluyole Estate, Ibadan',
+    latitude: 7.3526,
+    longitude: 3.8642,
+    distanceFromCampusKm: 2.4,
+    propertyType: 'FLAT',
+    genderPreference: 'ANY',
+    totalRooms: 6,
+    verificationStatus: 'APPROVED',
+    availabilityStatus: 'AVAILABLE',
+    isDemo: true,
+    isFeatured: true,
+    completenessScore: 100,
+    createdAt: '2026-08-25T10:00:00Z',
+    area: {
+      id: 'area-oluyole',
+      name: 'Oluyole Estate, Ibadan',
+      slug: 'oluyole-ibadan',
+      landmark: 'Olubere Avenue & Ring Road Axis'
+    },
+    coverImage: 'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=1000&q=80',
+    coverImageCaption: 'Olubere Executive Residence in Oluyole, Ibadan',
+    priceSummary: {
+      period: 'YEARLY',
+      rentAmount: 750000,
+      serviceCharge: 30000,
+      agencyFee: 50000,
+      cautionFee: 40000,
+      otherMandatoryCharges: 20000,
+      legalFee: 0,
+      totalMandatoryCost: 890000,
+      totalRefundableCost: 40000,
+      isNegotiable: false
+    },
+    keyAmenities: AMENITIES_LIST,
+    rooms: [
+      {
+        id: 'room-oluyole-101',
+        name: 'Executive 2-Bedroom Ensuite Suite',
+        type: 'FLAT',
+        maxOccupants: 2,
+        quantityTotal: 6,
+        quantityAvailable: 2,
+        isEnsuite: true,
+        isFurnished: true
+      }
+    ],
+    media: [
+      { id: 'm-ol-1', url: 'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=1000&q=80', caption: 'Olubere Residence Exterior', displayOrder: 1, isCover: true, mediaType: 'IMAGE', category: 'EXTERIOR' }
     ]
   }
 ];
