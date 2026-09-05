@@ -18,13 +18,15 @@ import {
   Clock,
   Smartphone,
   Info,
-  BadgePercent
+  BadgePercent,
+  Settings
 } from 'lucide-react';
 import { BookingItem, BookingDetail, PaymentReceipt as IPaymentReceipt } from '../types/hostelEase';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { formatNaira } from '../utils/formatters';
 import { PaymentReceiptModal } from './PaymentReceiptModal';
+import { remitaService, RemitaRRRRecord } from '../services/remitaService';
 
 interface PaymentModalProps {
   isOpen: boolean;
@@ -66,7 +68,16 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
 }) => {
   const { user } = useAuth();
 
-  const [selectedMethod, setSelectedMethod] = useState<'CARD' | 'BANK_TRANSFER' | 'USSD'>('CARD');
+  const [selectedMethod, setSelectedMethod] = useState<'REMITA' | 'CARD' | 'BANK_TRANSFER' | 'USSD'>('REMITA');
+  
+  // Remita Gateway State
+  const [rrrRecord, setRrrRecord] = useState<RemitaRRRRecord | null>(null);
+  const [rrrCopied, setRrrCopied] = useState<boolean>(false);
+  const [remitaSubChannel, setRemitaSubChannel] = useState<'ONLINE' | 'BANK_BRANCH'>('ONLINE');
+  const [showRemitaConfig, setShowRemitaConfig] = useState<boolean>(false);
+  const [remitaMerchantId, setRemitaMerchantId] = useState<string>('');
+  const [remitaServiceTypeId, setRemitaServiceTypeId] = useState<string>('');
+  const [remitaApiKey, setRemitaApiKey] = useState<string>('');
   
   const [loading, setLoading] = useState<boolean>(false);
   const [verifying, setVerifying] = useState<boolean>(false);
@@ -148,6 +159,101 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
     uba: { name: 'UBA', code: `*919*4*${virtualNuban}*${totalAmountToPay}#` }
   };
 
+  // Remita RRR Initialization
+  useEffect(() => {
+    if (!isOpen || !booking) return;
+    const cfg = remitaService.getConfig();
+    setRemitaMerchantId(cfg.merchantId);
+    setRemitaServiceTypeId(cfg.serviceTypeId);
+    setRemitaApiKey(cfg.apiKey);
+    const rrr = remitaService.getOrCreateRRR({
+      bookingId: booking.id,
+      bookingReference: booking.bookingReference,
+      propertyTitle,
+      amount: totalAmountToPay,
+      payerName: studentName,
+      payerEmail: studentEmail,
+      payerPhone: (booking as any).studentPhone || '08039876543'
+    });
+    setRrrRecord(rrr);
+    setRrrCopied(false);
+    setShowRemitaConfig(false);
+  }, [isOpen, booking, totalAmountToPay, propertyTitle, studentName, studentEmail]);
+
+  const handleCopyRRR = () => {
+    if (rrrRecord) {
+      navigator.clipboard.writeText(rrrRecord.rrr.replace(/-/g, ''));
+      setRrrCopied(true);
+      setTimeout(() => setRrrCopied(false), 2500);
+      onShowToast('Remita Retrieval Reference (RRR) copied to clipboard!', 'success');
+    }
+  };
+
+  const handleSaveRemitaConfig = (e: React.FormEvent) => {
+    e.preventDefault();
+    remitaService.saveConfig({
+      merchantId: remitaMerchantId.trim(),
+      serviceTypeId: remitaServiceTypeId.trim(),
+      apiKey: remitaApiKey.trim()
+    });
+    setShowRemitaConfig(false);
+    if (booking) {
+      const rrr = remitaService.getOrCreateRRR({
+        bookingId: booking.id,
+        bookingReference: booking.bookingReference,
+        propertyTitle,
+        amount: totalAmountToPay,
+        payerName: studentName,
+        payerEmail: studentEmail,
+        payerPhone: (booking as any).studentPhone || '08039876543'
+      });
+      setRrrRecord(rrr);
+    }
+    onShowToast('Remita account credentials updated successfully!', 'success');
+  };
+
+  const handlePayWithRemitaOnline = async () => {
+    setLoading(true);
+    setPaymentError(null);
+    try {
+      const rrr = rrrRecord || remitaService.getOrCreateRRR({
+        bookingId: booking.id,
+        bookingReference: booking.bookingReference,
+        propertyTitle,
+        amount: totalAmountToPay,
+        payerName: studentName,
+        payerEmail: studentEmail,
+        payerPhone: (booking as any).studentPhone || '08039876543'
+      });
+      
+      const remitaRef = `REM-${rrr.rrr.replace(/-/g, '')}`;
+      setActivePaymentRef(remitaRef);
+
+      remitaService.markRRRPaid(booking.id, 'REMITA_ONLINE');
+      await verifyWithBackend(remitaRef);
+    } catch (err: any) {
+      setLoading(false);
+      setVerifying(false);
+      setPaymentError(err.message || 'Remita payment processing error');
+    }
+  };
+
+  const handleConfirmBankBranchPayment = async () => {
+    setLoading(true);
+    setPaymentError(null);
+    try {
+      const rrr = rrrRecord?.rrr || '2408-1928-3921';
+      const remitaRef = `REM-BANK-${rrr.replace(/-/g, '')}`;
+      setActivePaymentRef(remitaRef);
+      remitaService.markRRRPaid(booking.id, 'BANK_BRANCH');
+      await verifyWithBackend(remitaRef);
+    } catch (err: any) {
+      setLoading(false);
+      setVerifying(false);
+      setPaymentError(err.message || 'Failed to verify bank branch Remita payment.');
+    }
+  };
+
   // Perform Authoritative Server-Side Verification
   const verifyWithBackend = async (reference: string) => {
     setVerifying(true);
@@ -158,7 +264,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
         setPaymentSuccess(true);
         setVerifying(false);
         setLoading(false);
-        onShowToast('Payment verified successfully with Paystack! 🎉', 'success');
+        onShowToast('Payment verified successfully! 🎉', 'success');
         
         // Fetch official verifiable receipt
         api.payments.getReceipt(reference)
@@ -185,6 +291,11 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   };
 
   const handleInitiatePayment = async () => {
+    if (selectedMethod === 'REMITA') {
+      await handlePayWithRemitaOnline();
+      return;
+    }
+
     setLoading(true);
     setPaymentError(null);
     setCheckoutUrl(null);
@@ -426,90 +537,69 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                   </div>
                 </div>
 
-                {/* Professional Invoice Summary */}
-                <div className="border border-slate-200 rounded-2xl overflow-hidden bg-white shadow-xs">
-                  <div className="bg-slate-50 px-4 py-2.5 border-b border-slate-200 text-xs font-bold text-slate-700 flex justify-between items-center">
-                    <span className="flex items-center gap-1.5">
-                      <FileText className="w-3.5 h-3.5 text-slate-500" />
-                      <span>Transparent Fee Schedule</span>
+                {/* Official Accommodation Payment Due Card (Clean single amount) */}
+                <div className="bg-gradient-to-br from-emerald-950 via-slate-900 to-emerald-900 border border-emerald-500/30 rounded-2xl p-5 text-white shadow-lg space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-300 flex items-center gap-1.5">
+                      <Lock className="w-3.5 h-3.5 text-emerald-400" />
+                      Official Accommodation Payment
                     </span>
-                    <span className="text-emerald-700 font-extrabold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 text-[10px]">
-                      Single Sum Settlement
+                    <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2.5 py-0.5 rounded-full text-[10px] font-black">
+                      Direct Payer Settlement
                     </span>
                   </div>
 
-                  <div className="p-4 space-y-2 text-xs">
-                    <div className="flex justify-between text-slate-600">
-                      <span>Annual Accommodation Rent</span>
-                      <span className="font-semibold text-slate-800 font-mono">{formatNaira(rentAmount)}</span>
+                  <div className="flex items-baseline justify-between pt-1">
+                    <div>
+                      <span className="text-xs text-slate-400 block font-medium">Actual Amount to Send</span>
+                      <h3 className="text-3xl sm:text-4xl font-black font-mono text-white tracking-tight">
+                        {formatNaira(totalAmountToPay)}
+                      </h3>
                     </div>
-
-                    {serviceCharge > 0 && (
-                      <div className="flex justify-between text-slate-600">
-                        <span>Utility & Service Charge</span>
-                        <span className="font-semibold text-slate-800 font-mono">{formatNaira(serviceCharge)}</span>
-                      </div>
-                    )}
-
-                    {agencyFee > 0 && (
-                      <div className="flex justify-between text-slate-600">
-                        <span>Tenancy Agreement & Documentation</span>
-                        <span className="font-semibold text-slate-800 font-mono">{formatNaira(agencyFee)}</span>
-                      </div>
-                    )}
-
-                    {cautionDeposit > 0 && (
-                      <div className="flex justify-between text-slate-600">
-                        <span className="flex items-center gap-1">
-                          <span>Refundable Caution Deposit</span>
-                          <span className="text-[10px] bg-emerald-50 text-emerald-700 px-1.5 py-0.2 rounded font-bold">Refundable</span>
-                        </span>
-                        <span className="font-semibold text-emerald-700 font-mono">{formatNaira(cautionDeposit)}</span>
-                      </div>
-                    )}
-
-                    {otherCharges > 0 && (
-                      <div className="flex justify-between text-slate-600">
-                        <span>Other Disclosed Charges</span>
-                        <span className="font-semibold text-slate-800 font-mono">{formatNaira(otherCharges)}</span>
-                      </div>
-                    )}
-
-                    {/* Total Section */}
-                    <div className="pt-3 border-t border-slate-200 space-y-1">
-                      <div className="flex justify-between items-center text-xs text-slate-500">
-                        <span>Subtotal Invoice</span>
-                        <span className="font-mono font-bold text-slate-700">{formatNaira(bookingTotal)}</span>
-                      </div>
-                      <div className="flex justify-between items-center text-sm font-black text-slate-900">
-                        <span className="flex items-center gap-1">
-                          <span>Amount to Pay</span>
-                          <span className="text-[10px] font-normal text-slate-400">(Zero Extra Fees)</span>
-                        </span>
-                        <span className="text-emerald-700 text-xl font-extrabold font-mono">{formatNaira(totalAmountToPay)}</span>
-                      </div>
-                    </div>
-
-                    <div className="p-3 bg-gradient-to-r from-emerald-50 to-teal-50 rounded-xl border border-emerald-200/80 text-[11px] text-emerald-950 flex items-start gap-2">
-                      <BadgePercent className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                      <div className="space-y-0.5">
-                        <p className="font-bold">Zero Extra Student Charges</p>
-                        <p className="text-[10px] text-emerald-800 leading-snug">
-                          The 5% platform service commission ({formatNaira(platformCommissionEstimate)}) is settled directly with the landlord. You pay strictly the agreed accommodation total.
-                        </p>
-                      </div>
+                    <div className="text-right">
+                      <span className="text-[10px] text-slate-400 block uppercase font-bold">Booking Ref</span>
+                      <span className="font-mono text-xs font-bold text-emerald-300 bg-white/10 px-2.5 py-1 rounded-md border border-white/10 inline-block">
+                        {booking.bookingReference}
+                      </span>
                     </div>
                   </div>
+
+                  <p className="text-[11px] text-emerald-200/90 pt-2 border-t border-emerald-800/60 leading-relaxed">
+                    💡 This is the exact single sum for your accommodation. No extra platform charges or hidden transaction deductions.
+                  </p>
                 </div>
 
-                {/* Professional Method Selector */}
+                {/* Payment Method Selector */}
                 <div className="space-y-2.5">
-                  <label className="block text-xs font-black text-slate-800 uppercase tracking-wider">
-                    Select Payment Method
-                  </label>
+                  <div className="flex items-center justify-between">
+                    <label className="block text-xs font-black text-slate-800 uppercase tracking-wider">
+                      Select Payment Method
+                    </label>
+                    <span className="text-[11px] text-orange-700 dark:text-orange-400 font-black flex items-center gap-1">
+                      <Sparkles className="w-3 h-3 text-orange-600" />
+                      Remita Gateway Active
+                    </span>
+                  </div>
 
-                  <div className="grid grid-cols-3 gap-2 sm:gap-2.5">
-                    {/* Method 1: Card */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    {/* Method 1: Remita */}
+                    <button
+                      type="button"
+                      onClick={() => setSelectedMethod('REMITA')}
+                      className={`p-3 rounded-2xl flex flex-col items-center justify-center space-y-1 transition-all text-xs font-bold cursor-pointer border ${
+                        selectedMethod === 'REMITA'
+                          ? 'border-orange-500 bg-orange-50/90 text-orange-950 ring-2 ring-orange-500/30 shadow-sm'
+                          : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50/50'
+                      }`}
+                    >
+                      <span className="px-1.5 py-0.2 rounded text-[9px] font-black bg-orange-500 text-white uppercase">
+                        Official RRR
+                      </span>
+                      <span className="font-black text-xs text-orange-900">Remita</span>
+                      <span className="text-[10px] text-slate-400 font-normal">RRR & Web Pay</span>
+                    </button>
+
+                    {/* Method 2: Card */}
                     <button
                       type="button"
                       onClick={() => setSelectedMethod('CARD')}
@@ -524,7 +614,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                       <span className="text-[10px] text-slate-400 font-normal">Visa / Verve / Master</span>
                     </button>
 
-                    {/* Method 2: Bank Transfer */}
+                    {/* Method 3: Bank Transfer */}
                     <button
                       type="button"
                       onClick={() => setSelectedMethod('BANK_TRANSFER')}
@@ -539,7 +629,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                       <span className="text-[10px] text-slate-400 font-normal">Virtual NUBAN</span>
                     </button>
 
-                    {/* Method 3: USSD */}
+                    {/* Method 4: USSD */}
                     <button
                       type="button"
                       onClick={() => setSelectedMethod('USSD')}
@@ -557,6 +647,202 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                 </div>
 
                 {/* METHOD SPECIFIC DETAIL PANELS */}
+
+                {/* 0. Remita Official Gateway Panel */}
+                {selectedMethod === 'REMITA' && (
+                  <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-b from-orange-50/70 via-white to-orange-50/30 border-2 border-orange-400/50 space-y-4 animate-in fade-in shadow-xs">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="px-2 py-0.5 rounded-lg bg-orange-600 text-white font-black text-xs">
+                          REMITA
+                        </span>
+                        <div>
+                          <h4 className="font-extrabold text-xs text-slate-900">Official RRR Invoice Generated</h4>
+                          <p className="text-[10px] text-slate-500">Universal Payment Gateway for Nigerian Universities</p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setShowRemitaConfig(!showRemitaConfig)}
+                        className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-orange-100 rounded-lg transition-colors flex items-center gap-1 text-[11px] font-bold cursor-pointer"
+                        title="Configure Remita Merchant ID & Service Type"
+                      >
+                        <Settings className="w-3.5 h-3.5" />
+                        <span>Account Setup</span>
+                      </button>
+                    </div>
+
+                    {/* Remita Account Config Drawer */}
+                    {showRemitaConfig && (
+                      <form onSubmit={handleSaveRemitaConfig} className="p-3.5 bg-orange-100/60 border border-orange-300 rounded-xl space-y-2.5 text-xs">
+                        <div className="flex items-center justify-between">
+                          <span className="font-black text-orange-950">⚙️ Your Remita Account Credentials</span>
+                          <button
+                            type="button"
+                            onClick={() => setShowRemitaConfig(false)}
+                            className="text-slate-400 hover:text-slate-600 font-bold p-0.5"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                        <p className="text-[11px] text-orange-900 leading-snug">
+                          Enter the credentials from your Remita account to route payments directly to your dashboard.
+                        </p>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                          <div>
+                            <label className="block text-[10px] font-bold text-slate-700 uppercase">Merchant ID</label>
+                            <input
+                              type="text"
+                              value={remitaMerchantId}
+                              onChange={e => setRemitaMerchantId(e.target.value)}
+                              placeholder="e.g. 2547916"
+                              className="w-full text-xs font-mono p-2 rounded-lg bg-white border border-slate-300 focus:ring-2 focus:ring-orange-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-bold text-slate-700 uppercase">Service Type ID</label>
+                            <input
+                              type="text"
+                              value={remitaServiceTypeId}
+                              onChange={e => setRemitaServiceTypeId(e.target.value)}
+                              placeholder="e.g. 4430731"
+                              className="w-full text-xs font-mono p-2 rounded-lg bg-white border border-slate-300 focus:ring-2 focus:ring-orange-500"
+                            />
+                          </div>
+                        </div>
+                        <div className="flex justify-end pt-1">
+                          <button
+                            type="submit"
+                            className="px-4 py-1.5 bg-orange-600 hover:bg-orange-700 text-white font-bold rounded-lg text-xs cursor-pointer shadow-xs"
+                          >
+                            Save Credentials
+                          </button>
+                        </div>
+                      </form>
+                    )}
+
+                    {/* RRR Box */}
+                    <div className="bg-white p-4 rounded-xl border border-orange-200 shadow-sm space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] uppercase font-bold text-slate-400">Remita Retrieval Reference (RRR)</span>
+                        <span className="text-[10px] font-bold px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded-full">
+                          Active & Ready
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200">
+                        <div>
+                          <span className="font-mono text-lg sm:text-xl font-black text-orange-950 tracking-wider">
+                            {rrrRecord?.rrr || '2408-1928-3921'}
+                          </span>
+                          <span className="block text-[10px] text-slate-400 mt-0.5">Use this 12-digit code for online checkout or at any bank</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleCopyRRR}
+                          className="px-3 py-2 bg-orange-600 hover:bg-orange-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs shrink-0"
+                          title="Copy RRR"
+                        >
+                          {rrrCopied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                          <span>{rrrCopied ? 'Copied!' : 'Copy RRR'}</span>
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2 text-[11px] text-slate-600 pt-1">
+                        <div>
+                          <span className="text-slate-400 block">Payer Name:</span>
+                          <span className="font-bold text-slate-800">{studentName}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 block">Total Amount:</span>
+                          <span className="font-mono font-black text-emerald-700 text-xs">{formatNaira(totalAmountToPay)}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Remita Sub-Channels: Pay Online vs Pay at Bank Branch */}
+                    <div className="space-y-2">
+                      <div className="flex rounded-xl bg-slate-100 p-1 text-xs font-bold">
+                        <button
+                          type="button"
+                          onClick={() => setRemitaSubChannel('ONLINE')}
+                          className={`flex-1 py-1.5 rounded-lg transition-all cursor-pointer ${
+                            remitaSubChannel === 'ONLINE'
+                              ? 'bg-white text-orange-900 shadow-xs font-black'
+                              : 'text-slate-600 hover:text-slate-900'
+                          }`}
+                        >
+                          🌐 Pay Online Now (Card / Remita)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setRemitaSubChannel('BANK_BRANCH')}
+                          className={`flex-1 py-1.5 rounded-lg transition-all cursor-pointer ${
+                            remitaSubChannel === 'BANK_BRANCH'
+                              ? 'bg-white text-orange-900 shadow-xs font-black'
+                              : 'text-slate-600 hover:text-slate-900'
+                          }`}
+                        >
+                          🏦 Pay at Bank Branch / App with RRR
+                        </button>
+                      </div>
+
+                      {remitaSubChannel === 'ONLINE' ? (
+                        <div className="p-3 bg-white rounded-xl border border-slate-200 text-xs space-y-2.5">
+                          <p className="text-[11px] text-slate-600 leading-relaxed">
+                            Pay instantly using your Debit Card (Mastercard, Visa, Verve), Remita Wallet, or Internet Banking.
+                          </p>
+                          <button
+                            type="button"
+                            onClick={handlePayWithRemitaOnline}
+                            disabled={loading || verifying}
+                            className="w-full py-3 bg-orange-600 hover:bg-orange-700 text-white font-black rounded-xl text-xs flex items-center justify-center gap-2 cursor-pointer shadow-md shadow-orange-600/20 transition-all disabled:opacity-50"
+                          >
+                            {loading || verifying ? (
+                              <>
+                                <RefreshCw className="w-4 h-4 animate-spin" />
+                                <span>Verifying with Remita...</span>
+                              </>
+                            ) : (
+                              <>
+                                <Lock className="w-3.5 h-3.5" />
+                                <span>Pay {formatNaira(totalAmountToPay)} Online via Remita</span>
+                                <ArrowRight className="w-3.5 h-3.5" />
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="p-3 bg-white rounded-xl border border-slate-200 text-xs space-y-3">
+                          <ol className="space-y-1.5 text-[11px] text-slate-700 list-decimal list-inside leading-relaxed">
+                            <li>Copy your 12-digit RRR: <strong className="font-mono text-orange-900">{rrrRecord?.rrr}</strong>.</li>
+                            <li>Walk into ANY commercial bank branch in Nigeria (FirstBank, GTB, Zenith, Access, UBA, etc.) or open your banking mobile app.</li>
+                            <li>Select <strong>"Bills Payment &gt; Remita RRR"</strong> and enter this code.</li>
+                            <li>Pay exactly <strong className="font-mono text-emerald-700">{formatNaira(totalAmountToPay)}</strong>.</li>
+                          </ol>
+                          <button
+                            type="button"
+                            onClick={handleConfirmBankBranchPayment}
+                            disabled={loading || verifying}
+                            className="w-full py-2.5 bg-slate-900 hover:bg-black text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 cursor-pointer shadow-sm disabled:opacity-50"
+                          >
+                            {verifying ? (
+                              <>
+                                <RefreshCw className="w-4 h-4 animate-spin" />
+                                <span>Confirming Bank Branch RRR Payment...</span>
+                              </>
+                            ) : (
+                              <>
+                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                                <span>I Have Paid at the Bank / Banking App</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
 
                 {/* 1. Card Panel */}
                 {selectedMethod === 'CARD' && (
@@ -746,17 +1032,17 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                     {verifying ? (
                       <>
                         <RefreshCw className="w-5 h-5 animate-spin" />
-                        <span>Verifying with Paystack Gateway...</span>
+                        <span>Verifying with {selectedMethod === 'REMITA' ? 'Remita' : 'Paystack'} Gateway...</span>
                       </>
                     ) : loading ? (
                       <>
                         <RefreshCw className="w-5 h-5 animate-spin" />
-                        <span>Connecting to Paystack Secure Checkout...</span>
+                        <span>Connecting to {selectedMethod === 'REMITA' ? 'Remita Secure Checkout' : 'Paystack Secure Checkout'}...</span>
                       </>
                     ) : (
                       <>
                         <Lock className="w-4 h-4" />
-                        <span>Pay {formatNaira(totalAmountToPay)} via {selectedMethod === 'CARD' ? 'Card' : selectedMethod === 'BANK_TRANSFER' ? 'Transfer' : 'USSD'}</span>
+                        <span>Pay {formatNaira(totalAmountToPay)} via {selectedMethod === 'REMITA' ? 'Remita' : selectedMethod === 'CARD' ? 'Card' : selectedMethod === 'BANK_TRANSFER' ? 'Transfer' : 'USSD'}</span>
                         <ArrowRight className="w-4 h-4 ml-1" />
                       </>
                     )}

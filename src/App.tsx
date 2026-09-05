@@ -599,11 +599,6 @@ function MainApp() {
                 </div>
 
                 <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
-                  <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 flex items-center gap-1.5 shadow-xs">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
-                    <span>{isFeaturedSliderHovered ? '⏸️ Paused (Viewing)' : '⏱️ Rolls every 3 mins'}</span>
-                  </span>
-
                   <button
                     type="button"
                     onClick={() => setFeaturedSliderIndex(prev => (featuredRollList.length > 0 ? (prev > 0 ? prev - 1 : featuredRollList.length - 1) : 0))}
@@ -706,13 +701,8 @@ function MainApp() {
                   </p>
                 </div>
 
-                {/* Slider Navigation & Live Rolling Indicator */}
+                {/* Slider Navigation */}
                 <div className="flex items-center gap-2">
-                  <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 flex items-center gap-1.5 shadow-xs">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
-                    <span>{isVideoSliderHovered ? '⏸️ Paused (Viewing)' : '⏱️ Rolls every 3 mins'}</span>
-                  </span>
-
                   <button
                     type="button"
                     onClick={() => setVideoSliderIndex(prev => (rollingVideoList.length > 0 ? (prev > 0 ? prev - 1 : rollingVideoList.length - 1) : 0))}

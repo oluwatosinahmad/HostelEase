@@ -29,11 +29,17 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   private handleReset = () => {
+    try {
+      localStorage.setItem('hostel_ease_current_view', 'home');
+    } catch {}
     this.setState({ hasError: false, error: null, errorInfo: null });
-    window.location.href = '/';
+    window.location.href = window.location.origin + window.location.pathname;
   };
 
   private handleReload = () => {
+    try {
+      localStorage.setItem('hostel_ease_current_view', 'home');
+    } catch {}
     window.location.reload();
   };
 

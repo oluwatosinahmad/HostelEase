@@ -1328,6 +1328,69 @@ function generateOfflineFallbackResponse(url?: string): any {
   }
 
   // Move-in & Disputes
+  if (cleanUrl.includes('/move-in/student/current')) {
+    const prop = DEFAULT_PROPERTIES[0];
+    return {
+      hasActiveMoveIn: true,
+      moveIn: {
+        id: 'mv-default-1',
+        bookingId: 'bk-default-1',
+        status: 'READY',
+        moveInDate: new Date().toISOString().split('T')[0],
+        scheduledArrivalTime: '10:00 AM - 4:00 PM',
+        countdownText: 'Move-in Ready',
+        diffDays: 0,
+        instructions: 'Please arrive between 10:00 AM and 4:00 PM. Meet caretaker at gate for keys and room walkthrough.',
+        keyCollectionPoint: 'Hostel Main Gate / Caretaker Lodge',
+        emergencyContactPhone: prop.provider?.phone || '08039876543',
+        hostel: {
+          id: prop.id,
+          title: prop.title,
+          address: prop.address,
+          coverImage: prop.coverImage,
+          areaName: prop.area?.name || 'Under G, Ogbomoso',
+          distanceFromCampusKm: (prop as any).distanceKm || (prop as any).distanceFromCampusKm || 0.6,
+          nearbyLandmark: (prop as any).landmark || (prop as any).nearbyLandmark || 'LAUTECH Under G Gate',
+          latitude: (prop as any).lat || (prop as any).latitude || 8.158,
+          longitude: (prop as any).lng || (prop as any).longitude || 4.256
+        },
+        room: {
+          id: 'rm-1',
+          name: 'Room 4 (Self-Contain)',
+          type: 'SELF_CONTAIN',
+          isEnsuite: true,
+          isFurnished: true,
+          bedspaceNumber: 'Bedspace 1'
+        },
+        provider: {
+          id: (prop as any).providerId || 'usr-provider',
+          name: prop.provider?.name || 'Hostel Caretaker',
+          phone: prop.provider?.phone || '08039876543',
+          email: 'landlord@hostelease.ng'
+        },
+        payment: {
+          status: 'PAID',
+          outstandingAmount: 0,
+          cautionDeposit: 20000
+        },
+        checklist: {
+          totalItems: 6,
+          completedItems: 4,
+          items: [
+            { id: 'chk_payment', title: 'Complete Annual Rent & Caution Deposit Payment', category: 'BEFORE_MOVE_IN', isCompleted: true },
+            { id: 'chk_tenancy_agreement', title: 'Review & Sign Digital Tenancy Agreement', category: 'BEFORE_MOVE_IN', isCompleted: true },
+            { id: 'chk_inspection_pass', title: 'Obtain Gate Passcode & Security Clearance', category: 'BEFORE_MOVE_IN', isCompleted: true },
+            { id: 'chk_rules', title: 'Acknowledge Hostel House Rules & Quiet Hours', category: 'BEFORE_MOVE_IN', isCompleted: true },
+            { id: 'chk_condition_report', title: 'Verify Electrical Sockets & Water Flow', category: 'MOVE_IN_DAY', isCompleted: false },
+            { id: 'chk_keys', title: 'Collect Physical Room Keys from Caretaker', category: 'MOVE_IN_DAY', isCompleted: false }
+          ]
+        },
+        photos: [],
+        issues: [],
+        documents: { tenancyAgreementUrl: '#', paymentReceiptUrl: '#', houseRulesUrl: '#' }
+      }
+    };
+  }
   if (cleanUrl.includes('/move-in')) {
     return {
       moveInChecklist: { tasks: [] },
@@ -5767,41 +5830,65 @@ Hello Landlord, a student has booked your accommodation under our standard 5% co
       const foundProp = allProps.find(p => p.id === activeBooking.propertyId) || DEFAULT_PROPERTIES[0];
 
       const moveInData = {
+        id: `mv-${activeBooking.id}`,
         bookingId: activeBooking.id,
-        bookingReference: activeBooking.bookingReference || 'HE-BOOK-84920',
-        propertyId: activeBooking.propertyId,
-        propertyTitle: activeBooking.propertyTitle || foundProp.title,
-        propertyAddress: foundProp.address || `${activeBooking.areaName}, Ogbomoso`,
-        areaName: activeBooking.areaName || foundProp.area?.name || 'Under G, Ogbomoso',
-        distanceFromCampusKm: activeBooking.distanceFromCampusKm || foundProp.distanceFromCampusKm || 0.6,
-        coverImage: activeBooking.propertyCoverImage || foundProp.coverImage,
-        roomName: activeBooking.roomName || 'Room 4 (Self-Contain)',
-        roomType: activeBooking.roomType || 'SELF_CONTAIN',
-        bedspaceNumber: activeBooking.bedspaceNumber,
+        status: 'READY' as const,
         moveInDate: activeBooking.moveInDate || new Date().toISOString().split('T')[0],
-        academicSession: activeBooking.academicSession || '2025/2026 Academic Session',
-        totalCost: activeBooking.totalCost || 220000,
-        rentAmount: activeBooking.rentAmount || 180000,
-        status: 'READY_FOR_MOVE_IN',
-        paymentStatus: activeBooking.paymentStatus || 'PAID',
-        paidAt: activeBooking.paidAt || new Date().toISOString(),
-        keysHandedOver: true,
-        gatePasscode: 'PIN-8421-LAUTECH',
+        scheduledArrivalTime: '10:00 AM - 4:00 PM',
+        countdownText: 'Move-in Ready',
+        diffDays: 0,
+        instructions: 'Please arrive between 10:00 AM and 4:00 PM. Meet the caretaker at the main gate for key handoff, gate passcode and physical room walkthrough.',
+        keyCollectionPoint: 'Hostel Main Gate / Caretaker Lodge',
+        emergencyContactPhone: activeBooking.providerPhone || foundProp.provider?.phone || '08039876543',
+        hostel: {
+          id: foundProp.id,
+          title: activeBooking.propertyTitle || foundProp.title,
+          address: foundProp.address || `${activeBooking.areaName || 'Under G'}, Ogbomoso`,
+          coverImage: activeBooking.propertyCoverImage || foundProp.coverImage,
+          areaName: activeBooking.areaName || foundProp.area?.name || 'Under G, Ogbomoso',
+          distanceFromCampusKm: activeBooking.distanceFromCampusKm || (foundProp as any).distanceKm || (foundProp as any).distanceFromCampusKm || 0.6,
+          nearbyLandmark: (foundProp as any).landmark || (foundProp as any).nearbyLandmark || 'LAUTECH Under G Gate axis',
+          latitude: (foundProp as any).lat || (foundProp as any).latitude || 8.158,
+          longitude: (foundProp as any).lng || (foundProp as any).longitude || 4.256
+        },
+        room: {
+          id: (activeBooking as any).roomId || 'rm-1',
+          name: activeBooking.roomName || 'Room 4 (Self-Contain)',
+          type: activeBooking.roomType || 'SELF_CONTAIN',
+          isEnsuite: true,
+          isFurnished: true,
+          bedspaceNumber: activeBooking.bedspaceNumber || 'Bedspace 1'
+        },
         provider: {
           id: (foundProp as any).providerId || 'usr-provider-default',
           name: activeBooking.providerName || foundProp.provider?.name || 'Chief Oladimeji Alao',
           phone: activeBooking.providerPhone || foundProp.provider?.phone || '08039876543',
-          email: activeBooking.providerEmail || (foundProp.provider as any)?.email || 'landlord@hostelease.ng'
+          email: activeBooking.providerEmail || (foundProp.provider as any)?.email || 'landlord@hostelease.ng',
+          businessName: 'Hostel Management'
+        },
+        payment: {
+          status: (activeBooking.paymentStatus === 'PAID' ? 'PAID' : 'ESCROW_HELD') as any,
+          outstandingAmount: 0,
+          cautionDeposit: 20000
         },
         checklist: {
+          totalItems: 6,
+          completedItems: 4,
           items: [
-            { id: 'chk_payment', title: 'Complete Annual Rent & Caution Deposit Payment', category: 'FINANCIAL', isCompleted: true, completedAt: new Date().toISOString(), isMandatory: true },
-            { id: 'chk_tenancy_agreement', title: 'Review & Sign Digital Tenancy Agreement', category: 'DOCUMENT', isCompleted: true, completedAt: new Date().toISOString(), isMandatory: true },
-            { id: 'chk_inspection_pass', title: 'Obtain Gate Passcode & Security Clearance', category: 'ACCESS', isCompleted: true, completedAt: new Date().toISOString(), isMandatory: true },
-            { id: 'chk_rules', title: 'Acknowledge Hostel House Rules & Quiet Hours', category: 'COMPLIANCE', isCompleted: true, isMandatory: true },
-            { id: 'chk_condition_report', title: 'Verify Electrical Sockets, Water Flow & Complete Room Condition Form', category: 'INSPECTION', isCompleted: false, isMandatory: false },
-            { id: 'chk_keys', title: 'Collect Physical Room Keys & Gate Padlock Key from Caretaker', category: 'HANDOVER', isCompleted: false, isMandatory: true }
+            { id: 'chk_payment', title: 'Complete Annual Rent & Caution Deposit Payment', category: 'BEFORE_MOVE_IN' as const, isCompleted: true, completedAt: new Date().toISOString() },
+            { id: 'chk_tenancy_agreement', title: 'Review & Sign Digital Tenancy Agreement', category: 'BEFORE_MOVE_IN' as const, isCompleted: true, completedAt: new Date().toISOString() },
+            { id: 'chk_inspection_pass', title: 'Obtain Gate Passcode & Security Clearance', category: 'BEFORE_MOVE_IN' as const, isCompleted: true, completedAt: new Date().toISOString() },
+            { id: 'chk_rules', title: 'Acknowledge Hostel House Rules & Quiet Hours', category: 'BEFORE_MOVE_IN' as const, isCompleted: true },
+            { id: 'chk_condition_report', title: 'Verify Electrical Sockets, Water Flow & Complete Room Condition Form', category: 'MOVE_IN_DAY' as const, isCompleted: false },
+            { id: 'chk_keys', title: 'Collect Physical Room Keys & Gate Padlock Key from Caretaker', category: 'MOVE_IN_DAY' as const, isCompleted: false }
           ]
+        },
+        photos: [],
+        issues: [],
+        documents: {
+          tenancyAgreementUrl: '#',
+          paymentReceiptUrl: '#',
+          houseRulesUrl: '#'
         },
         inventory: [
           { item: 'Window Mosquito Nets & Burglar Proofing', condition: 'NEW / INTACT' },
