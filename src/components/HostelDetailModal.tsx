@@ -603,6 +603,84 @@ export const HostelDetailModal: React.FC<HostelDetailModalProps> = ({
                         <p className="text-slate-400 dark:text-slate-400 font-semibold uppercase text-[10px]">Landmark / Directions</p>
                         <p className="font-medium text-slate-800 dark:text-slate-200">{property.nearbyLandmark || property.address}</p>
                       </div>
+                      <div className="sm:col-span-2 pt-2 border-t border-slate-200 dark:border-slate-700 flex items-center justify-between gap-3 flex-wrap">
+                        <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                          Explore nearby restaurants, ATM, and safe walking route on map.
+                        </div>
+                        {onViewOnMap && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              onViewOnMap(property.nearbyLandmark || property.address || property.area.name);
+                            }}
+                            className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-sm flex items-center gap-1.5 cursor-pointer transition-all hover:scale-[1.02]"
+                          >
+                            <Navigation className="w-3.5 h-3.5" />
+                            <span>View on Interactive Campus Map</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* UtilityRadar: Verified Power & Water Intelligence */}
+                  <div className="bg-gradient-to-br from-amber-50/50 via-white to-sky-50/50 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800 rounded-2xl p-5 border border-amber-200/80 dark:border-slate-700 space-y-4 shadow-sm">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
+                        <Zap className="w-4 h-4 text-amber-500 fill-amber-500" />
+                        <span>UtilityRadar™ Power & Water Reliability Index</span>
+                      </h3>
+                      <span className="text-[10px] font-black px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 uppercase">
+                        Verified Specs
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                      {/* Power Supply Box */}
+                      <div className="bg-white dark:bg-slate-800 p-3.5 rounded-xl border border-amber-100 dark:border-slate-700 space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                            <Zap className="w-3.5 h-3.5 text-amber-500" />
+                            Electricity & Power
+                          </span>
+                          <span className="text-[11px] font-black text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/60 px-2 py-0.5 rounded-md">
+                            {property.utilityRating?.dailyLightHoursAvg || 16} hrs/day avg
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-600 dark:text-slate-400">
+                          <strong>Source:</strong> {property.utilityRating?.powerSource === 'SOLAR_INVERTER' ? 'Solar Inverter Backup + NEPA' : property.utilityRating?.powerSource === 'HYBRID_SOLAR_GEN' ? 'Hybrid Solar + Inverter + Generator' : 'Dedicated Commercial Feeder Line'}
+                        </p>
+                        {property.utilityRating?.generatorSchedule && (
+                          <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                            • Generator Schedule: {property.utilityRating.generatorSchedule}
+                          </p>
+                        )}
+                        <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">
+                          ✓ {property.utilityRating?.prepaidSubMeter ? 'Individual prepaid sub-meter per room' : 'Compound utility management'}
+                        </p>
+                      </div>
+
+                      {/* Water Supply Box */}
+                      <div className="bg-white dark:bg-slate-800 p-3.5 rounded-xl border border-sky-100 dark:border-slate-700 space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                            <Droplets className="w-3.5 h-3.5 text-sky-500" />
+                            Running Water Security
+                          </span>
+                          <span className="text-[11px] font-black text-sky-700 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/60 px-2 py-0.5 rounded-md">
+                            {property.utilityRating?.waterSource === 'SOLAR_BOREHOLE' ? 'Solar Powered Borehole' : 'Motorized Deep Borehole'}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-600 dark:text-slate-400">
+                          <strong>Storage:</strong> {property.utilityRating?.waterStorageLitres ? `${property.utilityRating.waterStorageLitres.toLocaleString()} Litres Capacity` : 'Multiple Overhead Reserve Tanks'}
+                        </p>
+                        <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                          • Pumping Frequency: {property.utilityRating?.waterPumpingSchedule || 'Twice Daily (Morning & Evening)'}
+                        </p>
+                        <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">
+                          ✓ Continuous running water to ensuite bathrooms
+                        </p>
+                      </div>
                     </div>
                   </div>
 

@@ -195,6 +195,18 @@ export interface AuditLogItem {
   createdAt: string;
 }
 
+export interface UtilityRating {
+  dailyLightHoursAvg: number;
+  powerSource: 'NEPA_ONLY' | 'SOLAR_INVERTER' | 'GENERATOR_BACKUP' | 'HYBRID_SOLAR_GEN';
+  solarCapacityKva?: number;
+  generatorSchedule?: string;
+  waterSource: 'SOLAR_BOREHOLE' | 'MOTORIZED_BOREHOLE' | 'WELL_WATER' | 'PUBLIC_MAINS';
+  waterStorageLitres?: number;
+  waterPumpingSchedule?: string;
+  prepaidSubMeter: boolean;
+  studentUtilityScore: number;
+}
+
 export interface Property {
   id: string;
   title: string;
@@ -217,6 +229,7 @@ export interface Property {
   completenessScore?: number;
   createdAt: string;
   updatedAt?: string;
+  utilityRating?: UtilityRating;
   area: {
     id: string;
     name: string;

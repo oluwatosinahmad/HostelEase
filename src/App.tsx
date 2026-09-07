@@ -31,7 +31,8 @@ import {
   Play,
   Video,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Users
 } from 'lucide-react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { Property, Area, SearchFilterState, UserRole, AppView } from './types/hostelEase';
@@ -68,6 +69,11 @@ import { MoveInCenter } from './components/MoveInCenter';
 import { AccommodationHistory } from './components/AccommodationHistory';
 import { CommunityHub } from './components/CommunityHub';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { UtilityRadarModal } from './components/UtilityRadarModal';
+import { CampusSafeWalkModal } from './components/CampusSafeWalkModal';
+import { UtilityCalculatorModal } from './components/UtilityCalculatorModal';
+import { SafetyEscrowModal } from './components/SafetyEscrowModal';
+import { INITIAL_APPLIANCES } from './data/campusData';
 
 const initialFilters: SearchFilterState = {
   search: '',
@@ -152,6 +158,12 @@ function MainApp() {
   const [aiModalOpen, setAiModalOpen] = useState<boolean>(false);
   const [aiPropertyContext, setAiPropertyContext] = useState<Property | null>(null);
   const [studentDashboardTab, setStudentDashboardTab] = useState<'overview' | 'bookings' | 'inspections' | 'shortlist' | 'preferences' | 'search_history' | 'profile_security'>('overview');
+
+  // Revolutionary Features & Tools Modal States
+  const [utilityRadarOpen, setUtilityRadarOpen] = useState<boolean>(false);
+  const [safeWalkOpen, setSafeWalkOpen] = useState<boolean>(false);
+  const [utilityCalcOpen, setUtilityCalcOpen] = useState<boolean>(false);
+  const [safetyEscrowOpen, setSafetyEscrowOpen] = useState<boolean>(false);
 
   const handleOpenAI = (property?: Property | null) => {
     setAiPropertyContext(property || null);
@@ -524,6 +536,8 @@ function MainApp() {
         onOpenAuth={handleOpenAuth}
         savedCount={savedProperties.length}
         onOpenAI={() => handleOpenAI()}
+        onOpenUtilityRadar={() => setUtilityRadarOpen(true)}
+        onOpenSafeWalk={() => setSafeWalkOpen(true)}
       />
 
       {/* Content Body Router with Lazy Suspense */}
@@ -580,6 +594,126 @@ function MainApp() {
                     </div>
                   </div>
                 ))}
+              </div>
+            </section>
+
+            {/* Revolutionary Campus Innovations Exclusive to Hostel Ease */}
+            <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-4">
+              <div className="flex items-end justify-between">
+                <div>
+                  <span className="text-[11px] font-extrabold text-amber-600 dark:text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-amber-500 fill-amber-400" />
+                    <span>Hostel Ease Originals • First in Nigeria</span>
+                  </span>
+                  <h2 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white">
+                    Campus Innovations & Student Safety Suite
+                  </h2>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {/* Card 1: UtilityRadar */}
+                <div 
+                  onClick={() => setUtilityRadarOpen(true)}
+                  className="bg-gradient-to-br from-amber-500/10 via-white to-amber-500/5 dark:from-amber-950/40 dark:via-slate-900 dark:to-slate-900 p-5 rounded-3xl border border-amber-200/80 dark:border-amber-900/60 shadow-sm hover:shadow-md hover:border-amber-400 transition-all cursor-pointer flex flex-col justify-between group"
+                >
+                  <div className="space-y-2.5">
+                    <div className="w-10 h-10 rounded-2xl bg-amber-500 text-white flex items-center justify-center font-bold shadow-md shadow-amber-500/20 group-hover:scale-105 transition-transform">
+                      <Zap className="w-5 h-5 fill-amber-200" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <h3 className="font-black text-sm text-slate-900 dark:text-white">UtilityRadar™</h3>
+                        <span className="px-1.5 py-0.2 rounded bg-amber-200 dark:bg-amber-900 text-amber-900 dark:text-amber-200 text-[9px] font-black">LIVE</span>
+                      </div>
+                      <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 leading-relaxed">
+                        Track live NEPA electricity hours, borehole water uptime, and crowd-sourced power voting across Under G, Adenike & Stadium Road.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="pt-3 border-t border-amber-100 dark:border-amber-900/40 flex items-center justify-between text-xs font-bold text-amber-700 dark:text-amber-400">
+                    <span>Open Live Radar</span>
+                    <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                  </div>
+                </div>
+
+                {/* Card 2: SafeWalk */}
+                <div 
+                  onClick={() => setSafeWalkOpen(true)}
+                  className="bg-gradient-to-br from-emerald-500/10 via-white to-emerald-500/5 dark:from-emerald-950/40 dark:via-slate-900 dark:to-slate-900 p-5 rounded-3xl border border-emerald-200/80 dark:border-emerald-900/60 shadow-sm hover:shadow-md hover:border-emerald-400 transition-all cursor-pointer flex flex-col justify-between group"
+                >
+                  <div className="space-y-2.5">
+                    <div className="w-10 h-10 rounded-2xl bg-emerald-600 text-white flex items-center justify-center font-bold shadow-md shadow-emerald-600/20 group-hover:scale-105 transition-transform">
+                      <ShieldCheck className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <h3 className="font-black text-sm text-slate-900 dark:text-white">SafeWalk™</h3>
+                        <span className="px-1.5 py-0.2 rounded bg-emerald-200 dark:bg-emerald-900 text-emerald-900 dark:text-emerald-200 text-[9px] font-black">SOS</span>
+                      </div>
+                      <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 leading-relaxed">
+                        Illuminated night routes from LAUTECH gates to your lodge, safe trek live timer, and 1-tap emergency security dispatch with GPS sharing.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="pt-3 border-t border-emerald-100 dark:border-emerald-900/40 flex items-center justify-between text-xs font-bold text-emerald-700 dark:text-emerald-400">
+                    <span>Launch SafeWalk</span>
+                    <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                  </div>
+                </div>
+
+                {/* Card 3: RoomieMatch & 50/50 Split Rent */}
+                <div 
+                  onClick={() => {
+                    setCurrentView('community');
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                  className="bg-gradient-to-br from-teal-500/10 via-white to-teal-500/5 dark:from-teal-950/40 dark:via-slate-900 dark:to-slate-900 p-5 rounded-3xl border border-teal-200/80 dark:border-teal-900/60 shadow-sm hover:shadow-md hover:border-teal-400 transition-all cursor-pointer flex flex-col justify-between group"
+                >
+                  <div className="space-y-2.5">
+                    <div className="w-10 h-10 rounded-2xl bg-teal-600 text-white flex items-center justify-center font-bold shadow-md shadow-teal-600/20 group-hover:scale-105 transition-transform">
+                      <Users className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <h3 className="font-black text-sm text-slate-900 dark:text-white">50/50 Split Rent</h3>
+                        <span className="px-1.5 py-0.2 rounded bg-teal-200 dark:bg-teal-900 text-teal-900 dark:text-teal-200 text-[9px] font-black">CONTRACT</span>
+                      </div>
+                      <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 leading-relaxed">
+                        Co-rent safely with fellow verified students. Split total rent into two Remita RRRs and receive a legally enforceable co-tenancy accord.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="pt-3 border-t border-teal-100 dark:border-teal-900/40 flex items-center justify-between text-xs font-bold text-teal-700 dark:text-teal-400">
+                    <span>Split Rent Escrow</span>
+                    <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                  </div>
+                </div>
+
+                {/* Card 4: Utility Cost Calculator */}
+                <div 
+                  onClick={() => setUtilityCalcOpen(true)}
+                  className="bg-gradient-to-br from-indigo-500/10 via-white to-indigo-500/5 dark:from-indigo-950/40 dark:via-slate-900 dark:to-slate-900 p-5 rounded-3xl border border-indigo-200/80 dark:border-indigo-900/60 shadow-sm hover:shadow-md hover:border-indigo-400 transition-all cursor-pointer flex flex-col justify-between group"
+                >
+                  <div className="space-y-2.5">
+                    <div className="w-10 h-10 rounded-2xl bg-indigo-600 text-white flex items-center justify-center font-bold shadow-md shadow-indigo-600/20 group-hover:scale-105 transition-transform">
+                      <Receipt className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <h3 className="font-black text-sm text-slate-900 dark:text-white">Utility Calculator</h3>
+                        <span className="px-1.5 py-0.2 rounded bg-indigo-200 dark:bg-indigo-900 text-indigo-900 dark:text-indigo-200 text-[9px] font-black">IBEDC</span>
+                      </div>
+                      <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 leading-relaxed">
+                        Configure appliances (fans, laptops, hotplate, mini-fridge) and calculate exact monthly prepaid electricity and water levies per person.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="pt-3 border-t border-indigo-100 dark:border-indigo-900/40 flex items-center justify-between text-xs font-bold text-indigo-700 dark:text-indigo-400">
+                    <span>Calculate Costs</span>
+                    <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                  </div>
+                </div>
               </div>
             </section>
 
@@ -1680,7 +1814,52 @@ function MainApp() {
       <Footer 
         onNavigate={setCurrentView} 
         onOpenAuth={handleOpenAuth}
+        onSelectArea={handleSelectArea}
+        onOpenUtilityRadar={() => setUtilityRadarOpen(true)}
+        onOpenSafeWalk={() => setSafeWalkOpen(true)}
+        onOpenUtilityCalculator={() => setUtilityCalcOpen(true)}
+        onOpenSafetyEscrow={() => setSafetyEscrowOpen(true)}
       />
+
+      {/* Revolutionary Innovation 1: UtilityRadar Live Index Modal */}
+      <UtilityRadarModal
+        isOpen={utilityRadarOpen}
+        onClose={() => setUtilityRadarOpen(false)}
+        onFilterByUtility={(utilityType) => {
+          setUtilityRadarOpen(false);
+          setFilters(prev => ({
+            ...prev,
+            facilities: utilityType === 'solar' 
+              ? Array.from(new Set([...prev.facilities, 'Solar Power / Inverter System']))
+              : prev.facilities,
+            page: 1
+          }));
+          setCurrentView('search');
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+        onShowToast={showToast}
+      />
+
+      {/* Revolutionary Innovation 2: SafeWalk Campus Night-Trek & SOS Modal */}
+      <CampusSafeWalkModal
+        isOpen={safeWalkOpen}
+        onClose={() => setSafeWalkOpen(false)}
+        onShowToast={showToast}
+      />
+
+      {/* Utility Cost Calculator Modal */}
+      <UtilityCalculatorModal
+        isOpen={utilityCalcOpen}
+        onClose={() => setUtilityCalcOpen(false)}
+        initialAppliances={INITIAL_APPLIANCES}
+      />
+
+      {/* Safety Escrow & Scam Protection Modal */}
+      {safetyEscrowOpen && (
+        <SafetyEscrowModal
+          onClose={() => setSafetyEscrowOpen(false)}
+        />
+      )}
 
       {/* Mobile-First Floating Bottom Navigation Bar */}
       <MobileBottomNav

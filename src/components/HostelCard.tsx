@@ -339,6 +339,27 @@ export const HostelCard: React.FC<HostelCardProps> = ({
             </p>
           )}
 
+          {/* UtilityRadar: Light & Water Reliability Pulse */}
+          {property.utilityRating && (
+            <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-black bg-amber-50 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+                <Zap className="w-3 h-3 text-amber-600 fill-amber-500" />
+                <span>{property.utilityRating.dailyLightHoursAvg}h Light/day</span>
+                {property.utilityRating.powerSource === 'SOLAR_INVERTER' && <span className="text-[9px] opacity-80 font-medium">• Solar</span>}
+              </span>
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-black bg-sky-50 dark:bg-sky-950/60 text-sky-800 dark:text-sky-300 border border-sky-200 dark:border-sky-800">
+                <Droplets className="w-3 h-3 text-sky-600 fill-sky-500" />
+                <span>Borehole</span>
+                {property.utilityRating.waterSource === 'SOLAR_BOREHOLE' && <span className="text-[9px] opacity-80 font-medium">• Solar</span>}
+              </span>
+              {property.utilityRating.prepaidSubMeter && (
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+                  Prepaid Meter
+                </span>
+              )}
+            </div>
+          )}
+
           {/* Key Facilities Pills */}
           {property.keyAmenities && property.keyAmenities.length > 0 && (
             <div className="flex flex-wrap gap-1 pt-1">

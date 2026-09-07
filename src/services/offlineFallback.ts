@@ -232,6 +232,17 @@ export const DEFAULT_PROPERTIES: Property[] = [
     isFeatured: true,
     completenessScore: 100,
     createdAt: '2026-08-20T10:00:00Z',
+    utilityRating: {
+      dailyLightHoursAvg: 18,
+      powerSource: 'SOLAR_INVERTER',
+      solarCapacityKva: 3.5,
+      generatorSchedule: '7:00 PM - 11:00 PM Daily during exam period',
+      waterSource: 'SOLAR_BOREHOLE',
+      waterStorageLitres: 15000,
+      waterPumpingSchedule: 'Twice daily (6:00 AM & 6:00 PM)',
+      prepaidSubMeter: true,
+      studentUtilityScore: 4.8
+    },
     area: {
       id: 'area-under-g',
       name: 'Under G',
@@ -292,6 +303,17 @@ export const DEFAULT_PROPERTIES: Property[] = [
     isFeatured: true,
     completenessScore: 98,
     createdAt: '2026-08-21T10:00:00Z',
+    utilityRating: {
+      dailyLightHoursAvg: 20,
+      powerSource: 'HYBRID_SOLAR_GEN',
+      solarCapacityKva: 5.0,
+      generatorSchedule: 'Automatic backup switchover during NEPA outage',
+      waterSource: 'SOLAR_BOREHOLE',
+      waterStorageLitres: 20000,
+      waterPumpingSchedule: 'Continuous automated solar pump',
+      prepaidSubMeter: true,
+      studentUtilityScore: 4.9
+    },
     area: {
       id: 'area-adenike',
       name: 'Adenike Area',
@@ -351,6 +373,17 @@ export const DEFAULT_PROPERTIES: Property[] = [
     isFeatured: true,
     completenessScore: 100,
     createdAt: '2026-08-22T10:00:00Z',
+    utilityRating: {
+      dailyLightHoursAvg: 16,
+      powerSource: 'SOLAR_INVERTER',
+      solarCapacityKva: 3.0,
+      generatorSchedule: '8:00 PM - 12:00 AM Daily',
+      waterSource: 'MOTORIZED_BOREHOLE',
+      waterStorageLitres: 10000,
+      waterPumpingSchedule: 'Daily at 6:30 AM',
+      prepaidSubMeter: true,
+      studentUtilityScore: 4.6
+    },
     area: {
       id: 'area-stadium-road',
       name: 'Stadium Road',
@@ -410,6 +443,17 @@ export const DEFAULT_PROPERTIES: Property[] = [
     isFeatured: true,
     completenessScore: 100,
     createdAt: '2026-08-23T10:00:00Z',
+    utilityRating: {
+      dailyLightHoursAvg: 17,
+      powerSource: 'SOLAR_INVERTER',
+      solarCapacityKva: 3.5,
+      generatorSchedule: '7:00 PM - 10:30 PM Daily',
+      waterSource: 'SOLAR_BOREHOLE',
+      waterStorageLitres: 12000,
+      waterPumpingSchedule: 'Twice daily (7:00 AM & 5:00 PM)',
+      prepaidSubMeter: true,
+      studentUtilityScore: 4.7
+    },
     area: {
       id: 'area-college-road',
       name: 'College Road / 2nd Gate',
@@ -466,6 +510,16 @@ export const DEFAULT_PROPERTIES: Property[] = [
     isFeatured: false,
     completenessScore: 95,
     createdAt: '2026-08-23T10:00:00Z',
+    utilityRating: {
+      dailyLightHoursAvg: 15,
+      powerSource: 'GENERATOR_BACKUP',
+      generatorSchedule: '7:30 PM - 11:00 PM Daily',
+      waterSource: 'MOTORIZED_BOREHOLE',
+      waterStorageLitres: 10000,
+      waterPumpingSchedule: 'Daily morning pumping',
+      prepaidSubMeter: true,
+      studentUtilityScore: 4.4
+    },
     area: {
       id: 'area-isale-general',
       name: 'Isale General',
@@ -580,6 +634,17 @@ export const DEFAULT_PROPERTIES: Property[] = [
     isFeatured: true,
     completenessScore: 100,
     createdAt: '2026-08-22T10:00:00Z',
+    utilityRating: {
+      dailyLightHoursAvg: 18,
+      powerSource: 'SOLAR_INVERTER',
+      solarCapacityKva: 3.5,
+      generatorSchedule: '7:00 PM - 11:00 PM Daily',
+      waterSource: 'SOLAR_BOREHOLE',
+      waterStorageLitres: 12000,
+      waterPumpingSchedule: 'Automated solar pump (Daily)',
+      prepaidSubMeter: true,
+      studentUtilityScore: 4.8
+    },
     area: {
       id: 'area-abaa',
       name: 'Abaa Area',
@@ -637,6 +702,17 @@ export const DEFAULT_PROPERTIES: Property[] = [
     isFeatured: true,
     completenessScore: 96,
     createdAt: '2026-08-23T10:00:00Z',
+    utilityRating: {
+      dailyLightHoursAvg: 19,
+      powerSource: 'SOLAR_INVERTER',
+      solarCapacityKva: 4.0,
+      generatorSchedule: '6:30 PM - 10:30 PM Daily',
+      waterSource: 'SOLAR_BOREHOLE',
+      waterStorageLitres: 15000,
+      waterPumpingSchedule: 'Twice daily (6:30 AM & 6:00 PM)',
+      prepaidSubMeter: true,
+      studentUtilityScore: 4.9
+    },
     area: {
       id: 'area-abaa',
       name: 'Abaa Area',
@@ -693,6 +769,17 @@ export const DEFAULT_PROPERTIES: Property[] = [
     isFeatured: false,
     completenessScore: 95,
     createdAt: '2026-08-24T10:00:00Z',
+    utilityRating: {
+      dailyLightHoursAvg: 17,
+      powerSource: 'SOLAR_INVERTER',
+      solarCapacityKva: 3.5,
+      generatorSchedule: '7:00 PM - 11:00 PM Daily',
+      waterSource: 'SOLAR_BOREHOLE',
+      waterStorageLitres: 12000,
+      waterPumpingSchedule: 'Daily morning & evening',
+      prepaidSubMeter: true,
+      studentUtilityScore: 4.7
+    },
     area: {
       id: 'area-abaa',
       name: 'Abaa Area',
@@ -749,6 +836,17 @@ export const DEFAULT_PROPERTIES: Property[] = [
     isFeatured: true,
     completenessScore: 100,
     createdAt: '2026-08-25T10:00:00Z',
+    utilityRating: {
+      dailyLightHoursAvg: 22,
+      powerSource: 'HYBRID_SOLAR_GEN',
+      solarCapacityKva: 7.5,
+      generatorSchedule: '24/7 Automated Inverter & Estate Soundproof Generator',
+      waterSource: 'SOLAR_BOREHOLE',
+      waterStorageLitres: 25000,
+      waterPumpingSchedule: '24/7 Constant Pressurized Running Water',
+      prepaidSubMeter: true,
+      studentUtilityScore: 5.0
+    },
     area: {
       id: 'area-oluyole',
       name: 'Oluyole Estate, Ibadan',

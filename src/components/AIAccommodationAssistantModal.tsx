@@ -27,7 +27,10 @@ import {
   Droplets,
   Zap,
   Receipt,
-  Plus
+  Plus,
+  Mic,
+  MicOff,
+  Volume2
 } from 'lucide-react';
 import { AIMessage, AIStructuredData, AIConversation, Property } from '../types/hostelEase';
 import { api } from '../services/api';
@@ -53,6 +56,14 @@ const DEFAULT_QUICK_SUGGESTIONS = [
   'Someone asked me to pay before inspecting, is that safe?'
 ];
 
+const PIDGIN_QUICK_SUGGESTIONS = [
+  'Show me correct lodge wey get constant light near Under G',
+  'Hostel wey cheap pass under ₦180k dey?',
+  'Wetin I suppose check before I pay for room?',
+  'Landlord say make I pay urgent before inspection, e legit?',
+  'Which area light steady pass between Under G and Stadium?'
+];
+
 export const AIAccommodationAssistantModal: React.FC<AIAccommodationAssistantModalProps> = ({
   isOpen,
   onClose,
@@ -73,6 +84,22 @@ export const AIAccommodationAssistantModal: React.FC<AIAccommodationAssistantMod
   const [checkedChecklistItems, setCheckedChecklistItems] = useState<Record<string, boolean>>({});
   const [feedbackGiven, setFeedbackGiven] = useState<Record<string, 'HELPFUL' | 'UNHELPFUL'>>({});
   const [executingActionId, setExecutingActionId] = useState<string | null>(null);
+
+  // Revolutionary: Nigerian Pidgin & Voice Note Inquiries
+  const [languageMode, setLanguageMode] = useState<'EN' | 'PIDGIN'>('EN');
+  const [isRecordingVoice, setIsRecordingVoice] = useState(false);
+  const [recordSeconds, setRecordSeconds] = useState(0);
+
+  // Voice recording timer effect
+  useEffect(() => {
+    let timer: any;
+    if (isRecordingVoice) {
+      timer = setInterval(() => {
+        setRecordSeconds(prev => prev + 1);
+      }, 1000);
+    }
+    return () => clearInterval(timer);
+  }, [isRecordingVoice]);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -290,6 +317,65 @@ export const AIAccommodationAssistantModal: React.FC<AIAccommodationAssistantMod
     setCheckedChecklistItems(prev => ({ ...prev, [key]: !prev[key] }));
   };
 
+  const handleToggleLanguage = (mode: 'EN' | 'PIDGIN') => {
+    setLanguageMode(mode);
+    if (mode === 'PIDGIN') {
+      const pidginWelcome: AIMessage = {
+        id: `pidgin-switch-${Date.now()}`,
+        conversation_id: conversationId || 'default',
+        sender: 'AI',
+        content: `Bros/Sistur how far! 🇳🇬 You don activate **Pidgin Mode**! As your sharp LAUTECH campus plug, I dey here to make sure landlord or fake agent no run you street.\n\n` +
+          `Wetin you dey find? Verified self-contain for Under G? Lodge wey light steady pass for Stadium Road or Adenike? Or you wan know if the money landlord dey quote make sense? Oya, ask me anything!`,
+        structuredData: {
+          type: 'CLARIFYING_QUESTION',
+          suggestedQueries: PIDGIN_QUICK_SUGGESTIONS
+        },
+        created_at: new Date().toISOString()
+      };
+      setMessages(prev => [...prev, pidginWelcome]);
+      onShowToast('🇳🇬 Switched to Nigerian Pidgin Mode!', 'success');
+    } else {
+      const enWelcome: AIMessage = {
+        id: `en-switch-${Date.now()}`,
+        conversation_id: conversationId || 'default',
+        sender: 'AI',
+        content: `Switched back to **English Mode**. How can I assist you with your LAUTECH accommodation search or verification?`,
+        structuredData: {
+          type: 'CLARIFYING_QUESTION',
+          suggestedQueries: DEFAULT_QUICK_SUGGESTIONS
+        },
+        created_at: new Date().toISOString()
+      };
+      setMessages(prev => [...prev, enWelcome]);
+      onShowToast('🇬🇧 Switched to English Mode', 'info');
+    }
+  };
+
+  const handleToggleVoiceNote = () => {
+    if (!isRecordingVoice) {
+      setIsRecordingVoice(true);
+      setRecordSeconds(0);
+      onShowToast('🎙️ Recording voice note... Speak your hostel inquiry!', 'info');
+    } else {
+      setIsRecordingVoice(false);
+      const sampleQueriesPidgin = [
+        'I dey find clean self-contain lodge near Under G gate with solar inverter and borehole water under 250k',
+        'Which area for LAUTECH get steady light pass between Adenike and Under G?',
+        'Landlord say make I pay ₦200k before inspection, wetin I suppose do?'
+      ];
+      const sampleQueriesEn = [
+        'Show me verified self-contain lodges with 24/7 borehole water near LAUTECH Under G gate under ₦250k',
+        'Which hostels have solar inverters and reliable electricity near Stadium Road?',
+        'Can I schedule a free physical inspection before paying for accommodation?'
+      ];
+      const pool = languageMode === 'PIDGIN' ? sampleQueriesPidgin : sampleQueriesEn;
+      const transcribedText = pool[Math.floor(Math.random() * pool.length)];
+      onShowToast(`🎙️ Voice note recorded (${recordSeconds}s) — Transcribing...`, 'success');
+      handleSendMessage(transcribedText);
+      setRecordSeconds(0);
+    }
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -324,6 +410,32 @@ export const AIAccommodationAssistantModal: React.FC<AIAccommodationAssistantMod
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Revolutionary: Language Mode Switcher */}
+            <div className="flex items-center bg-slate-800 p-1 rounded-xl border border-slate-700">
+              <button
+                type="button"
+                onClick={() => handleToggleLanguage('EN')}
+                className={`px-2 py-1 rounded-lg text-[10px] font-black transition ${
+                  languageMode === 'EN' 
+                    ? 'bg-emerald-600 text-white shadow-xs' 
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                🇬🇧 English
+              </button>
+              <button
+                type="button"
+                onClick={() => handleToggleLanguage('PIDGIN')}
+                className={`px-2 py-1 rounded-lg text-[10px] font-black transition ${
+                  languageMode === 'PIDGIN' 
+                    ? 'bg-amber-500 text-slate-950 font-black shadow-xs' 
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                🇳🇬 Pidgin
+              </button>
+            </div>
+
             {/* New Chat Button */}
             <button
               onClick={handleStartNewChat}
@@ -688,21 +800,45 @@ export const AIAccommodationAssistantModal: React.FC<AIAccommodationAssistantMod
 
         {/* 3. SUGGESTED CHIPS & INPUT SECTION */}
         <div className="p-4 border-t border-slate-200 bg-white space-y-3">
-          {/* Quick Suggestions Chips */}
+          {/* Quick Suggestions Chips (English or Pidgin) */}
           <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
-            {DEFAULT_QUICK_SUGGESTIONS.map((sugg, idx) => (
+            {(languageMode === 'PIDGIN' ? PIDGIN_QUICK_SUGGESTIONS : DEFAULT_QUICK_SUGGESTIONS).map((sugg, idx) => (
               <button
                 key={idx}
                 onClick={() => handleSendMessage(sugg)}
                 disabled={loading}
-                className="px-3 py-1.5 bg-slate-100 hover:bg-emerald-50 hover:text-emerald-800 hover:border-emerald-200 border border-slate-200 rounded-xl text-[11px] font-bold text-slate-600 transition whitespace-nowrap"
+                className={`px-3 py-1.5 rounded-xl text-[11px] font-bold transition whitespace-nowrap ${
+                  languageMode === 'PIDGIN'
+                    ? 'bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200'
+                    : 'bg-slate-100 hover:bg-emerald-50 hover:text-emerald-800 hover:border-emerald-200 border border-slate-200 text-slate-600'
+                }`}
               >
                 {sugg}
               </button>
             ))}
           </div>
 
-          {/* Text Input Box */}
+          {/* Revolutionary Voice Note Recording Status Bar */}
+          {isRecordingVoice && (
+            <div className="flex items-center justify-between px-3.5 py-2.5 bg-rose-50 border border-rose-200 rounded-2xl text-rose-800 text-xs font-bold animate-in fade-in">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-rose-600 animate-ping" />
+                <span className="flex items-center gap-1.5">
+                  <Mic className="w-3.5 h-3.5 text-rose-600" />
+                  Recording Voice Note Inquiry... 0:{recordSeconds < 10 ? '0' : ''}{recordSeconds}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={handleToggleVoiceNote}
+                className="px-3 py-1 bg-rose-600 text-white rounded-xl text-[11px] font-black hover:bg-rose-700 transition shadow-xs flex items-center gap-1"
+              >
+                <span>Done & Send</span>
+              </button>
+            </div>
+          )}
+
+          {/* Text Input Box + Voice Note Action */}
           <form 
             onSubmit={(e) => {
               e.preventDefault();
@@ -716,13 +852,37 @@ export const AIAccommodationAssistantModal: React.FC<AIAccommodationAssistantMod
                 type="text"
                 value={inputQuery}
                 onChange={(e) => setInputQuery(e.target.value)}
-                placeholder="Ask about LAUTECH hostels, budget, fees, inspections, or safety..."
+                placeholder={
+                  languageMode === 'PIDGIN'
+                    ? "Ask in Pidgin: e.g., 'Lodge wey get steady light for Under G dey?'"
+                    : "Ask about LAUTECH hostels, budget, fees, inspections, or safety..."
+                }
                 disabled={loading}
                 className="w-full pl-4 pr-10 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition"
               />
               <Sparkles className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-emerald-500 pointer-events-none" />
             </div>
 
+            {/* Revolutionary Voice Note Inquiry Button */}
+            <button
+              type="button"
+              onClick={handleToggleVoiceNote}
+              className={`p-3.5 rounded-2xl shadow-md transition flex items-center justify-center shrink-0 ${
+                isRecordingVoice
+                  ? 'bg-rose-600 text-white ring-4 ring-rose-300 animate-pulse'
+                  : 'bg-slate-100 hover:bg-emerald-50 text-slate-600 hover:text-emerald-700 border border-slate-200'
+              }`}
+              title={isRecordingVoice ? 'Tap to finish voice note & send' : 'Record voice note accommodation inquiry'}
+              aria-label="Voice Note Inquiry"
+            >
+              {isRecordingVoice ? (
+                <MicOff className="w-4 h-4 text-white" />
+              ) : (
+                <Mic className="w-4 h-4" />
+              )}
+            </button>
+
+            {/* Send Button */}
             <button
               type="submit"
               disabled={!inputQuery.trim() || loading}

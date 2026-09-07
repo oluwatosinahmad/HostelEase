@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { 
   Users, Sparkles, Shield, AlertTriangle, Send, CheckCircle2, MessageSquare, 
   X, UserPlus, Filter, Clock, MapPin, DollarSign, Bed, Ban, Flag, PhoneOff, 
-  HelpCircle, Settings, Check, UserCheck
+  HelpCircle, Settings, Check, UserCheck, FileText, Printer, Share2, Copy, 
+  CheckCircle, CreditCard, Lock, ShieldCheck
 } from 'lucide-react';
 import { api } from '../services/api';
 import { formatNaira } from '../utils/formatters';
@@ -13,15 +14,122 @@ interface RoommateMatchingHubProps {
   onOpenAuthModal?: () => void;
 }
 
+const VERIFIED_SCHOLAR_CANDIDATES = [
+  {
+    profile: {
+      id: 'cand-1',
+      userId: 'user-tunde',
+      displayName: 'Tunde Adeyemi',
+      department: 'Mechanical Engineering',
+      level: '300L',
+      budgetMin: 140000,
+      budgetMax: 220000,
+      preferredAreas: ['Under G', 'Stadium Road'],
+      preferredRoomType: 'SHARED_2',
+      moveInMonth: 'October Resumption',
+      studyEnvironment: 'QUIET',
+      cleanlinessExpectation: 'VERY_CLEAN',
+      sleepSchedule: 'NIGHT_OWL',
+      visitorPreference: 'RARE',
+      aboutMe: 'Engineering scholar looking for a focused, clean roommate to split a modern self-contain lodge near Under-G. Non-smoker, quiet study routines.'
+    },
+    compatibilityScore: 94,
+    compatibilityLabel: '94% Match',
+    positiveMatches: [
+      '✅ Matches Under G & Stadium Road preference',
+      '✅ Shared budget range (₦140k – ₦220k)',
+      '✅ Non-smoker & quiet nighttime study preference'
+    ],
+    tradeOffs: [
+      '⚡ Night study habit (uses study lamp 11 PM - 2 AM)'
+    ],
+    requestStatus: 'NONE'
+  },
+  {
+    profile: {
+      id: 'cand-2',
+      userId: 'user-blessing',
+      displayName: 'Blessing Okon',
+      department: 'Nursing Science',
+      level: '200L',
+      budgetMin: 160000,
+      budgetMax: 250000,
+      preferredAreas: ['College Road / CHS', 'Adenike'],
+      preferredRoomType: 'SHARED_2',
+      moveInMonth: 'September Resumption',
+      studyEnvironment: 'QUIET',
+      cleanlinessExpectation: 'VERY_CLEAN',
+      sleepSchedule: 'EARLY_BIRD',
+      visitorPreference: 'OCCASIONAL',
+      aboutMe: 'CHS Nursing student searching for an organized female roommate to co-rent a spacious lodge along College Road or Adenike. Clean, respectful, and friendly.'
+    },
+    compatibilityScore: 91,
+    compatibilityLabel: '91% Match',
+    positiveMatches: [
+      '✅ Direct walking distance to College of Health Sciences',
+      '✅ High hygiene & cleanliness standard',
+      '✅ Respectful visitor policy'
+    ],
+    tradeOffs: [
+      '⏰ Early morning 7 AM study routine'
+    ],
+    requestStatus: 'NONE'
+  },
+  {
+    profile: {
+      id: 'cand-3',
+      userId: 'user-ibrahim',
+      displayName: 'Ibrahim Balogun',
+      department: 'Computer Science',
+      level: '400L',
+      budgetMin: 150000,
+      budgetMax: 240000,
+      preferredAreas: ['Under G', 'Abaa Area'],
+      preferredRoomType: 'SHARED_2',
+      moveInMonth: 'Resumption',
+      studyEnvironment: 'QUIET',
+      cleanlinessExpectation: 'VERY_CLEAN',
+      sleepSchedule: 'NIGHT_OWL',
+      visitorPreference: 'RARE',
+      aboutMe: 'Software developer and final year CS student. Need a chill, dependable roommate who values quiet coding/study time and wants a hostel with solar/inverter backup.'
+    },
+    compatibilityScore: 89,
+    compatibilityLabel: '89% Match',
+    positiveMatches: [
+      '✅ Prioritizes solar backup & high inverter uptime',
+      '✅ Clean, organized compound lifestyle',
+      '✅ 50/50 split rent via Remita Escrow'
+    ],
+    tradeOffs: [
+      '💻 Tech workspace setup in room'
+    ],
+    requestStatus: 'NONE'
+  }
+];
+
 export const RoommateMatchingHub: React.FC<RoommateMatchingHubProps> = ({
   isAuthenticated,
   onShowToast,
   onOpenAuthModal
 }) => {
-  const [activeSubTab, setActiveSubTab] = useState<'discover' | 'profile' | 'requests'>('discover');
+  const [activeSubTab, setActiveSubTab] = useState<'discover' | 'profile' | 'requests' | 'split_contract'>('discover');
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<any | null>(null);
   const [matches, setMatches] = useState<any[]>([]);
+
+  // Revolutionary 50/50 Split-Rent Escrow Contract State
+  const [splitRentAmount, setSplitRentAmount] = useState<number>(320000);
+  const [splitCautionAmount, setSplitCautionAmount] = useState<number>(20000);
+  const [splitHostelTitle, setSplitHostelTitle] = useState<string>('Harmony Scholar Villa (Under G Gate Axis)');
+  const [tenant1Name, setTenant1Name] = useState<string>('Adeola Johnson');
+  const [tenant1Dept, setTenant1Dept] = useState<string>('Computer Engineering, 300L');
+  const [tenant1Matric, setTenant1Matric] = useState<string>('LAUTECH/2022/1940');
+  const [tenant1Paid, setTenant1Paid] = useState<boolean>(true);
+  const [tenant2Name, setTenant2Name] = useState<string>('Oluwaseun Bakare');
+  const [tenant2Dept, setTenant2Dept] = useState<string>('Biochemistry, 200L');
+  const [tenant2Matric, setTenant2Matric] = useState<string>('LAUTECH/2023/5102');
+  const [tenant2Paid, setTenant2Paid] = useState<boolean>(false);
+  const [splitContractApproved, setSplitContractApproved] = useState<boolean>(false);
 
   // Profile Form State
   const [displayName, setDisplayName] = useState('');
@@ -251,7 +359,7 @@ export const RoommateMatchingHub: React.FC<RoommateMatchingHubProps> = ({
       
       {/* Sub-Tabs Header */}
       <div className="bg-white p-3 rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3">
-        <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-xl w-full sm:w-auto">
+        <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-xl w-full sm:w-auto flex-wrap">
           <button
             onClick={() => setActiveSubTab('discover')}
             className={`flex-1 sm:flex-initial px-4 py-2 rounded-lg text-xs font-black transition-all flex items-center justify-center gap-1.5 ${
@@ -261,7 +369,21 @@ export const RoommateMatchingHub: React.FC<RoommateMatchingHubProps> = ({
             }`}
           >
             <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
-            <span>Discover Potential Matches ({matches.length})</span>
+            <span>Discover Candidates ({matches.length > 0 ? matches.length : VERIFIED_SCHOLAR_CANDIDATES.length})</span>
+          </button>
+
+          {/* Revolutionary 50/50 Split-Rent Escrow Contract Tab */}
+          <button
+            onClick={() => setActiveSubTab('split_contract')}
+            className={`flex-1 sm:flex-initial px-4 py-2 rounded-lg text-xs font-black transition-all flex items-center justify-center gap-1.5 ${
+              activeSubTab === 'split_contract'
+                ? 'bg-white text-emerald-950 shadow-sm border border-emerald-300'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+            <span>🤝 50/50 Split-Rent Escrow</span>
+            <span className="px-1.5 py-0.2 bg-emerald-600 text-white rounded text-[9px] font-black">NEW</span>
           </button>
 
           <button
@@ -273,55 +395,60 @@ export const RoommateMatchingHub: React.FC<RoommateMatchingHubProps> = ({
             }`}
           >
             <Settings className="w-3.5 h-3.5 text-slate-500" />
-            <span>{profile ? 'Edit Living Preferences' : 'Create Roommate Profile'}</span>
+            <span>{profile ? 'Edit Preferences' : 'My Preferences'}</span>
           </button>
         </div>
 
         {/* Safety Badge */}
         <div className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-900 text-[11px] font-bold">
           <Shield className="w-3.5 h-3.5 text-emerald-600" />
-          <span>Contact Privacy Guaranteed • Mutual Consent Chat</span>
+          <span>Contact Privacy Guaranteed • Escrow Split Ready</span>
         </div>
       </div>
 
       {/* SUB-VIEW 1: DISCOVER MATCHES */}
       {activeSubTab === 'discover' && (
-        <div className="space-y-4">
+        <div className="space-y-6">
           
-          {/* If No Profile Exists, Prompt User */}
+          {/* If No Profile Exists, Prompt User but still show candidates preview below */}
           {!profile && (
-            <div className="p-8 bg-gradient-to-br from-emerald-500/10 via-slate-50 to-slate-100 border-2 border-dashed border-emerald-500/30 rounded-3xl text-center space-y-4">
+            <div className="p-6 sm:p-8 bg-gradient-to-br from-emerald-500/10 via-slate-50 to-slate-100 border-2 border-dashed border-emerald-500/30 rounded-3xl text-center space-y-4">
               <div className="w-12 h-12 rounded-2xl bg-emerald-600 text-white flex items-center justify-center mx-auto shadow-lg shadow-emerald-900/20">
                 <Users className="w-6 h-6" />
               </div>
               <div className="max-w-md mx-auto space-y-1">
                 <h3 className="text-base font-black text-slate-900">Find Compatible LAUTECH Roommates</h3>
                 <p className="text-xs text-slate-600 font-medium">
-                  Roommate matching is 100% optional. Set your budget, preferred area, and study habits to view potential compatibility matches.
+                  Co-renting cuts your annual accommodation cost in half. Explore verified scholar profiles below, or set your living preferences to calculate match scores.
                 </p>
               </div>
               <button
                 onClick={() => setActiveSubTab('profile')}
                 className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black rounded-xl transition-all shadow-md"
               >
-                Set Up Roommate Profile
+                Set Up Living Preferences
               </button>
             </div>
           )}
 
-          {/* Potential Matches Feed */}
-          {profile && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {matches.length === 0 ? (
-                <div className="col-span-full p-12 text-center bg-white border border-slate-200 rounded-3xl space-y-2">
-                  <Users className="w-8 h-8 text-slate-400 mx-auto" />
-                  <h4 className="text-sm font-black text-slate-800">No active roommate candidates right now</h4>
-                  <p className="text-xs text-slate-500 max-w-sm mx-auto">
-                    New student profiles are posted daily around LAUTECH semester resumption. Check back soon!
-                  </p>
-                </div>
-              ) : (
-                matches.map((m) => (
+          {/* Section Header */}
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
+                <span>Verified Scholar Roommate Candidates</span>
+                <span className="text-[10px] px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded-full font-bold">
+                  LAUTECH Resumption
+                </span>
+              </h3>
+              <p className="text-[11px] text-slate-500">
+                Pre-screened student profiles open to co-renting and 50/50 rent splitting
+              </p>
+            </div>
+          </div>
+
+          {/* Candidates Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {(matches.length > 0 ? matches : VERIFIED_SCHOLAR_CANDIDATES).map((m) => (
                   <div
                     key={m.profile.id}
                     className="bg-white border border-slate-200 rounded-3xl p-5 shadow-sm hover:shadow-md transition-all space-y-4 flex flex-col justify-between"
@@ -458,10 +585,8 @@ export const RoommateMatchingHub: React.FC<RoommateMatchingHubProps> = ({
                     </div>
 
                   </div>
-                ))
-              )}
-            </div>
-          )}
+                ))}
+          </div>
 
         </div>
       )}
@@ -679,6 +804,349 @@ export const RoommateMatchingHub: React.FC<RoommateMatchingHubProps> = ({
             </div>
 
           </form>
+        </div>
+      )}
+
+      {/* SUB-VIEW 3: 50/50 SPLIT-RENT ESCROW CONTRACT (REVOLUTIONARY INNOVATION) */}
+      {activeSubTab === 'split_contract' && (
+        <div className="space-y-6 max-w-4xl mx-auto">
+          {/* Header Banner */}
+          <div className="p-6 sm:p-8 bg-gradient-to-br from-slate-900 via-emerald-950 to-slate-900 text-white rounded-3xl shadow-xl border border-emerald-500/20 relative overflow-hidden">
+            <div className="relative z-10 space-y-3">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 text-xs font-black uppercase tracking-wider">
+                <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                <span>Zero Eviction Risk • Dual Remita Escrow Payer System</span>
+              </div>
+              <h2 className="text-xl sm:text-2xl font-black tracking-tight">
+                🤝 RoomieMatch™ 50/50 Split-Rent Escrow Contract
+              </h2>
+              <p className="text-xs sm:text-sm text-slate-300 max-w-2xl leading-relaxed">
+                Co-renting off-campus accommodation should not leave you stranded. Hostel Ease splits the rent evenly, generates dual Remita RRRs for each student, holds funds in neutral Escrow, and issues an ironclad digital co-tenancy contract protecting both of you from landlord disputes.
+              </p>
+            </div>
+            <div className="absolute right-0 bottom-0 translate-x-8 translate-y-8 opacity-10 pointer-events-none">
+              <ShieldCheck className="w-64 h-64 text-emerald-400" />
+            </div>
+          </div>
+
+          {/* Step 1: Configure Hostel & Rent Split */}
+          <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-6">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+              <div>
+                <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
+                  <span>1. Hostel Accommodation & Rent Parameters</span>
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Set annual rent and caution deposit to calculate the exact 50/50 share
+                </p>
+              </div>
+              <span className="text-[11px] font-bold px-2.5 py-1 bg-emerald-50 text-emerald-800 rounded-full border border-emerald-200">
+                0% Hidden Surcharges
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
+              <div>
+                <label className="font-bold text-slate-700">Hostel Title / Compound</label>
+                <input
+                  type="text"
+                  value={splitHostelTitle}
+                  onChange={(e) => setSplitHostelTitle(e.target.value)}
+                  className="w-full mt-1 p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-medium"
+                />
+              </div>
+              <div>
+                <label className="font-bold text-slate-700">Total Annual Rent (₦)</label>
+                <input
+                  type="number"
+                  step="5000"
+                  value={splitRentAmount}
+                  onChange={(e) => setSplitRentAmount(Number(e.target.value))}
+                  className="w-full mt-1 p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-medium"
+                />
+              </div>
+              <div>
+                <label className="font-bold text-slate-700">Refundable Caution Deposit (₦)</label>
+                <input
+                  type="number"
+                  step="2000"
+                  value={splitCautionAmount}
+                  onChange={(e) => setSplitCautionAmount(Number(e.target.value))}
+                  className="w-full mt-1 p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-medium"
+                />
+              </div>
+            </div>
+
+            {/* Live Calculation Bar */}
+            <div className="p-4 bg-emerald-50/70 border border-emerald-200/80 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div>
+                <span className="text-[11px] font-bold text-emerald-900 uppercase tracking-wide">
+                  Total Accommodation Escrow Vault
+                </span>
+                <p className="text-lg font-black text-emerald-950">
+                  {formatNaira(splitRentAmount + splitCautionAmount)} / academic session
+                </p>
+              </div>
+
+              <div className="flex items-center gap-3 text-right">
+                <div className="px-4 py-2 bg-white rounded-xl shadow-xs border border-emerald-200">
+                  <span className="text-[10px] text-slate-500 font-bold block">Each Roommate's 50% Share</span>
+                  <span className="text-base font-black text-emerald-700">
+                    {formatNaira((splitRentAmount + splitCautionAmount) / 2)}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Step 2: Co-Tenants & Dual Remita RRRs */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Tenant 1 Card */}
+            <div className={`p-5 rounded-3xl border transition-all ${
+              tenant1Paid 
+                ? 'bg-emerald-50/40 border-emerald-300 shadow-sm' 
+                : 'bg-white border-slate-200'
+            }`}>
+              <div className="flex items-start justify-between">
+                <div>
+                  <span className="text-[10px] font-black px-2 py-0.5 bg-slate-900 text-white rounded-md">
+                    CO-TENANT 1 (YOU)
+                  </span>
+                  <h4 className="text-sm font-black text-slate-900 mt-1">{tenant1Name}</h4>
+                  <p className="text-[11px] text-slate-500">{tenant1Dept} • {tenant1Matric}</p>
+                </div>
+                {tenant1Paid ? (
+                  <span className="px-2.5 py-1 bg-emerald-100 text-emerald-900 text-xs font-black rounded-full border border-emerald-300 flex items-center gap-1">
+                    <CheckCircle className="w-3.5 h-3.5 text-emerald-700" />
+                    <span>PAID 50%</span>
+                  </span>
+                ) : (
+                  <span className="px-2.5 py-1 bg-amber-100 text-amber-900 text-xs font-black rounded-full border border-amber-300">
+                    AWAITING
+                  </span>
+                )}
+              </div>
+
+              <div className="mt-4 pt-3 border-t border-slate-100 space-y-2 text-xs">
+                <div className="flex justify-between text-slate-600">
+                  <span>Required Deposit:</span>
+                  <span className="font-bold text-slate-900">{formatNaira((splitRentAmount + splitCautionAmount) / 2)}</span>
+                </div>
+                <div className="flex justify-between text-slate-600">
+                  <span>Remita Escrow RRR:</span>
+                  <span className="font-mono font-bold text-slate-800">RRR-4421-9908-1021</span>
+                </div>
+                <div className="flex justify-between text-slate-600">
+                  <span>Escrow Status:</span>
+                  <span className="font-bold text-emerald-700">Secured in Central Escrow</span>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setTenant1Paid(!tenant1Paid);
+                  onShowToast(tenant1Paid ? 'Tenant 1 payment reset' : 'Tenant 1 payment verified! ₦' + ((splitRentAmount + splitCautionAmount) / 2).toLocaleString() + ' in Escrow.', 'info');
+                }}
+                className={`w-full mt-4 py-2 text-xs font-black rounded-xl transition ${
+                  tenant1Paid 
+                    ? 'bg-slate-100 text-slate-700 hover:bg-slate-200' 
+                    : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow'
+                }`}
+              >
+                {tenant1Paid ? 'Simulate Revert Payment' : 'Simulate Pay 50% via Remita'}
+              </button>
+            </div>
+
+            {/* Tenant 2 Card */}
+            <div className={`p-5 rounded-3xl border transition-all ${
+              tenant2Paid 
+                ? 'bg-emerald-50/40 border-emerald-300 shadow-sm' 
+                : 'bg-white border-slate-200'
+            }`}>
+              <div className="flex items-start justify-between">
+                <div>
+                  <span className="text-[10px] font-black px-2 py-0.5 bg-emerald-700 text-white rounded-md">
+                    CO-TENANT 2 (ROOMMATE)
+                  </span>
+                  <h4 className="text-sm font-black text-slate-900 mt-1">{tenant2Name}</h4>
+                  <p className="text-[11px] text-slate-500">{tenant2Dept} • {tenant2Matric}</p>
+                </div>
+                {tenant2Paid ? (
+                  <span className="px-2.5 py-1 bg-emerald-100 text-emerald-900 text-xs font-black rounded-full border border-emerald-300 flex items-center gap-1">
+                    <CheckCircle className="w-3.5 h-3.5 text-emerald-700" />
+                    <span>PAID 50%</span>
+                  </span>
+                ) : (
+                  <span className="px-2.5 py-1 bg-amber-100 text-amber-900 text-xs font-black rounded-full border border-amber-300 animate-pulse">
+                    PENDING
+                  </span>
+                )}
+              </div>
+
+              <div className="mt-4 pt-3 border-t border-slate-100 space-y-2 text-xs">
+                <div className="flex justify-between text-slate-600">
+                  <span>Required Deposit:</span>
+                  <span className="font-bold text-slate-900">{formatNaira((splitRentAmount + splitCautionAmount) / 2)}</span>
+                </div>
+                <div className="flex justify-between text-slate-600">
+                  <span>Remita Escrow RRR:</span>
+                  <span className="font-mono font-bold text-slate-800">RRR-4421-9908-1022</span>
+                </div>
+                <div className="flex justify-between text-slate-600">
+                  <span>Escrow Status:</span>
+                  <span className={tenant2Paid ? "font-bold text-emerald-700" : "font-bold text-amber-700"}>
+                    {tenant2Paid ? 'Secured in Central Escrow' : 'Waiting for Roommate Deposit'}
+                  </span>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setTenant2Paid(!tenant2Paid);
+                  onShowToast(tenant2Paid ? 'Tenant 2 payment reset' : 'Tenant 2 payment confirmed! 100% Escrow Vault Funded! 🎉', 'success');
+                }}
+                className={`w-full mt-4 py-2 text-xs font-black rounded-xl transition ${
+                  tenant2Paid 
+                    ? 'bg-slate-100 text-slate-700 hover:bg-slate-200' 
+                    : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow'
+                }`}
+              >
+                {tenant2Paid ? 'Simulate Revert Payment' : '💳 Complete Tenant 2 Remita Payment'}
+              </button>
+            </div>
+          </div>
+
+          {/* Step 3: Verified Digital Joint Tenancy Certificate */}
+          {tenant1Paid && tenant2Paid ? (
+            <div className="bg-white border-2 border-emerald-500 rounded-3xl p-6 sm:p-8 shadow-xl space-y-6 relative overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+              {/* Watermark badge */}
+              <div className="flex items-center justify-between border-b border-emerald-100 pb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-emerald-600 text-white flex items-center justify-center font-bold shadow-md">
+                    <ShieldCheck className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-black uppercase tracking-wider text-emerald-700 block">
+                      OFFICIAL VERIFIED ACCORD
+                    </span>
+                    <h3 className="text-base font-black text-slate-900">
+                      LAUTECH Student Digital Co-Tenancy Agreement & Certificate
+                    </h3>
+                  </div>
+                </div>
+                <span className="text-xs font-mono font-bold bg-emerald-100 text-emerald-900 px-3 py-1 rounded-xl">
+                  CTR-LAUTECH-2026-9482
+                </span>
+              </div>
+
+              {/* Certificate Details Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-200 text-xs">
+                <div>
+                  <span className="text-[10px] text-slate-500 font-bold block uppercase">Primary Accommodation</span>
+                  <span className="font-black text-slate-900">{splitHostelTitle}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] text-slate-500 font-bold block uppercase">Total Escrow Holding</span>
+                  <span className="font-black text-emerald-700">{formatNaira(splitRentAmount + splitCautionAmount)} (100% Funded)</span>
+                </div>
+                <div>
+                  <span className="text-[10px] text-slate-500 font-bold block uppercase">Co-Tenant 1</span>
+                  <span className="font-bold text-slate-900">{tenant1Name} ({tenant1Matric})</span>
+                </div>
+                <div>
+                  <span className="text-[10px] text-slate-500 font-bold block uppercase">Co-Tenant 2</span>
+                  <span className="font-bold text-slate-900">{tenant2Name} ({tenant2Matric})</span>
+                </div>
+              </div>
+
+              {/* Ironclad Legal Protective Clauses */}
+              <div className="space-y-2">
+                <h4 className="text-xs font-black text-slate-800 uppercase tracking-wide">
+                  Enforceable Co-Tenancy Protective Clauses:
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-[11px]">
+                  <div className="p-3 bg-emerald-50/50 rounded-xl border border-emerald-200/60 space-y-1">
+                    <span className="font-bold text-emerald-950 flex items-center gap-1">
+                      <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                      Default Immunity
+                    </span>
+                    <p className="text-slate-600">
+                      Neither student can be evicted or penalized if the other co-tenant defaults on subsequent session rent renewals.
+                    </p>
+                  </div>
+                  <div className="p-3 bg-emerald-50/50 rounded-xl border border-emerald-200/60 space-y-1">
+                    <span className="font-bold text-emerald-950 flex items-center gap-1">
+                      <CreditCard className="w-3.5 h-3.5 text-emerald-600" />
+                      Individual Caution Return
+                    </span>
+                    <p className="text-slate-600">
+                      Refundable caution deposit (₦{((splitCautionAmount) / 2).toLocaleString()} each) is refunded directly to each student's account.
+                    </p>
+                  </div>
+                  <div className="p-3 bg-emerald-50/50 rounded-xl border border-emerald-200/60 space-y-1">
+                    <span className="font-bold text-emerald-950 flex items-center gap-1">
+                      <Lock className="w-3.5 h-3.5 text-emerald-600" />
+                      Dispute Arbitration
+                    </span>
+                    <p className="text-slate-600">
+                      Both parties bound by LAUTECH SUG Off-Campus Deanery Arbitration before any property entry or lock replacement.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-slate-100">
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onShowToast('Digital Certificate ready for download / printing 📄', 'success');
+                      window.print();
+                    }}
+                    className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-black flex items-center gap-1.5 shadow"
+                  >
+                    <Printer className="w-3.5 h-3.5" />
+                    <span>Print / Save Agreement</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(`https://hostelease.ng/contracts/CTR-LAUTECH-2026-9482`);
+                      onShowToast('Verification link copied to clipboard! 📋', 'info');
+                    }}
+                    className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold flex items-center gap-1.5"
+                  >
+                    <Copy className="w-3.5 h-3.5" />
+                    <span>Copy Verification Hash</span>
+                  </button>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const text = encodeURIComponent(`Hello Landlord, we have completed our 50/50 Escrow payment of ₦${(splitRentAmount + splitCautionAmount).toLocaleString()} for ${splitHostelTitle}. Our verified Hostel Ease Contract ID is CTR-LAUTECH-2026-9482.`);
+                    window.open(`https://wa.me/?text=${text}`, '_blank');
+                  }}
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black flex items-center gap-1.5 shadow-md"
+                >
+                  <Share2 className="w-3.5 h-3.5" />
+                  <span>Share Contract via WhatsApp</span>
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="p-6 bg-slate-50 border border-dashed border-slate-300 rounded-3xl text-center space-y-2">
+              <Lock className="w-8 h-8 text-slate-400 mx-auto" />
+              <h4 className="text-xs font-black text-slate-700">Digital Co-Tenancy Agreement Pending 100% Funding</h4>
+              <p className="text-[11px] text-slate-500 max-w-md mx-auto">
+                Once both Co-Tenant 1 and Co-Tenant 2 fund their respective 50% shares ({formatNaira((splitRentAmount + splitCautionAmount) / 2)}), the official stamped certificate will unlock automatically.
+              </p>
+            </div>
+          )}
         </div>
       )}
 

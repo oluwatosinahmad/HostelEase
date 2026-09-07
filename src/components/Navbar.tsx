@@ -26,7 +26,8 @@ import {
   ShieldAlert,
   Sun,
   Moon,
-  UserCheck
+  UserCheck,
+  Zap
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
@@ -41,6 +42,8 @@ interface NavbarProps {
   onOpenAuth: (defaultRole?: 'STUDENT' | 'PROVIDER' | 'ADMIN') => void;
   savedCount: number;
   onOpenAI?: () => void;
+  onOpenUtilityRadar?: () => void;
+  onOpenSafeWalk?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -49,7 +52,9 @@ export const Navbar: React.FC<NavbarProps> = ({
   onNavigateToDashboardTab,
   onOpenAuth,
   savedCount,
-  onOpenAI
+  onOpenAI,
+  onOpenUtilityRadar,
+  onOpenSafeWalk
 }) => {
   const { user, isAuthenticated, isStudent, isProvider, isAdmin, logout } = useAuth();
   const { theme, isDark, toggleTheme } = useTheme();
@@ -217,6 +222,32 @@ export const Navbar: React.FC<NavbarProps> = ({
               <Users className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
               <span>Community</span>
             </button>
+
+            {/* Revolutionary: Live UtilityRadar Button */}
+            {onOpenUtilityRadar && (
+              <button
+                onClick={onOpenUtilityRadar}
+                className="px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 flex items-center gap-1.5 hover:scale-[1.02]"
+                title="UtilityRadar™ - Live NEPA & Borehole Water Reliability Index"
+              >
+                <Zap className="w-3.5 h-3.5 text-amber-500 fill-amber-400" />
+                <span className="hidden xl:inline">UtilityRadar™</span>
+                <span className="xl:hidden">Radar</span>
+              </button>
+            )}
+
+            {/* Revolutionary: SafeWalk Night Trek Companion Button */}
+            {onOpenSafeWalk && (
+              <button
+                onClick={onOpenSafeWalk}
+                className="px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 flex items-center gap-1.5 hover:scale-[1.02]"
+                title="SafeWalk™ - Campus Night-Trek Safety Companion & 1-Tap SOS"
+              >
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                <span className="hidden xl:inline">SafeWalk™</span>
+                <span className="xl:hidden">SafeWalk</span>
+              </button>
+            )}
 
             {/* Ask AI Assistant Button */}
             {onOpenAI && (
@@ -654,6 +685,34 @@ export const Navbar: React.FC<NavbarProps> = ({
               <Users className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
               <span>Student Community & Roommates</span>
             </button>
+
+            {/* Revolutionary: Live UtilityRadar in Mobile Menu */}
+            {onOpenUtilityRadar && (
+              <button
+                onClick={() => { onOpenUtilityRadar(); setMobileMenuOpen(false); }}
+                className="w-full flex items-center justify-between p-2.5 rounded-xl hover:bg-amber-50 dark:hover:bg-amber-950/40 text-amber-700 dark:text-amber-300 font-bold bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200/60 dark:border-amber-900/40"
+              >
+                <div className="flex items-center gap-2.5">
+                  <Zap className="w-4 h-4 text-amber-500 fill-amber-400" />
+                  <span>⚡ UtilityRadar™ (NEPA & Water)</span>
+                </div>
+                <span className="text-[10px] px-1.5 py-0.5 bg-amber-200 dark:bg-amber-900 text-amber-900 dark:text-amber-200 rounded font-black">LIVE</span>
+              </button>
+            )}
+
+            {/* Revolutionary: SafeWalk in Mobile Menu */}
+            {onOpenSafeWalk && (
+              <button
+                onClick={() => { onOpenSafeWalk(); setMobileMenuOpen(false); }}
+                className="w-full flex items-center justify-between p-2.5 rounded-xl hover:bg-emerald-50 dark:hover:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 font-bold bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200/60 dark:border-emerald-900/40"
+              >
+                <div className="flex items-center gap-2.5">
+                  <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                  <span>🚨 SafeWalk™ Night-Trek Companion</span>
+                </div>
+                <span className="text-[10px] px-1.5 py-0.5 bg-emerald-200 dark:bg-emerald-900 text-emerald-900 dark:text-emerald-200 rounded font-black">SOS</span>
+              </button>
+            )}
 
             <button
               onClick={() => { onNavigate('admin-portal'); setMobileMenuOpen(false); }}
