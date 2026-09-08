@@ -24,8 +24,8 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
   onClose,
   onLoginSuccess,
 }) => {
-  const [email, setEmail] = useState('admin@campusnest.ng');
-  const [password, setPassword] = useState('password123');
+  const [email, setEmail] = useState('hostelease.admin@gmail.com');
+  const [password, setPassword] = useState('Admin123!');
   const [step, setStep] = useState<'CREDENTIALS' | '2FA'>('CREDENTIALS');
   const [twoFactorCode, setTwoFactorCode] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -54,7 +54,8 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
         (a) => a.email.toLowerCase() === email.trim().toLowerCase()
       );
 
-      if (!matchedAdmin || password !== 'password123') {
+      const isValidPassword = password === 'Admin123!' || password === 'password123';
+      if (!matchedAdmin || !isValidPassword) {
         const newFailed = failedAttempts + 1;
         setFailedAttempts(newFailed);
         if (newFailed >= 3) {

@@ -134,7 +134,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     } else if (newRole === 'ADMIN') {
       setMode('login');
       if (!email || email.includes('lautech.edu.ng') || email.includes('example.com')) {
-        setEmail('admin@hostelease.ng');
+        setEmail('hostelease.admin@gmail.com');
+        setPassword('Admin123!');
       }
     }
   };
@@ -722,37 +723,74 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               </button>
 
               {/* Only Admin / Platform Owner has 1-Click Demo Login */}
+              {/* Only Admin / Platform Owner has 1-Click Demo Login */}
               {role === 'ADMIN' && (
                 <div className="pt-3 border-t border-slate-100 dark:border-slate-800 mt-2 space-y-2">
                   <div className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider text-center">
-                    Authorized Platform Owner Access
+                    Authorized Super Admin Quick Access
                   </div>
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      setEmail('admin@hostelease.ng');
-                      setPassword('Admin123!');
-                      setError(null);
-                      setSubmitting(true);
-                      try {
-                        const authed = await login('admin@hostelease.ng', 'Admin123!', 'ADMIN');
-                        setIsLoggingIn(true);
-                        setTimeout(() => {
-                          setIsLoggingIn(false);
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        setEmail('hostelease.admin@gmail.com');
+                        setPassword('Admin123!');
+                        setError(null);
+                        setSubmitting(true);
+                        try {
+                          const authed = await login('hostelease.admin@gmail.com', 'Admin123!', 'ADMIN');
+                          setIsLoggingIn(true);
+                          setTimeout(() => {
+                            setIsLoggingIn(false);
+                            setSubmitting(false);
+                            if (onSuccess) onSuccess(authed);
+                            onClose();
+                          }, 700);
+                        } catch (err: any) {
+                          setError(err.message || 'Admin Gmail authentication failed');
                           setSubmitting(false);
-                          if (onSuccess) onSuccess(authed);
-                          onClose();
-                        }, 700);
-                      } catch (err: any) {
-                        setError(err.message || 'Demo Admin authentication failed');
-                        setSubmitting(false);
-                      }
-                    }}
-                    disabled={submitting}
-                    className="w-full py-2 bg-purple-50 hover:bg-purple-100 dark:bg-purple-950/40 dark:hover:bg-purple-900/60 border border-purple-200 dark:border-purple-800 text-purple-900 dark:text-purple-200 font-bold text-[11px] rounded-xl transition-colors flex items-center justify-center gap-1.5"
-                  >
-                    <span>👑 1-Click Owner Demo Login (admin@hostelease.ng)</span>
-                  </button>
+                        }
+                      }}
+                      disabled={submitting}
+                      className="w-full py-2 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:hover:bg-emerald-900/60 border border-emerald-200 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200 font-bold text-[11px] rounded-xl transition-colors flex items-center justify-center gap-1.5"
+                    >
+                      <span>📧 Admin Gmail (hostelease.admin@gmail.com)</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        setEmail('admin@hostelease.ng');
+                        setPassword('Admin123!');
+                        setError(null);
+                        setSubmitting(true);
+                        try {
+                          const authed = await login('admin@hostelease.ng', 'Admin123!', 'ADMIN');
+                          setIsLoggingIn(true);
+                          setTimeout(() => {
+                            setIsLoggingIn(false);
+                            setSubmitting(false);
+                            if (onSuccess) onSuccess(authed);
+                            onClose();
+                          }, 700);
+                        } catch (err: any) {
+                          setError(err.message || 'Demo Admin authentication failed');
+                          setSubmitting(false);
+                        }
+                      }}
+                      disabled={submitting}
+                      className="w-full py-2 bg-purple-50 hover:bg-purple-100 dark:bg-purple-950/40 dark:hover:bg-purple-900/60 border border-purple-200 dark:border-purple-800 text-purple-900 dark:text-purple-200 font-bold text-[11px] rounded-xl transition-colors flex items-center justify-center gap-1.5"
+                    >
+                      <span>👑 Platform Email (admin@hostelease.ng)</span>
+                    </button>
+                  </div>
+                  <div className="bg-slate-50 dark:bg-slate-800/60 p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-center">
+                    <p className="text-[11px] text-slate-700 dark:text-slate-200 font-semibold">
+                      🔑 Universal Admin Password: <code className="px-1.5 py-0.5 bg-slate-200 dark:bg-slate-700 rounded font-mono font-bold text-slate-900 dark:text-slate-100">Admin123!</code>
+                    </p>
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1">
+                      Works on any phone, tablet, laptop, or incognito browser.
+                    </p>
+                  </div>
                 </div>
               )}
             </form>

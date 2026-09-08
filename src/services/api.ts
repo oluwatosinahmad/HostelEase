@@ -1464,7 +1464,14 @@ function handleClientSideFallbackLogin(payload: { email?: string; password?: str
 
   // Strict Admin Validation on Netlify/offline static mode
   if (requested === 'ADMIN') {
-    const isAuthorizedAdmin = email.includes('admin') || email === 'admin@hostelease.ng';
+    const isAuthorizedAdmin = 
+      email.includes('admin') || 
+      email === 'admin@hostelease.ng' || 
+      email.endsWith('@hostelease.ng') ||
+      email === 'hostelease.admin@gmail.com' ||
+      email === 'oluwatosinahmad@gmail.com' ||
+      email === 'oluwatosinahmad@users.noreply.github.com';
+
     if (!isAuthorizedAdmin) {
       const err: any = new Error('This account is not authorized to access the Admin Portal.');
       err.code = 'UNAUTHORIZED_ADMIN_ACCESS';
@@ -1472,7 +1479,7 @@ function handleClientSideFallbackLogin(payload: { email?: string; password?: str
       throw err;
     }
     const adminUser = {
-      id: 'usr-admin-default',
+      id: email === 'admin@hostelease.ng' ? 'usr-admin-default' : `usr-admin-${email.replace(/[^a-z0-9]/g, '-')}`,
       fullName: 'Oluwatosin Ahmad (Admin)',
       email: email || 'admin@hostelease.ng',
       role: 'ADMIN',

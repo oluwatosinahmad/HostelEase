@@ -255,26 +255,34 @@ export function runSeed() {
       'VERIFIED'
     );
 
-    // 4b. Single Authorized Platform Owner & Super Admin
+    // 4b. Authorized Platform Owner & Super Admin Accounts
     const ownerName = process.env.ADMIN_NAME || 'Oluwatosin Ahmad';
     const ownerEmail = (process.env.ADMIN_EMAIL || 'admin@hostelease.ng').toLowerCase().trim();
     const ownerPassword = process.env.ADMIN_PASSWORD || 'Admin123!';
     const ownerPasswordHash = bcrypt.hashSync(ownerPassword, 10);
 
-    insertUser.run(
-      adminId,
-      ownerEmail,
-      ownerPasswordHash,
-      ownerName,
-      '+2348004678353',
-      'ADMIN',
-      'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=400&q=80'
-    );
+    const authorizedAdmins = [
+      { id: adminId, email: ownerEmail, name: ownerName },
+      { id: 'user-admin-gmail-1', email: 'hostelease.admin@gmail.com', name: `${ownerName} (Admin)` },
+      { id: 'user-admin-gmail-2', email: 'oluwatosinahmad@gmail.com', name: `${ownerName} (Admin)` }
+    ];
 
-    db.prepare(`
-      INSERT INTO admin_profiles (id, user_id, admin_role, permissions_json, is_super_admin)
-      VALUES (?, ?, ?, ?, ?)
-    `).run('admin-prof-owner', adminId, 'SUPER_ADMIN', JSON.stringify(['*']), 1);
+    for (const adm of authorizedAdmins) {
+      insertUser.run(
+        adm.id,
+        adm.email,
+        ownerPasswordHash,
+        adm.name,
+        '+2348004678353',
+        'ADMIN',
+        'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=400&q=80'
+      );
+
+      db.prepare(`
+        INSERT INTO admin_profiles (id, user_id, admin_role, permissions_json, is_super_admin)
+        VALUES (?, ?, ?, ?, ?)
+      `).run(`admin-prof-${adm.id}`, adm.id, 'SUPER_ADMIN', JSON.stringify(['*']), 1);
+    }
 
     // Seed Landlord Verification Documents
     const insertDoc = db.prepare(`
