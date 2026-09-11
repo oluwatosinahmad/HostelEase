@@ -429,7 +429,9 @@ router.get(
     let query = `
       SELECT p.id, p.title, p.slug, p.address, p.nearby_landmark, p.distance_from_campus_km,
              p.property_type, p.gender_preference, p.total_rooms, p.verification_status,
-             p.availability_status, p.completeness_score, p.cover_image, p.created_at,
+             p.availability_status, p.completeness_score,
+             COALESCE(p.cover_image, (SELECT url FROM property_media WHERE property_id = p.id AND is_cover = 1 LIMIT 1), (SELECT url FROM property_media WHERE property_id = p.id LIMIT 1)) as cover_image,
+             p.created_at,
              u.full_name as provider_name, u.phone as provider_phone, u.email as provider_email,
              pr.rent_amount, pr.total_mandatory_cost, a.name as area_name
       FROM properties p

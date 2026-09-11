@@ -74,6 +74,7 @@ import { CampusSafeWalkModal } from './components/CampusSafeWalkModal';
 import { UtilityCalculatorModal } from './components/UtilityCalculatorModal';
 import { SafetyEscrowModal } from './components/SafetyEscrowModal';
 import { INITIAL_APPLIANCES } from './data/campusData';
+import { HostelEaseBrandedLoader } from './components/HostelEaseBrandedLoader';
 
 const initialFilters: SearchFilterState = {
   search: '',
@@ -123,6 +124,10 @@ function MainApp() {
   const [adminLoginPassword, setAdminLoginPassword] = useState('');
   const [adminLoginError, setAdminLoginError] = useState<string | null>(null);
   const [adminLoginLoading, setAdminLoginLoading] = useState(false);
+
+  // Branded 3D Initial Launch Loading Experience
+  const [isInitialLoading, setIsInitialLoading] = useState<boolean>(true);
+  const [isInitialReady, setIsInitialReady] = useState<boolean>(false);
 
   // Data State
   const [areas, setAreas] = useState<Area[]>([]);
@@ -204,7 +209,19 @@ function MainApp() {
   };
 
   useEffect(() => {
-    loadInitialData();
+    // Resilient initial data bootstrap
+    Promise.allSettled([
+      api.areas.getAll().then(res => setAreas(res.areas || [])),
+      api.properties.getFeatured().then(res => setFeaturedProperties(res.properties || [])),
+      api.properties.getRecent().then(res => setRecentProperties(res.properties || [])),
+      api.properties.search(filters).then(res => {
+        setProperties(res.properties || []);
+        setPagination(res.pagination || { page: 1, limit: 12, total: res.properties?.length || 0, totalPages: 1 });
+      })
+    ]).finally(() => {
+      setIsInitialReady(true);
+    });
+
     const handlePropsUpdate = () => loadInitialData();
     window.addEventListener('hostel_ease_properties_updated', handlePropsUpdate);
     return () => window.removeEventListener('hostel_ease_properties_updated', handlePropsUpdate);
@@ -439,6 +456,14 @@ function MainApp() {
 
   return (
     <div className="min-h-screen bg-slate-100/70 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-sans antialiased selection:bg-emerald-500 selection:text-white transition-colors duration-200">
+      {/* 3D Branded Initial Platform Loading Animation */}
+      {isInitialLoading && (
+        <HostelEaseBrandedLoader
+          isReady={isInitialReady}
+          onFinish={() => setIsInitialLoading(false)}
+        />
+      )}
+
       {/* Toast Notification Container */}
       <div className="fixed top-4 right-4 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none">
         {toasts.map(toast => (

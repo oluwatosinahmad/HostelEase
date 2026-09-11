@@ -315,17 +315,26 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
       fetchAllProviderData(selectedPropertyId);
     };
 
+    const handleTabChange = (e: any) => {
+      if (e.detail) {
+        if (e.detail === 'wizard') setEditingProperty(null);
+        setActiveTab(e.detail);
+      }
+    };
+
     window.addEventListener('hostel_ease_notification_updated', handleNotificationUpdate);
     window.addEventListener('hostel_ease_conversations_updated', handleNotificationUpdate);
     window.addEventListener('hostel_ease_bookings_updated', handlePropsUpdate);
     window.addEventListener('hostel_ease_inspections_updated', handlePropsUpdate);
     window.addEventListener('hostel_ease_properties_updated', handlePropsUpdate);
+    window.addEventListener('hostel_ease_provider_tab', handleTabChange);
     return () => {
       window.removeEventListener('hostel_ease_notification_updated', handleNotificationUpdate);
       window.removeEventListener('hostel_ease_conversations_updated', handleNotificationUpdate);
       window.removeEventListener('hostel_ease_bookings_updated', handlePropsUpdate);
       window.removeEventListener('hostel_ease_inspections_updated', handlePropsUpdate);
       window.removeEventListener('hostel_ease_properties_updated', handlePropsUpdate);
+      window.removeEventListener('hostel_ease_provider_tab', handleTabChange);
     };
   }, [activeConversationId, selectedPropertyId]);
 
@@ -716,11 +725,51 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
         </div>
       </header>
 
+      {/* MOBILE LANDLORD HORIZONTAL SUB-NAV BAR (Instant 0px access to content on phones) */}
+      <div className="lg:hidden bg-white border-b border-gray-200 px-4 py-2.5 overflow-x-auto scrollbar-none sticky top-28 z-20 shadow-xs flex items-center gap-1.5">
+        {[
+          { id: 'dashboard', label: 'Overview', icon: Building2 },
+          { id: 'listings', label: `Hostels (${properties.length})`, icon: Building2 },
+          { id: 'wizard', label: '+ Add Hostel', icon: PlusCircle, highlight: true },
+          { id: 'rooms', label: 'Rooms & Bedspaces', icon: Layers },
+          { id: 'bookings', label: 'Bookings', icon: Receipt },
+          { id: 'inspections', label: 'Inspections', icon: CalendarIcon },
+          { id: 'movein', label: 'Move-In', icon: KeyRound },
+          { id: 'messages', label: 'Chat', icon: MessageSquare },
+          { id: 'finance', label: 'Payouts', icon: DollarSign },
+          { id: 'documents', label: 'Verification', icon: ShieldCheck }
+        ].map(tab => {
+          const Icon = tab.icon;
+          const isActive = activeTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => {
+                if (tab.id === 'wizard') {
+                  setEditingProperty(null);
+                }
+                setActiveTab(tab.id as any);
+              }}
+              className={`shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap ${
+                tab.highlight
+                  ? 'bg-emerald-600 text-white shadow-xs'
+                  : isActive
+                  ? 'bg-emerald-800 text-white shadow-xs'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              <Icon className="w-3.5 h-3.5" />
+              <span>{tab.label}</span>
+            </button>
+          );
+        })}
+      </div>
+
       {/* MAIN CONTAINER WITH LEFT-HAND SIDEBAR */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col lg:flex-row gap-6 items-start">
         
-        {/* LEFT-HAND SIDEBAR NAVIGATION */}
-        <aside className="w-full lg:w-64 shrink-0 bg-white border border-gray-200 rounded-3xl p-4 shadow-xs lg:sticky lg:top-36 space-y-5">
+        {/* LEFT-HAND SIDEBAR NAVIGATION (Desktop Only - Clean & Uncluttered) */}
+        <aside className="hidden lg:block lg:w-64 shrink-0 bg-white border border-gray-200 rounded-3xl p-4 shadow-xs lg:sticky lg:top-36 space-y-5">
           
           {/* Group 1: Operations & Listings */}
           <div>

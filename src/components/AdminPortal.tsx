@@ -166,6 +166,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
   const [globalSearch, setGlobalSearch] = useState<string>('');
   const [searchResults, setSearchResults] = useState<any | null>(null);
   const [isSearching, setIsSearching] = useState<boolean>(false);
+  const [mobileSearchOpen, setMobileSearchOpen] = useState<boolean>(false);
 
   // Tab Data Lists
   const [usersList, setUsersList] = useState<AdminUserItem[]>([]);
@@ -614,6 +615,15 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-emerald-400' : ''}`} />
           </button>
 
+          {/* Mobile Omnisearch Toggle */}
+          <button
+            onClick={() => setMobileSearchOpen(!mobileSearchOpen)}
+            className="md:hidden p-2 rounded-lg bg-slate-900 border border-slate-800 text-slate-300 hover:text-white"
+            title="Search Platform"
+          >
+            <Search className="w-4 h-4" />
+          </button>
+
           <button
             onClick={() => setShowAnnouncementModal(true)}
             className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors shadow-lg shadow-emerald-900/20"
@@ -631,12 +641,67 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
             </p>
           </div>
         </div>
+
+        {/* Mobile Search Input Drawer */}
+        {mobileSearchOpen && (
+          <div className="w-full md:hidden mt-2 pt-2 border-t border-slate-800 relative">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              autoFocus
+              value={globalSearch}
+              onChange={(e) => handleGlobalSearch(e.target.value)}
+              placeholder="Search users, hostels, bookings, tickets..."
+              className="w-full bg-slate-900 border border-slate-700 rounded-lg pl-9 pr-8 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+            />
+            {globalSearch && (
+              <button 
+                onClick={() => { setGlobalSearch(''); setSearchResults(null); }}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+        )}
       </header>
+
+      {/* MOBILE ADMIN HORIZONTAL TAB STRIP */}
+      <div className="md:hidden bg-slate-950 border-b border-slate-800 px-3 py-2 overflow-x-auto scrollbar-none flex items-center gap-1.5 shrink-0 z-20">
+        {[
+          { id: 'operations', label: 'Live Ops', icon: Activity },
+          { id: 'overview', label: 'Overview', icon: TrendingUp },
+          { id: 'hostels', label: 'Hostels', icon: Layers },
+          { id: 'verification', label: 'Verify', icon: ShieldCheck },
+          { id: 'users', label: 'Users', icon: Users },
+          { id: 'bookings', label: 'Bookings', icon: Calendar },
+          { id: 'disputes', label: 'Disputes', icon: ShieldAlert },
+          { id: 'finance_revenue', label: 'Revenue', icon: CreditCard },
+          { id: 'system_health', label: 'Health', icon: Sliders }
+        ].map(tab => {
+          const Icon = tab.icon;
+          const isActive = activeTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id as AdminTab)}
+              className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap ${
+                isActive
+                  ? 'bg-emerald-600 text-white shadow-md'
+                  : 'bg-slate-900 text-slate-400 hover:text-white hover:bg-slate-850'
+              }`}
+            >
+              <Icon className="w-3.5 h-3.5" />
+              <span>{tab.label}</span>
+            </button>
+          );
+        })}
+      </div>
 
       {/* 🧭 MAIN LAYOUT: SIDEBAR NAVIGATION & CONTENT AREA */}
       <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
-        {/* Navigation Sidebar */}
-        <aside className="w-full md:w-64 bg-slate-950/90 border-r border-slate-800 p-3 flex md:flex-col gap-4 overflow-x-auto md:overflow-y-auto shrink-0">
+        {/* Navigation Sidebar (Desktop) */}
+        <aside className="hidden md:flex md:w-64 bg-slate-950/90 border-r border-slate-800 p-3 md:flex-col gap-4 md:overflow-y-auto shrink-0">
           {[
             {
               category: 'OPERATIONS HUB',

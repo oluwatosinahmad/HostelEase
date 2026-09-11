@@ -77,30 +77,37 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
           <span className="text-[10px] mt-0.5 tracking-tight">Search</span>
         </button>
 
-        {/* 3. Bookings */}
+        {/* 3. Bookings or Hostels (Role Adaptive) */}
         <button
           onClick={() => {
             if (!isAuthenticated) {
               onOpenAuth('STUDENT');
+            } else if (isProvider) {
+              onNavigate('provider-portal');
+              window.dispatchEvent(new CustomEvent('hostel_ease_provider_tab', { detail: 'listings' }));
+            } else if (isAdmin) {
+              onNavigate('admin-portal');
             } else {
               onNavigate('bookings');
             }
           }}
           className={`flex flex-col items-center justify-center w-full py-1.5 rounded-xl transition-all relative ${
-            activeView === 'bookings'
+            (activeView === 'bookings' || (isProvider && activeView === 'provider-portal'))
               ? 'text-emerald-600 dark:text-emerald-400 font-extrabold'
               : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
           }`}
         >
-          <div className={`p-1 rounded-xl transition-all relative ${activeView === 'bookings' ? 'bg-emerald-50 dark:bg-emerald-950/60' : ''}`}>
-            <Receipt className="w-5 h-5" />
+          <div className={`p-1 rounded-xl transition-all relative ${(activeView === 'bookings' || (isProvider && activeView === 'provider-portal')) ? 'bg-emerald-50 dark:bg-emerald-950/60' : ''}`}>
+            {isProvider ? <Receipt className="w-5 h-5" /> : isAdmin ? <Receipt className="w-5 h-5" /> : <Receipt className="w-5 h-5" />}
             {activeBookingCount > 0 && (
               <span className="absolute -top-1 -right-1 w-4 h-4 bg-emerald-600 text-white text-[9px] font-black rounded-full flex items-center justify-center">
                 {activeBookingCount}
               </span>
             )}
           </div>
-          <span className="text-[10px] mt-0.5 tracking-tight">Bookings</span>
+          <span className="text-[10px] mt-0.5 tracking-tight">
+            {isProvider ? 'Hostels' : isAdmin ? 'Verify' : 'Bookings'}
+          </span>
         </button>
 
         {/* 4. Messages */}
@@ -129,7 +136,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
           <span className="text-[10px] mt-0.5 tracking-tight">Messages</span>
         </button>
 
-        {/* 5. Profile / Student Hub */}
+        {/* 5. Profile / Role Hub */}
         <button
           onClick={handleProfileClick}
           className={`flex flex-col items-center justify-center w-full py-1.5 rounded-xl transition-all ${
@@ -142,7 +149,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
             <User className="w-5 h-5" />
           </div>
           <span className="text-[10px] mt-0.5 tracking-tight">
-            {isAuthenticated ? (user?.fullName?.split(' ')[0] || 'Hub') : 'Log In'}
+            {isAuthenticated ? (isProvider ? 'Landlord' : isAdmin ? 'Admin' : (user?.fullName?.split(' ')[0] || 'Hub')) : 'Log In'}
           </span>
         </button>
       </div>

@@ -586,7 +586,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             </div>
           )}
 
-          <div className={`grid ${isAuthenticated && isStudent ? 'grid-cols-3' : 'grid-cols-2'} gap-2 pb-2 border-b border-slate-100 dark:border-slate-800`}>
+          <div className={`grid ${isAuthenticated ? 'grid-cols-3' : 'grid-cols-2'} gap-2 pb-2 border-b border-slate-100 dark:border-slate-800`}>
             <button
               onClick={() => { onNavigate('home'); setMobileMenuOpen(false); }}
               className={`p-2.5 rounded-xl text-xs font-bold text-center flex flex-col items-center gap-1 ${
@@ -605,24 +605,39 @@ export const Navbar: React.FC<NavbarProps> = ({
               <Search className="w-4 h-4" />
               <span>Find Hostels</span>
             </button>
-            {isAuthenticated && isStudent && (
+            {isAuthenticated && (
               <button
                 onClick={() => { 
-                  onNavigate('student-dashboard'); 
-                  if (onNavigateToDashboardTab) onNavigateToDashboardTab('overview');
+                  if (isProvider) {
+                    onNavigate('provider-portal');
+                  } else if (isAdmin) {
+                    onNavigate('admin-portal');
+                  } else {
+                    onNavigate('student-dashboard'); 
+                    if (onNavigateToDashboardTab) onNavigateToDashboardTab('overview');
+                  }
                   setMobileMenuOpen(false); 
                 }}
                 className={`p-2.5 rounded-xl text-xs font-bold text-center flex flex-col items-center gap-1 ${
-                  activeView === 'student-dashboard' ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300' : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
+                  (activeView === 'student-dashboard' || activeView === 'provider-portal' || activeView === 'admin-portal') 
+                    ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300' 
+                    : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
                 }`}
               >
-                <LayoutDashboard className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                <span>Dashboard</span>
+                {isProvider ? (
+                  <Building2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                ) : isAdmin ? (
+                  <ShieldCheck className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                ) : (
+                  <LayoutDashboard className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                )}
+                <span>{isProvider ? 'Landlord' : isAdmin ? 'Admin' : 'Dashboard'}</span>
               </button>
             )}
           </div>
 
           <div className="space-y-1 text-xs font-medium text-slate-700 dark:text-slate-300">
+            {/* Student Navigation Links */}
             {isStudent && (
               <>
                 <button
@@ -674,6 +689,106 @@ export const Navbar: React.FC<NavbarProps> = ({
                 >
                   <KeyRound className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                   <span>Move-In Center</span>
+                </button>
+              </>
+            )}
+
+            {/* Landlord / Provider Navigation Links (Mobile Parity) */}
+            {isProvider && (
+              <>
+                <button
+                  onClick={() => {
+                    onNavigate('provider-portal');
+                    setMobileMenuOpen(false);
+                  }}
+                  className="w-full flex items-center gap-2.5 p-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 font-bold text-emerald-800 dark:text-emerald-300"
+                >
+                  <Building2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                  <span>Landlord Command Center</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    onNavigate('provider-portal');
+                    window.dispatchEvent(new CustomEvent('hostel_ease_provider_tab', { detail: 'wizard' }));
+                    setMobileMenuOpen(false);
+                  }}
+                  className="w-full flex items-center gap-2.5 p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 font-bold"
+                >
+                  <PlusCircle className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                  <span>+ Add New Hostel Listing</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    onNavigate('provider-portal');
+                    window.dispatchEvent(new CustomEvent('hostel_ease_provider_tab', { detail: 'listings' }));
+                    setMobileMenuOpen(false);
+                  }}
+                  className="w-full flex items-center gap-2.5 p-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800"
+                >
+                  <Home className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                  <span>My Hostels & Verification</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    onNavigate('provider-portal');
+                    window.dispatchEvent(new CustomEvent('hostel_ease_provider_tab', { detail: 'rooms' }));
+                    setMobileMenuOpen(false);
+                  }}
+                  className="w-full flex items-center gap-2.5 p-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800"
+                >
+                  <Building2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                  <span>Rooms & Bedspace Inventory</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    onNavigate('provider-portal');
+                    window.dispatchEvent(new CustomEvent('hostel_ease_provider_tab', { detail: 'inspections' }));
+                    setMobileMenuOpen(false);
+                  }}
+                  className="w-full flex items-center gap-2.5 p-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800"
+                >
+                  <Calendar className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                  <span>Student Inspection Schedules</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    onNavigate('provider-portal');
+                    window.dispatchEvent(new CustomEvent('hostel_ease_provider_tab', { detail: 'movein' }));
+                    setMobileMenuOpen(false);
+                  }}
+                  className="w-full flex items-center gap-2.5 p-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800"
+                >
+                  <KeyRound className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                  <span>Move-In Key Handover Manager</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    onNavigate('provider-portal');
+                    window.dispatchEvent(new CustomEvent('hostel_ease_provider_tab', { detail: 'finance' }));
+                    setMobileMenuOpen(false);
+                  }}
+                  className="w-full flex items-center gap-2.5 p-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800"
+                >
+                  <CreditCard className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                  <span>Payouts & Rent Settlements</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    onNavigate('provider-portal');
+                    window.dispatchEvent(new CustomEvent('hostel_ease_provider_tab', { detail: 'messages' }));
+                    setMobileMenuOpen(false);
+                  }}
+                  className="w-full flex items-center gap-2.5 p-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800"
+                >
+                  <MessageSquare className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                  <span>Student Inquiries & Chat</span>
                 </button>
               </>
             )}

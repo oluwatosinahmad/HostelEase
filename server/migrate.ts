@@ -1381,6 +1381,11 @@ export function runMigrations() {
     addColumnIfMissing('users', 'level', 'TEXT');
     addColumnIfMissing('users', 'matric_no', 'TEXT');
     addColumnIfMissing('users', 'gender', "TEXT DEFAULT 'ANY'");
+    addColumnIfMissing('users', 'account_status', "TEXT NOT NULL DEFAULT 'ACTIVE'");
+    addColumnIfMissing('users', 'status_reason', 'TEXT');
+
+    // Properties cover_image column for rapid listing queries
+    addColumnIfMissing('properties', 'cover_image', 'TEXT');
 
     // Ensure all properties have valid coordinates around LAUTECH
     db.exec(`
