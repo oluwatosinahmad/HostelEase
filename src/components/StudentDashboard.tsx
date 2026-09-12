@@ -1113,7 +1113,34 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
             <div className="space-y-6 animate-in fade-in">
               
               {/* 1. ACCOMMODATION JOURNEY TRACKER */}
-              <AccommodationProgressTracker currentStage="SEARCHING" />
+              <AccommodationProgressTracker 
+                currentStage={dashboardData?.journeyStage || 'SEARCHING'} 
+                onNavigateToStage={(stage) => {
+                  switch (stage) {
+                    case 'PREFERENCES':
+                      setActiveTab('preferences');
+                      break;
+                    case 'SEARCHING':
+                      onNavigateToSearch();
+                      break;
+                    case 'SHORTLISTED':
+                      setActiveTab('shortlist');
+                      break;
+                    case 'INSPECTION':
+                      setActiveTab('inspections');
+                      break;
+                    case 'BOOKING':
+                    case 'PAYMENT':
+                      setActiveTab('bookings');
+                      break;
+                    case 'MOVE_IN':
+                      if (onNavigateToMoveIn) onNavigateToMoveIn();
+                      break;
+                    default:
+                      break;
+                  }
+                }}
+              />
 
               {/* FIRST-TIME STUDENT GUIDED SETUP CARD (Section 10) */}
               {(!preferences?.onboardingCompleted || profileCompleteness.score < 60) && (

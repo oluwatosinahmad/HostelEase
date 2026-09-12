@@ -430,7 +430,48 @@ router.get('/dashboard', authenticate, (req: AuthenticatedRequest, res: Response
       actionQueue.push(urgentAction);
     }
 
+    // Dynamic Accommodation Journey Stage (persisted across sessions via SQLite records)
+    const paidBookingsCount = (db.prepare(`
+      SELECT COUNT(*) as c FROM bookings 
+      WHERE student_id = ? AND payment_status = 'PAID'
+    `).get(studentId) as any)?.c || 0;
+
+    const totalInspectionsCount = (db.prepare(`
+      SELECT COUNT(*) as c FROM inspection_requests 
+      WHERE student_id = ?
+    `).get(studentId) as any)?.c || 0;
+
+    let moveInCompletedCount = 0;
+    try {
+      moveInCompletedCount = (db.prepare(`
+        SELECT COUNT(*) as c FROM move_in_checklists mic
+        JOIN bookings b ON mic.booking_id = b.id
+        WHERE b.student_id = ? AND mic.is_completed = 1
+      `).get(studentId) as any)?.c || 0;
+    } catch {}
+
+    let journeyStage: 'PREFERENCES' | 'SEARCHING' | 'SHORTLISTED' | 'INSPECTION' | 'BOOKING' | 'PAYMENT' | 'MOVE_IN' = 'PREFERENCES';
+
+    if (moveInCompletedCount > 0) {
+      journeyStage = 'MOVE_IN';
+    } else if (paidBookingsCount > 0) {
+      journeyStage = 'PAYMENT';
+    } else if (activeBookingsCount > 0) {
+      journeyStage = 'BOOKING';
+    } else if (totalInspectionsCount > 0) {
+      journeyStage = 'INSPECTION';
+    } else if (savedCount > 0) {
+      journeyStage = 'SHORTLISTED';
+    } else if (recentlyViewed.length > 0) {
+      journeyStage = 'SEARCHING';
+    } else if (preferences?.onboardingCompleted || preferences?.onboarding_completed) {
+      journeyStage = 'SEARCHING';
+    } else {
+      journeyStage = 'PREFERENCES';
+    }
+
     return res.json({
+      journeyStage,
       summary: {
         savedCount,
         pendingInspectionsCount,

@@ -95,7 +95,7 @@ router.post('/conversations', authenticate, (req: AuthenticatedRequest, res: Res
           providerId,
           `New Message about ${property.title}`,
           `${req.user.fullName || 'A student'}: "${initialMessage.trim().substring(0, 60)}"`,
-          `/messages`
+          `/messages?conversationId=${convId}`
         );
       }
     }
@@ -360,7 +360,7 @@ router.post('/conversations/:id/messages', authenticate, (req: AuthenticatedRequ
       `New message from ${req.user.fullName || req.user.role}`,
       `"${cleanContent.substring(0, 60)}${cleanContent.length > 60 ? '...' : ''}"`,
       'NEW_MESSAGE',
-      `/messages`
+      `/messages?conversationId=${id}`
     );
 
     return res.status(201).json({

@@ -2467,13 +2467,27 @@ export const api = {
     },
 
     async getConversations(): Promise<{ conversations: ConversationItem[] }> {
+      try {
+        const res = await fetch(`${API_BASE}/messages/conversations`, {
+          headers: { ...getAuthHeader() }
+        });
+        const contentType = res.headers.get('content-type') || '';
+        if (res.ok && contentType.includes('application/json')) {
+          const data = await res.json();
+          if (data && Array.isArray(data.conversations)) {
+            return data;
+          }
+        }
+      } catch (err) {
+        console.warn('Backend getConversations unreachable, checking offline store.');
+      }
+
       const currentUser = getCurrentUser();
       if (!currentUser || !currentUser.id) {
         return { conversations: [] };
       }
 
       let local = getLocalConversations();
-      // Filter strictly by logged-in user
       let filtered = [...local];
       if (currentUser.role === 'STUDENT') {
         filtered = filtered.filter(c => 
@@ -2938,12 +2952,7 @@ export const api = {
         if (res.ok) {
           const data = await res.json();
           if (data && Array.isArray(data.properties)) {
-            const localProps = getLocalProperties(currentUserId, currentUserEmail);
-            const merged = [...data.properties];
-            localProps.forEach(lp => {
-              if (!merged.some(p => p.id === lp.id)) merged.unshift(lp);
-            });
-            return { properties: merged };
+            return { properties: data.properties };
           }
         }
       } catch (err) {
@@ -3960,6 +3969,34 @@ export const api = {
         reviewId: `rev-${Date.now()}`,
         verificationStatus: data.decision
       };
+    },
+
+    async getVideos(): Promise<{ videos: any[] }> {
+      try {
+        const res = await fetch(`${API_BASE}/admin/videos`, {
+          headers: { ...getAuthHeader() }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data && Array.isArray(data.videos)) return data;
+        }
+      } catch (err) {
+        console.warn('Backend getVideos offline');
+      }
+      return { videos: [] };
+    },
+
+    async verifyVideo(id: string, status: 'APPROVED' | 'REJECTED', notes?: string): Promise<{ success: boolean; message: string; isVerified: number }> {
+      const res = await fetch(`${API_BASE}/admin/videos/${id}/verify`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+        body: JSON.stringify({ status, notes })
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'Failed to verify video');
+      }
+      return await res.json();
     },
 
     async approveVideoWalkthrough(id: string): Promise<{ message: string; success: boolean }> {

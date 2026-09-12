@@ -45,6 +45,7 @@ import { formatNaira, formatDistance, getAvailabilityBadgeInfo, getPropertyTypeL
 import { InspectionModal } from './InspectionModal';
 import { ReportListingModal } from './ReportListingModal';
 import { ProviderPublicProfileModal } from './ProviderPublicProfileModal';
+import { HostelImageGalleryModal } from './HostelImageGalleryModal';
 
 interface HostelDetailModalProps {
   propertyId: string;
@@ -435,14 +436,16 @@ export const HostelDetailModal: React.FC<HostelDetailModalProps> = ({
                 </div>
 
                 {/* Main Media Display Viewport */}
-                <div className="relative aspect-[16/9] md:aspect-[21/10] bg-slate-950 rounded-2xl overflow-hidden shadow-inner flex items-center justify-center">
+                <div 
+                  onClick={() => setLightboxOpen(true)}
+                  className="relative aspect-[16/9] md:aspect-[21/10] bg-slate-950 rounded-2xl overflow-hidden shadow-inner flex items-center justify-center cursor-pointer group/viewport"
+                >
                   {currentMedia.mediaType === 'VIDEO' ? (
                     <div className="w-full h-full bg-black relative flex items-center justify-center">
                       <video
                         src={currentMedia.url}
                         controls
                         playsInline
-                        autoPlay
                         className="w-full h-full object-cover"
                       />
                     </div>
@@ -453,9 +456,23 @@ export const HostelDetailModal: React.FC<HostelDetailModalProps> = ({
                       onError={(e) => {
                         e.currentTarget.src = 'https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?auto=format&fit=crop&w=1000&q=80';
                       }}
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-cover group-hover/viewport:scale-102 transition-transform duration-300"
                     />
                   )}
+
+                  {/* Click to Expand Lightbox Badge */}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setLightboxOpen(true);
+                    }}
+                    className="absolute top-3 right-3 px-3 py-1.5 rounded-xl bg-black/70 hover:bg-black/90 text-white backdrop-blur-md transition-all flex items-center gap-1.5 text-xs font-bold shadow-lg cursor-pointer z-10"
+                    title="Open Full 4K Lightbox Gallery"
+                  >
+                    <Maximize2 className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>View Lightbox & 4K Tour</span>
+                  </button>
 
                   {/* Caption & Counter */}
                   <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between text-white text-xs pointer-events-none">
@@ -1020,6 +1037,17 @@ export const HostelDetailModal: React.FC<HostelDetailModalProps> = ({
           providerId={property.provider.id}
           isOpen={providerProfileModalOpen}
           onClose={() => setProviderProfileModalOpen(false)}
+        />
+      )}
+
+      {/* 4K Video Tour & Photo Lightbox Gallery */}
+      {property && (
+        <HostelImageGalleryModal
+          isOpen={lightboxOpen}
+          onClose={() => setLightboxOpen(false)}
+          media={filteredMedia.length > 0 ? filteredMedia : [{ id: property.id, url: property.coverImage, caption: property.title, mediaType: 'IMAGE' }]}
+          hostelTitle={property.title}
+          initialIndex={activeMediaIndex}
         />
       )}
     </div>

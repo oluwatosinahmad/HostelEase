@@ -1000,6 +1000,7 @@ export interface StudentProfileCompleteness {
 }
 
 export interface StudentDashboardData {
+  journeyStage?: 'PREFERENCES' | 'SEARCHING' | 'SHORTLISTED' | 'INSPECTION' | 'BOOKING' | 'PAYMENT' | 'MOVE_IN';
   summary: StudentDashboardSummary;
   urgentAction: StudentDashboardAction | null;
   actionQueue: StudentDashboardAction[];

@@ -403,41 +403,6 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
         return c;
       }));
 
-      // Trigger realistic live Landlord typing indicator and automatic response if it's a student question
-      if (isStudent && activeDetail) {
-        setIsTyping(true);
-        setTimeout(async () => {
-          setIsTyping(false);
-          const landlordName = activeDetail.conversation.provider.name;
-          const propTitle = activeDetail.conversation.property.title;
-          let replyContent = `Thank you for asking! At ${propTitle}, we ensure 24/7 security and steady utilities. Would you like to schedule an inspection tour?`;
-          
-          if (text.toLowerCase().includes('water')) {
-            replyContent = `Yes! Clean borehole water runs 24/7 into all overhead storage tanks at ${propTitle}. You have direct running water in the room.`;
-          } else if (text.toLowerCase().includes('electricity') || text.toLowerCase().includes('light')) {
-            replyContent = `Electricity is very steady on our feeder line, and each room is equipped with its own dedicated prepaid meter.`;
-          } else if (text.toLowerCase().includes('caution') || text.toLowerCase().includes('fee') || text.toLowerCase().includes('cost')) {
-            replyContent = `The fee is transparent: rent is ${formatNaira(activeDetail.conversation.property.rentAmount)}/yr with zero hidden agency commission.`;
-          } else if (text.toLowerCase().includes('inspection') || text.toLowerCase().includes('visit')) {
-            replyContent = `You are welcome for an inspection tour! Please tap "Book Tour" at the top to pick your preferred date and time.`;
-          }
-
-          try {
-            const autoRes = await api.messages.sendMessage(activeConversationId, replyContent, 'TEXT');
-            setActiveDetail(prev => {
-              if (!prev) return null;
-              return { ...prev, messages: [...prev.messages, autoRes.message] };
-            });
-            setConversations(prev => prev.map(c => {
-              if (c.id === activeConversationId) {
-                return { ...c, lastMessageText: replyContent, lastMessageAt: new Date().toISOString() };
-              }
-              return c;
-            }));
-          } catch {}
-        }, 1800);
-      }
-
       inputRef.current?.focus();
     } catch (err: any) {
       onShowToast(err.message || 'Failed to send message', 'error');

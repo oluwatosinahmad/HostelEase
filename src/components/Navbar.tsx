@@ -27,7 +27,9 @@ import {
   Sun,
   Moon,
   UserCheck,
-  Zap
+  Zap,
+  Calculator,
+  Heart
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
@@ -44,6 +46,8 @@ interface NavbarProps {
   onOpenAI?: () => void;
   onOpenUtilityRadar?: () => void;
   onOpenSafeWalk?: () => void;
+  onOpenUtilityCalculator?: () => void;
+  onOpenWomenSection?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -54,21 +58,28 @@ export const Navbar: React.FC<NavbarProps> = ({
   savedCount,
   onOpenAI,
   onOpenUtilityRadar,
-  onOpenSafeWalk
+  onOpenSafeWalk,
+  onOpenUtilityCalculator,
+  onOpenWomenSection
 }) => {
   const { user, isAuthenticated, isStudent, isProvider, isAdmin, logout } = useAuth();
   const { theme, isDark, toggleTheme } = useTheme();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const [unreadMsgCount, setUnreadMsgCount] = useState<number>(0);
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [unreadNotifCount, setUnreadNotifCount] = useState<number>(0);
+  const [notifDropdownOpen, setNotifDropdownOpen] = useState<boolean>(false);
   const [isLoggingOut, setIsLoggingOut] = useState<boolean>(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState<boolean>(false);
 
   const profileMenuRef = useRef<HTMLDivElement>(null);
+  const notifMenuRef = useRef<HTMLDivElement>(null);
 
   const handleLogout = () => {
     setIsLoggingOut(true);
     setProfileDropdownOpen(false);
+    setNotifDropdownOpen(false);
     setMobileMenuOpen(false);
 
     setTimeout(() => {
@@ -79,34 +90,109 @@ export const Navbar: React.FC<NavbarProps> = ({
     }, 1200);
   };
 
-  // Close profile dropdown on outside click
+  // Close dropdowns on outside click
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (profileMenuRef.current && !profileMenuRef.current.contains(e.target as Node)) {
         setProfileDropdownOpen(false);
+      }
+      if (notifMenuRef.current && !notifMenuRef.current.contains(e.target as Node)) {
+        setNotifDropdownOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Poll unread message count when authenticated
+  const fetchNotifs = () => {
+    if (!isAuthenticated) return;
+    api.notifications.getAll()
+      .then(res => {
+        setNotifications(res.notifications || []);
+        setUnreadNotifCount(res.unreadCount || 0);
+      })
+      .catch(() => {});
+  };
+
+  // Poll unread message & notification count when authenticated
   useEffect(() => {
     if (isAuthenticated) {
       api.messages.getUnreadCount()
         .then(res => setUnreadMsgCount(res.unreadCount || 0))
         .catch(() => {});
       
+      fetchNotifs();
+
       const interval = setInterval(() => {
         api.messages.getUnreadCount()
           .then(res => setUnreadMsgCount(res.unreadCount || 0))
           .catch(() => {});
-      }, 15000);
-      return () => clearInterval(interval);
+        fetchNotifs();
+      }, 12000);
+
+      const handleNotifEvent = () => fetchNotifs();
+      window.addEventListener('hostel_ease_notification_updated', handleNotifEvent);
+      window.addEventListener('hostel_ease_conversations_updated', handleNotifEvent);
+
+      return () => {
+        clearInterval(interval);
+        window.removeEventListener('hostel_ease_notification_updated', handleNotifEvent);
+        window.removeEventListener('hostel_ease_conversations_updated', handleNotifEvent);
+      };
     } else {
       setUnreadMsgCount(0);
+      setNotifications([]);
+      setUnreadNotifCount(0);
     }
   }, [isAuthenticated, activeView]);
+
+  const handleNotificationClick = async (n: any) => {
+    setNotifDropdownOpen(false);
+    setMobileMenuOpen(false);
+    try {
+      await api.notifications.markRead(n.id);
+      setNotifications(prev => prev.map(item => item.id === n.id ? { ...item, isRead: true } : item));
+      setUnreadNotifCount(prev => Math.max(0, prev - 1));
+    } catch {}
+
+    const link = n.linkUrl || '';
+    if (link.includes('messages') || n.type === 'NEW_MESSAGE') {
+      onNavigate('messages');
+    } else if (link.includes('inspections') || n.type.includes('INSPECTION')) {
+      if (isProvider) {
+        onNavigate('provider-portal');
+        setTimeout(() => {
+          window.dispatchEvent(new CustomEvent('hostel_ease_provider_tab', { detail: 'inspections' }));
+        }, 100);
+      } else {
+        if (onNavigateToDashboardTab) {
+          onNavigate('student-dashboard');
+          onNavigateToDashboardTab('inspections');
+        } else {
+          onNavigate('inspections');
+        }
+      }
+    } else if (link.includes('bookings') || n.type.includes('BOOKING')) {
+      if (isProvider) {
+        onNavigate('provider-portal');
+        setTimeout(() => {
+          window.dispatchEvent(new CustomEvent('hostel_ease_provider_tab', { detail: 'bookings' }));
+        }, 100);
+      } else {
+        onNavigate('bookings');
+      }
+    } else if (link.includes('community') || n.type.includes('COMMUNITY')) {
+      onNavigate('community');
+    }
+  };
+
+  const handleMarkAllNotifsRead = async () => {
+    try {
+      await api.notifications.markAllRead();
+      setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+      setUnreadNotifCount(0);
+    } catch {}
+  };
 
   return (
     <header className="sticky top-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur border-b border-slate-200 dark:border-slate-800 shadow-xs transition-colors">
@@ -249,6 +335,30 @@ export const Navbar: React.FC<NavbarProps> = ({
               </button>
             )}
 
+            {/* Utility Calculator Button */}
+            {onOpenUtilityCalculator && (
+              <button
+                onClick={onOpenUtilityCalculator}
+                className="px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-950/40 border border-blue-200 dark:border-blue-800/60 flex items-center gap-1.5 hover:scale-[1.02]"
+                title="Utility Bill Calculator (IBEDC Band Tariffs, Water & Fuel)"
+              >
+                <Calculator className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                <span className="hidden xl:inline">Calculator</span>
+              </button>
+            )}
+
+            {/* Women's Living & Safety Section */}
+            {onOpenWomenSection && (
+              <button
+                onClick={onOpenWomenSection}
+                className="px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all text-rose-700 dark:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-rose-200 dark:border-rose-800/60 flex items-center gap-1.5 hover:scale-[1.02]"
+                title="Women's Living & Safety (Verified Lodges, Roommate Matching, SafeWalk)"
+              >
+                <Heart className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
+                <span className="hidden xl:inline">Women's Safe</span>
+              </button>
+            )}
+
             {/* Ask AI Assistant Button */}
             {onOpenAI && (
               <button
@@ -294,6 +404,74 @@ export const Navbar: React.FC<NavbarProps> = ({
                     )}
                   </button>
                 )}
+
+                {/* Notifications Bell & Dropdown */}
+                <div className="relative" ref={notifMenuRef}>
+                  <button
+                    onClick={() => setNotifDropdownOpen(!notifDropdownOpen)}
+                    className="p-2 text-slate-600 dark:text-slate-300 hover:text-emerald-700 dark:hover:text-emerald-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl relative transition-all"
+                    title="Notifications"
+                    aria-label="Notifications"
+                  >
+                    <Bell className="w-4 h-4" />
+                    {unreadNotifCount > 0 && (
+                      <span className="absolute top-1 right-1 min-w-[16px] h-4 px-1 bg-rose-600 text-white text-[9px] font-black rounded-full flex items-center justify-center animate-pulse">
+                        {unreadNotifCount > 9 ? '9+' : unreadNotifCount}
+                      </span>
+                    )}
+                  </button>
+
+                  {notifDropdownOpen && (
+                    <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 py-2 z-50 animate-in fade-in slide-in-from-top-2">
+                      <div className="px-4 py-2.5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Bell className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                          <span className="font-bold text-xs text-slate-900 dark:text-white">Notifications</span>
+                          {unreadNotifCount > 0 && (
+                            <span className="text-[10px] bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 px-1.5 py-0.5 rounded-full font-bold">
+                              {unreadNotifCount} new
+                            </span>
+                          )}
+                        </div>
+                        {unreadNotifCount > 0 && (
+                          <button
+                            onClick={handleMarkAllNotifsRead}
+                            className="text-[11px] font-semibold text-emerald-600 hover:text-emerald-700 dark:text-emerald-400"
+                          >
+                            Mark all read
+                          </button>
+                        )}
+                      </div>
+
+                      <div className="max-h-80 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800">
+                        {notifications.length === 0 ? (
+                          <div className="p-6 text-center text-xs text-slate-500 dark:text-slate-400">
+                            No notifications yet
+                          </div>
+                        ) : (
+                          notifications.slice(0, 10).map((n) => (
+                            <div
+                              key={n.id}
+                              onClick={() => handleNotificationClick(n)}
+                              className={`p-3 text-left cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors flex items-start gap-2.5 ${
+                                !n.isRead ? 'bg-emerald-50/40 dark:bg-emerald-950/20' : ''
+                              }`}
+                            >
+                              <div className={`mt-1 w-2 h-2 rounded-full shrink-0 ${!n.isRead ? 'bg-emerald-600' : 'bg-transparent'}`} />
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs font-bold text-slate-900 dark:text-white truncate">{n.title}</p>
+                                <p className="text-[11px] text-slate-600 dark:text-slate-300 line-clamp-2 mt-0.5">{n.message}</p>
+                                <span className="text-[10px] text-slate-400 dark:text-slate-500 mt-1 inline-block">
+                                  {new Date(n.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
 
                 {/* Landlord Portal Quick Button (Only for Landlord account) */}
                 {isProvider && (
@@ -541,6 +719,21 @@ export const Navbar: React.FC<NavbarProps> = ({
                 {unreadMsgCount > 0 && (
                   <span className="absolute top-1 right-1 w-4 h-4 bg-rose-600 text-white text-[9px] font-black rounded-full flex items-center justify-center">
                     {unreadMsgCount}
+                  </span>
+                )}
+              </button>
+            )}
+
+            {isAuthenticated && (
+              <button
+                onClick={() => setNotifDropdownOpen(!notifDropdownOpen)}
+                className="p-2 text-slate-600 dark:text-slate-300 relative"
+                aria-label="Notifications"
+              >
+                <Bell className="w-5 h-5 text-emerald-700 dark:text-emerald-400" />
+                {unreadNotifCount > 0 && (
+                  <span className="absolute top-1 right-1 w-4 h-4 bg-rose-600 text-white text-[9px] font-black rounded-full flex items-center justify-center animate-pulse">
+                    {unreadNotifCount > 9 ? '9+' : unreadNotifCount}
                   </span>
                 )}
               </button>
@@ -826,6 +1019,34 @@ export const Navbar: React.FC<NavbarProps> = ({
                   <span>🚨 SafeWalk™ Night-Trek Companion</span>
                 </div>
                 <span className="text-[10px] px-1.5 py-0.5 bg-emerald-200 dark:bg-emerald-900 text-emerald-900 dark:text-emerald-200 rounded font-black">SOS</span>
+              </button>
+            )}
+
+            {/* Utility Calculator in Mobile Menu */}
+            {onOpenUtilityCalculator && (
+              <button
+                onClick={() => { onOpenUtilityCalculator(); setMobileMenuOpen(false); }}
+                className="w-full flex items-center justify-between p-2.5 rounded-xl hover:bg-blue-50 dark:hover:bg-blue-950/40 text-blue-700 dark:text-blue-300 font-bold bg-blue-50/50 dark:bg-blue-950/20 border border-blue-200/60 dark:border-blue-900/40"
+              >
+                <div className="flex items-center gap-2.5">
+                  <Calculator className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                  <span>💡 Utility Bill Calculator (IBEDC)</span>
+                </div>
+                <span className="text-[10px] px-1.5 py-0.5 bg-blue-200 dark:bg-blue-900 text-blue-900 dark:text-blue-200 rounded font-black">CALC</span>
+              </button>
+            )}
+
+            {/* Women's Living & Safety in Mobile Menu */}
+            {onOpenWomenSection && (
+              <button
+                onClick={() => { onOpenWomenSection(); setMobileMenuOpen(false); }}
+                className="w-full flex items-center justify-between p-2.5 rounded-xl hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-700 dark:text-rose-300 font-bold bg-rose-50/50 dark:bg-rose-950/20 border border-rose-200/60 dark:border-rose-900/40"
+              >
+                <div className="flex items-center gap-2.5">
+                  <Heart className="w-4 h-4 text-rose-600 dark:text-rose-400" />
+                  <span>🌸 Women's Living & Safety</span>
+                </div>
+                <span className="text-[10px] px-1.5 py-0.5 bg-rose-200 dark:bg-rose-900 text-rose-900 dark:text-rose-200 rounded font-black">SAFE</span>
               </button>
             )}
 

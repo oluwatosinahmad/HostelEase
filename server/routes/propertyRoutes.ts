@@ -301,12 +301,19 @@ router.get('/:id', optionalAuthenticate, (req: AuthenticatedRequest, res: Respon
       SELECT * FROM prices WHERE property_id = ?
     `).all(property.id);
 
-    // Fetch categorized media
-    const media = db.prepare(`
-      SELECT * FROM property_media 
-      WHERE property_id = ? 
-      ORDER BY is_cover DESC, display_order ASC
-    `).all(property.id);
+    // Fetch categorized media (only verified videos for public/students)
+    const isOwnerOrAdmin = req.user && (req.user.role === 'ADMIN' || req.user.id === property.provider_id);
+    const media = isOwnerOrAdmin
+      ? db.prepare(`
+          SELECT * FROM property_media 
+          WHERE property_id = ? 
+          ORDER BY is_cover DESC, display_order ASC
+        `).all(property.id)
+      : db.prepare(`
+          SELECT * FROM property_media 
+          WHERE property_id = ? AND (media_type != 'VIDEO' OR is_verified = 1)
+          ORDER BY is_cover DESC, display_order ASC
+        `).all(property.id);
 
     // Fetch all amenities
     const amenities = db.prepare(`

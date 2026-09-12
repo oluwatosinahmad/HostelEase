@@ -145,6 +145,15 @@ router.post('/properties/:propertyId', authenticate, (req: AuthenticatedRequest,
       `/provider/inspections`
     );
 
+    // Notify student confirmation
+    sendNotification(
+      req.user.id,
+      'Inspection Request Submitted',
+      `Your ${inspectionType.toLowerCase()} inspection request for ${property.title} on ${preferredDate} at ${preferredTime} was submitted to the landlord.`,
+      'INSPECTION_SUBMITTED',
+      `/student/inspections`
+    );
+
     // Create system card in chat
     postSystemMessage(
       propertyId,

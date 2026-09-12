@@ -1258,4 +1258,97 @@ router.get(
   }
 );
 
+// Ensure verification_notes column exists on property_media
+try {
+  db.exec('ALTER TABLE property_media ADD COLUMN verification_notes TEXT');
+} catch {}
+
+// =============================================================================
+// PROPERTY VIDEO TOUR VERIFICATION QUEUE
+// =============================================================================
+router.get(
+  '/videos',
+  authenticate,
+  requireRole('ADMIN'),
+  (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const videos = db.prepare(`
+        SELECT pm.id, pm.property_id as propertyId, pm.url, pm.thumbnail_url as thumbnailUrl,
+               pm.caption, pm.is_verified as isVerified, pm.verification_notes as verificationNotes,
+               pm.created_at as createdAt,
+               p.title as propertyTitle, p.address as propertyAddress,
+               u.full_name as providerName, u.email as providerEmail, u.phone as providerPhone
+        FROM property_media pm
+        JOIN properties p ON pm.property_id = p.id
+        JOIN users u ON p.provider_id = u.id
+        WHERE pm.media_type = 'VIDEO' OR pm.category = 'VIDEO_WALKTHROUGH'
+        ORDER BY pm.created_at DESC
+      `).all();
+
+      res.json({ videos });
+    } catch (err: any) {
+      res.status(500).json({ error: 'Failed to fetch video verification queue' });
+    }
+  }
+);
+
+router.patch(
+  '/videos/:id/verify',
+  authenticate,
+  requireRole('ADMIN'),
+  (req: AuthenticatedRequest, res: Response) => {
+    const { id } = req.params;
+    const { status, notes } = req.body; // status: 'APPROVED' | 'REJECTED'
+
+    if (!['APPROVED', 'REJECTED'].includes(status)) {
+      return res.status(400).json({ error: 'Status must be APPROVED or REJECTED' });
+    }
+
+    try {
+      const media = db.prepare(`
+        SELECT pm.*, p.title as property_title, p.provider_id
+        FROM property_media pm
+        JOIN properties p ON pm.property_id = p.id
+        WHERE pm.id = ?
+      `).get(id) as any;
+
+      if (!media) {
+        return res.status(404).json({ error: 'Video media not found' });
+      }
+
+      const isVerified = status === 'APPROVED' ? 1 : 0;
+      
+      try {
+        db.prepare(`
+          UPDATE property_media 
+          SET is_verified = ?, verification_notes = ?
+          WHERE id = ?
+        `).run(isVerified, notes || null, id);
+      } catch {
+        db.prepare(`
+          UPDATE property_media 
+          SET is_verified = ?
+          WHERE id = ?
+        `).run(isVerified, id);
+      }
+
+      // Notify landlord
+      const notifId = `notif-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+      const notifTitle = status === 'APPROVED' ? 'Property Video Tour Verified!' : 'Property Video Tour Rejected';
+      const notifMessage = status === 'APPROVED' 
+        ? `Your uploaded video tour for "${media.property_title}" has been approved and is now live for all students.`
+        : `Your video tour for "${media.property_title}" was rejected. Feedback: ${notes || 'Please upload a clear, authentic video of the lodge.'}`;
+      
+      db.prepare(`
+        INSERT INTO notifications (id, user_id, title, message, type, is_read, link_url)
+        VALUES (?, ?, ?, ?, ?, 0, ?)
+      `).run(notifId, media.provider_id, notifTitle, notifMessage, 'VIDEO_VERIFICATION', `/provider-portal?tab=listings`);
+
+      res.json({ success: true, message: `Video ${status.toLowerCase()} successfully`, isVerified });
+    } catch (err: any) {
+      res.status(500).json({ error: 'Failed to verify video' });
+    }
+  }
+);
+
 export default router;

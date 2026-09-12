@@ -1,7 +1,7 @@
 import { Router, Response } from 'express';
 import crypto from 'crypto';
 import db from '../db';
-import { authenticate, AuthenticatedRequest } from '../middleware/auth';
+import { authenticate, optionalAuthenticate, AuthenticatedRequest } from '../middleware/auth';
 import { AIAssistantService } from '../services/aiAssistantService';
 
 const router = Router();
@@ -29,9 +29,13 @@ function checkRateLimit(userId: string): boolean {
 // ---------------------------------------------------------------------------
 // 1. POST /api/ai/chat — Process natural language query
 // ---------------------------------------------------------------------------
-router.post('/chat', async (req: AuthenticatedRequest, res: Response) => {
+router.post('/chat', optionalAuthenticate, async (req: AuthenticatedRequest, res: Response) => {
   const startTime = Date.now();
-  const studentId = req.user?.id || 'usr-student-default';
+  let studentId = req.user?.id;
+  if (!studentId) {
+    const defaultStudent = db.prepare(`SELECT id FROM users WHERE role = 'STUDENT' LIMIT 1`).get() as any;
+    studentId = defaultStudent?.id || 'user-student-1';
+  }
 
   if (!checkRateLimit(studentId)) {
     return res.status(429).json({ error: 'Too many queries. Please slow down and wait a few seconds before asking again.' });

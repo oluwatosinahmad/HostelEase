@@ -73,6 +73,7 @@ import { UtilityRadarModal } from './components/UtilityRadarModal';
 import { CampusSafeWalkModal } from './components/CampusSafeWalkModal';
 import { UtilityCalculatorModal } from './components/UtilityCalculatorModal';
 import { SafetyEscrowModal } from './components/SafetyEscrowModal';
+import { WomensLivingModal } from './components/WomensLivingModal';
 import { INITIAL_APPLIANCES } from './data/campusData';
 import { HostelEaseBrandedLoader } from './components/HostelEaseBrandedLoader';
 
@@ -169,6 +170,7 @@ function MainApp() {
   const [safeWalkOpen, setSafeWalkOpen] = useState<boolean>(false);
   const [utilityCalcOpen, setUtilityCalcOpen] = useState<boolean>(false);
   const [safetyEscrowOpen, setSafetyEscrowOpen] = useState<boolean>(false);
+  const [womensLivingOpen, setWomensLivingOpen] = useState<boolean>(false);
 
   const handleOpenAI = (property?: Property | null) => {
     setAiPropertyContext(property || null);
@@ -563,6 +565,8 @@ function MainApp() {
         onOpenAI={() => handleOpenAI()}
         onOpenUtilityRadar={() => setUtilityRadarOpen(true)}
         onOpenSafeWalk={() => setSafeWalkOpen(true)}
+        onOpenUtilityCalculator={() => setUtilityCalcOpen(true)}
+        onOpenWomenSection={() => setWomensLivingOpen(true)}
       />
 
       {/* Content Body Router with Lazy Suspense */}
@@ -1877,6 +1881,22 @@ function MainApp() {
         isOpen={utilityCalcOpen}
         onClose={() => setUtilityCalcOpen(false)}
         initialAppliances={INITIAL_APPLIANCES}
+      />
+
+      {/* Women's Living & Safety Modal */}
+      <WomensLivingModal
+        isOpen={womensLivingOpen}
+        onClose={() => setWomensLivingOpen(false)}
+        properties={properties}
+        onSelectProperty={(property) => {
+          setSelectedPropertyId(property.id);
+        }}
+        onOpenSafeWalk={() => {
+          setSafeWalkOpen(true);
+        }}
+        onOpenRoommates={() => {
+          setCurrentView('community');
+        }}
       />
 
       {/* Safety Escrow & Scam Protection Modal */}

@@ -2516,6 +2516,10 @@ Your caution deposit is refundable upon move-out provided no unauthorized struct
     } catch {
       // Table already cleaned
     }
+
+    ['department', 'level', 'matric_no', 'gender', 'account_status', 'status_reason'].forEach(col => {
+      try { db.exec(`ALTER TABLE users ADD COLUMN ${col} TEXT`); } catch {}
+    });
   })();
 
   db.pragma('foreign_keys = ON');

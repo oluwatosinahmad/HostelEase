@@ -35,47 +35,11 @@ export const QuestionDetailModal: React.FC<QuestionDetailModalProps> = ({
       if (res && res.question) {
         setData(res);
       } else {
-        // Fallback question context
-        setData({
-          question: {
-            id: questionId,
-            title: 'Which hostels around Under G have steady solar inverter and borehole water?',
-            description: 'Looking for a clean self-contain lodge in Under G with steady solar inverter or generator schedule and continuous running water. Budget is around ₦250k - ₦300k.',
-            category: 'AREAS',
-            authorName: 'Oluwaseun Adeyemi',
-            isVerifiedStudent: true,
-            answersCount: 2,
-            isAnswered: true,
-            createdAt: new Date().toISOString()
-          },
-          answers: [
-            {
-              id: 'ans-1',
-              questionId,
-              authorName: 'Tunde Adeyemi',
-              isVerifiedStudent: true,
-              content: 'I live in Harmony Heights Lodge near Bovas in Under G. They have a 5KVA solar inverter that powers lighting and fan sockets 24/7. Water is pumped every morning at 6:30 AM without fail.',
-              isHelpfulCount: 8,
-              isUnhelpfulCount: 0,
-              userReaction: null,
-              createdAt: new Date().toISOString()
-            },
-            {
-              id: 'ans-2',
-              questionId,
-              authorName: 'Blessing Okafor',
-              isVerifiedStudent: true,
-              content: 'You can also check Emerald Villa along Stadium Road if you want very quiet study environment. Rent is about ₦280k with prepaid meters.',
-              isHelpfulCount: 5,
-              isUnhelpfulCount: 0,
-              userReaction: null,
-              createdAt: new Date().toISOString()
-            }
-          ]
-        });
+        setData(null);
       }
     } catch (err: any) {
       console.error('Failed to fetch question details from backend:', err);
+      setData(null);
     } finally {
       setLoading(false);
     }
@@ -346,7 +310,21 @@ export const QuestionDetailModal: React.FC<QuestionDetailModalProps> = ({
                 )}
               </div>
             </>
-          ) : null}
+          ) : (
+            <div className="py-16 text-center space-y-3">
+              <HelpCircle className="w-10 h-10 text-slate-400 mx-auto" />
+              <h3 className="text-sm font-bold text-slate-800">Question not found</h3>
+              <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                This community inquiry could not be loaded or may have been removed.
+              </p>
+              <button
+                onClick={onClose}
+                className="px-4 py-2 bg-slate-900 text-white text-xs font-bold rounded-xl cursor-pointer"
+              >
+                Return to Community
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Answer Form Footer */}

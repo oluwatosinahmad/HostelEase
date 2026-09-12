@@ -15,7 +15,8 @@ import {
   AlertCircle, 
   Sparkles,
   Info,
-  DollarSign
+  DollarSign,
+  Snowflake
 } from 'lucide-react';
 import { ApplianceUsageItem } from '../types';
 import { formatNaira } from '../utils/formatters';
@@ -33,11 +34,25 @@ export const UtilityCalculatorModal: React.FC<UtilityCalculatorModalProps> = ({
 }) => {
   const [appliances, setAppliances] = useState<ApplianceUsageItem[]>(initialAppliances);
   const [roommateCount, setRoommateCount] = useState<number>(1);
-  const [waterLevyMonthly, setWaterLevyMonthly] = useState<number>(2500);
-  const [wasteLevyMonthly, setWasteLevyMonthly] = useState<number>(1000);
-  const [ibedcTariffPerKwh, setIbedcTariffPerKwh] = useState<number>(75); // ₦75 per kWh in Ogbomoso Band C/D
+  const [waterLevyInput, setWaterLevyInput] = useState<string>('2500');
+  const [wasteLevyInput, setWasteLevyInput] = useState<string>('1000');
+  const [tariffBand, setTariffBand] = useState<'A' | 'B' | 'C' | 'CUSTOM'>('C');
+  const [customTariffInput, setCustomTariffInput] = useState<string>('75');
 
   if (!isOpen) return null;
+
+  const currentTariffPerKwh = useMemo(() => {
+    switch (tariffBand) {
+      case 'A': return 225; // IBEDC Band A (20+ hrs)
+      case 'B': return 68;  // IBEDC Band B (16-20 hrs)
+      case 'C': return 55;  // IBEDC Band C (12-16 hrs typical around LAUTECH)
+      case 'CUSTOM': return Math.max(0, parseFloat(customTariffInput) || 0);
+      default: return 55;
+    }
+  }, [tariffBand, customTariffInput]);
+
+  const waterLevyMonthly = Math.max(0, parseFloat(waterLevyInput) || 0);
+  const wasteLevyMonthly = Math.max(0, parseFloat(wasteLevyInput) || 0);
 
   const handleHoursChange = (id: string, hours: number) => {
     setAppliances(
@@ -59,7 +74,7 @@ export const UtilityCalculatorModal: React.FC<UtilityCalculatorModalProps> = ({
 
     const dailyKwh = dailyWattHours / 1000;
     const monthlyKwh = dailyKwh * 30;
-    const electricCost = Math.round(monthlyKwh * ibedcTariffPerKwh);
+    const electricCost = Math.round(monthlyKwh * currentTariffPerKwh);
     const totalUtility = electricCost + waterLevyMonthly + wasteLevyMonthly;
     const perPerson = Math.round(totalUtility / (roommateCount || 1));
 
@@ -70,7 +85,7 @@ export const UtilityCalculatorModal: React.FC<UtilityCalculatorModalProps> = ({
       totalMonthlyUtility: totalUtility,
       perPersonCost: perPerson,
     };
-  }, [appliances, ibedcTariffPerKwh, waterLevyMonthly, wasteLevyMonthly, roommateCount]);
+  }, [appliances, currentTariffPerKwh, waterLevyMonthly, wasteLevyMonthly, roommateCount]);
 
   const getApplianceIcon = (iconName: string) => {
     switch (iconName) {
@@ -81,7 +96,10 @@ export const UtilityCalculatorModal: React.FC<UtilityCalculatorModalProps> = ({
       case 'Smartphone': return <Smartphone className="w-4 h-4 text-indigo-400" />;
       case 'Lightbulb': return <Lightbulb className="w-4 h-4 text-yellow-400" />;
       case 'Shirt': return <Shirt className="w-4 h-4 text-rose-400" />;
-      default: return <Zap className="w-4 h-4 text-brand-400" />;
+      case 'Refrigerator':
+      case 'Fridge':
+        return <Snowflake className="w-4 h-4 text-cyan-300" />;
+      default: return <Zap className="w-4 h-4 text-emerald-400" />;
     }
   };
 
@@ -119,9 +137,59 @@ export const UtilityCalculatorModal: React.FC<UtilityCalculatorModalProps> = ({
           
           {/* Left: Appliances List */}
           <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 border-b lg:border-b-0 lg:border-r border-slate-800">
-            <div className="flex items-center justify-between text-xs text-slate-400">
+            {/* Tariff Band Selector */}
+            <div className="bg-slate-950/90 border border-slate-800 rounded-2xl p-3.5 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+                  <Zap className="w-3.5 h-3.5 text-amber-400" />
+                  <span>IBEDC Feeder Tariff Band</span>
+                </span>
+                <span className="text-[11px] font-mono text-amber-400 font-black">₦{currentTariffPerKwh}/kWh</span>
+              </div>
+              
+              <div className="grid grid-cols-4 gap-2">
+                {[
+                  { band: 'A', name: 'Band A', rate: '₦225', desc: '20+ hrs' },
+                  { band: 'B', name: 'Band B', rate: '₦68', desc: '16-20 hrs' },
+                  { band: 'C', name: 'Band C', rate: '₦55', desc: '12-16 hrs' },
+                  { band: 'CUSTOM', name: 'Custom', rate: `₦${customTariffInput || 0}`, desc: 'Custom rate' }
+                ].map((item) => (
+                  <button
+                    key={item.band}
+                    type="button"
+                    onClick={() => setTariffBand(item.band as any)}
+                    className={`p-2 rounded-xl text-center border transition-all cursor-pointer ${
+                      tariffBand === item.band
+                        ? 'bg-amber-500/20 border-amber-500 text-amber-300 font-bold'
+                        : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    <div className="text-[11px] font-bold">{item.name}</div>
+                    <div className="text-[10px] font-mono">{item.rate}/kWh</div>
+                  </button>
+                ))}
+              </div>
+
+              {tariffBand === 'CUSTOM' && (
+                <div className="flex items-center gap-2 pt-1">
+                  <span className="text-xs text-slate-400">Custom Tariff Rate:</span>
+                  <div className="flex items-center gap-1">
+                    <span className="text-xs text-amber-400 font-bold">₦</span>
+                    <input
+                      type="number"
+                      value={customTariffInput}
+                      onChange={(e) => setCustomTariffInput(e.target.value)}
+                      placeholder="e.g. 75"
+                      className="w-24 bg-slate-900 border border-slate-700 rounded-lg p-1 text-right font-mono text-white text-xs"
+                    />
+                    <span className="text-xs text-slate-400">/kWh</span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center justify-between text-xs text-slate-400 pt-1">
               <span>Adjust your daily hours for each appliance:</span>
-              <span className="text-[11px] font-mono text-amber-400 font-bold">~₦{ibedcTariffPerKwh}/kWh Rate</span>
             </div>
 
             <div className="space-y-3">
@@ -219,22 +287,28 @@ export const UtilityCalculatorModal: React.FC<UtilityCalculatorModalProps> = ({
                 
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-slate-400">Borehole Pumping:</span>
-                  <input
-                    type="number"
-                    value={waterLevyMonthly}
-                    onChange={(e) => setWaterLevyMonthly(parseInt(e.target.value) || 0)}
-                    className="w-24 bg-slate-900 border border-slate-800 rounded-lg p-1.5 text-right font-mono text-white text-xs"
-                  />
+                  <div className="flex items-center gap-1">
+                    <span className="text-slate-500 text-xs">₦</span>
+                    <input
+                      type="number"
+                      value={waterLevyInput}
+                      onChange={(e) => setWaterLevyInput(e.target.value)}
+                      className="w-24 bg-slate-900 border border-slate-800 rounded-lg p-1.5 text-right font-mono text-white text-xs"
+                    />
+                  </div>
                 </div>
 
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-slate-400">Refuse / Security:</span>
-                  <input
-                    type="number"
-                    value={wasteLevyMonthly}
-                    onChange={(e) => setWasteLevyMonthly(parseInt(e.target.value) || 0)}
-                    className="w-24 bg-slate-900 border border-slate-800 rounded-lg p-1.5 text-right font-mono text-white text-xs"
-                  />
+                  <div className="flex items-center gap-1">
+                    <span className="text-slate-500 text-xs">₦</span>
+                    <input
+                      type="number"
+                      value={wasteLevyInput}
+                      onChange={(e) => setWasteLevyInput(e.target.value)}
+                      className="w-24 bg-slate-900 border border-slate-800 rounded-lg p-1.5 text-right font-mono text-white text-xs"
+                    />
+                  </div>
                 </div>
               </div>
 
