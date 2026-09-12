@@ -457,7 +457,7 @@ function MainApp() {
   ].filter(Boolean).length;
 
   return (
-    <div className="min-h-screen bg-slate-100/70 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-sans antialiased selection:bg-emerald-500 selection:text-white transition-colors duration-200">
+    <div className="min-h-screen bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-sans antialiased selection:bg-emerald-500 selection:text-white transition-colors duration-200">
       {/* 3D Branded Initial Platform Loading Animation */}
       {isInitialLoading && (
         <HostelEaseBrandedLoader

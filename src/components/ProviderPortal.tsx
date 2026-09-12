@@ -575,7 +575,7 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20">
+    <div className="min-h-screen bg-white pb-20">
       
       {/* 1. TOP COMMAND BAR & PROPERTY SWITCHER */}
       <header className="bg-white border-b border-gray-200 sticky top-16 z-30 shadow-xs">
@@ -761,7 +761,7 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
                   ? 'bg-emerald-600 text-white shadow-xs'
                   : isActive
                   ? 'bg-emerald-800 text-white shadow-xs'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  : 'bg-white text-slate-700 hover:bg-emerald-50 border border-slate-200'
               }`}
             >
               <Icon className="w-3.5 h-3.5" />
