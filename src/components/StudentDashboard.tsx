@@ -41,7 +41,10 @@ import {
   Users,
   HelpCircle,
   Upload,
-  Camera
+  Camera,
+  Zap,
+  Calculator,
+  Shield
 } from 'lucide-react';
 import { 
   StudentDashboardData, 
@@ -80,6 +83,10 @@ interface StudentDashboardProps {
   onApplyPreferencesToSearch?: (prefs: StudentPreferences) => void;
   onSelectProperty?: (id: string) => void;
   onOpenAI?: (contextProp?: any) => void;
+  onOpenUtilityRadar?: () => void;
+  onOpenSafeWalk?: () => void;
+  onOpenUtilityCalculator?: () => void;
+  onOpenWomenSection?: () => void;
   onShowToast: (msg: string, type?: 'success' | 'info' | 'error') => void;
 }
 
@@ -99,6 +106,10 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
   onApplyPreferencesToSearch,
   onSelectProperty,
   onOpenAI,
+  onOpenUtilityRadar,
+  onOpenSafeWalk,
+  onOpenUtilityCalculator,
+  onOpenWomenSection,
   onShowToast
 }) => {
   const { user, loginDemo } = useAuth();
@@ -496,6 +507,38 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+      {/* MOBILE STUDENT HORIZONTAL SUB-NAV BAR (Instant 0px access to content on phones) */}
+      <div className="lg:hidden bg-white border-b border-gray-200 px-4 py-2.5 overflow-x-auto scrollbar-none sticky top-28 z-20 shadow-xs flex items-center gap-1.5 -mx-4 sm:-mx-6 -mt-4 mb-2">
+        {[
+          { id: 'overview', label: 'Overview', icon: Sparkles },
+          { id: 'shortlist', label: `Saved (${summary.savedCount})`, icon: Bookmark },
+          { id: 'bookings', label: `Bookings (${summary.activeBookingsCount})`, icon: Building2 },
+          { id: 'inspections', label: `Inspections (${summary.pendingInspectionsCount})`, icon: Calendar },
+          { id: 'preferences', label: 'Preferences', icon: SlidersHorizontal },
+          { id: 'profile_security', label: 'My Profile', icon: UserIcon }
+        ].map(tab => {
+          const Icon = tab.icon;
+          const isActive = activeTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => {
+                setActiveTab(tab.id as any);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+              className={`shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap ${
+                isActive
+                  ? 'bg-emerald-800 text-white shadow-xs'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              <Icon className="w-3.5 h-3.5" />
+              <span>{tab.label}</span>
+            </button>
+          );
+        })}
+      </div>
+
       {/* 1. TOP HERO GREETING & PROFILE BANNER (Only on Dashboard Overview) */}
       {activeTab === 'overview' && (
         <>
@@ -836,8 +879,8 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
       {/* 2-COLUMN LAYOUT: CATEGORIZED LEFT SIDEBAR + RIGHT MAIN CONTENT */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
         
-        {/* LEFT COLUMN: STUDENT SIDEBAR */}
-        <div className="lg:col-span-1 space-y-4">
+        {/* LEFT COLUMN: STUDENT SIDEBAR (Desktop Only - Clean & Uncluttered) */}
+        <div className="hidden lg:block lg:col-span-1 space-y-4">
           
           {/* User Profile Mini Card */}
           <div className="bg-white rounded-3xl p-5 border border-slate-200 shadow-xs space-y-3">
@@ -1463,6 +1506,115 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                 </div>
                 <div className="flex items-center text-xs font-bold text-emerald-600 group-hover:translate-x-1 transition-transform">
                   View Stay History →
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          {/* 4. CAMPUS UTILITIES & SAFETY HUB (Relocated cleanly from top navbar) */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
+                <Shield className="w-4 h-4 text-emerald-600" />
+                Campus Life, Utilities & Safety Tools
+              </h3>
+              <span className="text-[10px] font-black uppercase tracking-wider text-emerald-700 bg-emerald-100 px-2.5 py-0.5 rounded-full">
+                Student Essentials
+              </span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+              
+              {/* Tool 1: UtilityRadar™ */}
+              <div 
+                onClick={() => onOpenUtilityRadar && onOpenUtilityRadar()}
+                className="bg-white p-4 rounded-2xl border border-slate-200 hover:border-amber-400 hover:shadow-md transition-all cursor-pointer group flex flex-col justify-between space-y-2.5"
+              >
+                <div className="space-y-1.5">
+                  <div className="w-9 h-9 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <Zap className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h4 className="font-extrabold text-xs text-slate-900 group-hover:text-amber-700 transition-colors flex items-center gap-1">
+                      UtilityRadar™
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
+                    </h4>
+                    <p className="text-[11px] text-slate-500 leading-snug mt-0.5">
+                      Live power & water availability tracker across LAUTECH zones.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center text-[11px] font-bold text-amber-700 group-hover:translate-x-1 transition-transform">
+                  Check Live Grid →
+                </div>
+              </div>
+
+              {/* Tool 2: SafeWalk™ */}
+              <div 
+                onClick={() => onOpenSafeWalk && onOpenSafeWalk()}
+                className="bg-white p-4 rounded-2xl border border-slate-200 hover:border-emerald-500 hover:shadow-md transition-all cursor-pointer group flex flex-col justify-between space-y-2.5"
+              >
+                <div className="space-y-1.5">
+                  <div className="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <Footprints className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h4 className="font-extrabold text-xs text-slate-900 group-hover:text-emerald-700 transition-colors">
+                      Campus SafeWalk™
+                    </h4>
+                    <p className="text-[11px] text-slate-500 leading-snug mt-0.5">
+                      Night-walk routes, emergency SOS & security escort contacts.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center text-[11px] font-bold text-emerald-700 group-hover:translate-x-1 transition-transform">
+                  Open SafeWalk →
+                </div>
+              </div>
+
+              {/* Tool 3: Utility Calculator */}
+              <div 
+                onClick={() => onOpenUtilityCalculator && onOpenUtilityCalculator()}
+                className="bg-white p-4 rounded-2xl border border-slate-200 hover:border-blue-500 hover:shadow-md transition-all cursor-pointer group flex flex-col justify-between space-y-2.5"
+              >
+                <div className="space-y-1.5">
+                  <div className="w-9 h-9 rounded-xl bg-blue-100 text-blue-800 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <Calculator className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h4 className="font-extrabold text-xs text-slate-900 group-hover:text-blue-700 transition-colors">
+                      Living Cost Calculator
+                    </h4>
+                    <p className="text-[11px] text-slate-500 leading-snug mt-0.5">
+                      Estimate monthly electricity bills, water dues, and solar ROI.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center text-[11px] font-bold text-blue-700 group-hover:translate-x-1 transition-transform">
+                  Calculate Costs →
+                </div>
+              </div>
+
+              {/* Tool 4: Women's Living & Safety */}
+              <div 
+                onClick={() => onOpenWomenSection && onOpenWomenSection()}
+                className="bg-white p-4 rounded-2xl border border-slate-200 hover:border-rose-400 hover:shadow-md transition-all cursor-pointer group flex flex-col justify-between space-y-2.5"
+              >
+                <div className="space-y-1.5">
+                  <div className="w-9 h-9 rounded-xl bg-rose-100 text-rose-800 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <Shield className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h4 className="font-extrabold text-xs text-slate-900 group-hover:text-rose-700 transition-colors">
+                      Women's Living & Safety
+                    </h4>
+                    <p className="text-[11px] text-slate-500 leading-snug mt-0.5">
+                      Verified female lodges, perimeter security & community network.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center text-[11px] font-bold text-rose-700 group-hover:translate-x-1 transition-transform">
+                  Explore Safe Spaces →
                 </div>
               </div>
 

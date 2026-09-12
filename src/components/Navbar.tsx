@@ -309,56 +309,6 @@ export const Navbar: React.FC<NavbarProps> = ({
               <span>Community</span>
             </button>
 
-            {/* Revolutionary: Live UtilityRadar Button */}
-            {onOpenUtilityRadar && (
-              <button
-                onClick={onOpenUtilityRadar}
-                className="px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 flex items-center gap-1.5 hover:scale-[1.02]"
-                title="UtilityRadar™ - Live NEPA & Borehole Water Reliability Index"
-              >
-                <Zap className="w-3.5 h-3.5 text-amber-500 fill-amber-400" />
-                <span className="hidden xl:inline">UtilityRadar™</span>
-                <span className="xl:hidden">Radar</span>
-              </button>
-            )}
-
-            {/* Revolutionary: SafeWalk Night Trek Companion Button */}
-            {onOpenSafeWalk && (
-              <button
-                onClick={onOpenSafeWalk}
-                className="px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 flex items-center gap-1.5 hover:scale-[1.02]"
-                title="SafeWalk™ - Campus Night-Trek Safety Companion & 1-Tap SOS"
-              >
-                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                <span className="hidden xl:inline">SafeWalk™</span>
-                <span className="xl:hidden">SafeWalk</span>
-              </button>
-            )}
-
-            {/* Utility Calculator Button */}
-            {onOpenUtilityCalculator && (
-              <button
-                onClick={onOpenUtilityCalculator}
-                className="px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-950/40 border border-blue-200 dark:border-blue-800/60 flex items-center gap-1.5 hover:scale-[1.02]"
-                title="Utility Bill Calculator (IBEDC Band Tariffs, Water & Fuel)"
-              >
-                <Calculator className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-                <span className="hidden xl:inline">Calculator</span>
-              </button>
-            )}
-
-            {/* Women's Living & Safety Section */}
-            {onOpenWomenSection && (
-              <button
-                onClick={onOpenWomenSection}
-                className="px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all text-rose-700 dark:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-rose-200 dark:border-rose-800/60 flex items-center gap-1.5 hover:scale-[1.02]"
-                title="Women's Living & Safety (Verified Lodges, Roommate Matching, SafeWalk)"
-              >
-                <Heart className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
-                <span className="hidden xl:inline">Women's Safe</span>
-              </button>
-            )}
-
             {/* Ask AI Assistant Button */}
             {onOpenAI && (
               <button
@@ -951,7 +901,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <button
                   onClick={() => {
                     onNavigate('provider-portal');
-                    window.dispatchEvent(new CustomEvent('hostel_ease_provider_tab', { detail: 'movein' }));
+                    window.dispatchEvent(new CustomEvent('hostel_ease_provider_tab', { detail: 'move_ins' }));
                     setMobileMenuOpen(false);
                   }}
                   className="w-full flex items-center gap-2.5 p-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800"
@@ -963,7 +913,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <button
                   onClick={() => {
                     onNavigate('provider-portal');
-                    window.dispatchEvent(new CustomEvent('hostel_ease_provider_tab', { detail: 'finance' }));
+                    window.dispatchEvent(new CustomEvent('hostel_ease_provider_tab', { detail: 'financials' }));
                     setMobileMenuOpen(false);
                   }}
                   className="w-full flex items-center gap-2.5 p-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800"

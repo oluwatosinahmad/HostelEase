@@ -59,6 +59,7 @@ import { ListingCompletenessWidget } from './ListingCompletenessWidget';
 import { calculateListingCompleteness } from '../utils/completeness';
 import { calculateDistanceKm, formatProximityText } from '../utils/distance';
 import { NIGERIAN_BANKS, maskAccountNumber } from '../services/paymentService';
+import { api, getCurrentUser } from '../services/api';
 
 interface LandlordPortalProps {
   currentUniversity: University;
@@ -244,7 +245,7 @@ export const LandlordPortal: React.FC<LandlordPortalProps> = ({
     });
   };
 
-  const handleVideoFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleVideoFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
     const file = files[0];
@@ -254,17 +255,22 @@ export const LandlordPortal: React.FC<LandlordPortalProps> = ({
       return;
     }
 
-    const objectUrl = URL.createObjectURL(file);
-    setVideoUrl(objectUrl);
-    setHasVideo(true);
-
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (reader.result) {
-        setVideoUrl(reader.result as string);
+    try {
+      const res = await api.upload.single(file);
+      if (res && res.file && res.file.url) {
+        setVideoUrl(res.file.url);
+        setHasVideo(true);
+      } else {
+        const objectUrl = URL.createObjectURL(file);
+        setVideoUrl(objectUrl);
+        setHasVideo(true);
       }
-    };
-    reader.readAsDataURL(file);
+    } catch (err) {
+      console.error('Video upload fallback to objectUrl:', err);
+      const objectUrl = URL.createObjectURL(file);
+      setVideoUrl(objectUrl);
+      setHasVideo(true);
+    }
   };
 
   const handleToggleAmenity = (name: string) => {
@@ -409,12 +415,12 @@ export const LandlordPortal: React.FC<LandlordPortalProps> = ({
         landlordIdVerified: true,
       },
       landlord: {
-        id: 'lnd-8801',
-        name: 'Alhaji Oladimeji Properties',
+        id: getCurrentUser()?.id || 'usr-provider-default',
+        name: getCurrentUser()?.fullName || 'Alhaji Oladimeji Properties',
         type: 'verified_landlord',
         isIdVerified: true,
-        phone: '+234 803 456 7890',
-        whatsapp: '+234 803 456 7890',
+        phone: getCurrentUser()?.phone || '+234 803 456 7890',
+        whatsapp: getCurrentUser()?.phone || '+234 803 456 7890',
         rating: 4.9,
         activeListings: properties.length + 1,
         joinedYear: 2024,
@@ -456,8 +462,9 @@ export const LandlordPortal: React.FC<LandlordPortalProps> = ({
     ? (hostReviews.reduce((sum, r) => sum + r.rating, 0) / totalHostReviews).toFixed(1)
     : '5.0';
 
+  const currentLandlordId = getCurrentUser()?.id;
   const hostBookings = bookings
-    ? bookings.filter((b) => hostPropertyIds.includes(b.propertyId) || b.landlordId === 'lnd-8801' || b.landlordId === 'lnd-101')
+    ? bookings.filter((b) => hostPropertyIds.includes(b.propertyId) || (currentLandlordId && b.landlordId === currentLandlordId) || b.landlordId === 'lnd-8801' || b.landlordId === 'lnd-101')
     : [];
   const pendingBookingsCount = hostBookings.filter((b) => b.status === 'REQUESTED').length;
 

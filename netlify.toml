@@ -3,6 +3,18 @@
   publish = "dist"
 
 [[redirects]]
+  from = "/api/*"
+  to = "https://hostelease.up.railway.app/api/:splat"
+  status = 200
+  force = false
+
+[[redirects]]
+  from = "/uploads/*"
+  to = "https://hostelease.up.railway.app/uploads/:splat"
+  status = 200
+  force = false
+
+[[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200

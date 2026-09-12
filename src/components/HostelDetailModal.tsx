@@ -39,7 +39,7 @@ import {
   Navigation
 } from 'lucide-react';
 import { Property, MediaCategory, UserRole } from '../types/hostelEase';
-import { api } from '../services/api';
+import { api, getMediaUrl } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { formatNaira, formatDistance, getAvailabilityBadgeInfo, getPropertyTypeLabel } from '../utils/formatters';
 import { InspectionModal } from './InspectionModal';
@@ -441,17 +441,21 @@ export const HostelDetailModal: React.FC<HostelDetailModalProps> = ({
                   className="relative aspect-[16/9] md:aspect-[21/10] bg-slate-950 rounded-2xl overflow-hidden shadow-inner flex items-center justify-center cursor-pointer group/viewport"
                 >
                   {currentMedia.mediaType === 'VIDEO' ? (
-                    <div className="w-full h-full bg-black relative flex items-center justify-center">
+                    <div 
+                      onClick={(e) => e.stopPropagation()}
+                      className="w-full h-full bg-black relative flex items-center justify-center cursor-default"
+                    >
                       <video
-                        src={currentMedia.url}
+                        src={getMediaUrl(currentMedia.url)}
                         controls
                         playsInline
-                        className="w-full h-full object-cover"
+                        preload="metadata"
+                        className="w-full h-full object-contain"
                       />
                     </div>
                   ) : (
                     <img
-                      src={currentMedia.url || 'https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?auto=format&fit=crop&w=1000&q=80'}
+                      src={getMediaUrl(currentMedia.url) || 'https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?auto=format&fit=crop&w=1000&q=80'}
                       alt={currentMedia.caption || property.title}
                       onError={(e) => {
                         e.currentTarget.src = 'https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?auto=format&fit=crop&w=1000&q=80';

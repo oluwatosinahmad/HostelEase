@@ -588,15 +588,19 @@ router.post(
         const insertMedia = db.prepare(`
           INSERT INTO property_media (
             id, property_id, media_type, category, url, caption, display_order, is_cover, is_verified
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
         `);
 
         finalMedia.forEach((m: any, idx: number) => {
+          const isVideo = m.type === 'VIDEO' || m.mediaType === 'VIDEO' || m.category === 'VIDEO_WALKTHROUGH' || m.cat === 'VIDEO_WALKTHROUGH' || String(m.url || '').toLowerCase().includes('.mp4') || String(m.url || '').toLowerCase().includes('.webm');
+          const mediaType = isVideo ? 'VIDEO' : (m.type || m.mediaType || 'IMAGE');
+          const category = isVideo ? 'VIDEO_WALKTHROUGH' : (m.category || m.cat || 'EXTERIOR');
+
           insertMedia.run(
             `media-${propId}-${idx}`,
             propId,
-            m.type || 'IMAGE',
-            m.category || m.cat || 'EXTERIOR',
+            mediaType,
+            category,
             m.url,
             m.caption || null,
             idx,
@@ -805,15 +809,19 @@ router.put(
         const insertMedia = db.prepare(`
           INSERT INTO property_media (
             id, property_id, media_type, category, url, caption, display_order, is_cover, is_verified
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
         `);
 
         mediaItems.forEach((m: any, idx: number) => {
+          const isVideo = m.type === 'VIDEO' || m.mediaType === 'VIDEO' || m.category === 'VIDEO_WALKTHROUGH' || m.cat === 'VIDEO_WALKTHROUGH' || String(m.url || '').toLowerCase().includes('.mp4') || String(m.url || '').toLowerCase().includes('.webm');
+          const mediaType = isVideo ? 'VIDEO' : (m.type || m.mediaType || 'IMAGE');
+          const category = isVideo ? 'VIDEO_WALKTHROUGH' : (m.category || m.cat || 'EXTERIOR');
+
           insertMedia.run(
             `media-${id}-${idx}`,
             id,
-            m.type || 'IMAGE',
-            m.category || m.cat || 'EXTERIOR',
+            mediaType,
+            category,
             m.url,
             m.caption || null,
             idx,

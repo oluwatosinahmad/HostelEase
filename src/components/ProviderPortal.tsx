@@ -317,8 +317,12 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
 
     const handleTabChange = (e: any) => {
       if (e.detail) {
-        if (e.detail === 'wizard') setEditingProperty(null);
-        setActiveTab(e.detail);
+        let tab = e.detail;
+        if (tab === 'movein') tab = 'move_ins';
+        if (tab === 'finance') tab = 'financials';
+        if (tab === 'documents') tab = 'profile_team';
+        if (tab === 'wizard') setEditingProperty(null);
+        setActiveTab(tab);
       }
     };
 
@@ -732,12 +736,14 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
           { id: 'listings', label: `Hostels (${properties.length})`, icon: Building2 },
           { id: 'wizard', label: '+ Add Hostel', icon: PlusCircle, highlight: true },
           { id: 'rooms', label: 'Rooms & Bedspaces', icon: Layers },
+          { id: 'availability', label: 'Availability', icon: CalendarIcon },
           { id: 'bookings', label: 'Bookings', icon: Receipt },
-          { id: 'inspections', label: 'Inspections', icon: CalendarIcon },
-          { id: 'movein', label: 'Move-In', icon: KeyRound },
+          { id: 'inspections', label: 'Inspections', icon: Clock },
+          { id: 'move_ins', label: 'Move-In', icon: KeyRound },
           { id: 'messages', label: 'Chat', icon: MessageSquare },
-          { id: 'finance', label: 'Payouts', icon: DollarSign },
-          { id: 'documents', label: 'Verification', icon: ShieldCheck }
+          { id: 'financials', label: 'Payouts', icon: DollarSign },
+          { id: 'performance', label: 'Performance', icon: TrendingUp },
+          { id: 'profile_team', label: 'Verification & Team', icon: ShieldCheck }
         ].map(tab => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;

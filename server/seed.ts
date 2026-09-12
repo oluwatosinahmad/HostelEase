@@ -325,7 +325,7 @@ export function runSeed() {
         'https://images.unsplash.com/photo-1556911220-e15b29be8c8f?auto=format&fit=crop&w=1200&q=80',
         'https://images.unsplash.com/photo-1484154218962-a197022b5858?auto=format&fit=crop&w=1200&q=80'
       ],
-      video: 'https://assets.mixkit.co/videos/preview/mixkit-modern-apartment-living-room-tour-43288-large.mp4'
+      video: '/uploads/sample_hostel_tour.mp4'
     };
 
     // Blueprint for 40 properties: 4 in each of the 10 areas

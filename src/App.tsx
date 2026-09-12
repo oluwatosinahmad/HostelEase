@@ -1417,6 +1417,10 @@ function MainApp() {
             }}
             onShowToast={showToast}
             onOpenAI={handleOpenAI}
+            onOpenUtilityRadar={() => setUtilityRadarOpen(true)}
+            onOpenSafeWalk={() => setSafeWalkOpen(true)}
+            onOpenUtilityCalculator={() => setUtilityCalcOpen(true)}
+            onOpenWomenSection={() => setWomensLivingOpen(true)}
           />
         )}
 

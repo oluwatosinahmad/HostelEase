@@ -105,7 +105,7 @@ export const LiveChatWidget: React.FC<LiveChatWidgetProps> = ({
 
       {/* Expanded Modern Chat Window */}
       {isOpen && (
-        <div className="bg-slate-900 border border-slate-700/80 rounded-3xl w-[360px] sm:w-[400px] h-[520px] shadow-2xl overflow-hidden text-white flex flex-col animate-slideUp">
+        <div className="bg-slate-900 border border-slate-700/80 rounded-3xl w-[calc(100vw-2rem)] sm:w-[400px] max-w-[400px] h-[520px] shadow-2xl overflow-hidden text-white flex flex-col animate-slideUp">
           
           {/* Top Chat Header */}
           <div className="bg-gradient-to-r from-slate-900 via-brand-950 to-slate-900 p-4 border-b border-slate-800 flex items-center justify-between shrink-0">

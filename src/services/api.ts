@@ -80,7 +80,19 @@ import {
   DEFAULT_ADMIN_AUDIT_LOGS
 } from './offlineFallback';
 
-const API_BASE = '/api';
+const RAW_API_URL = (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_API_URL || '').replace(/\/+$/, '');
+const API_BASE = RAW_API_URL ? `${RAW_API_URL}/api` : '/api';
+
+export function getMediaUrl(url?: string | null): string {
+  if (!url) return '';
+  if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:') || url.startsWith('blob:')) {
+    return url;
+  }
+  if (RAW_API_URL && url.startsWith('/')) {
+    return `${RAW_API_URL}${url}`;
+  }
+  return url;
+}
 
 const apiCache = new Map<string, { data: any; timestamp: number }>();
 const CACHE_TTL = 45000; // 45 seconds for public queries
@@ -2941,10 +2953,6 @@ export const api = {
     },
 
     async getMyListings(): Promise<{ properties: Property[] }> {
-      const user = getCurrentUser();
-      const currentUserId = user?.id || 'usr-provider-default';
-      const currentUserEmail = (user?.email || '').toLowerCase().trim();
-
       try {
         const res = await fetch(`${API_BASE}/provider/properties`, {
           headers: { ...getAuthHeader() }
@@ -2956,11 +2964,10 @@ export const api = {
           }
         }
       } catch (err) {
-        console.warn('Backend getMyListings offline, using local provider store:', err);
+        console.warn('Backend getMyListings unreachable:', err);
       }
 
-      const myProps = getLocalProperties(currentUserId, currentUserEmail);
-      return { properties: myProps };
+      return { properties: [] };
     },
 
     async checkDuplicate(title: string, areaId: string, address?: string): Promise<{ isDuplicate: boolean; message?: string }> {
@@ -3139,37 +3146,40 @@ export const api = {
         localStorage.setItem('hostel_ease_admin_notifications', JSON.stringify(adminNotifs.slice(0, 50)));
       } catch {}
 
-      try {
-        const res = await fetch(`${API_BASE}/provider/properties`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
-          body: JSON.stringify(data)
-        });
-        if (res.ok) return await res.json();
-      } catch (err) {
-        console.warn('Backend createListing offline, saved locally:', err);
+      const res = await fetch(`${API_BASE}/provider/properties`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+        body: JSON.stringify(data)
+      });
+
+      if (res.ok) {
+        const json = await res.json();
+        newProp.id = json.propertyId || propertyId;
+        newProp.slug = json.slug || slug;
+        saveLocalProperty(newProp);
+        window.dispatchEvent(new CustomEvent('hostel_ease_properties_updated', { detail: newProp }));
+        return json;
       }
 
-      return { message: 'Property listed successfully', propertyId, slug };
+      const errData = await res.json().catch(() => ({}));
+      throw new Error(errData.error || errData.message || `Failed to create hostel listing (HTTP ${res.status})`);
     },
 
     async updateListing(id: string, data: any): Promise<{ message: string }> {
-      try {
-        const res = await fetch(`${API_BASE}/provider/properties/${id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
-          body: JSON.stringify(data)
-        });
-        if (res.ok) return await res.json();
-      } catch {}
+      const res = await fetch(`${API_BASE}/provider/properties/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+        body: JSON.stringify(data)
+      });
 
-      const all = getLocalProperties('all');
-      const idx = all.findIndex(p => p.id === id);
-      if (idx >= 0) {
-        all[idx] = { ...all[idx], ...data };
-        saveLocalProperty(all[idx]);
+      if (res.ok) {
+        const json = await res.json();
+        window.dispatchEvent(new CustomEvent('hostel_ease_properties_updated'));
+        return json;
       }
-      return { message: 'Property updated successfully' };
+
+      const errData = await res.json().catch(() => ({}));
+      throw new Error(errData.error || errData.message || `Failed to update hostel listing (HTTP ${res.status})`);
     },
 
     async updateAvailability(id: string, availabilityStatus: string): Promise<{ message: string }> {

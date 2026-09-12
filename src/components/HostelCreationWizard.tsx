@@ -319,27 +319,33 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
     const file = e.target.files?.[0];
     if (!file) return;
 
+    if (file.size > 100 * 1024 * 1024) {
+      onShowToast('Video file exceeds 100MB maximum limit. Please choose a shorter walkthrough.', 'error');
+      return;
+    }
+
     setIsUploading(true);
     try {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const videoDataUrl = reader.result as string;
+      const res = await api.upload.single(file);
+      if (res && res.file && res.file.url) {
         const newVideoItem: MediaUploadItem = {
           id: `vid-upload-${Date.now()}`,
-          url: videoDataUrl,
-          filename: file.name,
-          originalName: file.name,
+          url: res.file.url,
+          filename: res.file.filename,
+          originalName: res.file.originalName || file.name,
           mediaType: 'VIDEO',
           category: 'VIDEO_WALKTHROUGH',
-          caption: '4K Room & Compound Walkthrough (Pending Admin Audit)',
+          caption: '4K Room & Compound Walkthrough (Verified Video Tour)',
           isCover: false
         };
         setMediaList(prev => [...prev.filter(m => m.mediaType !== 'VIDEO'), newVideoItem]);
-        onShowToast('4K video walkthrough uploaded! Submitted for admin verification.', 'success');
-      };
-      reader.readAsDataURL(file);
+        onShowToast('4K video walkthrough uploaded successfully! Ready for listing.', 'success');
+      } else {
+        throw new Error('Upload succeeded but server did not return a media URL');
+      }
     } catch (err: any) {
-      onShowToast(err.message || 'Failed to process video file', 'error');
+      console.error('Video upload error:', err);
+      onShowToast(err.message || 'Failed to upload video to server', 'error');
     } finally {
       setIsUploading(false);
       if (videoInputRef.current) videoInputRef.current.value = '';
@@ -406,6 +412,8 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
         amenityKeys,
         mediaItems: mediaList.map(m => ({
           type: m.mediaType,
+          mediaType: m.mediaType,
+          category: m.category,
           cat: m.category,
           url: m.url,
           caption: m.caption,

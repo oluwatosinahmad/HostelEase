@@ -66,8 +66,8 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 }));
 
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // 3. XSS & Input Sanitization
 app.use(sanitizeInputs);
@@ -79,11 +79,88 @@ app.use('/api/auth/register', authRateLimiter);
 app.use('/api/payments/initiate', paymentRateLimiter);
 app.use('/api/bookings/create', bookingRateLimiter);
 
-// Ensure upload directory exists and serve uploaded accommodation media statically
+// Ensure upload directory exists and serve uploaded accommodation media with HTTP 206 video streaming
 const UPLOAD_DIR = path.resolve(process.cwd(), 'uploads');
 if (!fs.existsSync(UPLOAD_DIR)) {
   fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 }
+
+// Dedicated Byte-Range Video Streaming Handler for iPhone Safari, Android & Desktop
+app.get('/uploads/:filename', (req: Request, res: Response, next: NextFunction) => {
+  const filename = path.basename(req.params.filename);
+  const filePath = path.join(UPLOAD_DIR, filename);
+
+  if (!fs.existsSync(filePath)) {
+    return res.status(404).json({ error: 'Media file not found' });
+  }
+
+  const ext = path.extname(filename).toLowerCase();
+  const videoMimeTypes: Record<string, string> = {
+    '.mp4': 'video/mp4',
+    '.webm': 'video/webm',
+    '.mov': 'video/quicktime',
+    '.ogg': 'video/ogg',
+    '.mkv': 'video/x-matroska'
+  };
+
+  const isVideo = Boolean(videoMimeTypes[ext]);
+  const mimeType = videoMimeTypes[ext] || (ext === '.png' ? 'image/png' : ext === '.webp' ? 'image/webp' : 'image/jpeg');
+
+  res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+  res.setHeader('Access-Control-Allow-Origin', '*');
+
+  if (!isVideo) {
+    res.setHeader('Content-Type', mimeType);
+    res.setHeader('Cache-Control', 'public, max-age=604800');
+    return res.sendFile(filePath);
+  }
+
+  try {
+    const stat = fs.statSync(filePath);
+    const fileSize = stat.size;
+    const range = req.headers.range;
+
+    if (range) {
+      // Parse Range header (e.g. "bytes=0-1048575")
+      const parts = range.replace(/bytes=/, '').split('-');
+      const start = parseInt(parts[0], 10);
+      const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+
+      if (start >= fileSize || end >= fileSize) {
+        res.setHeader('Content-Range', `bytes */${fileSize}`);
+        return res.status(416).send('Requested Range Not Satisfiable');
+      }
+
+      const chunkSize = end - start + 1;
+      const fileStream = fs.createReadStream(filePath, { start, end });
+
+      res.writeHead(206, {
+        'Content-Range': `bytes ${start}-${end}/${fileSize}`,
+        'Accept-Ranges': 'bytes',
+        'Content-Length': chunkSize,
+        'Content-Type': mimeType,
+        'Cache-Control': 'no-cache'
+      });
+
+      fileStream.pipe(res);
+    } else {
+      // Full stream if no range requested
+      res.writeHead(200, {
+        'Content-Length': fileSize,
+        'Content-Type': mimeType,
+        'Accept-Ranges': 'bytes',
+        'Cache-Control': 'no-cache'
+      });
+      fs.createReadStream(filePath).pipe(res);
+    }
+  } catch (err: any) {
+    console.error('Error streaming video:', err.message);
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Failed to stream media file' });
+    }
+  }
+});
+
 app.use('/uploads', express.static(UPLOAD_DIR, { maxAge: '7d' }));
 
 // Health check and system monitoring

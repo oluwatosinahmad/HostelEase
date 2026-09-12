@@ -12,8 +12,10 @@ import {
   Minimize, 
   Video, 
   Image as ImageIcon,
-  Sparkles
+  Sparkles,
+  AlertCircle
 } from 'lucide-react';
+import { getMediaUrl } from '../services/api';
 
 export interface GalleryMediaItem {
   id: string;
@@ -244,8 +246,9 @@ export const HostelImageGalleryModal: React.FC<HostelImageGalleryModalProps> = (
             <div className="relative w-full h-full max-h-[72vh] bg-black rounded-2xl overflow-hidden flex items-center justify-center group shadow-2xl border border-white/10">
               <video
                 ref={videoRef}
-                src={currentItem?.url}
+                src={getMediaUrl(currentItem?.url)}
                 playsInline
+                preload="metadata"
                 className="w-full h-full object-contain max-h-[72vh]"
                 onClick={togglePlay}
                 onTimeUpdate={() => {
@@ -351,7 +354,7 @@ export const HostelImageGalleryModal: React.FC<HostelImageGalleryModalProps> = (
           ) : (
             <img
               key={currentItem?.id || currentIndex}
-              src={currentItem?.url}
+              src={getMediaUrl(currentItem?.url)}
               alt={currentItem?.caption || `${hostelTitle} media ${currentIndex + 1}`}
               className="max-h-full max-w-full object-contain rounded-2xl shadow-2xl animate-in zoom-in-95 duration-150"
             />
@@ -387,7 +390,7 @@ export const HostelImageGalleryModal: React.FC<HostelImageGalleryModalProps> = (
                       <Video className="w-5 h-5" />
                     </div>
                   ) : (
-                    <img src={item.url} alt="thumbnail" className="w-full h-full object-cover" />
+                    <img src={getMediaUrl(item.url)} alt="thumbnail" className="w-full h-full object-cover" />
                   )}
                   {isVideo && (
                     <span className="absolute bottom-0.5 right-0.5 px-1 py-0.2 bg-emerald-600 text-white text-[8px] font-black rounded">
