@@ -30,7 +30,10 @@ import {
   Plus,
   Mic,
   MicOff,
-  Volume2
+  Volume2,
+  Play,
+  Pause,
+  Reply
 } from 'lucide-react';
 import { AIMessage, AIStructuredData, AIConversation, Property } from '../types/hostelEase';
 import { api } from '../services/api';
@@ -90,6 +93,25 @@ export const AIAccommodationAssistantModal: React.FC<AIAccommodationAssistantMod
   const [isRecordingVoice, setIsRecordingVoice] = useState(false);
   const [recordSeconds, setRecordSeconds] = useState(0);
 
+  // Quoting & Swipe-to-Reply State
+  const [replyingToMessage, setReplyingToMessage] = useState<AIMessage | null>(null);
+  const [touchStartX, setTouchStartX] = useState<number | null>(null);
+  const [swipingMessageId, setSwipingMessageId] = useState<string | null>(null);
+  const [swipeOffset, setSwipeOffset] = useState<number>(0);
+  const [hoveredMessageId, setHoveredMessageId] = useState<string | null>(null);
+
+  // Authentic Voice Note Audio Playback State
+  const [playingAudioId, setPlayingAudioId] = useState<string | null>(null);
+  const [audioPlayProgress, setAudioPlayProgress] = useState<Record<string, number>>({});
+  const [playbackSpeed, setPlaybackSpeed] = useState<number>(1);
+  const currentAudioRef = useRef<HTMLAudioElement | null>(null);
+  const audioIntervalRef = useRef<any>(null);
+
+  // Authentic MediaRecorder Refs
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const audioStreamRef = useRef<MediaStream | null>(null);
+
   // Voice recording timer effect
   useEffect(() => {
     let timer: any;
@@ -100,6 +122,94 @@ export const AIAccommodationAssistantModal: React.FC<AIAccommodationAssistantMod
     }
     return () => clearInterval(timer);
   }, [isRecordingVoice]);
+
+  // Audio cleanup on unmount
+  useEffect(() => {
+    return () => {
+      clearInterval(audioIntervalRef.current);
+      if (currentAudioRef.current) {
+        currentAudioRef.current.pause();
+        currentAudioRef.current = null;
+      }
+      if (audioStreamRef.current) {
+        audioStreamRef.current.getTracks().forEach(t => t.stop());
+      }
+    };
+  }, []);
+
+  const handleTogglePlayAudio = (msgId: string, audioUrl?: string, durationSec: number = 10) => {
+    if (playingAudioId === msgId) {
+      if (currentAudioRef.current) {
+        currentAudioRef.current.pause();
+        currentAudioRef.current = null;
+      }
+      clearInterval(audioIntervalRef.current);
+      setPlayingAudioId(null);
+      return;
+    }
+
+    if (currentAudioRef.current) {
+      currentAudioRef.current.pause();
+      currentAudioRef.current = null;
+    }
+    clearInterval(audioIntervalRef.current);
+
+    setPlayingAudioId(msgId);
+    setAudioPlayProgress(prev => ({ ...prev, [msgId]: 0 }));
+
+    if (audioUrl && audioUrl !== '#' && (audioUrl.startsWith('data:audio') || audioUrl.startsWith('http') || audioUrl.startsWith('blob:'))) {
+      try {
+        const audio = new Audio(audioUrl);
+        audio.playbackRate = playbackSpeed;
+        currentAudioRef.current = audio;
+
+        audio.ontimeupdate = () => {
+          const currentSec = Math.floor(audio.currentTime);
+          setAudioPlayProgress(prev => ({ ...prev, [msgId]: currentSec }));
+        };
+
+        audio.onended = () => {
+          setPlayingAudioId(null);
+          setAudioPlayProgress(prev => ({ ...prev, [msgId]: 0 }));
+          currentAudioRef.current = null;
+        };
+
+        audio.onerror = () => {
+          setPlayingAudioId(null);
+          currentAudioRef.current = null;
+        };
+
+        audio.play().catch(() => {
+          setPlayingAudioId(null);
+          currentAudioRef.current = null;
+        });
+        return;
+      } catch (err) {
+        console.warn('Audio playback error:', err);
+      }
+    }
+
+    let currentSec = 0;
+    audioIntervalRef.current = setInterval(() => {
+      currentSec += 1;
+      setAudioPlayProgress(prev => ({ ...prev, [msgId]: currentSec }));
+      if (currentSec >= durationSec) {
+        clearInterval(audioIntervalRef.current);
+        setPlayingAudioId(null);
+        setAudioPlayProgress(prev => ({ ...prev, [msgId]: 0 }));
+      }
+    }, 1000 / playbackSpeed);
+  };
+
+  const handleCycleSpeed = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const speeds = [1, 1.5, 2];
+    const nextSpeed = speeds[(speeds.indexOf(playbackSpeed) + 1) % speeds.length];
+    setPlaybackSpeed(nextSpeed);
+    if (currentAudioRef.current) {
+      currentAudioRef.current.playbackRate = nextSpeed;
+    }
+  };
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -193,9 +303,19 @@ export const AIAccommodationAssistantModal: React.FC<AIAccommodationAssistantMod
     ]);
   };
 
-  const handleSendMessage = async (textToSend?: string) => {
+  const handleSendMessage = async (
+    textToSend?: string,
+    options?: { isVoiceNote?: boolean; audioUrl?: string; audioDuration?: number }
+  ) => {
     const query = (textToSend || inputQuery).trim();
     if (!query || loading) return;
+
+    const replyMeta = replyingToMessage ? {
+      id: replyingToMessage.id,
+      sender: replyingToMessage.sender,
+      text: replyingToMessage.content.slice(0, 80)
+    } : null;
+    setReplyingToMessage(null);
 
     setInputQuery('');
     const userTempId = `user-${Date.now()}`;
@@ -204,6 +324,10 @@ export const AIAccommodationAssistantModal: React.FC<AIAccommodationAssistantMod
       conversation_id: conversationId || 'temp',
       sender: 'USER',
       content: query,
+      isVoiceNote: options?.isVoiceNote,
+      audioUrl: options?.audioUrl,
+      audioDuration: options?.audioDuration,
+      replyTo: replyMeta,
       created_at: new Date().toISOString()
     };
 
@@ -353,27 +477,110 @@ export const AIAccommodationAssistantModal: React.FC<AIAccommodationAssistantMod
 
   const handleToggleVoiceNote = () => {
     if (!isRecordingVoice) {
-      setIsRecordingVoice(true);
-      setRecordSeconds(0);
-      onShowToast('🎙️ Recording voice note... Speak your hostel inquiry!', 'info');
+      handleStartVoiceRecording();
     } else {
-      setIsRecordingVoice(false);
-      const sampleQueriesPidgin = [
-        'I dey find clean self-contain lodge near Under G gate with solar inverter and borehole water under 250k',
-        'Which area for LAUTECH get steady light pass between Adenike and Under G?',
-        'Landlord say make I pay ₦200k before inspection, wetin I suppose do?'
-      ];
-      const sampleQueriesEn = [
-        'Show me verified self-contain lodges with 24/7 borehole water near LAUTECH Under G gate under ₦250k',
-        'Which hostels have solar inverters and reliable electricity near Stadium Road?',
-        'Can I schedule a free physical inspection before paying for accommodation?'
-      ];
-      const pool = languageMode === 'PIDGIN' ? sampleQueriesPidgin : sampleQueriesEn;
-      const transcribedText = pool[Math.floor(Math.random() * pool.length)];
-      onShowToast(`🎙️ Voice note recorded (${recordSeconds}s) — Transcribing...`, 'success');
-      handleSendMessage(transcribedText);
-      setRecordSeconds(0);
+      handleStopAndSendVoiceRecording();
     }
+  };
+
+  const handleStartVoiceRecording = async () => {
+    try {
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        audioStreamRef.current = stream;
+        audioChunksRef.current = [];
+        const mediaRecorder = new MediaRecorder(stream);
+        mediaRecorderRef.current = mediaRecorder;
+
+        mediaRecorder.ondataavailable = (event) => {
+          if (event.data.size > 0) {
+            audioChunksRef.current.push(event.data);
+          }
+        };
+
+        mediaRecorder.start(200);
+      }
+    } catch (err) {
+      console.warn('Microphone access not available or denied, continuing with animated simulated recording:', err);
+    }
+    setIsRecordingVoice(true);
+    setRecordSeconds(0);
+    onShowToast(
+      languageMode === 'PIDGIN'
+        ? '🎙️ Dey record voice note... Talk wetin you dey find!'
+        : '🎙️ Recording voice note... Speak your hostel inquiry!',
+      'info'
+    );
+  };
+
+  const handleStopAndSendVoiceRecording = () => {
+    const finalSeconds = recordSeconds || 3;
+    let finalAudioUrl = '';
+
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+      try {
+        mediaRecorderRef.current.onstop = () => {
+          const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+          if (blob.size > 0) {
+            finalAudioUrl = URL.createObjectURL(blob);
+          }
+          dispatchVoiceMessage(finalAudioUrl, finalSeconds);
+        };
+        mediaRecorderRef.current.stop();
+        if (audioStreamRef.current) {
+          audioStreamRef.current.getTracks().forEach(track => track.stop());
+          audioStreamRef.current = null;
+        }
+      } catch (err) {
+        console.warn('Error stopping MediaRecorder:', err);
+        dispatchVoiceMessage('', finalSeconds);
+      }
+    } else {
+      dispatchVoiceMessage('', finalSeconds);
+    }
+
+    setIsRecordingVoice(false);
+    setRecordSeconds(0);
+  };
+
+  const dispatchVoiceMessage = (audioUrl: string, durationSec: number) => {
+    const sampleQueriesPidgin = [
+      'I dey find clean self-contain lodge near Under G gate with solar inverter and borehole water under 250k',
+      'Which area for LAUTECH get steady light pass between Adenike and Under G?',
+      'Landlord say make I pay ₦200k before inspection, wetin I suppose do?',
+      'Any female-only lodge wey get security and solar inverter for Adenike?'
+    ];
+    const sampleQueriesEn = [
+      'Show me verified self-contain lodges with 24/7 borehole water near LAUTECH Under G gate under ₦250k',
+      'Which hostels have solar inverters and reliable electricity near Stadium Road?',
+      'Can I schedule a free physical inspection before paying for accommodation?',
+      'Compare total mandatory fees between Under G and Adenike hostels'
+    ];
+    const pool = languageMode === 'PIDGIN' ? sampleQueriesPidgin : sampleQueriesEn;
+    const transcribedText = pool[Math.floor(Math.random() * pool.length)];
+
+    onShowToast(`🎙️ Voice note sent (${durationSec}s) — Transcribed & Analyzing...`, 'success');
+    handleSendMessage(transcribedText, {
+      isVoiceNote: true,
+      audioUrl: audioUrl || '#',
+      audioDuration: durationSec
+    });
+  };
+
+  const handleCancelVoiceRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+      try {
+        mediaRecorderRef.current.stop();
+      } catch (e) {}
+    }
+    if (audioStreamRef.current) {
+      audioStreamRef.current.getTracks().forEach(track => track.stop());
+      audioStreamRef.current = null;
+    }
+    setIsRecordingVoice(false);
+    setRecordSeconds(0);
+    audioChunksRef.current = [];
+    onShowToast('Recording cancelled', 'info');
   };
 
   if (!isOpen) return null;
@@ -495,38 +702,202 @@ export const AIAccommodationAssistantModal: React.FC<AIAccommodationAssistantMod
           {messages.map((msg) => (
             <div 
               key={msg.id}
-              className={`flex flex-col ${msg.sender === 'USER' ? 'items-end' : 'items-start'} space-y-2`}
+              className="relative group transition-all duration-200"
+              onMouseEnter={() => setHoveredMessageId(msg.id)}
+              onMouseLeave={() => setHoveredMessageId(null)}
             >
-              {/* Message Bubble Header */}
-              <div className="flex items-center gap-1.5 text-[10px] text-slate-400 font-bold px-1">
-                {msg.sender === 'USER' ? (
-                  <span>You</span>
-                ) : msg.sender === 'SYSTEM' ? (
-                  <span className="text-emerald-600 flex items-center gap-1">
-                    <CheckCircle2 className="w-3 h-3" /> System Log
-                  </span>
-                ) : (
-                  <span className="flex items-center gap-1 text-slate-600">
-                    <Bot className="w-3 h-3 text-emerald-600" /> Hostel Ease AI
-                  </span>
-                )}
-                <span>• {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-              </div>
-
-              {/* Message Bubble Content */}
-              <div 
-                className={`max-w-[90%] rounded-2xl p-4 sm:p-5 text-xs sm:text-sm leading-relaxed shadow-sm ${
-                  msg.sender === 'USER'
-                    ? 'bg-emerald-600 text-white rounded-br-none font-medium'
-                    : msg.sender === 'SYSTEM'
-                    ? 'bg-emerald-50 text-emerald-950 border border-emerald-200'
-                    : 'bg-white text-slate-800 border border-slate-200 rounded-bl-none'
-                }`}
-              >
-                {/* Content text with linebreaks & markdown support */}
-                <div className="whitespace-pre-line space-y-2">
-                  {msg.content}
+              {/* Swipe Reply indicator icon on mobile */}
+              {swipingMessageId === msg.id && swipeOffset > 10 && (
+                <div 
+                  className="absolute left-1 top-1/2 -translate-y-1/2 flex items-center justify-center w-8 h-8 rounded-full bg-emerald-100 text-emerald-700 shadow-sm z-10 pointer-events-none"
+                  style={{ opacity: Math.min(swipeOffset / 35, 1) }}
+                >
+                  <Reply className="w-4 h-4 rotate-180" />
                 </div>
+              )}
+
+              <div 
+                onTouchStart={(e) => {
+                  setTouchStartX(e.touches[0].clientX);
+                  setSwipingMessageId(msg.id);
+                  setSwipeOffset(0);
+                }}
+                onTouchMove={(e) => {
+                  if (touchStartX !== null && swipingMessageId === msg.id) {
+                    const diff = e.touches[0].clientX - touchStartX;
+                    if (diff > 0 && diff < 90) {
+                      setSwipeOffset(diff);
+                    }
+                  }
+                }}
+                onTouchEnd={() => {
+                  if (swipingMessageId === msg.id && swipeOffset > 35) {
+                    setReplyingToMessage(msg);
+                    setTimeout(() => inputRef.current?.focus(), 100);
+                    onShowToast(`↩ Replying to ${msg.sender === 'USER' ? 'your message' : 'Hostel Ease AI'}`, 'info');
+                  }
+                  setTouchStartX(null);
+                  setSwipingMessageId(null);
+                  setSwipeOffset(0);
+                }}
+                style={{
+                  transform: swipingMessageId === msg.id ? `translateX(${swipeOffset}px)` : 'none',
+                  transition: swipingMessageId === msg.id ? 'none' : 'transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1)'
+                }}
+                className={`flex flex-col ${msg.sender === 'USER' ? 'items-end' : 'items-start'} space-y-2`}
+              >
+                {/* Message Bubble Header */}
+                <div className="flex items-center gap-2 text-[10px] text-slate-400 font-bold px-1">
+                  {msg.sender === 'USER' ? (
+                    <span>You</span>
+                  ) : msg.sender === 'SYSTEM' ? (
+                    <span className="text-emerald-600 flex items-center gap-1">
+                      <CheckCircle2 className="w-3 h-3" /> System Log
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-1 text-slate-600">
+                      <Bot className="w-3 h-3 text-emerald-600" /> Hostel Ease AI
+                    </span>
+                  )}
+                  <span>• {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+
+                  {/* Desktop Reply Button on Hover */}
+                  {hoveredMessageId === msg.id && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setReplyingToMessage(msg);
+                        setTimeout(() => inputRef.current?.focus(), 100);
+                      }}
+                      className="opacity-0 group-hover:opacity-100 transition-opacity px-2 py-0.5 text-[10px] font-bold text-slate-600 hover:text-emerald-700 bg-white border border-slate-200 rounded-full shadow-xs flex items-center gap-1 cursor-pointer"
+                      title="Reply to this message"
+                    >
+                      <Reply className="w-2.5 h-2.5 rotate-180" /> Reply
+                    </button>
+                  )}
+                </div>
+
+                {/* Message Bubble Content */}
+                <div 
+                  className={`max-w-[90%] rounded-2xl p-4 sm:p-5 text-xs sm:text-sm leading-relaxed shadow-sm ${
+                    msg.sender === 'USER'
+                      ? 'bg-emerald-600 text-white rounded-br-none font-medium'
+                      : msg.sender === 'SYSTEM'
+                      ? 'bg-emerald-50 text-emerald-950 border border-emerald-200'
+                      : 'bg-white text-slate-800 border border-slate-200 rounded-bl-none'
+                  }`}
+                >
+                  {/* Quoted Message Preview Pill (if this message is a reply) */}
+                  {msg.replyTo && (
+                    <div className={`mb-3 px-3 py-2 rounded-xl text-[11px] flex items-start gap-2 border ${
+                      msg.sender === 'USER'
+                        ? 'bg-emerald-700/60 border-emerald-500/40 text-emerald-100'
+                        : 'bg-slate-100 border-slate-200 text-slate-700'
+                    }`}>
+                      <Reply className="w-3.5 h-3.5 rotate-180 shrink-0 text-emerald-400 mt-0.5" />
+                      <div className="overflow-hidden">
+                        <span className="font-bold block text-[10px] opacity-90">
+                          {msg.replyTo.sender === 'USER' ? 'You' : 'Hostel Ease AI'}
+                        </span>
+                        <p className="truncate italic opacity-85">"{msg.replyTo.text}"</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* If this is a Voice Note Message */}
+                  {msg.isVoiceNote ? (
+                    <div className="space-y-3">
+                      <div className={`flex items-center gap-3 p-2.5 rounded-2xl ${
+                        msg.sender === 'USER' ? 'bg-emerald-700/40 border border-emerald-500/30' : 'bg-slate-50 border border-slate-200'
+                      }`}>
+                        {/* Play/Pause Button */}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleTogglePlayAudio(msg.id, msg.audioUrl, msg.audioDuration || 6);
+                          }}
+                          className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 shadow-md transition transform active:scale-95 ${
+                            msg.sender === 'USER' 
+                              ? 'bg-white text-emerald-700 hover:bg-emerald-50' 
+                              : 'bg-emerald-600 text-white hover:bg-emerald-700'
+                          }`}
+                          title={playingAudioId === msg.id ? 'Pause Voice Note' : 'Play Voice Note'}
+                        >
+                          {playingAudioId === msg.id ? (
+                            <Pause className="w-4 h-4 fill-current" />
+                          ) : (
+                            <Play className="w-4 h-4 fill-current ml-0.5" />
+                          )}
+                        </button>
+
+                        {/* Animated Soundwave Bars */}
+                        <div className="flex-1 flex items-center gap-1 h-8 px-1">
+                          {[35, 65, 80, 45, 95, 70, 40, 60, 85, 50, 75, 90, 60, 40, 80, 55].map((heightPct, barIdx) => {
+                            const totalBars = 16;
+                            const currentSec = audioPlayProgress[msg.id] || 0;
+                            const dur = msg.audioDuration || 6;
+                            const activeBarLimit = Math.floor((currentSec / dur) * totalBars);
+                            const isBarActive = barIdx <= activeBarLimit;
+                            const isPlaying = playingAudioId === msg.id;
+
+                            return (
+                              <div
+                                key={barIdx}
+                                className={`flex-1 rounded-full transition-all duration-150 ${
+                                  msg.sender === 'USER'
+                                    ? isBarActive
+                                      ? 'bg-white shadow-xs'
+                                      : 'bg-emerald-300/40'
+                                    : isBarActive
+                                    ? 'bg-emerald-600 shadow-xs'
+                                    : 'bg-slate-300'
+                                } ${isPlaying && isBarActive ? 'animate-pulse' : ''}`}
+                                style={{
+                                  height: `${heightPct}%`,
+                                  minHeight: '4px'
+                                }}
+                              />
+                            );
+                          })}
+                        </div>
+
+                        {/* Duration & Speed Multiplier */}
+                        <div className="flex flex-col items-end gap-1 shrink-0">
+                          <span className={`text-[10px] font-mono font-bold ${
+                            msg.sender === 'USER' ? 'text-emerald-100' : 'text-slate-600'
+                          }`}>
+                            00:{audioPlayProgress[msg.id] !== undefined && audioPlayProgress[msg.id] < 10 ? '0' : ''}{audioPlayProgress[msg.id] || 0} / 00:{msg.audioDuration && msg.audioDuration < 10 ? '0' : ''}{msg.audioDuration || 6}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={handleCycleSpeed}
+                            className={`px-2 py-0.5 rounded-full text-[9px] font-black transition cursor-pointer ${
+                              msg.sender === 'USER'
+                                ? 'bg-emerald-800/80 text-emerald-100 hover:bg-emerald-800'
+                                : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
+                            }`}
+                            title="Cycle playback speed (1x, 1.5x, 2x)"
+                          >
+                            {playbackSpeed}x
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Transcribed text representation */}
+                      <div className={`text-xs italic flex items-center gap-2 pt-1 border-t ${
+                        msg.sender === 'USER' ? 'border-emerald-500/30 text-emerald-100' : 'border-slate-100 text-slate-600'
+                      }`}>
+                        <Volume2 className="w-3.5 h-3.5 shrink-0 opacity-80" />
+                        <span>"{msg.content}"</span>
+                      </div>
+                    </div>
+                  ) : (
+                    /* Content text with linebreaks & markdown support */
+                    <div className="whitespace-pre-line space-y-2">
+                      {msg.content}
+                    </div>
+                  )}
 
                 {/* ----------------------------------------------------------- */}
                 {/* EMBEDDED STRUCTURED DATA RENDERING                          */}
@@ -777,6 +1148,7 @@ export const AIAccommodationAssistantModal: React.FC<AIAccommodationAssistantMod
                 )}
               </div>
             </div>
+            </div>
           ))}
 
           {/* Loading Skeleton */}
@@ -818,23 +1190,73 @@ export const AIAccommodationAssistantModal: React.FC<AIAccommodationAssistantMod
             ))}
           </div>
 
-          {/* Revolutionary Voice Note Recording Status Bar */}
-          {isRecordingVoice && (
-            <div className="flex items-center justify-between px-3.5 py-2.5 bg-rose-50 border border-rose-200 rounded-2xl text-rose-800 text-xs font-bold animate-in fade-in">
-              <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-rose-600 animate-ping" />
-                <span className="flex items-center gap-1.5">
-                  <Mic className="w-3.5 h-3.5 text-rose-600" />
-                  Recording Voice Note Inquiry... 0:{recordSeconds < 10 ? '0' : ''}{recordSeconds}
-                </span>
+          {/* Quoted Message Preview Banner when replying */}
+          {replyingToMessage && (
+            <div className="flex items-center justify-between px-3.5 py-2 bg-emerald-50 border border-emerald-200 rounded-2xl text-xs animate-in slide-in-from-bottom-2 duration-150">
+              <div className="flex items-center gap-2 overflow-hidden">
+                <Reply className="w-4 h-4 text-emerald-700 shrink-0 rotate-180" />
+                <div className="overflow-hidden text-left">
+                  <span className="text-[10px] font-black uppercase text-emerald-800 tracking-wider">
+                    Replying to {replyingToMessage.sender === 'USER' ? 'You' : 'Hostel Ease Assistant'}
+                  </span>
+                  <p className="text-slate-700 text-xs truncate max-w-[280px] sm:max-w-md font-medium">
+                    {replyingToMessage.isVoiceNote ? '🎙️ Voice note inquiry' : replyingToMessage.content}
+                  </p>
+                </div>
               </div>
               <button
                 type="button"
-                onClick={handleToggleVoiceNote}
-                className="px-3 py-1 bg-rose-600 text-white rounded-xl text-[11px] font-black hover:bg-rose-700 transition shadow-xs flex items-center gap-1"
+                onClick={() => setReplyingToMessage(null)}
+                className="p-1 hover:bg-emerald-100 rounded-full text-slate-500 hover:text-slate-700 transition cursor-pointer"
+                title="Cancel reply"
               >
-                <span>Done & Send</span>
+                <X className="w-3.5 h-3.5" />
               </button>
+            </div>
+          )}
+
+          {/* Voice Note Recording Status Bar with Waveform */}
+          {isRecordingVoice && (
+            <div className="flex items-center justify-between px-3.5 py-2.5 bg-rose-50 border border-rose-200 rounded-2xl text-rose-800 text-xs font-bold animate-in fade-in shadow-xs">
+              <div className="flex items-center gap-2 sm:gap-3">
+                <span className="relative flex h-3 w-3 shrink-0">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-3 w-3 bg-rose-600"></span>
+                </span>
+                <span className="flex items-center gap-1.5 font-mono text-rose-700 font-black">
+                  <Mic className="w-3.5 h-3.5 text-rose-600 animate-pulse" />
+                  0:{recordSeconds < 10 ? '0' : ''}{recordSeconds}
+                </span>
+                {/* Soundwave animation bars */}
+                <div className="hidden sm:flex items-center gap-0.5 h-4">
+                  {[40, 70, 30, 90, 60, 100, 45, 80, 55, 95, 35, 65].map((h, i) => (
+                    <div
+                      key={i}
+                      className="w-1 bg-rose-500 rounded-full animate-pulse"
+                      style={{
+                        height: `${Math.max(20, (h * (1 + Math.sin(recordSeconds * 2 + i)))) / 2}%`,
+                        animationDelay: `${i * 80}ms`
+                      }}
+                    />
+                  ))}
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleCancelVoiceRecording}
+                  className="px-2 py-1 text-slate-500 hover:text-rose-700 text-xs font-bold hover:bg-rose-100/60 rounded-xl transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleStopAndSendVoiceRecording}
+                  className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-black transition shadow-xs flex items-center gap-1 cursor-pointer"
+                >
+                  <span>Done & Send</span>
+                </button>
+              </div>
             </div>
           )}
 

@@ -75,6 +75,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   const profileMenuRef = useRef<HTMLDivElement>(null);
   const notifMenuRef = useRef<HTMLDivElement>(null);
+  const mobileNotifMenuRef = useRef<HTMLDivElement>(null);
 
   const handleLogout = () => {
     setIsLoggingOut(true);
@@ -96,7 +97,10 @@ export const Navbar: React.FC<NavbarProps> = ({
       if (profileMenuRef.current && !profileMenuRef.current.contains(e.target as Node)) {
         setProfileDropdownOpen(false);
       }
-      if (notifMenuRef.current && !notifMenuRef.current.contains(e.target as Node)) {
+      if (
+        notifMenuRef.current && !notifMenuRef.current.contains(e.target as Node) &&
+        (!mobileNotifMenuRef.current || !mobileNotifMenuRef.current.contains(e.target as Node))
+      ) {
         setNotifDropdownOpen(false);
       }
     };
@@ -372,7 +376,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   </button>
 
                   {notifDropdownOpen && (
-                    <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 py-2 z-50 animate-in fade-in slide-in-from-top-2">
+                    <div className="absolute right-0 mt-2 w-80 sm:w-96 max-w-[calc(100vw-1.5rem)] bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 py-2 z-50 animate-in fade-in slide-in-from-top-2">
                       <div className="px-4 py-2.5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <Bell className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
@@ -675,18 +679,73 @@ export const Navbar: React.FC<NavbarProps> = ({
             )}
 
             {isAuthenticated && (
-              <button
-                onClick={() => setNotifDropdownOpen(!notifDropdownOpen)}
-                className="p-2 text-slate-600 dark:text-slate-300 relative"
-                aria-label="Notifications"
-              >
-                <Bell className="w-5 h-5 text-emerald-700 dark:text-emerald-400" />
-                {unreadNotifCount > 0 && (
-                  <span className="absolute top-1 right-1 w-4 h-4 bg-rose-600 text-white text-[9px] font-black rounded-full flex items-center justify-center animate-pulse">
-                    {unreadNotifCount > 9 ? '9+' : unreadNotifCount}
-                  </span>
+              <div className="relative" ref={mobileNotifMenuRef}>
+                <button
+                  onClick={() => setNotifDropdownOpen(!notifDropdownOpen)}
+                  className="p-2 text-slate-600 dark:text-slate-300 relative"
+                  aria-label="Notifications"
+                >
+                  <Bell className="w-5 h-5 text-emerald-700 dark:text-emerald-400" />
+                  {unreadNotifCount > 0 && (
+                    <span className="absolute top-1 right-1 w-4 h-4 bg-rose-600 text-white text-[9px] font-black rounded-full flex items-center justify-center animate-pulse">
+                      {unreadNotifCount > 9 ? '9+' : unreadNotifCount}
+                    </span>
+                  )}
+                </button>
+
+                {/* Responsive Mobile Notification Panel - Strictly Bounded Inside Phone Viewport */}
+                {notifDropdownOpen && (
+                  <div className="fixed top-16 left-3 right-3 max-w-[calc(100vw-1.5rem)] bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 py-2 z-50 animate-in fade-in slide-in-from-top-2">
+                    <div className="absolute -top-1.5 right-14 w-3 h-3 bg-white dark:bg-slate-900 border-t border-l border-slate-200 dark:border-slate-800 rotate-45" />
+                    <div className="px-4 py-2.5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Bell className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                        <span className="font-bold text-xs text-slate-900 dark:text-white">Notifications</span>
+                        {unreadNotifCount > 0 && (
+                          <span className="text-[10px] bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 px-1.5 py-0.5 rounded-full font-bold">
+                            {unreadNotifCount} new
+                          </span>
+                        )}
+                      </div>
+                      {unreadNotifCount > 0 && (
+                        <button
+                          onClick={handleMarkAllNotifsRead}
+                          className="text-[11px] font-semibold text-emerald-600 hover:text-emerald-700 dark:text-emerald-400"
+                        >
+                          Mark all read
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="max-h-[65vh] overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800">
+                      {notifications.length === 0 ? (
+                        <div className="p-6 text-center text-xs text-slate-500 dark:text-slate-400">
+                          No notifications yet
+                        </div>
+                      ) : (
+                        notifications.slice(0, 15).map((n) => (
+                          <div
+                            key={n.id}
+                            onClick={() => handleNotificationClick(n)}
+                            className={`p-3 text-left cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors flex items-start gap-2.5 ${
+                              !n.isRead ? 'bg-emerald-50/40 dark:bg-emerald-950/20' : ''
+                            }`}
+                          >
+                            <div className={`mt-1 w-2 h-2 rounded-full shrink-0 ${!n.isRead ? 'bg-emerald-600' : 'bg-transparent'}`} />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-bold text-slate-900 dark:text-white truncate">{n.title}</p>
+                              <p className="text-[11px] text-slate-600 dark:text-slate-300 line-clamp-2 mt-0.5">{n.message}</p>
+                              <span className="text-[10px] text-slate-400 dark:text-slate-500 mt-1 inline-block">
+                                {new Date(n.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
                 )}
-              </button>
+              </div>
             )}
 
             <button

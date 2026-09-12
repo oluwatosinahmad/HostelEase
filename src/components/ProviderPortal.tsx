@@ -141,6 +141,17 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
   const [sendingReply, setSendingReply] = useState<boolean>(false);
   const [conversationSearch, setConversationSearch] = useState<string>('');
   const [notifDropdownOpen, setNotifDropdownOpen] = useState<boolean>(false);
+  const notifRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
+        setNotifDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // Modals & Sub-states
   const [onboardingOpen, setOnboardingOpen] = useState(false);
@@ -618,7 +629,7 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
           <div className="flex items-center gap-2">
             
             {/* Real-time Notification Bell Dropdown */}
-            <div className="relative">
+            <div className="relative" ref={notifRef}>
               <button
                 onClick={() => setNotifDropdownOpen(!notifDropdownOpen)}
                 className="relative p-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl transition-colors cursor-pointer flex items-center justify-center"
@@ -633,7 +644,8 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
               </button>
 
               {notifDropdownOpen && (
-                <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white border border-gray-200 rounded-2xl shadow-2xl z-50 p-4 space-y-3 animate-in fade-in zoom-in-95 duration-150">
+                <div className="fixed sm:absolute top-28 sm:top-full left-3 right-3 sm:left-auto sm:right-0 mt-2 w-auto sm:w-96 max-w-[calc(100vw-1.5rem)] sm:max-w-none bg-white border border-gray-200 rounded-2xl shadow-2xl z-50 p-4 space-y-3 animate-in fade-in zoom-in-95 duration-150">
+                  <div className="sm:hidden absolute -top-1.5 right-6 w-3 h-3 bg-white border-t border-l border-gray-200 rotate-45" />
                   <div className="flex items-center justify-between border-b border-gray-100 pb-2.5">
                     <div className="flex items-center gap-2">
                       <Bell className="w-4 h-4 text-emerald-800" />

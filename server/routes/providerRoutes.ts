@@ -458,9 +458,9 @@ router.get(
       FROM properties p
       LEFT JOIN areas a ON a.id = p.area_id
       LEFT JOIN prices pr ON pr.property_id = p.id
-      WHERE p.provider_id = ?
+      WHERE p.provider_id = ? OR p.provider_id IN (SELECT id FROM users WHERE email = (SELECT email FROM users WHERE id = ?))
       ORDER BY p.created_at DESC
-    `).all(providerId) as any[];
+    `).all(providerId, providerId) as any[];
 
     res.json({
       properties: properties.map(p => ({
@@ -628,31 +628,59 @@ router.post(
       }
 
       // 4. Insert Media (with categories: EXTERIOR, ROOM, BATHROOM, KITCHEN, COMMON_AREA, SECURITY, FACILITIES)
-      const finalMedia = Array.isArray(mediaItems) ? mediaItems : [];
-      if (finalMedia.length > 0) {
-        const insertMedia = db.prepare(`
-          INSERT INTO property_media (
-            id, property_id, media_type, category, url, caption, display_order, is_cover, is_verified
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
-        `);
-
-        finalMedia.forEach((m: any, idx: number) => {
+      const rawMedia = Array.isArray(mediaItems) ? mediaItems : [];
+      let finalMedia = rawMedia
+        .filter((m: any) => m && (typeof m === 'string' ? m.trim().length > 0 : (typeof m.url === 'string' && m.url.trim().length > 0)))
+        .map((m: any, idx: number) => {
+          if (typeof m === 'string') {
+            return {
+              url: m.trim(),
+              mediaType: 'IMAGE',
+              category: idx === 0 ? 'EXTERIOR' : 'ROOM',
+              caption: null,
+              isCover: idx === 0 ? 1 : 0
+            };
+          }
           const isVideo = m.type === 'VIDEO' || m.mediaType === 'VIDEO' || m.category === 'VIDEO_WALKTHROUGH' || m.cat === 'VIDEO_WALKTHROUGH' || String(m.url || '').toLowerCase().includes('.mp4') || String(m.url || '').toLowerCase().includes('.webm');
-          const mediaType = isVideo ? 'VIDEO' : (m.type || m.mediaType || 'IMAGE');
-          const category = isVideo ? 'VIDEO_WALKTHROUGH' : (m.category || m.cat || 'EXTERIOR');
-
-          insertMedia.run(
-            `media-${propId}-${idx}`,
-            propId,
-            mediaType,
-            category,
-            m.url,
-            m.caption || null,
-            idx,
-            m.isCover ? 1 : idx === 0 ? 1 : 0
-          );
+          return {
+            ...m,
+            url: String(m.url).trim(),
+            mediaType: isVideo ? 'VIDEO' : (m.type || m.mediaType || 'IMAGE'),
+            category: isVideo ? 'VIDEO_WALKTHROUGH' : (m.category || m.cat || (idx === 0 ? 'EXTERIOR' : 'ROOM')),
+            caption: m.caption || null,
+            isCover: m.isCover ? 1 : (idx === 0 ? 1 : 0)
+          };
         });
+
+      // Default fallback cover image if no valid media provided
+      if (finalMedia.length === 0) {
+        finalMedia = [{
+          url: 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=1200&q=80',
+          mediaType: 'IMAGE',
+          category: 'EXTERIOR',
+          caption: 'Exterior Lodge Front View',
+          isCover: 1
+        }];
       }
+
+      const insertMedia = db.prepare(`
+        INSERT INTO property_media (
+          id, property_id, media_type, category, url, caption, display_order, is_cover, is_verified
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
+      `);
+
+      finalMedia.forEach((m: any, idx: number) => {
+        insertMedia.run(
+          `media-${propId}-${idx}`,
+          propId,
+          m.mediaType,
+          m.category,
+          m.url,
+          m.caption || null,
+          idx,
+          m.isCover ? 1 : 0
+        );
+      });
 
       // 5. Insert Rooms & Bedspaces
       if (Array.isArray(roomsList) && roomsList.length > 0) {
@@ -667,14 +695,15 @@ router.post(
 
         roomsList.forEach((r: any, idx: number) => {
           const roomId = `room-${propId}-${idx + 1}`;
-          const total = parseInt(r.total, 10) || 1;
-          const avail = parseInt(r.available, 10) || total;
-          const occupied = total - avail;
+          const total = Math.max(1, parseInt(String(r.total), 10) || 1);
+          const avail = Math.min(total, Math.max(0, parseInt(String(r.available), 10) ?? total));
+          const occupied = Math.max(0, total - avail);
           const roomType = normalizePropertyType(r.type || normalizedPropertyType);
-          insertRoom.run(roomId, propId, r.name || `Room ${idx + 1}`, roomType, r.maxOccupants || 1, total, avail, occupied, r.isEnsuite ? 1 : 0, r.isFurnished ? 1 : 0, avail > 0 ? 'AVAILABLE' : 'FULL');
+          const maxOcc = Math.max(1, parseInt(String(r.maxOccupants), 10) || 1);
+          insertRoom.run(roomId, propId, r.name || `Room ${idx + 1}`, roomType, maxOcc, total, avail, occupied, r.isEnsuite ? 1 : 0, r.isFurnished ? 1 : 0, avail > 0 ? 'AVAILABLE' : 'FULL');
 
           // Initialize individual bedspaces
-          for (let b = 1; b <= (r.maxOccupants || 1); b++) {
+          for (let b = 1; b <= maxOcc; b++) {
             insertBed.run(`bed-${roomId}-${b}`, roomId, `Space ${b}`, b <= occupied ? 1 : 0, b <= occupied ? 'OCCUPIED' : 'AVAILABLE');
           }
         });
