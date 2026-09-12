@@ -1150,6 +1150,14 @@ export interface AIMessage {
   tool_calls?: string | null;
   toolCalls?: string[] | null;
   created_at: string;
+  isVoiceNote?: boolean;
+  audioUrl?: string;
+  audioDuration?: number;
+  replyTo?: {
+    id: string;
+    sender: 'USER' | 'AI' | 'SYSTEM';
+    text: string;
+  } | null;
 }
 
 export interface AIChatResponse {
