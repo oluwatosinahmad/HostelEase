@@ -57,6 +57,7 @@ import { ProviderFinancialDashboard } from './ProviderFinancialDashboard';
 import { ProviderOnboardingModal } from './ProviderOnboardingModal';
 import { ProviderMoveInManager } from './ProviderMoveInManager';
 import { ListingQualityCard } from './ListingQualityCard';
+import { AILandlordAssistantModal } from './AILandlordAssistantModal';
 import { formatNaira, formatDistance, getAvailabilityBadgeInfo, getPropertyTypeLabel } from '../utils/formatters';
 
 interface ProviderPortalProps {
@@ -782,6 +783,18 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
             <p className="px-3 text-[10px] font-black tracking-wider text-gray-400 uppercase mb-2">
               Hostel Operations
             </p>
+            <button
+              onClick={() => setAiDrawerOpen(true)}
+              className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold transition-all bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-200/60 mb-2 cursor-pointer group"
+            >
+              <div className="flex items-center gap-2.5">
+                <Sparkles className="w-4 h-4 text-emerald-600 group-hover:scale-110 transition-transform" />
+                <span>Ask Landlord AI</span>
+              </div>
+              <span className="text-[10px] bg-emerald-600 text-white px-1.5 py-0.2 rounded-full font-black">
+                PRO
+              </span>
+            </button>
             <div className="space-y-1">
               {[
                 { id: 'dashboard', label: 'Overview', icon: Building2 },
@@ -2202,10 +2215,16 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
             areas={areas}
             editingProperty={editingProperty}
             onComplete={() => {
+              setSelectedPropertyId('all');
+              setEditingProperty(null);
               setActiveTab('listings');
-              fetchAllProviderData(selectedPropertyId);
+              fetchAllProviderData('all');
+              window.dispatchEvent(new CustomEvent('hostel_ease_properties_updated'));
             }}
-            onCancel={() => setActiveTab('listings')}
+            onCancel={() => {
+              setEditingProperty(null);
+              setActiveTab('listings');
+            }}
             onShowToast={onShowToast}
           />
         )}
@@ -2315,77 +2334,17 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
         </div>
       )}
 
-      {/* 4. AI LANDLORD ASSISTANT DRAWER */}
-      {aiDrawerOpen && (
-        <div className="fixed inset-y-0 right-0 z-50 w-full max-w-md bg-white shadow-2xl border-l border-gray-200 flex flex-col animate-in slide-in-from-right duration-200">
-          <div className="p-4 bg-gradient-to-r from-emerald-800 to-teal-800 text-white flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-amber-300" />
-              <h3 className="text-sm font-bold">Landlord AI Guide</h3>
-            </div>
-            <button onClick={() => setAiDrawerOpen(false)} className="text-white/80 hover:text-white p-1">
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-
-          <div className="flex-1 p-4 overflow-y-auto space-y-3 text-xs">
-            {aiMessages.map((msg, idx) => (
-              <div
-                key={idx}
-                className={`p-3.5 rounded-2xl max-w-[85%] ${
-                  msg.sender === 'USER'
-                    ? 'ml-auto bg-emerald-800 text-white font-medium'
-                    : 'bg-gray-100 text-gray-900 border border-gray-200'
-                }`}
-              >
-                <p className="whitespace-pre-line leading-relaxed">{msg.text}</p>
-              </div>
-            ))}
-            {aiLoading && (
-              <div className="p-3 bg-gray-100 rounded-2xl text-xs text-gray-500 animate-pulse">
-                Analyzing your accommodation data...
-              </div>
-            )}
-          </div>
-
-          {/* Quick Prompt Chips */}
-          <div className="p-2 border-t border-gray-100 bg-gray-50 flex flex-wrap gap-1.5 text-[11px]">
-            {[
-              'How many spaces are available?',
-              'Which bookings need attention?',
-              'Summarize my inspections',
-              'Improve my hostel description'
-            ].map((chip, idx) => (
-              <button
-                key={idx}
-                onClick={() => {
-                  setAiPrompt(chip);
-                }}
-                className="px-2.5 py-1 bg-white border border-gray-200 hover:border-emerald-500 rounded-lg text-gray-700 font-medium"
-              >
-                {chip}
-              </button>
-            ))}
-          </div>
-
-          <form onSubmit={handleAskAI} className="p-3 border-t border-gray-200 flex gap-2">
-            <input
-              type="text"
-              value={aiPrompt}
-              onChange={e => setAiPrompt(e.target.value)}
-              placeholder="Ask about rooms, bookings, descriptions..."
-              className="flex-1 p-2.5 border border-gray-300 rounded-xl text-xs"
-            />
-            <button
-              type="submit"
-              disabled={aiLoading || !aiPrompt.trim()}
-              className="p-2.5 bg-emerald-800 text-white rounded-xl disabled:opacity-50"
-            >
-              <Send className="w-4 h-4" />
-            </button>
-          </form>
-        </div>
-      )}
+      {/* 4. AI LANDLORD ASSISTANT MODAL (Full parity with Student AI modal) */}
+      <AILandlordAssistantModal
+        isOpen={aiDrawerOpen}
+        onClose={() => setAiDrawerOpen(false)}
+        selectedPropertyId={selectedPropertyId}
+        onNavigateTab={(tab) => {
+          setActiveTab(tab as any);
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+        onShowToast={onShowToast}
+      />
 
       {/* 5. ADD QUICK REPLY MODAL */}
       {newQuickReplyModal && (

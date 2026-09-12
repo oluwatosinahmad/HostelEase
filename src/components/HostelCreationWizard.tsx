@@ -82,9 +82,9 @@ interface MediaUploadItem {
 interface RoomConfig {
   name: string;
   type: PropertyType;
-  maxOccupants: number;
-  total: number;
-  available: number;
+  maxOccupants: number | string;
+  total: number | string;
+  available: number | string;
   isEnsuite: boolean;
   isFurnished: boolean;
 }
@@ -111,6 +111,13 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
   // Step 2: Location (with custom location addition)
   const [areaId, setAreaId] = useState(init?.areaId || init?.area?.id || areas[0]?.id || 'area-under-g');
   const [isCustomArea, setIsCustomArea] = useState<boolean>(Boolean(init?.isCustomArea || (init?.areaId === 'custom')));
+
+  useEffect(() => {
+    if ((!areaId || areaId === 'custom') && areas && areas.length > 0) {
+      const validFirst = areas.find(a => a.id && a.id !== 'custom')?.id;
+      if (validFirst) setAreaId(validFirst);
+    }
+  }, [areas]);
   const [customLocationName, setCustomLocationName] = useState<string>(init?.customLocationName || '');
   const [address, setAddress] = useState(init?.address || '');
   const [nearbyLandmark, setNearbyLandmark] = useState(init?.nearbyLandmark || '');
@@ -383,9 +390,27 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
         ? `${customLocationName.trim()}, ${address.trim()}`
         : address.trim();
 
+      const safeAreaId = (isCustomArea || areaId === 'custom' || !areaId)
+        ? (areas.find(a => a.id && a.id !== 'custom')?.id || 'area-under-g')
+        : areaId;
+
+      const sanitizedRoomsList = roomsList.map((r, i) => {
+        const total = Math.max(1, parseInt(String(r.total), 10) || 1);
+        const avail = Math.min(total, Math.max(0, parseInt(String(r.available), 10) || 0));
+        const maxOcc = Math.max(1, parseInt(String(r.maxOccupants), 10) || 1);
+        return {
+          ...r,
+          name: r.name || `Unit ${i + 1}`,
+          type: r.type || propertyType,
+          total,
+          available: avail,
+          maxOccupants: maxOcc
+        };
+      });
+
       const payload = {
         title: title.trim(),
-        areaId: isCustomArea ? (areas[0]?.id || 'area-under-g') : areaId,
+        areaId: safeAreaId,
         customLocationName: isCustomArea ? customLocationName.trim() : undefined,
         description: description.trim(),
         address: finalAddress,
@@ -398,7 +423,7 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
         videoVerificationStatus: editingProperty?.videoVerificationStatus || (mediaList.some(m => m.mediaType === 'VIDEO') ? 'PENDING_AUDIT' : 'NONE'),
         propertyType,
         genderPreference,
-        totalRooms: roomsList.reduce((acc, r) => acc + (r.total || 1), 0),
+        totalRooms: sanitizedRoomsList.reduce((acc, r) => acc + r.total, 0),
         isDraft,
         pricing: {
           period: 'YEARLY',
@@ -419,7 +444,7 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
           caption: m.caption,
           isCover: m.isCover
         })),
-        roomsList
+        roomsList: sanitizedRoomsList
       };
 
       const targetPropId = editingProperty?.id || initialData?.id;
@@ -922,13 +947,25 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
                       <input
                         type="number"
                         min="1"
+                        placeholder="10"
                         value={room.total}
                         onChange={(e) => {
+                          const val = e.target.value;
                           const updated = [...roomsList];
-                          updated[idx].total = parseInt(e.target.value, 10) || 1;
+                          updated[idx].total = val;
                           setRoomsList(updated);
                         }}
-                        className="w-full text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-2.5 py-2 text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                        onBlur={() => {
+                          const num = Math.max(1, parseInt(String(room.total), 10) || 1);
+                          const updated = [...roomsList];
+                          updated[idx].total = num;
+                          const currAvail = parseInt(String(room.available), 10);
+                          if (!isNaN(currAvail) && currAvail > num) {
+                            updated[idx].available = num;
+                          }
+                          setRoomsList(updated);
+                        }}
+                        className="w-full text-xs font-semibold bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl px-2.5 py-2 text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                       />
                     </div>
 
@@ -937,14 +974,22 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
                       <input
                         type="number"
                         min="0"
-                        max={room.total}
+                        placeholder="10"
                         value={room.available}
                         onChange={(e) => {
+                          const val = e.target.value;
                           const updated = [...roomsList];
-                          updated[idx].available = parseInt(e.target.value, 10) || 0;
+                          updated[idx].available = val;
                           setRoomsList(updated);
                         }}
-                        className="w-full text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-2.5 py-2 text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                        onBlur={() => {
+                          const num = Math.max(0, parseInt(String(room.available), 10) || 0);
+                          const totalNum = parseInt(String(room.total), 10) || 1;
+                          const updated = [...roomsList];
+                          updated[idx].available = Math.min(num, totalNum);
+                          setRoomsList(updated);
+                        }}
+                        className="w-full text-xs font-semibold bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl px-2.5 py-2 text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                       />
                     </div>
 
@@ -953,13 +998,21 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
                       <input
                         type="number"
                         min="1"
+                        placeholder="1"
                         value={room.maxOccupants}
                         onChange={(e) => {
+                          const val = e.target.value;
                           const updated = [...roomsList];
-                          updated[idx].maxOccupants = parseInt(e.target.value, 10) || 1;
+                          updated[idx].maxOccupants = val;
                           setRoomsList(updated);
                         }}
-                        className="w-full text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-2.5 py-2 text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                        onBlur={() => {
+                          const num = Math.max(1, parseInt(String(room.maxOccupants), 10) || 1);
+                          const updated = [...roomsList];
+                          updated[idx].maxOccupants = num;
+                          setRoomsList(updated);
+                        }}
+                        className="w-full text-xs font-semibold bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl px-2.5 py-2 text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                       />
                     </div>
                   </div>

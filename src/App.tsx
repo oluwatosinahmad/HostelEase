@@ -65,6 +65,7 @@ import { ProviderBookingDashboard } from './components/ProviderBookingDashboard'
 import { StudentPaymentHistory } from './components/StudentPaymentHistory';
 import { MessagingCenter } from './components/MessagingCenter';
 import { AIAccommodationAssistantModal } from './components/AIAccommodationAssistantModal';
+import { AILandlordAssistantModal } from './components/AILandlordAssistantModal';
 import { MoveInCenter } from './components/MoveInCenter';
 import { AccommodationHistory } from './components/AccommodationHistory';
 import { CommunityHub } from './components/CommunityHub';
@@ -1792,35 +1793,52 @@ function MainApp() {
       {/* AI Accommodation Assistant Modal (Phase 8) */}
       <Suspense fallback={null}>
         {aiModalOpen && (
-          <AIAccommodationAssistantModal
-            isOpen={aiModalOpen}
-            onClose={() => {
-              setAiModalOpen(false);
-              setAiPropertyContext(null);
-            }}
-            initialPropertyContext={aiPropertyContext}
-            onSelectProperty={(id) => {
-              setAiModalOpen(false);
-              setSelectedPropertyId(id);
-            }}
-            onOpenComparison={() => {
-              setAiModalOpen(false);
-              setComparisonModalOpen(true);
-            }}
-            onApplyPreferencesToSearch={(prefs) => {
-              setAiModalOpen(false);
-              setFilters(prev => ({
-                ...prev,
-                minPrice: prefs.minBudget ? Number(prefs.minBudget) : prev.minPrice,
-                maxPrice: prefs.maxBudget ? Number(prefs.maxBudget) : prev.maxPrice,
-                maxDistance: prefs.maxDistanceKm ? Number(prefs.maxDistanceKm) : prev.maxDistance,
-                areaId: (prefs.preferredAreas && prefs.preferredAreas.length > 0) ? prefs.preferredAreas[0] : 'all'
-              }));
-              setCurrentView('search');
-              window.scrollTo({ top: 0, behavior: 'smooth' });
-            }}
-            onShowToast={showToast}
-          />
+          isProvider ? (
+            <AILandlordAssistantModal
+              isOpen={aiModalOpen}
+              onClose={() => {
+                setAiModalOpen(false);
+                setAiPropertyContext(null);
+              }}
+              selectedPropertyId="all"
+              onNavigateTab={(tab) => {
+                setAiModalOpen(false);
+                setCurrentView('provider-portal');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+              onShowToast={showToast}
+            />
+          ) : (
+            <AIAccommodationAssistantModal
+              isOpen={aiModalOpen}
+              onClose={() => {
+                setAiModalOpen(false);
+                setAiPropertyContext(null);
+              }}
+              initialPropertyContext={aiPropertyContext}
+              onSelectProperty={(id) => {
+                setAiModalOpen(false);
+                setSelectedPropertyId(id);
+              }}
+              onOpenComparison={() => {
+                setAiModalOpen(false);
+                setComparisonModalOpen(true);
+              }}
+              onApplyPreferencesToSearch={(prefs) => {
+                setAiModalOpen(false);
+                setFilters(prev => ({
+                  ...prev,
+                  minPrice: prefs.minBudget ? Number(prefs.minBudget) : prev.minPrice,
+                  maxPrice: prefs.maxBudget ? Number(prefs.maxBudget) : prev.maxPrice,
+                  maxDistance: prefs.maxDistanceKm ? Number(prefs.maxDistanceKm) : prev.maxDistance,
+                  areaId: (prefs.preferredAreas && prefs.preferredAreas.length > 0) ? prefs.preferredAreas[0] : 'all'
+                }));
+                setCurrentView('search');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+              onShowToast={showToast}
+            />
+          )
         )}
       </Suspense>
 

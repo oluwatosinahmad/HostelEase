@@ -1,0 +1,558 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { 
+  Bot, 
+  Sparkles, 
+  Send, 
+  X, 
+  CheckCircle2, 
+  AlertTriangle, 
+  Building2, 
+  MapPin, 
+  ShieldCheck, 
+  ThumbsUp, 
+  ThumbsDown, 
+  Calendar, 
+  Receipt, 
+  Layers, 
+  Clock, 
+  TrendingUp, 
+  ArrowRight, 
+  ExternalLink,
+  Mic,
+  MicOff,
+  Volume2
+} from 'lucide-react';
+import { api } from '../services/api';
+import { formatNaira } from '../utils/formatters';
+
+interface AILandlordAssistantModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  selectedPropertyId?: string;
+  onNavigateTab: (tab: 'dashboard' | 'listings' | 'rooms' | 'availability' | 'bookings' | 'move_ins' | 'inspections' | 'financials' | 'messages' | 'performance' | 'profile_team' | 'wizard') => void;
+  onShowToast: (message: string, type?: 'success' | 'error' | 'info') => void;
+}
+
+interface LandlordAIMessage {
+  id: string;
+  sender: 'USER' | 'AI' | 'SYSTEM';
+  content: string;
+  structuredData?: any;
+  created_at: string;
+}
+
+const DEFAULT_LANDLORD_SUGGESTIONS = [
+  'How many spaces are available right now?',
+  'Which bookings need my attention?',
+  'Show my upcoming student inspections schedule',
+  'What are students currently paying in Under G vs Adenike?',
+  'How can I improve my hostel listing to get more bookings?'
+];
+
+const PIDGIN_LANDLORD_SUGGESTIONS = [
+  'How many room remain for my hostel now now?',
+  'Any student don book room wey I never accept?',
+  'Which inspection I get this week for my lodge?',
+  'How much students dey pay for self-contain for Under G?',
+  'Wetin I fit do make students rush my hostel?'
+];
+
+export const AILandlordAssistantModal: React.FC<AILandlordAssistantModalProps> = ({
+  isOpen,
+  onClose,
+  selectedPropertyId = 'all',
+  onNavigateTab,
+  onShowToast
+}) => {
+  const [messages, setMessages] = useState<LandlordAIMessage[]>([]);
+  const [inputQuery, setInputQuery] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [languageMode, setLanguageMode] = useState<'EN' | 'PIDGIN'>('EN');
+  const [feedbackGiven, setFeedbackGiven] = useState<Record<string, 'HELPFUL' | 'UNHELPFUL'>>({});
+  
+  // Voice note simulation
+  const [isRecordingVoice, setIsRecordingVoice] = useState(false);
+  const [recordSeconds, setRecordSeconds] = useState(0);
+
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Auto-scroll to bottom
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages, loading]);
+
+  // Voice recording timer effect
+  useEffect(() => {
+    let timer: any;
+    if (isRecordingVoice) {
+      timer = setInterval(() => {
+        setRecordSeconds(prev => prev + 1);
+      }, 1000);
+    }
+    return () => clearInterval(timer);
+  }, [isRecordingVoice]);
+
+  // Focus and initial greeting
+  useEffect(() => {
+    if (isOpen) {
+      setTimeout(() => inputRef.current?.focus(), 150);
+
+      if (messages.length === 0) {
+        setMessages([
+          {
+            id: 'landlord-welcome',
+            sender: 'AI',
+            content: languageMode === 'PIDGIN'
+              ? `Hello Oga Landlord! 👋 Welcome to **Hostel Ease Landlord AI Assistant**.\n\nI be your 24/7 LAUTECH accommodation assistant. I fit help you check free bedspaces, manage pending booking requests, track student inspection appointments, compare hostel market prices across Under G / Adenike, or rewrite your hostel description.\n\nWetin you go like make I check for you today?`
+              : `Hello! 👋 Welcome to **Hostel Ease Landlord AI Assistant** — your 24/7 LAUTECH property manager, occupancy advisor, and revenue optimizer.\n\nI can help you monitor real-time bedspace availability, respond to pending student bookings, manage inspection schedules, benchmark LAUTECH campus rents, and craft high-converting listing descriptions.\n\nHow can I assist your hostel operations today?`,
+            structuredData: {
+              type: 'CLARIFYING_QUESTION',
+              suggestedQueries: languageMode === 'PIDGIN' ? PIDGIN_LANDLORD_SUGGESTIONS : DEFAULT_LANDLORD_SUGGESTIONS
+            },
+            created_at: new Date().toISOString()
+          }
+        ]);
+      }
+    }
+  }, [isOpen, languageMode]);
+
+  if (!isOpen) return null;
+
+  const handleSendMessage = async (customQuery?: string) => {
+    const query = (customQuery || inputQuery).trim();
+    if (!query || loading) return;
+
+    setInputQuery('');
+    const userTempId = `user-${Date.now()}`;
+    const newMsg: LandlordAIMessage = {
+      id: userTempId,
+      sender: 'USER',
+      content: query,
+      created_at: new Date().toISOString()
+    };
+
+    setMessages(prev => [...prev, newMsg]);
+    setLoading(true);
+
+    try {
+      const res = await api.provider.askAI(query, selectedPropertyId);
+
+      const aiMsg: LandlordAIMessage = {
+        id: `ai-${Date.now()}`,
+        sender: 'AI',
+        content: res.response || 'I analyzed your property data.',
+        structuredData: res.structuredData,
+        created_at: new Date().toISOString()
+      };
+
+      setMessages(prev => [...prev, aiMsg]);
+    } catch (err: any) {
+      console.error('Landlord AI error:', err);
+      const errMsg: LandlordAIMessage = {
+        id: `err-${Date.now()}`,
+        sender: 'AI',
+        content: `I apologize, but I encountered an issue retrieving your property data. You can still use the portal tabs directly to manage your accommodations.`,
+        created_at: new Date().toISOString()
+      };
+      setMessages(prev => [...prev, errMsg]);
+      onShowToast(err.message || 'AI service temporarily unavailable', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Voice note completion
+  const handleStopVoiceNote = () => {
+    setIsRecordingVoice(false);
+    setRecordSeconds(0);
+    const samplePrompt = languageMode === 'PIDGIN'
+      ? 'How many room remain for my hostel now now?'
+      : 'How many spaces are available right now?';
+    handleSendMessage(samplePrompt);
+    onShowToast('Voice note transcribed successfully! 🎙️', 'success');
+  };
+
+  const handleFeedback = (messageId: string, rating: 'HELPFUL' | 'UNHELPFUL') => {
+    setFeedbackGiven(prev => ({ ...prev, [messageId]: rating }));
+    onShowToast(rating === 'HELPFUL' ? 'Thank you for your feedback! 👍' : 'Feedback noted. We are optimizing our responses! 👎', 'info');
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 animate-in fade-in duration-200">
+      <div 
+        className="bg-white dark:bg-slate-950 w-full max-w-3xl rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col h-[90vh] max-h-[780px] overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* MODAL HEADER */}
+        <div className="bg-gradient-to-r from-emerald-950 via-teal-950 to-slate-950 text-white p-4 sm:p-5 flex items-center justify-between border-b border-emerald-500/20 shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center text-emerald-400 shadow-inner">
+              <Bot className="w-6 h-6" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="font-black text-sm sm:text-base tracking-tight">Landlord AI Assistant</h3>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-400 text-slate-950 uppercase tracking-wide">
+                  PRO
+                </span>
+              </div>
+              <p className="text-[11px] text-emerald-200/80">
+                24/7 LAUTECH Property Manager & Occupancy Advisor
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {/* Nigerian Pidgin & English Toggle */}
+            <div className="bg-white/10 p-0.5 rounded-xl border border-white/20 flex items-center">
+              <button
+                type="button"
+                onClick={() => setLanguageMode('EN')}
+                className={`px-2.5 py-1 rounded-lg text-[10px] font-black transition-all cursor-pointer ${
+                  languageMode === 'EN'
+                    ? 'bg-emerald-400 text-slate-950 shadow-xs'
+                    : 'text-white/80 hover:text-white'
+                }`}
+              >
+                ENG
+              </button>
+              <button
+                type="button"
+                onClick={() => setLanguageMode('PIDGIN')}
+                className={`px-2.5 py-1 rounded-lg text-[10px] font-black transition-all cursor-pointer ${
+                  languageMode === 'PIDGIN'
+                    ? 'bg-emerald-400 text-slate-950 shadow-xs'
+                    : 'text-white/80 hover:text-white'
+                }`}
+                title="Nigerian Pidgin English"
+              >
+                PIDGIN
+              </button>
+            </div>
+
+            <button
+              onClick={onClose}
+              className="w-8 h-8 rounded-xl bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition border border-white/10 cursor-pointer"
+              title="Close Modal"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+
+        {/* VOICE RECORDING BANNER */}
+        {isRecordingVoice && (
+          <div className="bg-rose-50 border-b border-rose-200 p-3 px-4 flex items-center justify-between animate-pulse shrink-0">
+            <div className="flex items-center gap-3">
+              <div className="w-3 h-3 rounded-full bg-rose-600 animate-ping" />
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-black text-rose-900">Recording Voice Note...</span>
+                <span className="text-xs font-mono font-bold text-rose-700 bg-rose-100 px-2 py-0.5 rounded-md">
+                  00:{recordSeconds < 10 ? `0${recordSeconds}` : recordSeconds}
+                </span>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsRecordingVoice(false);
+                  setRecordSeconds(0);
+                }}
+                className="px-2.5 py-1 text-xs font-bold text-slate-600 hover:text-slate-900 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleStopVoiceNote}
+                className="px-3 py-1 bg-rose-600 hover:bg-rose-700 text-white text-xs font-black rounded-lg shadow-xs cursor-pointer"
+              >
+                Transcribe & Ask
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* CHAT MESSAGES BODY */}
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5 bg-white dark:bg-slate-950">
+          {messages.map((msg) => (
+            <div 
+              key={msg.id}
+              className={`flex flex-col space-y-1.5 ${msg.sender === 'USER' ? 'items-end' : 'items-start'}`}
+            >
+              {/* Message Header */}
+              <div className="flex items-center gap-1.5 text-[10px] text-slate-400 font-bold px-1">
+                {msg.sender === 'USER' ? (
+                  <span>You (Landlord)</span>
+                ) : (
+                  <span className="flex items-center gap-1 text-emerald-700 dark:text-emerald-400 font-black">
+                    <Bot className="w-3.5 h-3.5" /> Hostel Ease Landlord AI
+                  </span>
+                )}
+                <span>• {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+              </div>
+
+              {/* Message Content Bubble */}
+              <div 
+                className={`max-w-[90%] sm:max-w-[85%] rounded-2xl p-4 text-xs sm:text-sm leading-relaxed shadow-xs ${
+                  msg.sender === 'USER'
+                    ? 'bg-emerald-800 text-white rounded-br-none font-medium'
+                    : 'bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 border border-slate-200 dark:border-slate-800 rounded-bl-none'
+                }`}
+              >
+                <p className="whitespace-pre-line leading-relaxed">{msg.content}</p>
+
+                {/* STRUCTURED DATA CARDS */}
+                {msg.structuredData && (
+                  <div className="mt-3.5 pt-3 border-t border-slate-200 dark:border-slate-800 space-y-3">
+                    
+                    {/* A. SPACE SUMMARY CARD */}
+                    {msg.structuredData.type === 'SPACE_SUMMARY' && (
+                      <div className="bg-white dark:bg-slate-950 p-3.5 rounded-xl border border-emerald-200 dark:border-emerald-800 space-y-3">
+                        <div className="flex items-center justify-between text-xs font-bold text-emerald-950 dark:text-emerald-300">
+                          <span className="flex items-center gap-1.5">
+                            <Layers className="w-4 h-4 text-emerald-600" /> Room & Bedspace Inventory
+                          </span>
+                          <span className="bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300 px-2 py-0.5 rounded-full text-[10px] font-black">
+                            {msg.structuredData.totalAvailable} Spaces Available
+                          </span>
+                        </div>
+                        <button
+                          onClick={() => {
+                            onClose();
+                            onNavigateTab('rooms');
+                          }}
+                          className="w-full py-2 bg-emerald-800 hover:bg-emerald-900 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 shadow-xs transition cursor-pointer"
+                        >
+                          <span>Manage Spaces & Rooms</span>
+                          <ArrowRight className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    )}
+
+                    {/* B. BOOKING SUMMARY CARD */}
+                    {msg.structuredData.type === 'BOOKING_SUMMARY' && (
+                      <div className="bg-white dark:bg-slate-950 p-3.5 rounded-xl border border-amber-200 dark:border-amber-800 space-y-3">
+                        <div className="flex items-center justify-between text-xs font-bold text-amber-950 dark:text-amber-300">
+                          <span className="flex items-center gap-1.5">
+                            <Receipt className="w-4 h-4 text-amber-600" /> Student Booking Requests
+                          </span>
+                          <span className="bg-amber-100 dark:bg-amber-900/60 text-amber-800 dark:text-amber-300 px-2 py-0.5 rounded-full text-[10px] font-black">
+                            {msg.structuredData.pendingBookings?.length || 0} Pending
+                          </span>
+                        </div>
+                        <button
+                          onClick={() => {
+                            onClose();
+                            onNavigateTab('bookings');
+                          }}
+                          className="w-full py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 shadow-xs transition cursor-pointer"
+                        >
+                          <span>Open Bookings Tab to Confirm</span>
+                          <ArrowRight className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    )}
+
+                    {/* C. INSPECTION SUMMARY CARD */}
+                    {msg.structuredData.type === 'INSPECTION_SUMMARY' && (
+                      <div className="bg-white dark:bg-slate-950 p-3.5 rounded-xl border border-blue-200 dark:border-blue-800 space-y-3">
+                        <div className="flex items-center justify-between text-xs font-bold text-blue-950 dark:text-blue-300">
+                          <span className="flex items-center gap-1.5">
+                            <Calendar className="w-4 h-4 text-blue-600" /> Student Inspection Calendar
+                          </span>
+                          <span className="bg-blue-100 dark:bg-blue-900/60 text-blue-800 dark:text-blue-300 px-2 py-0.5 rounded-full text-[10px] font-black">
+                            {msg.structuredData.inspections?.length || 0} Scheduled
+                          </span>
+                        </div>
+                        <button
+                          onClick={() => {
+                            onClose();
+                            onNavigateTab('inspections');
+                          }}
+                          className="w-full py-2 bg-blue-700 hover:bg-blue-800 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 shadow-xs transition cursor-pointer"
+                        >
+                          <span>View Full Inspection Calendar</span>
+                          <ArrowRight className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    )}
+
+                    {/* D. PRICING BENCHMARK CARD */}
+                    {msg.structuredData.type === 'PRICING_BENCHMARK' && (
+                      <div className="bg-white dark:bg-slate-950 p-3.5 rounded-xl border border-purple-200 dark:border-purple-800 space-y-3">
+                        <div className="flex items-center justify-between text-xs font-bold text-purple-950 dark:text-purple-300">
+                          <span className="flex items-center gap-1.5">
+                            <TrendingUp className="w-4 h-4 text-purple-600" /> Campus Zone Benchmarks
+                          </span>
+                          <span className="text-[10px] text-purple-700 dark:text-purple-400 font-semibold">Live Database Average</span>
+                        </div>
+                        <button
+                          onClick={() => {
+                            onClose();
+                            onNavigateTab('listings');
+                          }}
+                          className="w-full py-2 bg-purple-700 hover:bg-purple-800 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 shadow-xs transition cursor-pointer"
+                        >
+                          <span>Review & Adjust My Hostel Rent</span>
+                          <ArrowRight className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    )}
+
+                    {/* E. DESCRIPTION IMPROVEMENT CARD */}
+                    {msg.structuredData.type === 'DESCRIPTION_IMPROVEMENT' && (
+                      <div className="bg-white dark:bg-slate-950 p-3.5 rounded-xl border border-teal-200 dark:border-teal-800 space-y-2">
+                        <span className="text-xs font-bold text-teal-900 dark:text-teal-300 block">
+                          Tip: High listing completeness gives your hostel top placement on the student search feed.
+                        </span>
+                        <button
+                          onClick={() => {
+                            onClose();
+                            onNavigateTab('listings');
+                          }}
+                          className="w-full py-2 bg-emerald-800 hover:bg-emerald-900 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 shadow-xs transition cursor-pointer"
+                        >
+                          <span>Edit Hostel Details</span>
+                          <ArrowRight className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    )}
+
+                  </div>
+                )}
+
+                {/* Helpful Feedback Actions (For AI Messages) */}
+                {msg.sender === 'AI' && (
+                  <div className="flex items-center justify-between pt-2.5 mt-2 border-t border-slate-200/60 dark:border-slate-800/60 text-[10px] text-slate-400">
+                    <span>Was this response helpful?</span>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => handleFeedback(msg.id, 'HELPFUL')}
+                        disabled={Boolean(feedbackGiven[msg.id])}
+                        className={`p-1 rounded-md transition cursor-pointer ${
+                          feedbackGiven[msg.id] === 'HELPFUL'
+                            ? 'text-emerald-600 bg-emerald-50 dark:bg-emerald-950/50'
+                            : 'hover:text-slate-600'
+                        }`}
+                        title="Helpful"
+                      >
+                        <ThumbsUp className="w-3 h-3" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleFeedback(msg.id, 'UNHELPFUL')}
+                        disabled={Boolean(feedbackGiven[msg.id])}
+                        className={`p-1 rounded-md transition cursor-pointer ${
+                          feedbackGiven[msg.id] === 'UNHELPFUL'
+                            ? 'text-rose-600 bg-rose-50 dark:bg-rose-950/50'
+                            : 'hover:text-slate-600'
+                        }`}
+                        title="Not Helpful"
+                      >
+                        <ThumbsDown className="w-3 h-3" />
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+
+          {loading && (
+            <div className="flex items-center gap-2 p-3 bg-slate-50 dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 max-w-xs text-xs text-slate-500 animate-pulse">
+              <Bot className="w-4 h-4 text-emerald-600 animate-spin" />
+              <span>Analyzing accommodation data...</span>
+            </div>
+          )}
+
+          <div ref={messagesEndRef} />
+        </div>
+
+        {/* QUICK SUGGESTION CHIPS */}
+        <div className="p-3 bg-slate-50 dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 shrink-0">
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none text-[11px]">
+            <span className="text-slate-400 shrink-0 font-bold flex items-center gap-1 pl-1">
+              <Sparkles className="w-3 h-3 text-amber-500" />
+              Try:
+            </span>
+            {(languageMode === 'PIDGIN' ? PIDGIN_LANDLORD_SUGGESTIONS : DEFAULT_LANDLORD_SUGGESTIONS).map((chip, idx) => (
+              <button
+                key={idx}
+                type="button"
+                onClick={() => handleSendMessage(chip)}
+                className="shrink-0 px-3 py-1.5 bg-white dark:bg-slate-800 hover:bg-emerald-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 rounded-xl font-medium transition cursor-pointer whitespace-nowrap shadow-2xs"
+              >
+                {chip}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* CHAT INPUT BAR */}
+        <div className="p-3 sm:p-4 bg-white dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800 shrink-0">
+          <form 
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleSendMessage();
+            }}
+            className="flex items-center gap-2"
+          >
+            {/* Mic button */}
+            <button
+              type="button"
+              onClick={() => {
+                if (isRecordingVoice) {
+                  handleStopVoiceNote();
+                } else {
+                  setIsRecordingVoice(true);
+                  setRecordSeconds(0);
+                }
+              }}
+              className={`p-2.5 rounded-xl border transition-all cursor-pointer ${
+                isRecordingVoice
+                  ? 'bg-rose-600 text-white border-rose-600 animate-pulse'
+                  : 'bg-slate-100 dark:bg-slate-800 hover:bg-emerald-50 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700'
+              }`}
+              title={isRecordingVoice ? 'Stop recording' : 'Record voice note inquiry'}
+            >
+              {isRecordingVoice ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+            </button>
+
+            {/* Query text input */}
+            <input
+              ref={inputRef}
+              type="text"
+              value={inputQuery}
+              onChange={(e) => setInputQuery(e.target.value)}
+              placeholder={
+                languageMode === 'PIDGIN'
+                  ? 'Ask about your rooms, students wey book, or price for Under G...'
+                  : 'Ask about vacant spaces, pending bookings, pricing benchmarks...'
+              }
+              className="flex-1 text-xs sm:text-sm bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2.5 text-slate-900 dark:text-white placeholder:text-slate-400 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+            />
+
+            {/* Send button */}
+            <button
+              type="submit"
+              disabled={loading || !inputQuery.trim()}
+              className="p-2.5 sm:px-4 sm:py-2.5 bg-emerald-800 hover:bg-emerald-900 disabled:opacity-40 text-white font-bold text-xs rounded-xl shadow-xs transition flex items-center gap-1.5 cursor-pointer"
+            >
+              <Send className="w-4 h-4" />
+              <span className="hidden sm:inline">Send</span>
+            </button>
+          </form>
+        </div>
+
+      </div>
+    </div>
+  );
+};

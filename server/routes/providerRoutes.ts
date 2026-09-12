@@ -5,6 +5,30 @@ import { authenticate, requireRole, AuthenticatedRequest } from '../middleware/a
 
 const router = Router();
 
+// Normalization helpers to guarantee database CHECK constraints are never violated
+export function normalizePropertyType(val: any): 'SELF_CONTAIN' | 'SINGLE_ROOM' | 'FLAT' | 'SHARED_BEDSPACE' {
+  if (!val || typeof val !== 'string') return 'SELF_CONTAIN';
+  const clean = val.trim().toUpperCase().replace(/[-\s]/g, '_');
+  if (clean === 'SELF_CONTAIN' || clean === 'SINGLE_ROOM' || clean === 'FLAT' || clean === 'SHARED_BEDSPACE') {
+    return clean as any;
+  }
+  if (clean.includes('SINGLE')) return 'SINGLE_ROOM';
+  if (clean.includes('FLAT') || clean.includes('APARTMENT')) return 'FLAT';
+  if (clean.includes('BED') || clean.includes('SHARE')) return 'SHARED_BEDSPACE';
+  return 'SELF_CONTAIN';
+}
+
+export function normalizeGenderPreference(val: any): 'ANY' | 'MALE_ONLY' | 'FEMALE_ONLY' {
+  if (!val || typeof val !== 'string') return 'ANY';
+  const clean = val.trim().toUpperCase().replace(/[-\s]/g, '_');
+  if (clean === 'ANY' || clean === 'MALE_ONLY' || clean === 'FEMALE_ONLY') {
+    return clean as any;
+  }
+  if (clean.includes('FEMALE')) return 'FEMALE_ONLY';
+  if (clean.includes('MALE')) return 'MALE_ONLY';
+  return 'ANY';
+}
+
 // Helper: Calculate listing completeness score (0 - 100) and missing items
 export function calculateCompleteness(property: any, prices: any, media: any[], amenitiesCount: number): { score: number; missing: string[] } {
   let score = 0;
@@ -503,8 +527,26 @@ router.post(
       roomsList
     } = req.body;
 
-    if (!title || !areaId) {
-      return res.status(400).json({ error: 'Hostel name and LAUTECH area are required' });
+    if (!title || typeof title !== 'string' || !title.trim()) {
+      return res.status(400).json({ error: 'Hostel name is required' });
+    }
+
+    // Resilient LAUTECH Area Resolution (Safeguards against 'custom', empty, or non-existent IDs)
+    let resolvedAreaId = areaId;
+    if (!resolvedAreaId || resolvedAreaId === 'custom') {
+      const defaultArea = db.prepare(`SELECT id FROM areas ORDER BY id ASC LIMIT 1`).get() as any;
+      resolvedAreaId = defaultArea?.id || 'area-under-g';
+    } else {
+      const areaExists = db.prepare(`SELECT id FROM areas WHERE id = ?`).get(resolvedAreaId) as any;
+      if (!areaExists) {
+        const areaByName = db.prepare(`SELECT id FROM areas WHERE LOWER(name) = LOWER(?)`).get(resolvedAreaId) as any;
+        if (areaByName) {
+          resolvedAreaId = areaByName.id;
+        } else {
+          const defaultArea = db.prepare(`SELECT id FROM areas ORDER BY id ASC LIMIT 1`).get() as any;
+          resolvedAreaId = defaultArea?.id || 'area-under-g';
+        }
+      }
     }
 
     const propId = `prop-${Date.now()}-${crypto.randomUUID().substring(0, 5)}`;
@@ -513,35 +555,38 @@ router.post(
     const uniRow = db.prepare('SELECT id FROM universities LIMIT 1').get() as any;
     const universityId = uniRow?.id || 'uni-lautech-ogbomoso';
     const status = isDraft ? 'DRAFT' : 'PENDING_REVIEW';
+    const normalizedPropertyType = normalizePropertyType(propertyType);
+    const normalizedGenderPreference = normalizeGenderPreference(genderPreference);
 
-    db.transaction(() => {
-      // 1. Insert Property
-      db.prepare(`
-        INSERT INTO properties (
-          id, provider_id, university_id, area_id, title, slug, description, address,
-          nearby_landmark, latitude, longitude, distance_from_campus_km, property_type,
-          gender_preference, total_rooms, verification_status, availability_status,
-          rules_json, is_demo, completeness_score
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'AVAILABLE', ?, 0, 0)
-      `).run(
-        propId,
-        providerId,
-        universityId,
-        areaId,
-        title.trim(),
-        slug,
-        description ? description.trim() : 'Draft accommodation listing',
-        address ? address.trim() : 'LAUTECH off-campus',
-        nearbyLandmark ? nearbyLandmark.trim() : null,
-        parseFloat(latitude) || 8.1438,
-        parseFloat(longitude) || 4.2638,
-        parseFloat(distanceFromCampusKm) || 1.0,
-        propertyType || 'SELF_CONTAIN',
-        genderPreference || 'ANY',
-        parseInt(totalRooms, 10) || 1,
-        status,
-        rules ? JSON.stringify(rules) : '[]'
-      );
+    try {
+      db.transaction(() => {
+        // 1. Insert Property
+        db.prepare(`
+          INSERT INTO properties (
+            id, provider_id, university_id, area_id, title, slug, description, address,
+            nearby_landmark, latitude, longitude, distance_from_campus_km, property_type,
+            gender_preference, total_rooms, verification_status, availability_status,
+            rules_json, is_demo, completeness_score
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'AVAILABLE', ?, 0, 0)
+        `).run(
+          propId,
+          providerId,
+          universityId,
+          resolvedAreaId,
+          title.trim(),
+          slug,
+          description ? description.trim() : 'Draft accommodation listing',
+          address ? address.trim() : 'LAUTECH off-campus',
+          nearbyLandmark ? nearbyLandmark.trim() : null,
+          parseFloat(latitude) || 8.1438,
+          parseFloat(longitude) || 4.2638,
+          parseFloat(distanceFromCampusKm) || 1.0,
+          normalizedPropertyType,
+          normalizedGenderPreference,
+          parseInt(totalRooms, 10) || 1,
+          status,
+          rules ? JSON.stringify(rules) : '[]'
+        );
 
       // 2. Insert Pricing
       const rent = parseFloat(pricing?.rentAmount) || 0;
@@ -625,7 +670,8 @@ router.post(
           const total = parseInt(r.total, 10) || 1;
           const avail = parseInt(r.available, 10) || total;
           const occupied = total - avail;
-          insertRoom.run(roomId, propId, r.name || `Room ${idx + 1}`, r.type || propertyType || 'SELF_CONTAIN', r.maxOccupants || 1, total, avail, occupied, r.isEnsuite ? 1 : 0, r.isFurnished ? 1 : 0, avail > 0 ? 'AVAILABLE' : 'FULL');
+          const roomType = normalizePropertyType(r.type || normalizedPropertyType);
+          insertRoom.run(roomId, propId, r.name || `Room ${idx + 1}`, roomType, r.maxOccupants || 1, total, avail, occupied, r.isEnsuite ? 1 : 0, r.isFurnished ? 1 : 0, avail > 0 ? 'AVAILABLE' : 'FULL');
 
           // Initialize individual bedspaces
           for (let b = 1; b <= (r.maxOccupants || 1); b++) {
@@ -638,7 +684,7 @@ router.post(
         db.prepare(`
           INSERT INTO rooms (id, property_id, room_name, room_type, max_occupants, quantity_total, quantity_available, occupied_count, is_ensuite, is_furnished, status)
           VALUES (?, ?, 'Standard Unit', ?, 1, 1, 1, 0, 1, 0, 'AVAILABLE')
-        `).run(defaultRoomId, propId, propertyType || 'SELF_CONTAIN');
+        `).run(defaultRoomId, propId, normalizedPropertyType);
 
         db.prepare(`
           INSERT INTO bedspaces (id, room_id, bedspace_number, is_occupied, status)
@@ -648,7 +694,7 @@ router.post(
 
       // Calculate completeness
       const comp = calculateCompleteness(
-        { title, description, address, area_id: areaId, distance_from_campus_km: distanceFromCampusKm, nearby_landmark: nearbyLandmark },
+        { title, description, address, area_id: resolvedAreaId, distance_from_campus_km: distanceFromCampusKm, nearby_landmark: nearbyLandmark },
         { rent_amount: rent, service_charge: service, agency_fee: agency, caution_fee: caution },
         finalMedia,
         Array.isArray(amenityKeys) ? amenityKeys.length : 0
@@ -669,12 +715,18 @@ router.post(
       );
     })();
 
-    res.status(201).json({
+    return res.status(201).json({
       message: isDraft ? 'Listing draft saved successfully' : 'Hostel added and submitted for review',
       propertyId: propId,
       slug
     });
+  } catch (err: any) {
+    console.error('Failed to create hostel listing:', err);
+    return res.status(400).json({
+      error: err.message || 'Failed to create hostel listing. Please verify the information provided.'
+    });
   }
+}
 );
 
 router.put(
@@ -712,12 +764,27 @@ router.put(
       submitForReview
     } = req.body;
 
-    db.transaction(() => {
-      // 1. Price Change Tracking
-      if (pricing) {
-        const currentPrice = db.prepare('SELECT * FROM prices WHERE property_id = ?').get(id) as any;
-        const newRent = parseFloat(pricing.rentAmount) || currentPrice?.rent_amount || 0;
-        const newService = parseFloat(pricing.serviceCharge) || 0;
+    let resolvedAreaId = areaId !== undefined ? areaId : null;
+    if (resolvedAreaId) {
+      if (resolvedAreaId === 'custom') {
+        const defaultArea = db.prepare(`SELECT id FROM areas ORDER BY id ASC LIMIT 1`).get() as any;
+        resolvedAreaId = defaultArea?.id || 'area-under-g';
+      } else {
+        const areaExists = db.prepare(`SELECT id FROM areas WHERE id = ?`).get(resolvedAreaId) as any;
+        if (!areaExists) {
+          const areaByName = db.prepare(`SELECT id FROM areas WHERE LOWER(name) = LOWER(?)`).get(resolvedAreaId) as any;
+          resolvedAreaId = areaByName ? areaByName.id : prop.area_id;
+        }
+      }
+    }
+
+    try {
+      db.transaction(() => {
+        // 1. Price Change Tracking
+        if (pricing) {
+          const currentPrice = db.prepare('SELECT * FROM prices WHERE property_id = ?').get(id) as any;
+          const newRent = parseFloat(pricing.rentAmount) || currentPrice?.rent_amount || 0;
+          const newService = parseFloat(pricing.serviceCharge) || 0;
         const newAgency = parseFloat(pricing.agencyFee) || 0;
         const newCaution = parseFloat(pricing.cautionFee) || 0;
         const newOther = parseFloat(pricing.otherMandatoryCharges) || 0;
@@ -759,6 +826,9 @@ router.put(
       }
 
       // 2. Update Core Property
+      const normalizedPropertyType = propertyType !== undefined ? normalizePropertyType(propertyType) : null;
+      const normalizedGenderPreference = genderPreference !== undefined ? normalizeGenderPreference(genderPreference) : null;
+
       db.prepare(`
         UPDATE properties
         SET title = COALESCE(?, title),
@@ -777,15 +847,15 @@ router.put(
         WHERE id = ?
       `).run(
         title,
-        areaId,
+        resolvedAreaId,
         description,
         address,
         nearbyLandmark,
         distanceFromCampusKm,
         latitude,
         longitude,
-        propertyType,
-        genderPreference,
+        normalizedPropertyType,
+        normalizedGenderPreference,
         rules ? JSON.stringify(rules) : null,
         submitForReview ? 1 : 0,
         id
@@ -835,7 +905,7 @@ router.put(
       const mediaList = db.prepare('SELECT * FROM property_media WHERE property_id = ?').all(id) as any[];
       const amenitiesCount = (db.prepare('SELECT COUNT(*) as count FROM property_amenities WHERE property_id = ?').get(id) as any)?.count || 0;
       const comp = calculateCompleteness(
-        { title: title || prop.title, description: description || prop.description, address: address || prop.address, area_id: areaId || prop.area_id, distance_from_campus_km: distanceFromCampusKm || prop.distance_from_campus_km, nearby_landmark: nearbyLandmark || prop.nearby_landmark },
+        { title: title || prop.title, description: description || prop.description, address: address || prop.address, area_id: resolvedAreaId || prop.area_id, distance_from_campus_km: distanceFromCampusKm || prop.distance_from_campus_km, nearby_landmark: nearbyLandmark || prop.nearby_landmark },
         updatedPrice,
         mediaList,
         amenitiesCount
@@ -854,8 +924,12 @@ router.put(
       );
     })();
 
-    res.json({ message: 'Hostel listing updated successfully' });
+    return res.json({ message: 'Hostel listing updated successfully' });
+  } catch (err: any) {
+    console.error('Failed to update property listing:', err);
+    return res.status(400).json({ error: err.message || 'Failed to update hostel listing' });
   }
+}
 );
 
 // GET /api/provider/properties/:id/price-history
@@ -1563,16 +1637,17 @@ router.post(
     }
 
     const lower = prompt.toLowerCase();
+    const isPidgin = lower.includes('wey') || lower.includes('dey') || lower.includes('don') || lower.includes('wetin') || lower.includes('fit') || lower.includes('correct') || lower.includes('naira') || lower.includes('abeg') || lower.includes('now now');
     let reply = '';
     let structuredData: any = null;
 
     // 1. Available Spaces Query
-    if (lower.includes('available') || lower.includes('space') || lower.includes('vacant') || lower.includes('capacity')) {
+    if (lower.includes('available') || lower.includes('space') || lower.includes('vacant') || lower.includes('capacity') || lower.includes('remain') || lower.includes('room remain')) {
       const propFilter = propertyId && propertyId !== 'all' ? 'AND p.id = ?' : '';
       const propParams = propertyId && propertyId !== 'all' ? [providerId, propertyId] : [providerId];
 
       const rooms = db.prepare(`
-        SELECT r.room_name, r.quantity_total, r.quantity_available, r.occupied_count, p.title as property_title
+        SELECT r.room_name, r.quantity_total, r.quantity_available, r.occupied_count, p.title as property_title, p.id as property_id
         FROM rooms r
         JOIN properties p ON p.id = r.property_id
         WHERE p.provider_id = ? ${propFilter}
@@ -1581,16 +1656,35 @@ router.post(
       const totalAvail = rooms.reduce((sum, r) => sum + r.quantity_available, 0);
       const totalCap = rooms.reduce((sum, r) => sum + r.quantity_total, 0);
 
-      reply = `You currently have **${totalAvail} available space${totalAvail === 1 ? '' : 's'}** across **${totalCap} total units** in your registered LAUTECH accommodations.\n\n`;
-      rooms.forEach(r => {
-        reply += `• **${r.property_title}** (${r.room_name}): ${r.quantity_available} free / ${r.quantity_total} total\n`;
-      });
+      if (isPidgin) {
+        reply = `Oga Landlord, you get **${totalAvail} bedspace wey still dey free** out of **${totalCap} total space** for your lodges around LAUTECH.\n\n`;
+        rooms.forEach(r => {
+          reply += `• **${r.property_title}** (${r.room_name}): ${r.quantity_available} free / ${r.quantity_total} total\n`;
+        });
+        reply += `\nYou fit update room status or add new bedspace directly inside Spaces & Rooms tab!`;
+      } else {
+        reply = `You currently have **${totalAvail} available space${totalAvail === 1 ? '' : 's'}** across **${totalCap} total units** in your registered LAUTECH accommodations.\n\n`;
+        rooms.forEach(r => {
+          reply += `• **${r.property_title}** (${r.room_name}): ${r.quantity_available} free / ${r.quantity_total} total\n`;
+        });
+        reply += `\nYou can modify capacity, mark rooms full, or add new units from the Rooms tab anytime.`;
+      }
 
-      structuredData = { type: 'SPACE_SUMMARY', totalAvailable: totalAvail, totalCapacity: totalCap, rooms };
+      structuredData = {
+        type: 'SPACE_SUMMARY',
+        actionTab: 'rooms',
+        actionLabel: 'Manage Rooms & Bedspaces',
+        totalAvailable: totalAvail,
+        totalCapacity: totalCap,
+        rooms,
+        suggestedQueries: isPidgin
+          ? ['Any student don book room?', 'Wetin be the market price for Under G?', 'Which inspection I get this week?']
+          : ['Which bookings need my attention?', 'Show price benchmarks near Under G', 'Summarize my upcoming inspections']
+      };
     }
 
     // 2. Pending Bookings Needing Attention
-    else if (lower.includes('booking') || lower.includes('attention') || lower.includes('need') || lower.includes('pending')) {
+    else if (lower.includes('booking') || lower.includes('attention') || lower.includes('need') || lower.includes('pending') || lower.includes('reservation') || lower.includes('book room')) {
       const pending = db.prepare(`
         SELECT b.id, b.booking_reference, b.move_in_date, b.created_at, b.expires_at,
                p.title as property_title, u.full_name as student_name, r.room_name
@@ -1603,20 +1697,35 @@ router.post(
       `).all(providerId) as any[];
 
       if (pending.length === 0) {
-        reply = `All clear! You currently have **0 pending booking reservations** requiring response. All recent student requests have been processed.`;
+        reply = isPidgin
+          ? `Everything dey intact! You get **0 pending booking request** right now. All students wey book your hostel don receive confirmation.`
+          : `All clear! You currently have **0 pending booking reservations** requiring response. All recent student requests have been processed.`;
       } else {
-        reply = `You have **${pending.length} booking reservation${pending.length > 1 ? 's' : ''}** awaiting your confirmation:\n\n`;
+        reply = isPidgin
+          ? `You get **${pending.length} student booking reservation${pending.length > 1 ? 's' : ''}** wey dey wait for your confirmation:\n\n`
+          : `You have **${pending.length} booking reservation${pending.length > 1 ? 's' : ''}** awaiting your confirmation:\n\n`;
+
         pending.forEach((b, idx) => {
           reply += `${idx + 1}. **${b.student_name}** for ${b.property_title} (${b.room_name}) — Move-in: ${b.move_in_date} (Ref: \`${b.booking_reference}\`)\n`;
         });
-        reply += `\nWould you like me to open the Bookings tab so you can confirm or decline them?`;
+        reply += isPidgin
+          ? `\nAbeg click below make you fit confirm or decline their booking before the 48-hour escrow lock expire.`
+          : `\nStudent reservations hold bedspaces temporarily and expire after 48 hours if unapproved.`;
       }
 
-      structuredData = { type: 'BOOKING_SUMMARY', pendingBookings: pending };
+      structuredData = {
+        type: 'BOOKING_SUMMARY',
+        actionTab: 'bookings',
+        actionLabel: 'Review Pending Bookings',
+        pendingBookings: pending,
+        suggestedQueries: isPidgin
+          ? ['How many room remain for my hostel?', 'Check my scheduled inspections', 'How much be rent for Adenike?']
+          : ['How many spaces are currently available?', 'Summarize upcoming inspections', 'Compare rent prices around campus']
+      };
     }
 
     // 3. Inspections Query
-    else if (lower.includes('inspection') || lower.includes('tomorrow') || lower.includes('schedule') || lower.includes('tour')) {
+    else if (lower.includes('inspection') || lower.includes('tomorrow') || lower.includes('schedule') || lower.includes('tour') || lower.includes('appointment')) {
       const inspections = db.prepare(`
         SELECT ir.id, ir.preferred_date, ir.preferred_time, ir.inspection_type, ir.status,
                p.title as property_title, u.full_name as student_name
@@ -1628,19 +1737,74 @@ router.post(
       `).all(providerId) as any[];
 
       if (inspections.length === 0) {
-        reply = `You have no pending or upcoming student inspections scheduled right now.`;
+        reply = isPidgin
+          ? `No pending or confirmed student inspection dey your calendar right now. Once student request inspection tour, you go see notification sharp-sharp.`
+          : `You have no pending or upcoming student inspections scheduled right now. When students schedule walkthroughs, you will be notified instantly.`;
       } else {
-        reply = `You have **${inspections.length} upcoming or pending inspection${inspections.length > 1 ? 's' : ''}**:\n\n`;
+        reply = isPidgin
+          ? `You get **${inspections.length} student inspection tour${inspections.length > 1 ? 's' : ''}** on your schedule:\n\n`
+          : `You have **${inspections.length} upcoming or pending inspection${inspections.length > 1 ? 's' : ''}**:\n\n`;
+
         inspections.forEach((i, idx) => {
           reply += `${idx + 1}. **${i.student_name}** — ${i.property_title} on **${i.preferred_date} at ${i.preferred_time}** (${i.inspection_type}, Status: ${i.status})\n`;
         });
       }
 
-      structuredData = { type: 'INSPECTION_SUMMARY', inspections };
+      structuredData = {
+        type: 'INSPECTION_SUMMARY',
+        actionTab: 'inspections',
+        actionLabel: 'Manage Inspection Calendar',
+        inspections,
+        suggestedQueries: isPidgin
+          ? ['Any student booking waiting?', 'Check available bedspaces', 'Help me rewrite my hostel description']
+          : ['Check available spaces', 'View pending bookings', 'Improve my listing description']
+      };
     }
 
-    // 4. Listing Description Rewrite / Enhancement
-    else if (lower.includes('improve') || lower.includes('description') || lower.includes('rewrite') || lower.includes('wording')) {
+    // 4. Pricing Benchmarks & Zone Rate Intelligence
+    else if (lower.includes('price') || lower.includes('rent') || lower.includes('market') || lower.includes('rate') || lower.includes('under g') || lower.includes('adenike') || lower.includes('stadium') || lower.includes('how much')) {
+      const zoneStats = db.prepare(`
+        SELECT a.name as area_name,
+               AVG(pr.rent_amount) as avg_rent,
+               MIN(pr.rent_amount) as min_rent,
+               MAX(pr.rent_amount) as max_rent,
+               COUNT(p.id) as listing_count
+        FROM properties p
+        JOIN areas a ON a.id = p.area_id
+        JOIN prices pr ON pr.property_id = p.id
+        WHERE p.verification_status = 'APPROVED'
+        GROUP BY a.id, a.name
+        ORDER BY listing_count DESC
+        LIMIT 4
+      `).all() as any[];
+
+      if (isPidgin) {
+        reply = `Here na the current market rates for hostels around LAUTECH based on verified lodges:\n\n`;
+        zoneStats.forEach(z => {
+          reply += `• **${z.area_name}**: Average ₦${Math.round(z.avg_rent || 0).toLocaleString()} / yr (Range: ₦${Math.round(z.min_rent || 0).toLocaleString()} – ₦${Math.round(z.max_rent || 0).toLocaleString()})\n`;
+        });
+        reply += `\n**Advice for Landlord:** If your lodge get constant water and solar/generator, students dey willing pay between ₦200k – ₦250k for Under G and Adenike!`;
+      } else {
+        reply = `Here is the current live rental benchmark across prime LAUTECH campus zones:\n\n`;
+        zoneStats.forEach(z => {
+          reply += `• **${z.area_name}**: Average **₦${Math.round(z.avg_rent || 0).toLocaleString()} / yr** (Range: ₦${Math.round(z.min_rent || 0).toLocaleString()} – ₦${Math.round(z.max_rent || 0).toLocaleString()})\n`;
+        });
+        reply += `\n**Optimization Tip:** Hostels featuring 24/7 borehole water, prepaid sub-meters, and solar inverters command 15-25% rent premiums with zero vacancy across the academic session.`;
+      }
+
+      structuredData = {
+        type: 'PRICING_BENCHMARK',
+        actionTab: 'listings',
+        actionLabel: 'View & Adjust My Rates',
+        benchmarks: zoneStats,
+        suggestedQueries: isPidgin
+          ? ['How many room remain for my hostel?', 'Any student booking waiting?', 'Make my description fine']
+          : ['How many spaces are available?', 'Which bookings need attention?', 'Improve my hostel description']
+      };
+    }
+
+    // 5. Listing Description Rewrite / Enhancement
+    else if (lower.includes('improve') || lower.includes('description') || lower.includes('rewrite') || lower.includes('wording') || lower.includes('make my lodge fine')) {
       let targetProp: any = null;
       if (propertyId && propertyId !== 'all') {
         targetProp = db.prepare('SELECT * FROM properties WHERE id = ?').get(propertyId);
@@ -1653,19 +1817,50 @@ router.post(
           `**Overview:**\n` +
           `Welcome to ${targetProp.title}, premium student accommodation situated in ${targetProp.address}. Located just ${targetProp.distance_from_campus_km}km from LAUTECH campus gates, it offers an ideal balance of academic focus and convenience.\n\n` +
           `**Key Features & Living Comfort:**\n` +
-          `• Reliable water supply with dedicated overhead storage\n` +
-          `• Secured gated perimeter wall with night lighting\n` +
-          `• Well-ventilated self-contain units\n\n` +
+          `• Reliable borehole water supply with dedicated overhead storage tanks\n` +
+          `• Secured perimeter fence with night lighting and security lock\n` +
+          `• Individual prepaid sub-metering for transparent electricity usage\n` +
+          `• Well-ventilated room units with tiled flooring\n\n` +
           `**House Rules:**\n` +
-          `Quiet hours after 10 PM. No unauthorized subletting. Inspections available Mon–Sat.`;
+          `Quiet hours observed after 10 PM. No unauthorized subletting. Physical inspection tours available Mon–Sat.`;
       } else {
-        reply = `Please select or add a hostel first, and I will craft an optimized description for your listing.`;
+        reply = isPidgin
+          ? `Abeg add hostel first, then I go help you write sharp description wey go attract students.`
+          : `Please select or add a hostel first, and I will craft an optimized description for your listing.`;
       }
+
+      structuredData = {
+        type: 'DESCRIPTION_IMPROVEMENT',
+        actionTab: 'listings',
+        actionLabel: 'Edit Listing Details',
+        suggestedQueries: isPidgin
+          ? ['Wetin be the market price for Under G?', 'How many space remain?', 'Check inspection schedule']
+          : ['Show price benchmarks near Under G', 'How many spaces are available?', 'Summarize upcoming inspections']
+      };
     }
 
     // Default Fallback
     else {
-      reply = `I am your **Hostel Ease Landlord Assistant**. I can help you check available bedspaces, summarize pending booking reservations, view upcoming student inspection tours, or optimize your hostel descriptions.\n\nTry asking:\n• *"How many spaces are currently available?"*\n• *"Which bookings need my attention?"*\n• *"How many inspections do I have scheduled?"*`;
+      reply = isPidgin
+        ? `Hello Oga Landlord! 👋 I be your **Hostel Ease Landlord AI Assistant**.\n\nI fit help you check free bedspaces, manage student booking requests, view your inspection tours, compare hostel prices for Under G / Adenike, or rewrite your hostel description.\n\nWetin you go like make I check for you today?`
+        : `Hello! 👋 Welcome to **Hostel Ease Landlord AI Assistant** — your 24/7 LAUTECH property manager and occupancy advisor.\n\nI can help you monitor real-time bedspace availability, respond to pending student bookings, manage inspection appointments, compare LAUTECH rent benchmarks, and craft high-converting listing descriptions.\n\nHow can I assist your accommodation management today?`;
+
+      structuredData = {
+        type: 'CLARIFYING_QUESTION',
+        suggestedQueries: isPidgin ? [
+          'How many room remain for my hostel now now?',
+          'Any student don book room wey I never accept?',
+          'Which inspection I get this week for my lodge?',
+          'How much students dey pay for self-contain for Under G?',
+          'Wetin I fit do make students rush my hostel?'
+        ] : [
+          'How many rooms & bedspaces are available right now?',
+          'Do I have any pending booking requests needing confirmation?',
+          'Show my upcoming student inspections schedule',
+          'What are students currently paying in Under G vs Adenike?',
+          'How can I improve my hostel listing to get more bookings?'
+        ]
+      };
     }
 
     res.json({

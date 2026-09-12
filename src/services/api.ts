@@ -3417,6 +3417,10 @@ export const api = {
       return { response: `Hello! I have analyzed your hostel portfolio. Everything is in order with high completeness scores. You can optimize your descriptions by highlighting 24/7 borehole water, solar inverters, and proximity to LAUTECH campus gates.` };
     },
 
+    async aiAssist(prompt: string, propertyId?: string): Promise<{ response: string; structuredData?: any }> {
+      return this.askAI(prompt, propertyId);
+    },
+
     async getTeam(): Promise<{ team: any[] }> {
       try {
         const res = await fetch(`${API_BASE}/provider/team`, {
