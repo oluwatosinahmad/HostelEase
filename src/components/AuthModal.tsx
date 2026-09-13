@@ -151,12 +151,18 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     setFullName('');
   };
 
-  const normalizeEmailBeforeSubmit = (rawEmail: string, targetRole: UserRole): string => {
+  const normalizeEmailBeforeSubmit = (rawEmail: string, targetRole: UserRole, currentMode: 'login' | 'register'): string => {
     const trimmed = rawEmail.toLowerCase().trim();
     if (!trimmed) return '';
     if (!trimmed.includes('@')) {
-      if (targetRole === 'STUDENT') return `${trimmed}@lautech.edu.ng`;
-      if (targetRole === 'PROVIDER' || targetRole === 'ADMIN') return `${trimmed}@hostelease.ng`;
+      if (currentMode === 'register') {
+        if (targetRole === 'STUDENT') return `${trimmed}@lautech.edu.ng`;
+        if (targetRole === 'PROVIDER' || targetRole === 'ADMIN') return `${trimmed}@hostelease.ng`;
+      } else {
+        if (targetRole === 'PROVIDER' || trimmed.includes('landlord') || trimmed.includes('provider')) return `${trimmed}@hostelease.ng`;
+        if (targetRole === 'ADMIN' || trimmed.includes('admin')) return `${trimmed}@hostelease.ng`;
+        return `${trimmed}@lautech.edu.ng`;
+      }
     }
     return trimmed;
   };
@@ -167,13 +173,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     setAccessRestricted(false);
     setSubmitting(true);
 
-    const resolvedEmail = normalizeEmailBeforeSubmit(email, role);
+    const resolvedEmail = normalizeEmailBeforeSubmit(email, role, mode);
 
     try {
       let authedUser: any = null;
       if (mode === 'login') {
-        // Pass requested role context to backend for strict authorization
-        authedUser = await login(resolvedEmail, password, role);
+        // Backend database is single source of truth for account role
+        authedUser = await login(resolvedEmail, password, role === 'ADMIN' ? 'ADMIN' : undefined);
       } else {
         authedUser = await register({
           email: resolvedEmail,

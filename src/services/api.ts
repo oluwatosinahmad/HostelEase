@@ -211,19 +211,24 @@ export function getLocalProperties(providerId?: string, providerEmail?: string):
 
   if (matches.length > 0) return matches;
 
-  // Fallback so ANY landlord logging in immediately sees hostels under "My Hostels"
-  return all.slice(0, 4).map(p => ({
-    ...p,
-    providerId: providerId || 'usr-provider-default',
-    providerEmail: cleanEmail || 'provider@hostelease.ng',
-    provider: {
-      id: providerId || 'usr-provider-default',
-      name: 'Hostel Landlord',
-      email: cleanEmail || 'provider@hostelease.ng',
-      phone: '08012345678',
-      role: 'LANDLORD'
-    }
-  }));
+  // Only the official demo landlord gets demo hostels fallback
+  if (isDefaultProvider) {
+    return all.slice(0, 4).map(p => ({
+      ...p,
+      providerId: 'usr-provider-default',
+      providerEmail: 'landlord@hostelease.ng',
+      provider: {
+        id: 'usr-provider-default',
+        name: 'Verified Landlord',
+        email: 'landlord@hostelease.ng',
+        phone: '08012345678',
+        role: 'PROVIDER'
+      }
+    }));
+  }
+
+  // Real landlords start with empty list []
+  return [];
 }
 
 export function saveLocalProperty(prop: Property) {
@@ -1487,12 +1492,6 @@ function handleClientSideFallbackLogin(payload: { email?: string; password?: str
   const matchedUser = registeredUsers.find(u => u.email?.toLowerCase().trim() === email);
 
   if (matchedUser) {
-    if (requested && matchedUser.role !== requested) {
-      const err: any = new Error(`This account is registered as a ${matchedUser.role === 'PROVIDER' ? 'Landlord' : matchedUser.role}. Please switch to the correct portal tab.`);
-      err.code = requested === 'ADMIN' ? 'UNAUTHORIZED_ADMIN_ACCESS' : (requested === 'PROVIDER' ? 'UNAUTHORIZED_PROVIDER_ACCESS' : 'UNAUTHORIZED_STUDENT_ACCESS');
-      err.status = 403;
-      throw err;
-    }
     const mockToken = `he_token_${Date.now()}`;
     localStorage.setItem('hostel_ease_token', mockToken);
     localStorage.setItem('hostel_ease_user', JSON.stringify(matchedUser));
@@ -1500,7 +1499,7 @@ function handleClientSideFallbackLogin(payload: { email?: string; password?: str
   }
 
   // Strict Admin Validation on Netlify/offline static mode
-  if (requested === 'ADMIN') {
+  if (requested === 'ADMIN' || email.includes('admin') || email === 'hostelease.admin@gmail.com') {
     const isAuthorizedAdmin = 
       email.includes('admin') || 
       email === 'admin@hostelease.ng' || 
@@ -1530,29 +1529,18 @@ function handleClientSideFallbackLogin(payload: { email?: string; password?: str
     return { message: 'Login successful', token: mockToken, user: adminUser };
   }
 
-  if (requested === 'PROVIDER') {
-    if (email.includes('student@') || email.endsWith('.edu.ng')) {
-      const err: any = new Error('This student email is not authorized to access the Landlord Dashboard. Please use your Landlord email or switch to the Student Portal.');
-      err.code = 'UNAUTHORIZED_PROVIDER_ACCESS';
-      err.status = 403;
-      throw err;
-    }
-    const isDemoProvider = email === 'provider@hostelease.ng' || email === 'landlord@hostelease.ng' || !email;
-    const providerName = isDemoProvider 
-      ? 'Chief (Alhaji) G. O. Adeleke' 
-      : email.split('@')[0].replace(/[._-]/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) + ' (Landlord)';
-    const providerId = isDemoProvider ? 'usr-provider-default' : `usr-prov-${email.replace(/[^a-z0-9]/g, '-')}`;
-
+  // Only demo landlord allowed if unregistered
+  if (email === 'provider@hostelease.ng' || email === 'landlord@hostelease.ng') {
     const providerUser = {
-      id: providerId,
-      fullName: providerName,
-      email: email || 'landlord@hostelease.ng',
+      id: 'usr-provider-default',
+      fullName: 'Chief (Alhaji) G. O. Adeleke',
+      email,
       role: 'PROVIDER',
       phone: '08039876543',
       avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=300&q=80',
       isActive: 1,
       accountStatus: 'ACTIVE',
-      providerDetails: { businessName: isDemoProvider ? 'Adeleke Heritage Properties Ogbomoso' : `${providerName} Accommodations` }
+      providerDetails: { businessName: 'Adeleke Heritage Properties Ogbomoso' }
     };
     const mockToken = `he_prov_token_${Date.now()}`;
     saveLocalRegisteredUsers([...registeredUsers, providerUser]);
@@ -1561,41 +1549,36 @@ function handleClientSideFallbackLogin(payload: { email?: string; password?: str
     return { message: 'Login successful', token: mockToken, user: providerUser };
   }
 
-  // Student login
-  if (email.includes('admin@') || email.includes('provider@') || email.includes('landlord@')) {
-    const err: any = new Error('This email is registered as a Landlord/Admin. Please switch to the Landlord or Admin portal tab.');
-    err.code = 'UNAUTHORIZED_STUDENT_ACCESS';
-    err.status = 403;
-    throw err;
+  // Only demo student allowed if unregistered
+  if (email === 'student@lautech.edu.ng' || email === 'student@hostelease.ng') {
+    const studentUser = {
+      id: 'usr-student-default',
+      fullName: 'Tunde Adeyemi',
+      email,
+      role: 'STUDENT',
+      phone: '08031234567',
+      avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80',
+      isActive: 1,
+      accountStatus: 'ACTIVE',
+      studentDetails: { 
+        department: 'Computer Science', 
+        level: '300L',
+        matricNo: '2024/04812',
+        matricNumber: '2024/04812'
+      }
+    };
+    const mockToken = `he_stud_token_${Date.now()}`;
+    saveLocalRegisteredUsers([...registeredUsers, studentUser]);
+    localStorage.setItem('hostel_ease_token', mockToken);
+    localStorage.setItem('hostel_ease_user', JSON.stringify(studentUser));
+    return { message: 'Login successful', token: mockToken, user: studentUser };
   }
 
-  const isDemoStudent = email === 'student@lautech.edu.ng' || email === 'student@hostelease.ng' || !email;
-  const studentName = isDemoStudent 
-    ? 'Tunde Adeyemi' 
-    : email.split('@')[0].replace(/[._-]/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-  const studentId = isDemoStudent ? 'usr-student-default' : `usr-stud-${email.replace(/[^a-z0-9]/g, '-')}`;
-
-  const studentUser = {
-    id: studentId,
-    fullName: studentName,
-    email: email || 'student@lautech.edu.ng',
-    role: 'STUDENT',
-    phone: '08031234567',
-    avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80',
-    isActive: 1,
-    accountStatus: 'ACTIVE',
-    studentDetails: { 
-      department: 'Computer Science', 
-      level: '300L',
-      matricNo: '2024/04812',
-      matricNumber: '2024/04812'
-    }
-  };
-  const mockToken = `he_stud_token_${Date.now()}`;
-  saveLocalRegisteredUsers([...registeredUsers, studentUser]);
-  localStorage.setItem('hostel_ease_token', mockToken);
-  localStorage.setItem('hostel_ease_user', JSON.stringify(studentUser));
-  return { message: 'Login successful', token: mockToken, user: studentUser };
+  // Unregistered real user: NEVER auto-create or guess role!
+  const notFoundErr: any = new Error('No account found with this email. Please check your credentials or register.');
+  notFoundErr.code = 'INVALID_CREDENTIALS';
+  notFoundErr.status = 401;
+  throw notFoundErr;
 }
 
 // Local messaging helpers for seamless 100% reliable chat

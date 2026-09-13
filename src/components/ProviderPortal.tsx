@@ -120,26 +120,26 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
 
   const DEFAULT_PROVIDER_DASHBOARD = {
     stats: {
-      totalHostels: 1,
-      activeHostels: 1,
+      totalHostels: 0,
+      activeHostels: 0,
       pendingApproval: 0,
       drafts: 0,
-      totalCapacity: 12,
-      availableSpaces: 4,
-      occupiedSpaces: 8,
-      reservedSpaces: 1,
-      pendingBookings: 1,
-      confirmedBookings: 3,
-      upcomingInspections: 2,
-      pendingInspections: 1,
-      totalRevenue: 3500000,
-      verificationStatus: 'APPROVED',
+      totalCapacity: 0,
+      availableSpaces: 0,
+      occupiedSpaces: 0,
+      reservedSpaces: 0,
+      pendingBookings: 0,
+      confirmedBookings: 0,
+      upcomingInspections: 0,
+      pendingInspections: 0,
+      totalRevenue: 0,
+      verificationStatus: 'PENDING',
       unreadMessages: 0
     },
     properties: [],
     actionRequired: [],
     qualityAlerts: [],
-    onboarding: { completed: true, step: 4 }
+    onboarding: { completed: false, step: 1 }
   };
 
   const DEFAULT_PROVIDER_PERFORMANCE = {
@@ -291,6 +291,8 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
 
   const fetchAllProviderData = (propId: string = selectedPropertyId) => {
     setLoading(true);
+    const isDemoLandlord = user?.email === 'landlord@hostelease.ng' || user?.email === 'provider@hostelease.ng' || user?.id === 'user-provider-default' || user?.id === 'usr-provider-default';
+
     Promise.all([
       api.provider.getDashboard(propId).catch(err => {
         console.warn('api.provider.getDashboard fallback:', err);
@@ -298,7 +300,7 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
       }),
       api.provider.getMyListings().catch(err => {
         console.warn('api.provider.getMyListings fallback:', err);
-        return { properties: DEFAULT_PROPERTIES.slice(0, 4) };
+        return { properties: isDemoLandlord ? DEFAULT_PROPERTIES.slice(0, 4) : [] };
       }),
       api.provider.getCalendar(propId).catch(() => ({ events: [] })),
       api.provider.getInspectionSchedules().catch(() => ({ schedules: [] })),
@@ -311,10 +313,35 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
       api.messages.getConversations().catch(() => ({ conversations: [] }))
     ])
       .then(([dashRes, propsRes, calRes, schedRes, qrRes, perfRes, teamRes, logsRes, docsRes, notifsRes, msgsRes]) => {
-        setDashboardData(dashRes || DEFAULT_PROVIDER_DASHBOARD);
-        const fetchedProps = (propsRes && Array.isArray(propsRes.properties) && propsRes.properties.length > 0)
-          ? propsRes.properties
-          : DEFAULT_PROPERTIES.slice(0, 4);
+        let fetchedProps: Property[] = [];
+        if (propsRes && Array.isArray(propsRes.properties)) {
+          fetchedProps = propsRes.properties;
+        } else if (isDemoLandlord) {
+          fetchedProps = DEFAULT_PROPERTIES.slice(0, 4);
+        }
+
+        const resolvedDashboard = dashRes ? { ...dashRes } : { ...DEFAULT_PROVIDER_DASHBOARD };
+        if (!isDemoLandlord && fetchedProps.length === 0) {
+          resolvedDashboard.stats = {
+            ...resolvedDashboard.stats,
+            totalHostels: 0,
+            activeHostels: 0,
+            pendingApproval: 0,
+            drafts: 0,
+            totalCapacity: 0,
+            availableSpaces: 0,
+            occupiedSpaces: 0,
+            reservedSpaces: 0,
+            pendingBookings: 0,
+            confirmedBookings: 0,
+            upcomingInspections: 0,
+            pendingInspections: 0,
+            totalRevenue: 0
+          };
+          resolvedDashboard.properties = [];
+        }
+
+        setDashboardData(resolvedDashboard);
         setProperties(fetchedProps);
         setCalendarEvents(calRes?.events || []);
         setInspectionSchedules(schedRes?.schedules || []);
@@ -338,7 +365,7 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
         }
 
         // Check if onboarding needs to be shown for new providers
-        if (dashRes?.onboarding && !dashRes.onboarding.completed && (!propsRes?.properties || propsRes.properties.length === 0)) {
+        if (resolvedDashboard?.onboarding && !resolvedDashboard.onboarding.completed && (!propsRes?.properties || propsRes.properties.length === 0)) {
           setOnboardingOpen(true);
         }
 
@@ -347,7 +374,7 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
       .catch(err => {
         console.error('Error loading provider data', err);
         setDashboardData(DEFAULT_PROVIDER_DASHBOARD);
-        setProperties(DEFAULT_PROPERTIES.slice(0, 4));
+        setProperties(isDemoLandlord ? DEFAULT_PROPERTIES.slice(0, 4) : []);
         setPerformanceData(DEFAULT_PROVIDER_PERFORMANCE);
         setLoading(false);
       });

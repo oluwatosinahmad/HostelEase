@@ -1,4 +1,5 @@
 import type { Config } from "@netlify/functions";
+import { getStore } from "@netlify/blobs";
 import seedPropertiesData from "../../src/data/seedProperties.json";
 import seedUsersData from "../../src/data/seedUsers.json";
 
@@ -149,30 +150,142 @@ let memoryProperties: any[] = [
 ];
 let memoryVideos: any[] = [];
 
-const NTFY_TOPIC = 'hostel_ease_sync_v1_lautech';
+const NTFY_TOPIC = 'hostel_ease_sync_v2_lautech';
 let lastCloudLoad = 0;
 
-async function loadCloudData() {
-  if (Date.now() - lastCloudLoad < 3000) return;
-  lastCloudLoad = Date.now();
+function getBlobsStore(name: string) {
+  try {
+    return getStore(name);
+  } catch {
+    return null;
+  }
+}
+
+async function saveCloudUser(user: any) {
+  if (!user || !user.email) return;
+  const cleanEmail = user.email.toLowerCase().trim();
+  const existingIdx = memoryUsers.findIndex(u => u.email.toLowerCase() === cleanEmail);
+  if (existingIdx >= 0) {
+    memoryUsers[existingIdx] = { ...memoryUsers[existingIdx], ...user };
+  } else {
+    memoryUsers.push(user);
+  }
 
   try {
-    const res = await fetch(`https://ntfy.sh/${NTFY_TOPIC}/json?poll=1`, {
+    const store = getBlobsStore('users');
+    if (store) {
+      await store.setJSON(cleanEmail, user);
+      if (user.id) await store.setJSON(user.id, user);
+    }
+  } catch {}
+
+  try {
+    await fetch(`https://ntfy.sh/${NTFY_TOPIC}`, {
+      method: 'POST',
+      headers: { 'Title': 'HOSTEL_USER', 'Tags': 'bust_in_silhouette' },
+      body: JSON.stringify({ type: 'USER_REGISTERED', user }),
       signal: AbortSignal.timeout(3500)
+    });
+  } catch {}
+}
+
+async function saveCloudProperty(prop: any) {
+  if (!prop || !prop.id) return;
+  const existingIdx = memoryProperties.findIndex(p => p.id === prop.id);
+  if (existingIdx >= 0) {
+    memoryProperties[existingIdx] = { ...memoryProperties[existingIdx], ...prop };
+  } else {
+    memoryProperties.unshift(prop);
+  }
+
+  try {
+    const store = getBlobsStore('properties');
+    if (store) {
+      await store.setJSON(prop.id, prop);
+    }
+  } catch {}
+
+  try {
+    await fetch(`https://ntfy.sh/${NTFY_TOPIC}`, {
+      method: 'POST',
+      headers: { 'Title': 'HOSTEL_PROPERTY', 'Tags': 'house' },
+      body: JSON.stringify({ type: 'PROPERTY_CREATED', property: prop }),
+      signal: AbortSignal.timeout(3500)
+    });
+  } catch {}
+}
+
+async function loadCloudData(force = false) {
+  if (!force && Date.now() - lastCloudLoad < 2500) return;
+  lastCloudLoad = Date.now();
+
+  // 1. Try loading from @netlify/blobs if configured
+  try {
+    const userStore = getBlobsStore('users');
+    if (userStore) {
+      const { blobs } = await userStore.list();
+      for (const b of blobs) {
+        if (b.key.includes('@')) {
+          const u = await userStore.get(b.key, { type: 'json' });
+          if (u && u.email) {
+            const idx = memoryUsers.findIndex(mu => mu.email.toLowerCase() === u.email.toLowerCase());
+            if (idx >= 0) {
+              memoryUsers[idx] = { ...memoryUsers[idx], ...u };
+            } else {
+              memoryUsers.push(u);
+            }
+          }
+        }
+      }
+    }
+  } catch {}
+
+  try {
+    const propStore = getBlobsStore('properties');
+    if (propStore) {
+      const { blobs } = await propStore.list();
+      const existingIds = new Set(memoryProperties.map(p => p.id));
+      for (const b of blobs) {
+        const p = await propStore.get(b.key, { type: 'json' });
+        if (p && p.id && !existingIds.has(p.id)) {
+          memoryProperties.unshift(p);
+          existingIds.add(p.id);
+        }
+      }
+    }
+  } catch {}
+
+  // 2. Poll multi-container cloud sync topic for real-time messages across Lambdas
+  try {
+    const res = await fetch(`https://ntfy.sh/${NTFY_TOPIC}/json?poll=1`, {
+      signal: AbortSignal.timeout(4000)
     });
     if (res.ok) {
       const text = await res.text();
       const lines = text.trim().split('\n').filter(Boolean);
-      const existingIds = new Set(memoryProperties.map(p => p.id));
+      const existingPropIds = new Set(memoryProperties.map(p => p.id));
       for (const line of lines) {
         try {
           const item = JSON.parse(line);
           if (item.event === 'message' && item.message) {
             const payload = JSON.parse(item.message);
-            if (payload.type === 'PROPERTY' && payload.property && payload.property.id) {
-              if (!existingIds.has(payload.property.id)) {
-                memoryProperties.unshift(payload.property);
-                existingIds.add(payload.property.id);
+            if ((payload.type === 'USER_REGISTERED' || payload.type === 'USER') && payload.user && payload.user.email) {
+              const u = payload.user;
+              const idx = memoryUsers.findIndex(mu => mu.email.toLowerCase() === u.email.toLowerCase());
+              if (idx >= 0) {
+                memoryUsers[idx] = { ...memoryUsers[idx], ...u };
+              } else {
+                memoryUsers.push(u);
+              }
+            }
+            if ((payload.type === 'PROPERTY_CREATED' || payload.type === 'PROPERTY') && payload.property && payload.property.id) {
+              const p = payload.property;
+              if (!existingPropIds.has(p.id)) {
+                memoryProperties.unshift(p);
+                existingPropIds.add(p.id);
+              } else {
+                const pIdx = memoryProperties.findIndex(mp => mp.id === p.id);
+                if (pIdx >= 0) memoryProperties[pIdx] = { ...memoryProperties[pIdx], ...p };
               }
             }
           }
@@ -182,20 +295,50 @@ async function loadCloudData() {
   } catch {}
 }
 
-async function saveCloudData(prop?: any) {
-  if (!prop) return;
-  try {
-    await fetch(`https://ntfy.sh/${NTFY_TOPIC}`, {
-      method: 'POST',
-      headers: { 'Title': 'HOSTEL_PROPERTY', 'Tags': 'house' },
-      body: JSON.stringify({ type: 'PROPERTY', property: prop }),
-      signal: AbortSignal.timeout(3000)
-    });
-  } catch {}
+function createAuthToken(user: any): string {
+  const payload = {
+    id: user.id,
+    email: user.email,
+    role: user.role,
+    fullName: user.fullName || user.full_name || '',
+    iat: Math.floor(Date.now() / 1000)
+  };
+  return `hl_${Buffer.from(JSON.stringify(payload)).toString('base64url')}`;
 }
 
 // Helper to extract bearer token or user info
 function parseAuth(req: Request): any | null {
+  const authHeader = req.headers.get('authorization') || '';
+  if (authHeader.startsWith('Bearer ')) {
+    const token = authHeader.substring(7).trim();
+    if (token) {
+      if (token.startsWith('hl_')) {
+        try {
+          const raw = Buffer.from(token.substring(3), 'base64url').toString('utf8');
+          const payload = JSON.parse(raw);
+          if (payload && (payload.id || payload.email)) {
+            const inMem = memoryUsers.find(u => u.id === payload.id || (u.email && payload.email && u.email.toLowerCase() === payload.email.toLowerCase()));
+            return inMem ? { ...inMem, role: payload.role || inMem.role } : payload;
+          }
+        } catch {}
+      }
+
+      try {
+        const parts = token.split('.');
+        if (parts.length >= 2) {
+          const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString('utf8'));
+          if (payload && (payload.id || payload.email)) {
+            const inMem = memoryUsers.find(u => u.id === payload.id || (u.email && payload.email && u.email.toLowerCase() === payload.email.toLowerCase()));
+            return inMem ? { ...inMem, role: payload.role || inMem.role } : payload;
+          }
+        }
+      } catch {}
+
+      const matched = memoryUsers.find(u => token.includes(u.id) || (u.email && token.includes(u.email)));
+      if (matched) return matched;
+    }
+  }
+
   const headerEmail = req.headers.get('x-user-email')?.toLowerCase().trim();
   const headerId = req.headers.get('x-user-id');
   const headerRole = req.headers.get('x-user-role');
@@ -203,38 +346,25 @@ function parseAuth(req: Request): any | null {
   if (headerEmail) {
     let matched = memoryUsers.find(u => u.email.toLowerCase() === headerEmail);
     if (matched) return matched;
+    const cleanRole = (headerRole || 'PROVIDER').toUpperCase();
     const newUser = {
       id: headerId || `user-${Date.now()}`,
       email: headerEmail,
       fullName: 'HostelEase User',
       phone: '08012345678',
-      role: headerRole || 'PROVIDER'
+      role: cleanRole === 'LANDLORD' ? 'PROVIDER' : cleanRole
     };
     memoryUsers.push(newUser);
     return newUser;
   }
 
-  const authHeader = req.headers.get('authorization') || '';
-  if (!authHeader.startsWith('Bearer ')) return null;
-  const token = authHeader.substring(7).trim();
-  if (!token) return null;
-
-  try {
-    const parts = token.split('.');
-    if (parts.length >= 2) {
-      const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString('utf8'));
-      if (payload && (payload.id || payload.email)) return payload;
-    }
-  } catch {}
-
-  const matched = memoryUsers.find(u => token.includes(u.id) || (u.email && token.includes(u.email)));
-  return matched || memoryUsers[0];
+  return null;
 }
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With, X-User-Email, X-User-Id, X-User-Role',
   'Content-Type': 'application/json'
 };
 
@@ -262,46 +392,74 @@ export default async (req: Request): Promise<Response> => {
     }), { status: 200, headers: CORS_HEADERS });
   }
 
-  // 2. Auth Register
+  // 2. Auth Current User (Me)
+  if (pathname === '/api/auth/me' && req.method === 'GET') {
+    const user = parseAuth(req);
+    if (!user) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: CORS_HEADERS });
+    }
+    return new Response(JSON.stringify({
+      user: {
+        id: user.id,
+        email: user.email,
+        fullName: user.fullName,
+        role: user.role,
+        phone: user.phone,
+        businessName: user.businessName,
+        avatarUrl: user.avatarUrl,
+        matricNo: user.matricNo,
+        department: user.department,
+        level: user.level
+      }
+    }), { status: 200, headers: CORS_HEADERS });
+  }
+
+  // 3. Auth Register
   if (pathname === '/api/auth/register' && req.method === 'POST') {
     try {
       const body = await req.json();
       const email = (body.email || '').toLowerCase().trim();
-      if (!email) {
-        return new Response(JSON.stringify({ error: 'Email is required' }), { status: 400, headers: CORS_HEADERS });
+      const rawRole = (body.role || 'STUDENT').toUpperCase();
+      const role = rawRole === 'LANDLORD' ? 'PROVIDER' : rawRole;
+
+      if (!email || !body.password) {
+        return new Response(JSON.stringify({ error: 'Email and password are required' }), { status: 400, headers: CORS_HEADERS });
+      }
+
+      if (role === 'ADMIN' || role === 'OWNER') {
+        return new Response(JSON.stringify({ 
+          error: 'PUBLIC_ADMIN_REGISTRATION_FORBIDDEN',
+          message: 'Admin accounts cannot be registered publicly. Only an authorized Super Admin can provision administrative accounts.' 
+        }), { status: 403, headers: CORS_HEADERS });
       }
 
       let existing = memoryUsers.find(u => u.email.toLowerCase() === email);
       if (existing) {
-        const token = `token-${existing.id}-${Date.now()}`;
         return new Response(JSON.stringify({
-          message: 'Account verified',
-          token,
-          user: {
-            id: existing.id,
-            email: existing.email,
-            fullName: existing.fullName,
-            role: existing.role,
-            phone: existing.phone,
-            businessName: existing.businessName
-          }
-        }), { status: 200, headers: CORS_HEADERS });
+          error: 'ACCOUNT_ALREADY_EXISTS',
+          message: 'An account with this email already exists. Please log in.'
+        }), { status: 409, headers: CORS_HEADERS });
       }
 
+      const userId = `usr-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
       const newUser = {
-        id: `user-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+        id: userId,
         email,
-        password: body.password || 'Password123!',
-        fullName: body.fullName || (body.role === 'PROVIDER' ? 'Hostel Landlord' : 'Student User'),
+        password: body.password,
+        fullName: body.fullName || (role === 'PROVIDER' ? 'Hostel Landlord' : 'Student User'),
         phone: body.phone || '08012345678',
-        role: body.role || 'STUDENT',
-        businessName: body.businessName || body.providerDetails?.businessName || 'LAUTECH Accommodation'
+        role,
+        avatarUrl: body.avatarUrl || (role === 'PROVIDER' ? 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=300&q=80' : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80'),
+        businessName: body.businessName || body.providerDetails?.businessName || (role === 'PROVIDER' ? 'LAUTECH Accommodation' : undefined),
+        matricNo: body.matricNo || body.studentDetails?.matricNo || undefined,
+        department: body.department || body.studentDetails?.department || undefined,
+        level: body.level || body.studentDetails?.level || undefined,
+        createdAt: new Date().toISOString()
       };
 
-      memoryUsers.push(newUser);
-      await saveCloudData();
+      await saveCloudUser(newUser);
 
-      const token = `token-${newUser.id}-${Date.now()}`;
+      const token = createAuthToken(newUser);
       return new Response(JSON.stringify({
         message: 'Registration successful',
         token,
@@ -311,7 +469,11 @@ export default async (req: Request): Promise<Response> => {
           fullName: newUser.fullName,
           role: newUser.role,
           phone: newUser.phone,
-          businessName: newUser.businessName
+          businessName: newUser.businessName,
+          avatarUrl: newUser.avatarUrl,
+          matricNo: newUser.matricNo,
+          department: newUser.department,
+          level: newUser.level
         }
       }), { status: 201, headers: CORS_HEADERS });
     } catch (err: any) {
@@ -319,28 +481,60 @@ export default async (req: Request): Promise<Response> => {
     }
   }
 
-  // 3. Auth Login
+  // 4. Auth Login
   if (pathname === '/api/auth/login' && req.method === 'POST') {
     try {
       const body = await req.json();
       const email = (body.email || '').toLowerCase().trim();
       const password = body.password || '';
 
-      let matched = memoryUsers.find(u => u.email.toLowerCase() === email);
-      if (!matched) {
-        matched = {
-          id: `user-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-          email,
-          password,
-          fullName: email.includes('landlord') || email.includes('provider') ? 'Verified Landlord' : 'Hostel Ease User',
-          phone: '08012345678',
-          role: email.includes('admin') ? 'ADMIN' : (email.includes('landlord') || email.includes('provider') ? 'PROVIDER' : 'STUDENT')
-        };
-        memoryUsers.push(matched);
-        await saveCloudData();
+      if (!email || !password) {
+        return new Response(JSON.stringify({ error: 'Email and password are required' }), { status: 400, headers: CORS_HEADERS });
       }
 
-      const token = `token-${matched.id}-${Date.now()}`;
+      let matched = memoryUsers.find(u => u.email.toLowerCase() === email);
+
+      // If not in RAM, try directly from Netlify Blobs
+      if (!matched) {
+        try {
+          const userStore = getBlobsStore('users');
+          if (userStore) {
+            matched = await userStore.get(email, { type: 'json' });
+            if (matched) memoryUsers.push(matched);
+          }
+        } catch {}
+      }
+
+      // STRICT: Never auto-register unknown users!
+      if (!matched) {
+        return new Response(JSON.stringify({ 
+          error: 'INVALID_CREDENTIALS',
+          message: 'No account found with this email address. Please register or verify your credentials.' 
+        }), { status: 401, headers: CORS_HEADERS });
+      }
+
+      // Password verification
+      if (matched.password && matched.password !== password) {
+        return new Response(JSON.stringify({ 
+          error: 'INVALID_CREDENTIALS',
+          message: 'Invalid password. Please check your credentials.' 
+        }), { status: 401, headers: CORS_HEADERS });
+      }
+
+      // Strict role enforcement if requestedRole is provided
+      const targetRole = body.requestedRole || body.role;
+      if (targetRole) {
+        const reqRole = (targetRole as string).toUpperCase() === 'LANDLORD' ? 'PROVIDER' : (targetRole as string).toUpperCase();
+        if (reqRole === 'ADMIN' && matched.role !== 'ADMIN' && matched.role !== 'OWNER') {
+          return new Response(JSON.stringify({
+            error: 'ACCESS_RESTRICTED',
+            code: 'UNAUTHORIZED_ADMIN_ACCESS',
+            message: 'This account is not authorized to access the Admin Portal.'
+          }), { status: 403, headers: CORS_HEADERS });
+        }
+      }
+
+      const token = createAuthToken(matched);
       return new Response(JSON.stringify({
         message: 'Authentication successful',
         token,
@@ -350,7 +544,11 @@ export default async (req: Request): Promise<Response> => {
           fullName: matched.fullName,
           role: matched.role,
           phone: matched.phone,
-          businessName: matched.businessName
+          businessName: matched.businessName,
+          avatarUrl: matched.avatarUrl,
+          matricNo: matched.matricNo,
+          department: matched.department,
+          level: matched.level
         }
       }), { status: 200, headers: CORS_HEADERS });
     } catch (err: any) {
@@ -358,44 +556,34 @@ export default async (req: Request): Promise<Response> => {
     }
   }
 
-  // 4. Provider Properties (Get my hostels)
+  // 5. Provider Properties (Get my hostels)
   if (pathname === '/api/provider/properties' && req.method === 'GET') {
     const user = parseAuth(req);
     const userEmail = (user?.email || '').toLowerCase().trim();
     const userId = user?.id || '';
 
-    const list = memoryProperties.filter(p => {
+    const isDemoLandlord = userEmail === 'landlord@hostelease.ng' || userEmail === 'provider@hostelease.ng' || userId === 'user-provider-default' || userId === 'user-provider-1';
+
+    const myHostels = memoryProperties.filter(p => {
       const pEmail = ((p as any).providerEmail || p.provider?.email || '').toLowerCase().trim();
       const pId = (p as any).providerId || p.provider?.id;
       if (userEmail && pEmail && pEmail === userEmail) return true;
       if (userId && pId && pId === userId) return true;
-      if (p.isDemo) return true;
+      if (isDemoLandlord && p.isDemo) return true;
       return false;
     });
 
-    const resultList = list.length > 0 ? list : memoryProperties.slice(0, 4).map(p => ({
-      ...p,
-      providerId: userId || 'usr-provider-default',
-      providerEmail: userEmail || 'provider@hostelease.ng',
-      provider: {
-        id: userId || 'usr-provider-default',
-        name: user?.fullName || 'Hostel Landlord',
-        email: userEmail || 'provider@hostelease.ng',
-        phone: user?.phone || '08031234567',
-        role: 'LANDLORD'
-      }
-    }));
-
-    return new Response(JSON.stringify({ properties: resultList }), { status: 200, headers: CORS_HEADERS });
+    // Clean empty state for new landlords: Return [] if no hostels
+    return new Response(JSON.stringify({ properties: myHostels }), { status: 200, headers: CORS_HEADERS });
   }
 
-  // 5. Provider Properties (Create hostel listing)
+  // 6. Provider Properties (Create hostel listing)
   if (pathname === '/api/provider/properties' && req.method === 'POST') {
     try {
       const data = await req.json();
       const user = parseAuth(req);
-      const currentUserId = user?.id || 'usr-provider-default';
-      const currentUserEmail = (user?.email || 'landlord@hostelease.ng').toLowerCase().trim();
+      const currentUserId = user?.id || req.headers.get('x-user-id') || `usr-prov-${Date.now()}`;
+      const currentUserEmail = (user?.email || req.headers.get('x-user-email') || 'landlord@hostelease.ng').toLowerCase().trim();
 
       const propertyId = `prop-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
       const slug = (data.title || 'hostel').toLowerCase().replace(/[^a-z0-9]+/g, '-') + '-' + Date.now().toString(36);
@@ -479,8 +667,6 @@ export default async (req: Request): Promise<Response> => {
         createdAt: new Date().toISOString()
       };
 
-      memoryProperties.unshift(newProp);
-
       if (hasVideo && videoTourUrl) {
         memoryVideos.unshift({
           id: `vid-${propertyId}`,
@@ -498,7 +684,7 @@ export default async (req: Request): Promise<Response> => {
         });
       }
 
-      await saveCloudData(newProp);
+      await saveCloudProperty(newProp);
 
       return new Response(JSON.stringify({
         message: 'Hostel added and submitted for review',
@@ -599,23 +785,24 @@ export default async (req: Request): Promise<Response> => {
       try {
         const body = await req.json();
         if (Array.isArray(body.users)) {
-          const ids = new Set(memoryUsers.map(u => u.id));
           for (const u of body.users) {
-            if (!ids.has(u.id)) memoryUsers.push(u);
+            if (u && u.email) {
+              await saveCloudUser(u);
+            }
           }
         }
         if (Array.isArray(body.properties)) {
-          const ids = new Set(memoryProperties.map(p => p.id));
           for (const p of body.properties) {
-            if (!ids.has(p.id)) memoryProperties.unshift(p);
+            if (p && p.id && !p.isDemo) {
+              await saveCloudProperty(p);
+            }
           }
         }
-        await saveCloudData();
       } catch {}
     }
 
     return new Response(JSON.stringify({
-      users: memoryUsers,
+      users: memoryUsers.map(u => ({ id: u.id, email: u.email, fullName: u.fullName, role: u.role, phone: u.phone, businessName: u.businessName, avatarUrl: u.avatarUrl })),
       properties: memoryProperties,
       videos: memoryVideos
     }), { status: 200, headers: CORS_HEADERS });
@@ -691,45 +878,49 @@ export default async (req: Request): Promise<Response> => {
     }), { status: 200, headers: CORS_HEADERS });
   }
 
-  // 12. Provider Dashboard
+  // 12. Provider Dashboard (Strict Data Isolation & Dynamic Metrics)
   if (pathname === '/api/provider/dashboard' && req.method === 'GET') {
     const user = parseAuth(req);
     const userEmail = (user?.email || '').toLowerCase().trim();
     const userId = user?.id || '';
+
+    const isDemoLandlord = userEmail === 'landlord@hostelease.ng' || userEmail === 'provider@hostelease.ng' || userId === 'user-provider-default' || userId === 'user-provider-1';
 
     const myProps = memoryProperties.filter(p => {
       const pEmail = ((p as any).providerEmail || p.provider?.email || '').toLowerCase().trim();
       const pId = (p as any).providerId || p.provider?.id;
       if (userEmail && pEmail && pEmail === userEmail) return true;
       if (userId && pId && pId === userId) return true;
-      if (p.isDemo) return true;
+      if (isDemoLandlord && p.isDemo) return true;
       return false;
     });
 
-    const activeList = myProps.length > 0 ? myProps : memoryProperties.slice(0, 4);
+    const totalCapacity = myProps.reduce((sum, p) => sum + (Number(p.totalRooms) || 0), 0);
+    const activeHostels = myProps.filter(p => p.verificationStatus === 'APPROVED').length;
+    const pendingApproval = myProps.filter(p => p.verificationStatus !== 'APPROVED').length;
 
     return new Response(JSON.stringify({
       stats: {
-        totalHostels: activeList.length,
-        activeHostels: activeList.filter(p => p.verificationStatus === 'APPROVED').length,
-        pendingApproval: activeList.filter(p => p.verificationStatus !== 'APPROVED').length,
+        totalHostels: myProps.length,
+        activeHostels,
+        pendingApproval,
         drafts: 0,
-        totalCapacity: activeList.reduce((sum, p) => sum + (Number(p.totalRooms) || 10), 0),
-        availableSpaces: 4,
-        occupiedSpaces: 8,
-        reservedSpaces: 1,
-        pendingBookings: 1,
-        confirmedBookings: 3,
-        upcomingInspections: 2,
-        pendingInspections: 1,
-        totalRevenue: 3500000,
-        verificationStatus: 'APPROVED',
+        totalCapacity,
+        availableSpaces: totalCapacity,
+        occupiedSpaces: 0,
+        reservedSpaces: 0,
+        pendingBookings: 0,
+        confirmedBookings: 0,
+        upcomingInspections: 0,
+        pendingInspections: 0,
+        totalRevenue: isDemoLandlord ? 3500000 : 0,
+        verificationStatus: myProps.length > 0 ? (activeHostels > 0 ? 'APPROVED' : 'PENDING') : 'PENDING',
         unreadMessages: 0
       },
-      properties: activeList,
+      properties: myProps,
       actionRequired: [],
       qualityAlerts: [],
-      onboarding: { completed: true, step: 4 }
+      onboarding: { completed: myProps.length > 0, step: myProps.length > 0 ? 4 : 1 }
     }), { status: 200, headers: CORS_HEADERS });
   }
 
@@ -856,10 +1047,13 @@ export default async (req: Request): Promise<Response> => {
   }
 
   if (pathname === '/api/payments/provider-financials' && req.method === 'GET') {
+    const user = parseAuth(req);
+    const userEmail = (user?.email || '').toLowerCase().trim();
+    const isDemo = userEmail === 'landlord@hostelease.ng' || userEmail === 'provider@hostelease.ng';
     return new Response(JSON.stringify({
-      availableBalance: 3500000,
-      escrowBalance: 240000,
-      totalEarned: 3500000,
+      availableBalance: isDemo ? 3500000 : 0,
+      escrowBalance: 0,
+      totalEarned: isDemo ? 3500000 : 0,
       recentPayouts: []
     }), { status: 200, headers: CORS_HEADERS });
   }

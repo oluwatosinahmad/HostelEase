@@ -260,8 +260,7 @@ function MainApp() {
           setPagination(res.pagination || { page: 1, limit: 12, total: res.properties?.length || 0, totalPages: 1 });
         })
         .catch(err => {
-          console.error('Search error:', err);
-          showToast(err.message || 'Failed to search hostels', 'error');
+          console.warn('Search query fallback active:', err);
         })
         .finally(() => setSearchLoading(false));
     }
@@ -1364,75 +1363,96 @@ function MainApp() {
 
         {/* VIEW 6: STUDENT DASHBOARD */}
         {currentView === 'student-dashboard' && (
-          <ErrorBoundary>
-            <StudentDashboard
-              areas={areas}
-              initialTab={studentDashboardTab}
-              onNavigateToSearch={() => {
-                setCurrentView('search');
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-              }}
-              onNavigateToSaved={() => {
-                setCurrentView('saved');
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-              }}
-              onNavigateToInspections={() => {
-                setCurrentView('inspections');
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-              }}
-              onNavigateToBookings={() => {
-                setCurrentView('bookings');
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-              }}
-              onNavigateToPayments={() => {
-                setCurrentView('payments');
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-              }}
-              onNavigateToMoveIn={() => {
-                setCurrentView('move-in');
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-              }}
-              onNavigateToHistory={() => {
-                setCurrentView('history');
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-              }}
-              onNavigateToMessages={() => {
-                setCurrentView('messages');
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-              }}
-              onNavigateToCommunity={() => {
-                setCurrentView('community');
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-              }}
-              onOpenConversation={(propId) => {
-                setMessagingTargetPropertyId(propId);
-                setCurrentView('messages');
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-              }}
-              onSelectProperty={(id) => setSelectedPropertyId(id)}
-              onApplyPreferencesToSearch={(prefs) => {
-                setFilters(prev => ({
-                  ...prev,
-                  minPrice: prefs.minBudget ? Number(prefs.minBudget) : prev.minPrice,
-                  maxPrice: prefs.maxBudget ? Number(prefs.maxBudget) : prev.maxPrice,
-                  maxDistance: prefs.maxDistanceKm ? Number(prefs.maxDistanceKm) : prev.maxDistance,
-                  roomType: (prefs.preferredRoomTypes && prefs.preferredRoomTypes.length > 0) ? prefs.preferredRoomTypes[0] : 'all',
-                  genderPreference: prefs.genderPreference || 'ANY',
-                  facilities: (prefs.preferredFacilities && prefs.preferredFacilities.length > 0) ? prefs.preferredFacilities : prev.facilities,
-                  areaId: (prefs.preferredAreas && prefs.preferredAreas.length > 0) ? prefs.preferredAreas[0] : 'all'
-                }));
-                setCurrentView('search');
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-                showToast('Applied your saved accommodation preferences to search filters!', 'success');
-              }}
-              onShowToast={showToast}
-              onOpenAI={handleOpenAI}
-              onOpenUtilityRadar={() => setUtilityRadarOpen(true)}
-              onOpenSafeWalk={() => setSafeWalkOpen(true)}
-              onOpenUtilityCalculator={() => setUtilityCalcOpen(true)}
-              onOpenWomenSection={() => setWomensLivingOpen(true)}
-            />
-          </ErrorBoundary>
+          isProvider ? (
+            <div className="max-w-md mx-auto my-20 p-8 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-xl text-center space-y-4">
+              <div className="w-16 h-16 rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto border border-emerald-200 dark:border-emerald-800 shadow-inner">
+                <Building2 className="w-8 h-8" />
+              </div>
+              <h2 className="text-xl font-black text-slate-900 dark:text-white">Landlord Account Detected</h2>
+              <p className="text-xs text-slate-600 dark:text-slate-300">
+                You are logged in as a Landlord. Please visit your Landlord Management Portal to manage your hostels, bookings, and inspections.
+              </p>
+              <button
+                onClick={() => {
+                  setCurrentView('provider-portal');
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+                className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow transition-colors"
+              >
+                Go to Landlord Portal
+              </button>
+            </div>
+          ) : (
+            <ErrorBoundary>
+              <StudentDashboard
+                areas={areas}
+                initialTab={studentDashboardTab}
+                onNavigateToSearch={() => {
+                  setCurrentView('search');
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+                onNavigateToSaved={() => {
+                  setCurrentView('saved');
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+                onNavigateToInspections={() => {
+                  setCurrentView('inspections');
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+                onNavigateToBookings={() => {
+                  setCurrentView('bookings');
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+                onNavigateToPayments={() => {
+                  setCurrentView('payments');
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+                onNavigateToMoveIn={() => {
+                  setCurrentView('move-in');
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+                onNavigateToHistory={() => {
+                  setCurrentView('history');
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+                onNavigateToMessages={() => {
+                  setCurrentView('messages');
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+                onNavigateToCommunity={() => {
+                  setCurrentView('community');
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+                onOpenConversation={(propId) => {
+                  setMessagingTargetPropertyId(propId);
+                  setCurrentView('messages');
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+                onSelectProperty={(id) => setSelectedPropertyId(id)}
+                onApplyPreferencesToSearch={(prefs) => {
+                  setFilters(prev => ({
+                    ...prev,
+                    minPrice: prefs.minBudget ? Number(prefs.minBudget) : prev.minPrice,
+                    maxPrice: prefs.maxBudget ? Number(prefs.maxBudget) : prev.maxPrice,
+                    maxDistance: prefs.maxDistanceKm ? Number(prefs.maxDistanceKm) : prev.maxDistance,
+                    roomType: (prefs.preferredRoomTypes && prefs.preferredRoomTypes.length > 0) ? prefs.preferredRoomTypes[0] : 'all',
+                    genderPreference: prefs.genderPreference || 'ANY',
+                    facilities: (prefs.preferredFacilities && prefs.preferredFacilities.length > 0) ? prefs.preferredFacilities : prev.facilities,
+                    areaId: (prefs.preferredAreas && prefs.preferredAreas.length > 0) ? prefs.preferredAreas[0] : 'all'
+                  }));
+                  setCurrentView('search');
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                  showToast('Applied your saved accommodation preferences to search filters!', 'success');
+                }}
+                onShowToast={showToast}
+                onOpenAI={handleOpenAI}
+                onOpenUtilityRadar={() => setUtilityRadarOpen(true)}
+                onOpenSafeWalk={() => setSafeWalkOpen(true)}
+                onOpenUtilityCalculator={() => setUtilityCalcOpen(true)}
+                onOpenWomenSection={() => setWomensLivingOpen(true)}
+              />
+            </ErrorBoundary>
+          )
         )}
 
         {/* VIEW: STUDENT PAYMENTS & RECEIPTS (Phase 6) */}
