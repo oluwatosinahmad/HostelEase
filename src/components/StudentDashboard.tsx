@@ -533,7 +533,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
       {/* MOBILE STUDENT HORIZONTAL SUB-NAV BAR (Instant 0px access to content on phones) */}
-      <div className="lg:hidden bg-white border-b border-gray-200 px-4 py-2.5 overflow-x-auto scrollbar-none sticky top-28 z-20 shadow-xs flex items-center gap-1.5 -mx-4 sm:-mx-6 -mt-4 mb-2">
+      <div className="lg:hidden bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-2xl px-3 py-2 overflow-x-auto scrollbar-none sticky top-20 z-20 shadow-xs flex items-center gap-1.5 mb-4 max-w-full">
         {[
           { id: 'overview', label: 'Overview', icon: Sparkles },
           { id: 'shortlist', label: `Saved (${summary?.savedCount ?? 0})`, icon: Bookmark },

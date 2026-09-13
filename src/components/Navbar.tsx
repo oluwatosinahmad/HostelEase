@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   Building2, 
   Search, 
@@ -76,6 +77,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   const profileMenuRef = useRef<HTMLDivElement>(null);
   const notifMenuRef = useRef<HTMLDivElement>(null);
   const mobileNotifMenuRef = useRef<HTMLDivElement>(null);
+  const mobileNotifModalRef = useRef<HTMLDivElement>(null);
 
   const handleLogout = () => {
     setIsLoggingOut(true);
@@ -99,7 +101,8 @@ export const Navbar: React.FC<NavbarProps> = ({
       }
       if (
         notifMenuRef.current && !notifMenuRef.current.contains(e.target as Node) &&
-        (!mobileNotifMenuRef.current || !mobileNotifMenuRef.current.contains(e.target as Node))
+        (!mobileNotifMenuRef.current || !mobileNotifMenuRef.current.contains(e.target as Node)) &&
+        (!mobileNotifModalRef.current || !mobileNotifModalRef.current.contains(e.target as Node))
       ) {
         setNotifDropdownOpen(false);
       }
@@ -215,22 +218,22 @@ export const Navbar: React.FC<NavbarProps> = ({
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between h-16 gap-2">
           {/* Logo & Tagline */}
           <div 
             onClick={() => onNavigate('home')}
-            className="flex items-center gap-3 cursor-pointer group"
+            className="flex items-center gap-2 sm:gap-3 cursor-pointer group min-w-0 shrink"
           >
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-600 to-teal-800 flex items-center justify-center text-white shadow-md shadow-emerald-600/20 group-hover:scale-105 transition-transform">
-              <Building2 className="w-6 h-6" />
+            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-emerald-600 to-teal-800 flex items-center justify-center text-white shadow-md shadow-emerald-600/20 group-hover:scale-105 transition-transform shrink-0">
+              <Building2 className="w-4 h-4 sm:w-6 sm:h-6" />
             </div>
-            <div>
-              <div className="flex items-center gap-1.5">
-                <span className="font-extrabold text-xl tracking-tight text-slate-900 dark:text-white">
+            <div className="min-w-0">
+              <div className="flex items-center gap-1 sm:gap-1.5">
+                <span className="font-extrabold text-base sm:text-xl tracking-tight text-slate-900 dark:text-white truncate">
                   HOSTEL<span className="text-emerald-600 dark:text-emerald-400">EASE</span>
                 </span>
-                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 uppercase">
+                <span className="text-[9px] sm:text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 uppercase shrink-0">
                   LAUTECH
                 </span>
               </div>
@@ -670,24 +673,24 @@ export const Navbar: React.FC<NavbarProps> = ({
           </div>
 
           {/* Mobile Menu & Theme Toggle */}
-          <div className="flex md:hidden items-center gap-1.5">
+          <div className="flex md:hidden items-center gap-1 sm:gap-1.5 shrink-0">
             <button
               onClick={toggleTheme}
-              className="p-2 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white rounded-xl"
+              className="p-1.5 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white rounded-xl"
               aria-label="Toggle Dark Mode"
             >
-              {isDark ? <Sun className="w-5 h-5 text-amber-400" /> : <Moon className="w-5 h-5 text-slate-600" />}
+              {isDark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-slate-600" />}
             </button>
 
             {isAuthenticated && isStudent && (
               <button
                 onClick={() => onNavigate('messages')}
-                className="p-2 text-slate-600 dark:text-slate-300 relative"
+                className="p-1.5 text-slate-600 dark:text-slate-300 relative"
                 aria-label="Messages"
               >
-                <MessageSquare className="w-5 h-5 text-emerald-700 dark:text-emerald-400" />
+                <MessageSquare className="w-4 h-4 text-emerald-700 dark:text-emerald-400" />
                 {unreadMsgCount > 0 && (
-                  <span className="absolute top-1 right-1 w-4 h-4 bg-rose-600 text-white text-[9px] font-black rounded-full flex items-center justify-center">
+                  <span className="absolute top-0 right-0 w-3.5 h-3.5 bg-rose-600 text-white text-[8px] font-black rounded-full flex items-center justify-center">
                     {unreadMsgCount}
                   </span>
                 )}
@@ -698,28 +701,29 @@ export const Navbar: React.FC<NavbarProps> = ({
               <div className="relative" ref={mobileNotifMenuRef}>
                 <button
                   onClick={() => setNotifDropdownOpen(!notifDropdownOpen)}
-                  className="p-2 text-slate-600 dark:text-slate-300 relative"
+                  className="p-1.5 text-slate-600 dark:text-slate-300 relative"
                   aria-label="Notifications"
                 >
-                  <Bell className="w-5 h-5 text-emerald-700 dark:text-emerald-400" />
+                  <Bell className="w-4 h-4 text-emerald-700 dark:text-emerald-400" />
                   {unreadNotifCount > 0 && (
-                    <span className="absolute top-1 right-1 w-4 h-4 bg-rose-600 text-white text-[9px] font-black rounded-full flex items-center justify-center animate-pulse">
+                    <span className="absolute top-0 right-0 w-3.5 h-3.5 bg-rose-600 text-white text-[8px] font-black rounded-full flex items-center justify-center animate-pulse">
                       {unreadNotifCount > 9 ? '9+' : unreadNotifCount}
                     </span>
                   )}
                 </button>
 
-                {/* Centered Mobile Notification Modal with Backdrop */}
-                {notifDropdownOpen && (
+                {/* Centered Mobile Notification Modal with Backdrop rendered outside header via Portal */}
+                {notifDropdownOpen && createPortal(
                   <div 
+                    ref={mobileNotifModalRef}
                     className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in-50 duration-200 sm:hidden"
                     onClick={() => setNotifDropdownOpen(false)}
                   >
                     <div 
-                      className="w-full max-w-sm bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col max-h-[80vh] animate-in zoom-in-95 duration-200"
+                      className="w-full max-w-sm bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-200"
                       onClick={(e) => e.stopPropagation()}
                     >
-                      <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-950">
+                      <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-950 shrink-0">
                         <div className="flex items-center gap-2">
                           <Bell className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                           <span className="font-bold text-sm text-slate-900 dark:text-white">Notifications</span>
@@ -733,7 +737,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                           {unreadNotifCount > 0 && (
                             <button
                               onClick={handleMarkAllNotifsRead}
-                              className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline"
+                              className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline cursor-pointer"
                             >
                               Mark read
                             </button>
@@ -747,7 +751,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                         </div>
                       </div>
 
-                      <div className="max-h-[65vh] overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800 p-2">
+                      <div className="flex-1 min-h-0 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800 p-2">
                         {notifications.length === 0 ? (
                           <div className="p-8 text-center text-xs text-slate-500 dark:text-slate-400">
                             No notifications yet
@@ -777,19 +781,20 @@ export const Navbar: React.FC<NavbarProps> = ({
                         )}
                       </div>
                     </div>
-                  </div>
+                  </div>,
+                  document.body
                 )}
               </div>
             )}
 
             <button
               onClick={() => onNavigate('saved')}
-              className="p-2 text-slate-600 dark:text-slate-300 relative"
+              className="p-1.5 text-slate-600 dark:text-slate-300 relative"
               aria-label="Saved Hostels"
             >
-              <Bookmark className="w-5 h-5" />
+              <Bookmark className="w-4 h-4" />
               {savedCount > 0 && (
-                <span className="absolute top-1 right-1 w-4 h-4 bg-emerald-600 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+                <span className="absolute top-0 right-0 w-3.5 h-3.5 bg-emerald-600 text-white text-[8px] font-bold rounded-full flex items-center justify-center">
                   {savedCount}
                 </span>
               )}
@@ -797,10 +802,10 @@ export const Navbar: React.FC<NavbarProps> = ({
 
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800"
+              className="p-1.5 rounded-xl text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800"
               aria-label="Toggle navigation menu"
             >
-              {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+              {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
           </div>
         </div>

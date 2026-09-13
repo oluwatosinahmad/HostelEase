@@ -6,9 +6,22 @@
   html {
     scroll-behavior: smooth;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
   }
   body {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+    position: relative;
     @apply bg-slate-50 text-slate-900 transition-colors duration-150;
+  }
+  #root {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+    position: relative;
   }
   .dark body,
   html.dark body {

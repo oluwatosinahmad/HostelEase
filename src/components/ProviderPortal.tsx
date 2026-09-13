@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   Building2, 
   PlusCircle, 
@@ -182,10 +183,14 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
   const [conversationSearch, setConversationSearch] = useState<string>('');
   const [notifDropdownOpen, setNotifDropdownOpen] = useState<boolean>(false);
   const notifRef = useRef<HTMLDivElement>(null);
+  const mobileNotifModalRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
+      if (
+        notifRef.current && !notifRef.current.contains(e.target as Node) &&
+        (!mobileNotifModalRef.current || !mobileNotifModalRef.current.contains(e.target as Node))
+      ) {
         setNotifDropdownOpen(false);
       }
     };
@@ -672,25 +677,25 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-wrap items-center justify-between gap-4">
           
           {/* Brand & Property Switcher */}
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-emerald-800 text-white rounded-xl shadow-xs">
+          <div className="flex items-center gap-3 min-w-0 max-w-full">
+            <div className="p-2.5 bg-emerald-800 text-white rounded-xl shadow-xs shrink-0">
               <Building2 className="w-6 h-6" />
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-lg font-bold text-gray-900 leading-tight">Provider Portal</h1>
-                <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h1 className="text-base sm:text-lg font-bold text-gray-900 leading-tight truncate">Provider Portal</h1>
+                <span className="text-[10px] sm:text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 shrink-0">
                   {stats?.verificationStatus === 'APPROVED' ? 'Verified Landlord' : 'Verification Pending'}
                 </span>
               </div>
 
               {/* Property Switcher Dropdown */}
-              <div className="flex items-center gap-1.5 mt-0.5">
-                <span className="text-xs font-semibold text-gray-500">Property:</span>
+              <div className="flex items-center gap-1.5 mt-0.5 min-w-0">
+                <span className="text-xs font-semibold text-gray-500 shrink-0">Property:</span>
                 <select
                   value={selectedPropertyId}
                   onChange={e => setSelectedPropertyId(e.target.value)}
-                  className="text-xs font-bold text-emerald-900 bg-emerald-50 border border-emerald-200 rounded-lg px-2.5 py-1 focus:ring-2 focus:ring-emerald-500 cursor-pointer"
+                  className="text-xs font-bold text-emerald-900 bg-emerald-50 border border-emerald-200 rounded-lg px-2.5 py-1 focus:ring-2 focus:ring-emerald-500 cursor-pointer max-w-[180px] sm:max-w-xs truncate"
                 >
                   <option value="all">🏢 All Registered Hostels ({properties.length})</option>
                   {properties.map(p => (
@@ -704,10 +709,10 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
           </div>
 
           {/* Quick Actions Header Bar */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 max-w-full overflow-x-auto scrollbar-none py-1">
             
             {/* Real-time Notification Bell Dropdown */}
-            <div className="relative" ref={notifRef}>
+            <div className="relative shrink-0" ref={notifRef}>
               <button
                 onClick={() => setNotifDropdownOpen(!notifDropdownOpen)}
                 className="relative p-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl transition-colors cursor-pointer flex items-center justify-center"
@@ -723,80 +728,84 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
 
               {notifDropdownOpen && (
                 <>
-                  {/* Centered Mobile Notification Dialog (< sm) */}
-                  <div 
-                    className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in-50 duration-200 sm:hidden"
-                    onClick={() => setNotifDropdownOpen(false)}
-                  >
+                  {/* Centered Mobile Notification Dialog (< sm) rendered via Portal */}
+                  {createPortal(
                     <div 
-                      className="w-full max-w-sm bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-gray-200 dark:border-slate-800 overflow-hidden flex flex-col max-h-[80vh] animate-in zoom-in-95 duration-200"
-                      onClick={(e) => e.stopPropagation()}
+                      ref={mobileNotifModalRef}
+                      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in-50 duration-200 sm:hidden"
+                      onClick={() => setNotifDropdownOpen(false)}
                     >
-                      <div className="px-4 py-3 border-b border-gray-100 dark:border-slate-800 flex items-center justify-between bg-gray-50 dark:bg-slate-950">
-                        <div className="flex items-center gap-2">
-                          <Bell className="w-4 h-4 text-emerald-800 dark:text-emerald-400" />
-                          <h4 className="text-xs font-bold text-gray-900 dark:text-white">Student & Booking Alerts</h4>
-                          {unreadNotifsCount > 0 && (
-                            <span className="text-[10px] bg-rose-500 text-white px-2 py-0.5 rounded-full font-black">
-                              {unreadNotifsCount} new
-                            </span>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {unreadNotifsCount > 0 && (
+                      <div 
+                        className="w-full max-w-sm bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-gray-200 dark:border-slate-800 overflow-hidden flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-200"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <div className="px-4 py-3 border-b border-gray-100 dark:border-slate-800 flex items-center justify-between bg-gray-50 dark:bg-slate-950 shrink-0">
+                          <div className="flex items-center gap-2">
+                            <Bell className="w-4 h-4 text-emerald-800 dark:text-emerald-400" />
+                            <h4 className="text-xs font-bold text-gray-900 dark:text-white">Student & Booking Alerts</h4>
+                            {unreadNotifsCount > 0 && (
+                              <span className="text-[10px] bg-rose-500 text-white px-2 py-0.5 rounded-full font-black">
+                                {unreadNotifsCount} new
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {unreadNotifsCount > 0 && (
+                              <button
+                                onClick={async () => {
+                                  await api.notifications.markAllRead();
+                                  setUnreadNotifsCount(0);
+                                  setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+                                  onShowToast('All notifications marked as read', 'info');
+                                }}
+                                className="text-[11px] font-bold text-emerald-800 dark:text-emerald-400 hover:underline cursor-pointer"
+                              >
+                                Mark read
+                              </button>
+                            )}
                             <button
-                              onClick={async () => {
-                                await api.notifications.markAllRead();
-                                setUnreadNotifsCount(0);
-                                setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
-                                onShowToast('All notifications marked as read', 'info');
-                              }}
-                              className="text-[11px] font-bold text-emerald-800 dark:text-emerald-400 hover:underline cursor-pointer"
+                              onClick={() => setNotifDropdownOpen(false)}
+                              className="p-1 rounded-full hover:bg-gray-200 dark:hover:bg-slate-800 text-gray-500 cursor-pointer"
                             >
-                              Mark read
+                              <X className="w-4 h-4" />
                             </button>
+                          </div>
+                        </div>
+
+                        <div className="flex-1 min-h-0 overflow-y-auto divide-y divide-gray-100 dark:divide-slate-800 p-2 text-xs">
+                          {notifications.length === 0 ? (
+                            <p className="text-center py-8 text-gray-400">No notifications yet.</p>
+                          ) : (
+                            notifications.slice(0, 15).map((n) => (
+                              <div
+                                key={n.id}
+                                onClick={() => {
+                                  setNotifDropdownOpen(false);
+                                  if (n.type === 'NEW_MESSAGE' || n.linkUrl?.includes('messages')) {
+                                    setActiveTab('messages');
+                                    fetchConversations();
+                                  } else {
+                                    setActiveTab('bookings');
+                                  }
+                                  api.notifications.markRead(n.id);
+                                }}
+                                className={`p-3 rounded-2xl border transition-all cursor-pointer ${
+                                  !n.isRead ? 'bg-emerald-50/80 border-emerald-200 text-emerald-950 font-medium' : 'bg-gray-50 border-gray-200 text-gray-700'
+                                }`}
+                              >
+                                <div className="flex items-center justify-between mb-1">
+                                  <span className="font-bold text-[11px] text-gray-900 dark:text-white">{n.title}</span>
+                                  <span className="text-[10px] text-gray-400">{new Date(n.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                </div>
+                                <p className="text-[11px] leading-relaxed text-gray-600 dark:text-gray-300 line-clamp-2">{n.message}</p>
+                              </div>
+                            ))
                           )}
-                          <button
-                            onClick={() => setNotifDropdownOpen(false)}
-                            className="p-1 rounded-full hover:bg-gray-200 dark:hover:bg-slate-800 text-gray-500 cursor-pointer"
-                          >
-                            <X className="w-4 h-4" />
-                          </button>
                         </div>
                       </div>
-
-                      <div className="max-h-[65vh] overflow-y-auto divide-y divide-gray-100 dark:divide-slate-800 p-2 text-xs">
-                        {notifications.length === 0 ? (
-                          <p className="text-center py-8 text-gray-400">No notifications yet.</p>
-                        ) : (
-                          notifications.slice(0, 15).map((n) => (
-                            <div
-                              key={n.id}
-                              onClick={() => {
-                                setNotifDropdownOpen(false);
-                                if (n.type === 'NEW_MESSAGE' || n.linkUrl?.includes('messages')) {
-                                  setActiveTab('messages');
-                                  fetchConversations();
-                                } else {
-                                  setActiveTab('bookings');
-                                }
-                                api.notifications.markRead(n.id);
-                              }}
-                              className={`p-3 rounded-2xl border transition-all cursor-pointer ${
-                                !n.isRead ? 'bg-emerald-50/80 border-emerald-200 text-emerald-950 font-medium' : 'bg-gray-50 border-gray-200 text-gray-700'
-                              }`}
-                            >
-                              <div className="flex items-center justify-between mb-1">
-                                <span className="font-bold text-[11px] text-gray-900 dark:text-white">{n.title}</span>
-                                <span className="text-[10px] text-gray-400">{new Date(n.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                              </div>
-                              <p className="text-[11px] leading-relaxed text-gray-600 dark:text-gray-300 line-clamp-2">{n.message}</p>
-                            </div>
-                          ))
-                        )}
-                      </div>
-                    </div>
-                  </div>
+                    </div>,
+                    document.body
+                  )}
 
                   {/* Desktop Dropdown (sm+) */}
                   <div className="hidden sm:block absolute top-full right-0 mt-2 w-96 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-2xl shadow-2xl z-50 p-4 space-y-3 animate-in fade-in zoom-in-95 duration-150">
@@ -860,7 +869,7 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
                 setEditingProperty(null);
                 setActiveTab('wizard');
               }}
-              className="px-3.5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-xl shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
+              className="shrink-0 whitespace-nowrap px-3.5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-xl shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
             >
               <PlusCircle className="w-4 h-4" />
               + Add Hostel
@@ -868,7 +877,7 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
 
             <button
               onClick={() => setActiveTab('rooms')}
-              className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer"
+              className="shrink-0 whitespace-nowrap px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer"
             >
               <Layers className="w-4 h-4 text-gray-500" />
               Spaces & Rooms
@@ -876,7 +885,7 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
 
             <button
               onClick={() => setActiveTab('messages')}
-              className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold rounded-xl transition-all relative flex items-center gap-1.5 cursor-pointer"
+              className="shrink-0 whitespace-nowrap px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold rounded-xl transition-all relative flex items-center gap-1.5 cursor-pointer"
             >
               <MessageSquare className="w-4 h-4 text-gray-500" />
               <span>Inquiries</span>
@@ -887,7 +896,7 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
 
             <button
               onClick={() => setAiDrawerOpen(true)}
-              className="px-3.5 py-2 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white text-xs font-bold rounded-xl shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
+              className="shrink-0 whitespace-nowrap px-3.5 py-2 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white text-xs font-bold rounded-xl shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
             >
               <Sparkles className="w-4 h-4 text-amber-300 animate-spin-slow" />
               AI Assistant

@@ -465,7 +465,7 @@ function MainApp() {
   ].filter(Boolean).length;
 
   return (
-    <div className="min-h-screen bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-sans antialiased selection:bg-emerald-500 selection:text-white transition-colors duration-200">
+    <div className="min-h-screen w-full max-w-full overflow-x-hidden bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-sans antialiased selection:bg-emerald-500 selection:text-white transition-colors duration-200 relative">
       {/* 3D Branded Initial Platform Loading Animation */}
       {isInitialLoading && (
         <HostelEaseBrandedLoader
@@ -475,7 +475,7 @@ function MainApp() {
       )}
 
       {/* Toast Notification Container */}
-      <div className="fixed top-4 right-4 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none">
+      <div className="fixed top-4 left-4 right-4 sm:left-auto sm:right-4 z-50 flex flex-col gap-2 max-w-sm w-auto sm:w-full pointer-events-none">
         {toasts.map(toast => (
           <div
             key={toast.id}
