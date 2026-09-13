@@ -693,55 +693,73 @@ export const Navbar: React.FC<NavbarProps> = ({
                   )}
                 </button>
 
-                {/* Responsive Mobile Notification Panel - Strictly Bounded Inside Phone Viewport */}
+                {/* Centered Mobile Notification Modal with Backdrop */}
                 {notifDropdownOpen && (
-                  <div className="fixed top-16 left-3 right-3 max-w-[calc(100vw-1.5rem)] bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 py-2 z-50 animate-in fade-in slide-in-from-top-2">
-                    <div className="absolute -top-1.5 right-14 w-3 h-3 bg-white dark:bg-slate-900 border-t border-l border-slate-200 dark:border-slate-800 rotate-45" />
-                    <div className="px-4 py-2.5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Bell className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                        <span className="font-bold text-xs text-slate-900 dark:text-white">Notifications</span>
-                        {unreadNotifCount > 0 && (
-                          <span className="text-[10px] bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 px-1.5 py-0.5 rounded-full font-bold">
-                            {unreadNotifCount} new
-                          </span>
+                  <div 
+                    className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in-50 duration-200 sm:hidden"
+                    onClick={() => setNotifDropdownOpen(false)}
+                  >
+                    <div 
+                      className="w-full max-w-sm bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col max-h-[80vh] animate-in zoom-in-95 duration-200"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-950">
+                        <div className="flex items-center gap-2">
+                          <Bell className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                          <span className="font-bold text-sm text-slate-900 dark:text-white">Notifications</span>
+                          {unreadNotifCount > 0 && (
+                            <span className="text-[10px] bg-rose-500 text-white px-2 py-0.5 rounded-full font-black">
+                              {unreadNotifCount} new
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {unreadNotifCount > 0 && (
+                            <button
+                              onClick={handleMarkAllNotifsRead}
+                              className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline"
+                            >
+                              Mark read
+                            </button>
+                          )}
+                          <button
+                            onClick={() => setNotifDropdownOpen(false)}
+                            className="p-1 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 cursor-pointer"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="max-h-[65vh] overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800 p-2">
+                        {notifications.length === 0 ? (
+                          <div className="p-8 text-center text-xs text-slate-500 dark:text-slate-400">
+                            No notifications yet
+                          </div>
+                        ) : (
+                          notifications.slice(0, 15).map((n) => (
+                            <div
+                              key={n.id}
+                              onClick={() => {
+                                handleNotificationClick(n);
+                                setNotifDropdownOpen(false);
+                              }}
+                              className={`p-3 rounded-2xl text-left cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors flex items-start gap-2.5 ${
+                                !n.isRead ? 'bg-emerald-50/60 dark:bg-emerald-950/30' : ''
+                              }`}
+                            >
+                              <div className={`mt-1.5 w-2 h-2 rounded-full shrink-0 ${!n.isRead ? 'bg-emerald-600' : 'bg-transparent'}`} />
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs font-bold text-slate-900 dark:text-white">{n.title}</p>
+                                <p className="text-[11px] text-slate-600 dark:text-slate-300 mt-1 leading-relaxed">{n.message}</p>
+                                <span className="text-[10px] text-slate-400 dark:text-slate-500 mt-1.5 inline-block">
+                                  {new Date(n.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                              </div>
+                            </div>
+                          ))
                         )}
                       </div>
-                      {unreadNotifCount > 0 && (
-                        <button
-                          onClick={handleMarkAllNotifsRead}
-                          className="text-[11px] font-semibold text-emerald-600 hover:text-emerald-700 dark:text-emerald-400"
-                        >
-                          Mark all read
-                        </button>
-                      )}
-                    </div>
-
-                    <div className="max-h-[65vh] overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800">
-                      {notifications.length === 0 ? (
-                        <div className="p-6 text-center text-xs text-slate-500 dark:text-slate-400">
-                          No notifications yet
-                        </div>
-                      ) : (
-                        notifications.slice(0, 15).map((n) => (
-                          <div
-                            key={n.id}
-                            onClick={() => handleNotificationClick(n)}
-                            className={`p-3 text-left cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors flex items-start gap-2.5 ${
-                              !n.isRead ? 'bg-emerald-50/40 dark:bg-emerald-950/20' : ''
-                            }`}
-                          >
-                            <div className={`mt-1 w-2 h-2 rounded-full shrink-0 ${!n.isRead ? 'bg-emerald-600' : 'bg-transparent'}`} />
-                            <div className="flex-1 min-w-0">
-                              <p className="text-xs font-bold text-slate-900 dark:text-white truncate">{n.title}</p>
-                              <p className="text-[11px] text-slate-600 dark:text-slate-300 line-clamp-2 mt-0.5">{n.message}</p>
-                              <span className="text-[10px] text-slate-400 dark:text-slate-500 mt-1 inline-block">
-                                {new Date(n.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                              </span>
-                            </div>
-                          </div>
-                        ))
-                      )}
                     </div>
                   </div>
                 )}

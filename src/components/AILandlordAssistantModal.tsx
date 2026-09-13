@@ -24,7 +24,8 @@ import {
   Play,
   Pause,
   Reply,
-  CornerDownRight
+  CornerDownRight,
+  RefreshCw
 } from 'lucide-react';
 import { api } from '../services/api';
 import { formatNaira } from '../utils/formatters';
@@ -414,26 +415,50 @@ export const AILandlordAssistantModal: React.FC<AILandlordAssistantModalProps> =
     onShowToast(rating === 'HELPFUL' ? 'Thank you for your feedback! 👍' : 'Feedback noted. We are optimizing our responses! 👎', 'info');
   };
 
+  const handleStartNewChat = () => {
+    setMessages([
+      {
+        id: `welcome-${Date.now()}`,
+        sender: 'AI',
+        content: `Hello! I am your **Landlord AI Assistant** for LAUTECH accommodations. How can I help you manage your hostels, inspect bookings, check vacancies, or optimize your rental income today?`,
+        structuredData: {
+          type: 'LANDLORD_TIPS',
+          suggestedQueries: DEFAULT_LANDLORD_SUGGESTIONS
+        },
+        created_at: new Date().toISOString()
+      }
+    ]);
+    setReplyingToMessage(null);
+    onShowToast('Started a new conversation', 'info');
+  };
+
+  if (!isOpen) return null;
+
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-end bg-slate-950/60 backdrop-blur-sm animate-in fade-in">
       <div 
-        className="bg-white dark:bg-slate-950 w-full max-w-3xl rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col h-[90vh] max-h-[780px] overflow-hidden"
+        className="w-full max-w-2xl h-full bg-white dark:bg-slate-950 flex flex-col shadow-2xl animate-in slide-in-from-right duration-300 border-l border-slate-200 dark:border-slate-800"
+        role="dialog"
+        aria-label="Hostel Ease Landlord AI Assistant"
         onClick={(e) => e.stopPropagation()}
       >
         {/* MODAL HEADER */}
-        <div className="bg-gradient-to-r from-emerald-950 via-teal-950 to-slate-950 text-white p-4 sm:p-5 flex items-center justify-between border-b border-emerald-500/20 shrink-0">
+        <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-800 bg-slate-900 text-white flex items-center justify-between shadow-sm shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center text-emerald-400 shadow-inner">
-              <Bot className="w-6 h-6" />
+            <div className="w-10 h-10 rounded-2xl bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center shadow-inner">
+              <Bot className="w-5 h-5 text-emerald-400" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="font-black text-sm sm:text-base tracking-tight">Landlord AI Assistant</h3>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-400 text-slate-950 uppercase tracking-wide">
-                  PRO
+                <h3 className="font-black text-sm tracking-tight text-white flex items-center gap-1.5">
+                  Hostel Ease Landlord AI Assistant
+                  <Sparkles className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
+                </h3>
+                <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-emerald-500 text-slate-950">
+                  Zero Hallucination
                 </span>
               </div>
-              <p className="text-[11px] text-emerald-200/80">
+              <p className="text-[11px] text-slate-400 font-medium">
                 24/7 LAUTECH Property Manager & Occupancy Advisor
               </p>
             </div>
@@ -441,38 +466,48 @@ export const AILandlordAssistantModal: React.FC<AILandlordAssistantModalProps> =
 
           <div className="flex items-center gap-2">
             {/* Nigerian Pidgin & English Toggle */}
-            <div className="bg-white/10 p-0.5 rounded-xl border border-white/20 flex items-center">
+            <div className="flex items-center bg-slate-800 p-1 rounded-xl border border-slate-700">
               <button
                 type="button"
                 onClick={() => setLanguageMode('EN')}
-                className={`px-2.5 py-1 rounded-lg text-[10px] font-black transition-all cursor-pointer ${
+                className={`px-2 py-1 rounded-lg text-[10px] font-black transition cursor-pointer ${
                   languageMode === 'EN'
-                    ? 'bg-emerald-400 text-slate-950 shadow-xs'
-                    : 'text-white/80 hover:text-white'
+                    ? 'bg-emerald-600 text-white shadow-xs'
+                    : 'text-slate-400 hover:text-white'
                 }`}
               >
-                ENG
+                🇬🇧 English
               </button>
               <button
                 type="button"
                 onClick={() => setLanguageMode('PIDGIN')}
-                className={`px-2.5 py-1 rounded-lg text-[10px] font-black transition-all cursor-pointer ${
+                className={`px-2 py-1 rounded-lg text-[10px] font-black transition cursor-pointer ${
                   languageMode === 'PIDGIN'
-                    ? 'bg-emerald-400 text-slate-950 shadow-xs'
-                    : 'text-white/80 hover:text-white'
+                    ? 'bg-amber-500 text-slate-950 font-black shadow-xs'
+                    : 'text-slate-400 hover:text-white'
                 }`}
                 title="Nigerian Pidgin English"
               >
-                PIDGIN
+                🇳🇬 Pidgin
               </button>
             </div>
 
+            {/* New Chat Button */}
+            <button
+              onClick={handleStartNewChat}
+              title="Start New Chat"
+              className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition text-xs font-bold flex items-center gap-1 cursor-pointer"
+            >
+              <RefreshCw className="w-4 h-4" />
+            </button>
+
+            {/* Close Button */}
             <button
               onClick={onClose}
-              className="w-8 h-8 rounded-xl bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition border border-white/10 cursor-pointer"
+              className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition cursor-pointer"
               title="Close Modal"
             >
-              <X className="w-4 h-4" />
+              <X className="w-5 h-5" />
             </button>
           </div>
         </div>

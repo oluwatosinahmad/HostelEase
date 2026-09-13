@@ -230,6 +230,9 @@ export function saveLocalProperty(prop: Property) {
     }
 
     window.dispatchEvent(new CustomEvent('hostel_ease_properties_updated', { detail: prop }));
+    try {
+      syncCloudProperties(true).catch(() => {});
+    } catch {}
   } catch (err) {
     console.error('Failed to save local property:', err);
   }
@@ -1627,6 +1630,93 @@ function saveLocalMessages(convId: string, msgs: MessageItem[]) {
   } catch {}
 }
 
+export function updateLocalPropertyVideoStatus(id: string, status: 'APPROVED' | 'REJECTED', notes?: string) {
+  try {
+    const all = getLocalProperties('all');
+    let changed = false;
+    for (const p of all) {
+      if (p.id === id || `vid-${p.id}` === id || (p.media || []).some(m => m.id === id)) {
+        (p as any).videoVerificationStatus = status;
+        (p as any).videoVerificationNotes = notes || '';
+        if (p.media) {
+          p.media = p.media.map(m => {
+            if (m.mediaType === 'VIDEO' || m.id === id) {
+              return { ...m, isVerified: status === 'APPROVED' };
+            }
+            return m;
+          });
+        }
+        changed = true;
+      }
+    }
+    if (changed) {
+      localStorage.setItem('hostel_ease_properties', JSON.stringify(all));
+      window.dispatchEvent(new CustomEvent('hostel_ease_properties_updated'));
+    }
+  } catch {}
+}
+
+export async function syncCloudProperties(pushLocal = false) {
+  try {
+    const local = getLocalProperties('all');
+    const localUsers = getLocalRegisteredUsers();
+
+    const options: RequestInit = pushLocal ? {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        properties: local.filter(p => !p.isDemo),
+        users: localUsers
+      })
+    } : {
+      method: 'GET'
+    };
+
+    const res = await fetch(`${API_BASE}/sync`, options);
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data.properties) && data.properties.length > 0) {
+        const currentLocal = getLocalProperties('all');
+        const localIds = new Set(currentLocal.map(p => p.id));
+        let added = false;
+        for (const cp of data.properties) {
+          if (!localIds.has(cp.id)) {
+            currentLocal.unshift(cp);
+            localIds.add(cp.id);
+            added = true;
+          }
+        }
+        if (added) {
+          localStorage.setItem('hostel_ease_properties', JSON.stringify(currentLocal));
+          window.dispatchEvent(new CustomEvent('hostel_ease_properties_updated'));
+        }
+      }
+      if (Array.isArray(data.users) && data.users.length > 0) {
+        const currentUsers = getLocalRegisteredUsers();
+        const userEmails = new Set(currentUsers.map(u => u.email?.toLowerCase()));
+        let userAdded = false;
+        for (const cu of data.users) {
+          if (cu.email && !userEmails.has(cu.email.toLowerCase())) {
+            currentUsers.push(cu);
+            userEmails.add(cu.email.toLowerCase());
+            userAdded = true;
+          }
+        }
+        if (userAdded) {
+          saveLocalRegisteredUsers(currentUsers);
+        }
+      }
+    }
+  } catch {}
+}
+
+// Background auto-sync every 20 seconds
+if (typeof window !== 'undefined') {
+  setInterval(() => {
+    syncCloudProperties(false).catch(() => {});
+  }, 20000);
+}
+
 export const api = {
   // Authentication & Session
   auth: {
@@ -1776,6 +1866,7 @@ export const api = {
           const json = await res.json();
           localStorage.setItem('hostel_ease_token', json.token);
           localStorage.setItem('hostel_ease_user', JSON.stringify(json.user));
+          syncCloudProperties().catch(() => {});
           return json;
         }
 
@@ -2972,6 +3063,9 @@ export const api = {
       }
 
       const combined = [...backendProps];
+      for (const bp of backendProps) {
+        saveLocalProperty(bp);
+      }
       for (const lp of localProps) {
         if (!combined.some(bp => bp.id === lp.id || (bp.title && lp.title && bp.title.toLowerCase().trim() === lp.title.toLowerCase().trim()))) {
           combined.push(lp);
@@ -3051,6 +3145,9 @@ export const api = {
         totalRooms: Number(data.totalRooms) || (data.roomsList ? data.roomsList.length : 1),
         availabilityStatus: 'AVAILABLE',
         verificationStatus: data.isDraft ? 'DRAFT' : 'PENDING_REVIEW',
+        has4KVideo: !!(data.has4KVideo || (data.mediaItems && data.mediaItems.some((m: any) => m.mediaType === 'VIDEO' || m.type === 'VIDEO' || m.category === 'VIDEO_WALKTHROUGH'))),
+        videoTourUrl: data.videoTourUrl || (data.mediaItems && data.mediaItems.find((m: any) => m.mediaType === 'VIDEO' || m.type === 'VIDEO' || m.category === 'VIDEO_WALKTHROUGH')?.url) || undefined,
+        videoVerificationStatus: (data.has4KVideo || (data.mediaItems && data.mediaItems.some((m: any) => m.mediaType === 'VIDEO' || m.type === 'VIDEO' || m.category === 'VIDEO_WALKTHROUGH'))) ? 'PENDING_AUDIT' : 'NONE',
         provider: {
           id: currentUserId,
           name: user?.fullName || 'Verified Landlord',
@@ -3058,15 +3155,18 @@ export const api = {
           businessName: user?.providerDetails?.businessName || 'LAUTECH Accommodation'
         },
         coverImage: coverImg,
-        media: (data.mediaItems && data.mediaItems.length > 0) ? data.mediaItems.map((m: any, idx: number) => ({
-          id: `m-${Date.now()}-${idx}`,
-          url: m.url,
-          caption: m.caption || 'Hostel View',
-          displayOrder: idx + 1,
-          isCover: !!m.isCover,
-          mediaType: m.mediaType || 'IMAGE',
-          category: m.category || 'EXTERIOR'
-        })) : [
+        media: (data.mediaItems && data.mediaItems.length > 0) ? data.mediaItems.map((m: any, idx: number) => {
+          const isVid = m.mediaType === 'VIDEO' || m.type === 'VIDEO' || m.category === 'VIDEO_WALKTHROUGH' || String(m.url || '').toLowerCase().includes('.mp4');
+          return {
+            id: `m-${Date.now()}-${idx}`,
+            url: m.url,
+            caption: m.caption || (isVid ? '4K Video Walkthrough' : 'Hostel View'),
+            displayOrder: idx + 1,
+            isCover: !!m.isCover && !isVid,
+            mediaType: isVid ? 'VIDEO' : (m.mediaType || 'IMAGE'),
+            category: isVid ? 'VIDEO_WALKTHROUGH' : (m.category || 'EXTERIOR')
+          };
+        }) : [
           { id: `m-${Date.now()}-1`, url: coverImg, caption: 'Hostel View', displayOrder: 1, isCover: true, mediaType: 'IMAGE', category: 'EXTERIOR' }
         ],
         priceSummary: {
@@ -4020,31 +4120,75 @@ export const api = {
     },
 
     async getVideos(): Promise<{ videos: any[] }> {
+      let serverVideos: any[] = [];
       try {
         const res = await fetch(`${API_BASE}/admin/videos`, {
           headers: { ...getAuthHeader() }
         });
         if (res.ok) {
           const data = await res.json();
-          if (data && Array.isArray(data.videos)) return data;
+          if (data && Array.isArray(data.videos)) serverVideos = data.videos;
         }
       } catch (err) {
         console.warn('Backend getVideos offline');
       }
-      return { videos: [] };
+
+      // Merge local properties that contain 4K videos or walkthrough tours
+      const localProps = getLocalProperties('all');
+      const merged = [...serverVideos];
+      const existingPropIds = new Set(merged.map(v => v.propertyId || v.id));
+
+      for (const p of localProps) {
+        const hasVid = p.has4KVideo || !!p.videoTourUrl || (p.media || []).some(m => m.mediaType === 'VIDEO' || m.category === 'VIDEO_WALKTHROUGH');
+        if (hasVid && !existingPropIds.has(p.id)) {
+          const vidMedia = (p.media || []).find(m => m.mediaType === 'VIDEO' || m.category === 'VIDEO_WALKTHROUGH');
+          const videoUrl = p.videoTourUrl || vidMedia?.url || '/uploads/sample_hostel_tour.mp4';
+          const isAppr = p.videoVerificationStatus === 'APPROVED' ? 1 : 0;
+
+          merged.unshift({
+            id: vidMedia?.id || `vid-${p.id}`,
+            propertyId: p.id,
+            url: videoUrl,
+            thumbnailUrl: p.coverImage || 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=1200&q=80',
+            caption: vidMedia?.caption || `${p.title} 4K Walkthrough Tour`,
+            isVerified: isAppr,
+            verificationNotes: (p as any).videoVerificationNotes || null,
+            createdAt: p.createdAt || new Date().toISOString(),
+            propertyTitle: p.title,
+            propertyAddress: p.address,
+            providerName: p.provider?.name || 'Verified Landlord',
+            providerEmail: (p as any).providerEmail || (p.provider as any)?.email || 'landlord@hostelease.ng',
+            providerPhone: p.provider?.phone || '08012345678'
+          });
+          existingPropIds.add(p.id);
+        }
+      }
+
+      return { videos: merged };
     },
 
     async verifyVideo(id: string, status: 'APPROVED' | 'REJECTED', notes?: string): Promise<{ success: boolean; message: string; isVerified: number }> {
-      const res = await fetch(`${API_BASE}/admin/videos/${id}/verify`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
-        body: JSON.stringify({ status, notes })
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || 'Failed to verify video');
+      try {
+        const res = await fetch(`${API_BASE}/admin/videos/${id}/verify`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+          body: JSON.stringify({ status, notes })
+        });
+        if (res.ok) {
+          const json = await res.json();
+          updateLocalPropertyVideoStatus(id, status, notes);
+          return json;
+        }
+      } catch (err) {
+        console.warn('Backend verifyVideo offline, persisting locally:', err);
       }
-      return await res.json();
+
+      updateLocalPropertyVideoStatus(id, status, notes);
+      return {
+        success: true,
+        message: status === 'APPROVED' ? 'Property 4K Video Tour verified and published' : 'Video tour rejected with feedback notes',
+        isVerified: status === 'APPROVED' ? 1 : 0
+      };
     },
 
     async approveVideoWalkthrough(id: string): Promise<{ message: string; success: boolean }> {

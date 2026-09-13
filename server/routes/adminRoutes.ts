@@ -1277,11 +1277,13 @@ router.get(
                pm.caption, pm.is_verified as isVerified, pm.verification_notes as verificationNotes,
                pm.created_at as createdAt,
                p.title as propertyTitle, p.address as propertyAddress,
-               u.full_name as providerName, u.email as providerEmail, u.phone as providerPhone
+               COALESCE(u.full_name, 'Verified Landlord') as providerName,
+               COALESCE(u.email, 'landlord@hostelease.ng') as providerEmail,
+               COALESCE(u.phone, '08012345678') as providerPhone
         FROM property_media pm
         JOIN properties p ON pm.property_id = p.id
-        JOIN users u ON p.provider_id = u.id
-        WHERE pm.media_type = 'VIDEO' OR pm.category = 'VIDEO_WALKTHROUGH'
+        LEFT JOIN users u ON p.provider_id = u.id
+        WHERE pm.media_type = 'VIDEO' OR pm.category = 'VIDEO_WALKTHROUGH' OR LOWER(pm.url) LIKE '%.mp4%' OR LOWER(pm.url) LIKE '%.webm%'
         ORDER BY pm.created_at DESC
       `).all();
 

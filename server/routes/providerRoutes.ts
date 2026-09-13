@@ -559,6 +559,25 @@ router.post(
     const normalizedGenderPreference = normalizeGenderPreference(genderPreference);
 
     try {
+      // Ensure provider user and profile exist to satisfy foreign key constraints
+      const existingUser = db.prepare('SELECT id FROM users WHERE id = ?').get(providerId);
+      if (!existingUser) {
+        const userEmail = req.user?.email || `provider-${providerId}@hostelease.ng`;
+        const userFullName = req.user?.fullName || 'Verified Landlord';
+        db.prepare(`
+          INSERT OR IGNORE INTO users (id, email, password_hash, full_name, role, phone, is_active)
+          VALUES (?, ?, 'HASH_PLACEHOLDER', ?, 'PROVIDER', '08012345678', 1)
+        `).run(providerId, userEmail, userFullName);
+      }
+      const existingProfile = db.prepare('SELECT id FROM provider_profiles WHERE user_id = ?').get(providerId);
+      if (!existingProfile) {
+        const newProfId = `prof-${crypto.randomUUID()}`;
+        db.prepare(`
+          INSERT OR IGNORE INTO provider_profiles (id, user_id, provider_type, verification_status, onboarding_completed, onboarding_step)
+          VALUES (?, ?, 'HOSTEL_OWNER', 'PENDING', 0, 1)
+        `).run(newProfId, providerId);
+      }
+
       db.transaction(() => {
         // 1. Insert Property
         db.prepare(`

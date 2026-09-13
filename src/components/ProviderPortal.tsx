@@ -644,59 +644,136 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
               </button>
 
               {notifDropdownOpen && (
-                <div className="fixed sm:absolute top-28 sm:top-full left-3 right-3 sm:left-auto sm:right-0 mt-2 w-auto sm:w-96 max-w-[calc(100vw-1.5rem)] sm:max-w-none bg-white border border-gray-200 rounded-2xl shadow-2xl z-50 p-4 space-y-3 animate-in fade-in zoom-in-95 duration-150">
-                  <div className="sm:hidden absolute -top-1.5 right-6 w-3 h-3 bg-white border-t border-l border-gray-200 rotate-45" />
-                  <div className="flex items-center justify-between border-b border-gray-100 pb-2.5">
-                    <div className="flex items-center gap-2">
-                      <Bell className="w-4 h-4 text-emerald-800" />
-                      <h4 className="text-xs font-bold text-gray-900">Student & Booking Alerts</h4>
+                <>
+                  {/* Centered Mobile Notification Dialog (< sm) */}
+                  <div 
+                    className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in-50 duration-200 sm:hidden"
+                    onClick={() => setNotifDropdownOpen(false)}
+                  >
+                    <div 
+                      className="w-full max-w-sm bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-gray-200 dark:border-slate-800 overflow-hidden flex flex-col max-h-[80vh] animate-in zoom-in-95 duration-200"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div className="px-4 py-3 border-b border-gray-100 dark:border-slate-800 flex items-center justify-between bg-gray-50 dark:bg-slate-950">
+                        <div className="flex items-center gap-2">
+                          <Bell className="w-4 h-4 text-emerald-800 dark:text-emerald-400" />
+                          <h4 className="text-xs font-bold text-gray-900 dark:text-white">Student & Booking Alerts</h4>
+                          {unreadNotifsCount > 0 && (
+                            <span className="text-[10px] bg-rose-500 text-white px-2 py-0.5 rounded-full font-black">
+                              {unreadNotifsCount} new
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {unreadNotifsCount > 0 && (
+                            <button
+                              onClick={async () => {
+                                await api.notifications.markAllRead();
+                                setUnreadNotifsCount(0);
+                                setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+                                onShowToast('All notifications marked as read', 'info');
+                              }}
+                              className="text-[11px] font-bold text-emerald-800 dark:text-emerald-400 hover:underline cursor-pointer"
+                            >
+                              Mark read
+                            </button>
+                          )}
+                          <button
+                            onClick={() => setNotifDropdownOpen(false)}
+                            className="p-1 rounded-full hover:bg-gray-200 dark:hover:bg-slate-800 text-gray-500 cursor-pointer"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="max-h-[65vh] overflow-y-auto divide-y divide-gray-100 dark:divide-slate-800 p-2 text-xs">
+                        {notifications.length === 0 ? (
+                          <p className="text-center py-8 text-gray-400">No notifications yet.</p>
+                        ) : (
+                          notifications.slice(0, 15).map((n) => (
+                            <div
+                              key={n.id}
+                              onClick={() => {
+                                setNotifDropdownOpen(false);
+                                if (n.type === 'NEW_MESSAGE' || n.linkUrl?.includes('messages')) {
+                                  setActiveTab('messages');
+                                  fetchConversations();
+                                } else {
+                                  setActiveTab('bookings');
+                                }
+                                api.notifications.markRead(n.id);
+                              }}
+                              className={`p-3 rounded-2xl border transition-all cursor-pointer ${
+                                !n.isRead ? 'bg-emerald-50/80 border-emerald-200 text-emerald-950 font-medium' : 'bg-gray-50 border-gray-200 text-gray-700'
+                              }`}
+                            >
+                              <div className="flex items-center justify-between mb-1">
+                                <span className="font-bold text-[11px] text-gray-900 dark:text-white">{n.title}</span>
+                                <span className="text-[10px] text-gray-400">{new Date(n.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                              </div>
+                              <p className="text-[11px] leading-relaxed text-gray-600 dark:text-gray-300 line-clamp-2">{n.message}</p>
+                            </div>
+                          ))
+                        )}
+                      </div>
                     </div>
-                    {unreadNotifsCount > 0 && (
-                      <button
-                        onClick={async () => {
-                          await api.notifications.markAllRead();
-                          setUnreadNotifsCount(0);
-                          setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
-                          onShowToast('All notifications marked as read', 'info');
-                        }}
-                        className="text-[11px] font-bold text-emerald-800 hover:underline cursor-pointer"
-                      >
-                        Mark all read
-                      </button>
-                    )}
                   </div>
 
-                  <div className="max-h-72 overflow-y-auto space-y-2 text-xs">
-                    {notifications.length === 0 ? (
-                      <p className="text-center py-6 text-gray-400">No notifications yet.</p>
-                    ) : (
-                      notifications.slice(0, 10).map((n) => (
-                        <div
-                          key={n.id}
-                          onClick={() => {
-                            setNotifDropdownOpen(false);
-                            if (n.type === 'NEW_MESSAGE' || n.linkUrl?.includes('messages')) {
-                              setActiveTab('messages');
-                              fetchConversations();
-                            } else {
-                              setActiveTab('bookings');
-                            }
-                            api.notifications.markRead(n.id);
+                  {/* Desktop Dropdown (sm+) */}
+                  <div className="hidden sm:block absolute top-full right-0 mt-2 w-96 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-2xl shadow-2xl z-50 p-4 space-y-3 animate-in fade-in zoom-in-95 duration-150">
+                    <div className="flex items-center justify-between border-b border-gray-100 dark:border-slate-800 pb-2.5">
+                      <div className="flex items-center gap-2">
+                        <Bell className="w-4 h-4 text-emerald-800 dark:text-emerald-400" />
+                        <h4 className="text-xs font-bold text-gray-900 dark:text-white">Student & Booking Alerts</h4>
+                      </div>
+                      {unreadNotifsCount > 0 && (
+                        <button
+                          onClick={async () => {
+                            await api.notifications.markAllRead();
+                            setUnreadNotifsCount(0);
+                            setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+                            onShowToast('All notifications marked as read', 'info');
                           }}
-                          className={`p-3 rounded-xl border transition-all cursor-pointer ${
-                            !n.isRead ? 'bg-emerald-50/80 border-emerald-200 text-emerald-950 font-medium' : 'bg-gray-50 border-gray-200 text-gray-700'
-                          }`}
+                          className="text-[11px] font-bold text-emerald-800 dark:text-emerald-400 hover:underline cursor-pointer"
                         >
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="font-bold text-[11px] text-gray-900">{n.title}</span>
-                            <span className="text-[10px] text-gray-400">{new Date(n.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                          Mark all read
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="max-h-72 overflow-y-auto space-y-2 text-xs">
+                      {notifications.length === 0 ? (
+                        <p className="text-center py-6 text-gray-400">No notifications yet.</p>
+                      ) : (
+                        notifications.slice(0, 10).map((n) => (
+                          <div
+                            key={n.id}
+                            onClick={() => {
+                              setNotifDropdownOpen(false);
+                              if (n.type === 'NEW_MESSAGE' || n.linkUrl?.includes('messages')) {
+                                setActiveTab('messages');
+                                fetchConversations();
+                              } else {
+                                setActiveTab('bookings');
+                              }
+                              api.notifications.markRead(n.id);
+                            }}
+                            className={`p-3 rounded-xl border transition-all cursor-pointer ${
+                              !n.isRead ? 'bg-emerald-50/80 border-emerald-200 text-emerald-950 font-medium' : 'bg-gray-50 border-gray-200 text-gray-700'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="font-bold text-[11px] text-gray-900 dark:text-white">{n.title}</span>
+                              <span className="text-[10px] text-gray-400">{new Date(n.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                            </div>
+                            <p className="text-[11px] leading-relaxed text-gray-600 dark:text-gray-300 line-clamp-2">{n.message}</p>
                           </div>
-                          <p className="text-[11px] leading-relaxed text-gray-600 line-clamp-2">{n.message}</p>
-                        </div>
-                      ))
-                    )}
+                        ))
+                      )}
+                    </div>
                   </div>
-                </div>
+                </>
               )}
             </div>
 

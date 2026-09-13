@@ -224,6 +224,10 @@ export interface Property {
   availabilityStatus: AvailabilityStatus;
   isDemo: boolean;
   isFeatured: boolean;
+  has4KVideo?: boolean;
+  videoTourUrl?: string;
+  videoVerificationStatus?: 'NONE' | 'PENDING_AUDIT' | 'APPROVED' | 'REJECTED';
+  videoVerificationNotes?: string | null;
   adminFeedbackNotes?: string;
   rejectionReason?: string;
   completenessScore?: number;
