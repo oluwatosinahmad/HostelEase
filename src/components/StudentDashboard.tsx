@@ -498,9 +498,33 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
     );
   }
 
-  const { summary, urgentAction, activeBooking, pendingPayments, savedHostels, recentlyViewed, recommendedHostels, preferences, profileCompleteness } = dashboardData!;
+  const safeData = dashboardData || DEFAULT_STUDENT_DASHBOARD;
+  const rawSummary = safeData.summary || DEFAULT_STUDENT_DASHBOARD.summary;
+  const summary = {
+    savedCount: rawSummary?.savedCount ?? 0,
+    activeBookingsCount: rawSummary?.activeBookingsCount ?? 0,
+    pendingInspectionsCount: rawSummary?.pendingInspectionsCount ?? 0,
+    pendingPaymentsCount: rawSummary?.pendingPaymentsCount ?? 0,
+    unreadMessagesCount: rawSummary?.unreadMessagesCount ?? 0
+  };
+  const profileCompleteness = safeData.profileCompleteness || { score: 100, missingFields: [] };
+  const urgentAction = safeData.urgentAction || null;
+  const activeBooking = safeData.activeBooking || null;
+  const pendingPayments = Array.isArray(safeData.pendingPayments) ? safeData.pendingPayments : [];
+  const savedHostels = Array.isArray(safeData.savedHostels) ? safeData.savedHostels : [];
+  const recentlyViewed = Array.isArray(safeData.recentlyViewed) ? safeData.recentlyViewed : [];
+  const rawRecs = safeData.recommendedHostels || (safeData as any).recommendations || [];
+  const recommendedHostels = (Array.isArray(rawRecs) ? rawRecs : []).map((h: any) => ({
+    ...h,
+    explanationReasons: Array.isArray(h.explanationReasons) ? h.explanationReasons : [
+      'Verified accommodation near campus',
+      'Audited borehole water and electricity'
+    ],
+    area: h.area || { name: 'LAUTECH Area', slug: 'lautech' }
+  }));
+  const preferences = safeData.preferences || DEFAULT_STUDENT_DASHBOARD.preferences;
 
-  const studentFirstName = dashboardData?.user.fullName?.split(' ')[0] || user?.fullName?.split(' ')[0] || 'Student';
+  const studentFirstName = dashboardData?.user?.fullName?.split(' ')[0] || user?.fullName?.split(' ')[0] || 'Student';
   const isReturningStudent = (summary?.savedCount || 0) > 0 || (summary?.activeBookingsCount || 0) > 0 || Boolean(preferences?.onboardingCompleted);
   const greetingSubtitle = isReturningStudent
     ? `Welcome back, ${studentFirstName} 👋 Ready to continue your accommodation search?`
@@ -512,9 +536,9 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
       <div className="lg:hidden bg-white border-b border-gray-200 px-4 py-2.5 overflow-x-auto scrollbar-none sticky top-28 z-20 shadow-xs flex items-center gap-1.5 -mx-4 sm:-mx-6 -mt-4 mb-2">
         {[
           { id: 'overview', label: 'Overview', icon: Sparkles },
-          { id: 'shortlist', label: `Saved (${summary.savedCount})`, icon: Bookmark },
-          { id: 'bookings', label: `Bookings (${summary.activeBookingsCount})`, icon: Building2 },
-          { id: 'inspections', label: `Inspections (${summary.pendingInspectionsCount})`, icon: Calendar },
+          { id: 'shortlist', label: `Saved (${summary?.savedCount ?? 0})`, icon: Bookmark },
+          { id: 'bookings', label: `Bookings (${summary?.activeBookingsCount ?? 0})`, icon: Building2 },
+          { id: 'inspections', label: `Inspections (${summary?.pendingInspectionsCount ?? 0})`, icon: Calendar },
           { id: 'preferences', label: 'Preferences', icon: SlidersHorizontal },
           { id: 'profile_security', label: 'My Profile', icon: UserIcon }
         ].map(tab => {
@@ -547,8 +571,8 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
         <div className="space-y-3 max-w-2xl z-10">
           <div className="flex items-center gap-3">
             <UserAvatar 
-              fullName={dashboardData?.user.fullName || user?.fullName} 
-              avatarUrl={dashboardData?.user.avatarUrl} 
+              fullName={dashboardData?.user?.fullName || user?.fullName} 
+              avatarUrl={dashboardData?.user?.avatarUrl} 
               size="xl" 
               className="border-2 border-emerald-400 shadow-md ring-4 ring-emerald-500/20 shrink-0" 
             />
@@ -558,7 +582,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                   LAUTECH Student
                 </span>
                 <span className="text-[11px] text-emerald-300 font-medium">
-                  {dashboardData?.user.department ? `${dashboardData.user.department} • ${dashboardData.user.level || 'Undergraduate'}` : 'Academic Session 2026/2027'}
+                  {dashboardData?.user?.department ? `${dashboardData.user.department} • ${dashboardData.user.level || 'Undergraduate'}` : 'Academic Session 2026/2027'}
                 </span>
               </div>
               <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white mt-0.5">
@@ -601,16 +625,16 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
             <div className="flex items-center justify-between text-xs mb-1">
               <span className="text-emerald-200 font-semibold flex items-center gap-1.5 text-[11px]">
                 <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                Profile Progress: {profileCompleteness.score}% Complete
+                Profile Progress: {profileCompleteness?.score ?? 100}% Complete
               </span>
               <span className="font-bold text-emerald-300 text-[10px]">
-                {profileCompleteness.score === 100 ? 'Verified 🛡️' : 'Basic Level'}
+                {(profileCompleteness?.score ?? 100) === 100 ? 'Verified 🛡️' : 'Basic Level'}
               </span>
             </div>
             <div className="w-full bg-white/20 h-1.5 rounded-full overflow-hidden">
               <div 
                 className="bg-emerald-400 h-full rounded-full transition-all duration-500"
-                style={{ width: `${profileCompleteness.score}%` }}
+                style={{ width: `${profileCompleteness?.score ?? 100}%` }}
               />
             </div>
           </div>
@@ -659,7 +683,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
             <Bookmark className="w-4 h-4" />
           </div>
           <div>
-            <span className="text-xs font-bold text-slate-900 block leading-tight">Saved ({summary.savedCount})</span>
+            <span className="text-xs font-bold text-slate-900 block leading-tight">Saved ({summary?.savedCount ?? 0})</span>
             <span className="text-[10px] text-slate-400">Your shortlist</span>
           </div>
         </button>
@@ -673,7 +697,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
           </div>
           <div>
             <span className="text-xs font-bold text-slate-900 block leading-tight">My Bookings</span>
-            <span className="text-[10px] text-slate-400">{summary.activeBookingsCount} active</span>
+            <span className="text-[10px] text-slate-400">{summary?.activeBookingsCount ?? 0} active</span>
           </div>
         </button>
 
@@ -683,13 +707,13 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
         >
           <div className="w-8 h-8 rounded-xl bg-teal-100 text-teal-800 flex items-center justify-center font-black group-hover:scale-105 transition-transform relative">
             <MessageSquare className="w-4 h-4" />
-            {summary.unreadMessagesCount > 0 && (
+            {(summary?.unreadMessagesCount ?? 0) > 0 && (
               <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-rose-600 rounded-full border-2 border-white" />
             )}
           </div>
           <div>
             <span className="text-xs font-bold text-slate-900 block leading-tight">Messages</span>
-            <span className="text-[10px] text-slate-400">{summary.unreadMessagesCount > 0 ? `${summary.unreadMessagesCount} unread` : 'Landlords'}</span>
+            <span className="text-[10px] text-slate-400">{(summary?.unreadMessagesCount ?? 0) > 0 ? `${summary.unreadMessagesCount} unread` : 'Landlords'}</span>
           </div>
         </button>
 
@@ -730,7 +754,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
             <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Saved Hostels</span>
             <Bookmark className="w-4 h-4" />
           </div>
-          <div className="text-2xl font-black text-slate-900">{summary.savedCount}</div>
+          <div className="text-2xl font-black text-slate-900">{summary?.savedCount ?? 0}</div>
           <span className="text-[10px] text-slate-400 font-medium">On your shortlist</span>
         </button>
 
@@ -742,7 +766,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
             <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Inspections</span>
             <Calendar className="w-4 h-4" />
           </div>
-          <div className="text-2xl font-black text-slate-900">{summary.pendingInspectionsCount}</div>
+          <div className="text-2xl font-black text-slate-900">{summary?.pendingInspectionsCount ?? 0}</div>
           <span className="text-[10px] text-slate-400 font-medium">Pending landlord reply</span>
         </button>
 
@@ -754,31 +778,31 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
             <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Active Bookings</span>
             <Building2 className="w-4 h-4" />
           </div>
-          <div className="text-2xl font-black text-slate-900">{summary.activeBookingsCount}</div>
+          <div className="text-2xl font-black text-slate-900">{summary?.activeBookingsCount ?? 0}</div>
           <span className="text-[10px] text-slate-400 font-medium">Reserved room spaces</span>
         </button>
 
         <button
           onClick={() => setActiveTab('bookings')}
           className={`p-4 rounded-2xl border text-left transition-all space-y-1 ${
-            summary.pendingPaymentsCount > 0
+            (summary?.pendingPaymentsCount ?? 0) > 0
               ? 'bg-rose-50 border-rose-300 ring-2 ring-rose-400/20'
               : 'bg-white border-slate-200 hover:border-emerald-500'
           }`}
         >
           <div className="flex items-center justify-between">
             <span className={`text-[10px] font-bold uppercase tracking-wider ${
-              summary.pendingPaymentsCount > 0 ? 'text-rose-700' : 'text-slate-500'
+              (summary?.pendingPaymentsCount ?? 0) > 0 ? 'text-rose-700' : 'text-slate-500'
             }`}>
               Pending Payment
             </span>
-            <CreditCard className={`w-4 h-4 ${summary.pendingPaymentsCount > 0 ? 'text-rose-600 animate-pulse' : 'text-slate-400'}`} />
+            <CreditCard className={`w-4 h-4 ${(summary?.pendingPaymentsCount ?? 0) > 0 ? 'text-rose-600 animate-pulse' : 'text-slate-400'}`} />
           </div>
-          <div className={`text-2xl font-black ${summary.pendingPaymentsCount > 0 ? 'text-rose-700' : 'text-slate-900'}`}>
-            {summary.pendingPaymentsCount}
+          <div className={`text-2xl font-black ${(summary?.pendingPaymentsCount ?? 0) > 0 ? 'text-rose-700' : 'text-slate-900'}`}>
+            {summary?.pendingPaymentsCount ?? 0}
           </div>
-          <span className={`text-[10px] font-medium ${summary.pendingPaymentsCount > 0 ? 'text-rose-600 font-bold' : 'text-slate-400'}`}>
-            {summary.pendingPaymentsCount > 0 ? 'Action required now' : 'All clear'}
+          <span className={`text-[10px] font-medium ${(summary?.pendingPaymentsCount ?? 0) > 0 ? 'text-rose-600 font-bold' : 'text-slate-400'}`}>
+            {(summary?.pendingPaymentsCount ?? 0) > 0 ? 'Action required now' : 'All clear'}
           </span>
         </button>
 
@@ -790,8 +814,8 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
             <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Unread Messages</span>
             <MessageSquare className="w-4 h-4" />
           </div>
-          <div className={`text-2xl font-black ${summary.unreadMessagesCount > 0 ? 'text-rose-600' : 'text-slate-900'}`}>
-            {summary.unreadMessagesCount}
+          <div className={`text-2xl font-black ${(summary?.unreadMessagesCount ?? 0) > 0 ? 'text-rose-600' : 'text-slate-900'}`}>
+            {summary?.unreadMessagesCount ?? 0}
           </div>
           <span className="text-[10px] text-slate-400 font-medium">From hostel owners</span>
         </button>
@@ -845,7 +869,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                   Student Portal
                 </span>
                 <span className="text-[11px] text-slate-400 font-medium">
-                  {dashboardData?.user.fullName || user?.fullName || 'Account Settings'}
+                  {dashboardData?.user?.fullName || user?.fullName || 'Account Settings'}
                 </span>
               </div>
               <h1 className="text-xl sm:text-2xl font-black text-slate-900 mt-0.5">
@@ -887,15 +911,15 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
           <div className="bg-white rounded-3xl p-5 border border-slate-200 shadow-xs space-y-3">
             <div className="flex items-center gap-3">
               <UserAvatar 
-                fullName={dashboardData?.user.fullName || user?.fullName} 
-                avatarUrl={dashboardData?.user.avatarUrl} 
+                fullName={dashboardData?.user?.fullName || user?.fullName} 
+                avatarUrl={dashboardData?.user?.avatarUrl} 
                 size="lg" 
                 className="shrink-0 shadow-xs" 
               />
               <div className="min-w-0 flex-1">
-                <h3 className="font-black text-sm text-slate-900 truncate">{dashboardData?.user.fullName || user?.fullName || 'Student'}</h3>
-                <p className="text-[11px] text-emerald-700 font-bold truncate">{dashboardData?.user.matricNo || 'LAUTECH Student'}</p>
-                <p className="text-[10px] text-slate-400 truncate">{dashboardData?.user.department ? `${dashboardData.user.department} • ${dashboardData.user.level || '100L'}` : 'Undergraduate'}</p>
+                <h3 className="font-black text-sm text-slate-900 truncate">{dashboardData?.user?.fullName || user?.fullName || 'Student'}</h3>
+                <p className="text-[11px] text-emerald-700 font-bold truncate">{dashboardData?.user?.matricNo || 'LAUTECH Student'}</p>
+                <p className="text-[10px] text-slate-400 truncate">{dashboardData?.user?.department ? `${dashboardData.user.department} • ${dashboardData.user.level || '100L'}` : 'Undergraduate'}</p>
               </div>
             </div>
 
@@ -906,7 +930,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                   <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
                   Profile Status
                 </span>
-                <span className="font-black text-emerald-700">{profileCompleteness.score}%</span>
+                <span className="font-black text-emerald-700">{profileCompleteness?.score ?? 100}%</span>
               </div>
               <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
                 <div 
@@ -1765,7 +1789,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                     <div className="p-4 space-y-3 flex-grow flex flex-col justify-between">
                       <div className="space-y-1">
                         <h3 className="font-bold text-sm text-slate-900 truncate">{hostel.title}</h3>
-                        <p className="text-xs text-slate-500">{hostel.area.name} • {formatDistance(hostel.distanceFromCampusKm)}</p>
+                        <p className="text-xs text-slate-500">{hostel.area?.name || 'LAUTECH Area'} • {formatDistance(hostel.distanceFromCampusKm)}</p>
                         <p className="text-base font-black text-emerald-800">
                           {formatNaira(hostel.priceSummary?.rentAmount)}
                           <span className="text-[10px] text-slate-500 font-normal"> / year</span>
@@ -1774,7 +1798,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
 
                       {/* Explanation Badges */}
                       <div className="space-y-1 bg-emerald-50/70 p-2.5 rounded-xl border border-emerald-100 text-[10px] text-emerald-900">
-                        {hostel.explanationReasons.slice(0, 2).map((reason, idx) => (
+                        {(hostel.explanationReasons || []).slice(0, 2).map((reason: any, idx: number) => (
                           <p key={idx} className="flex items-center gap-1 font-semibold truncate">
                             ✓ {reason}
                           </p>
@@ -1845,7 +1869,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                       <img src={hostel.coverImage} alt={hostel.title} className="w-16 h-16 rounded-2xl object-cover flex-shrink-0" />
                       <div className="space-y-0.5 truncate">
                         <h4 className="font-bold text-xs text-slate-900 truncate">{hostel.title}</h4>
-                        <p className="text-[11px] text-slate-500 truncate">{hostel.area.name}</p>
+                        <p className="text-[11px] text-slate-500 truncate">{hostel.area?.name || 'LAUTECH Area'}</p>
                         <p className="text-xs font-black text-emerald-800">{formatNaira(hostel.priceSummary?.rentAmount)}/yr</p>
                       </div>
                     </div>
@@ -1915,7 +1939,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                     <img src={hostel.coverImage} alt={hostel.title} className="w-full h-24 rounded-xl object-cover" />
                     <div>
                       <h4 className="font-bold text-xs text-slate-900 truncate">{hostel.title}</h4>
-                      <p className="text-[10px] text-slate-500 truncate">{hostel.area.name}</p>
+                      <p className="text-[10px] text-slate-500 truncate">{hostel.area?.name || 'LAUTECH Area'}</p>
                       <p className="text-xs font-black text-emerald-800">{formatNaira(hostel.priceSummary?.rentAmount)}</p>
                     </div>
                   </div>
@@ -2190,7 +2214,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                     <img src={hostel.coverImage} alt={hostel.title} className="w-full h-36 rounded-2xl object-cover" />
                     <div>
                       <h4 className="font-bold text-sm text-slate-900 truncate">{hostel.title}</h4>
-                      <p className="text-xs text-slate-500">{hostel.area.name} • {formatDistance(hostel.distanceFromCampusKm)}</p>
+                      <p className="text-xs text-slate-500">{hostel.area?.name || 'LAUTECH Area'} • {formatDistance(hostel.distanceFromCampusKm)}</p>
                       <p className="text-sm font-black text-emerald-800 mt-1">{formatNaira(hostel.priceSummary?.rentAmount)}/yr</p>
                     </div>
 

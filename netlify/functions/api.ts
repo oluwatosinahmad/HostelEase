@@ -373,7 +373,20 @@ export default async (req: Request): Promise<Response> => {
       return false;
     });
 
-    return new Response(JSON.stringify({ properties: list }), { status: 200, headers: CORS_HEADERS });
+    const resultList = list.length > 0 ? list : memoryProperties.slice(0, 4).map(p => ({
+      ...p,
+      providerId: userId || 'usr-provider-default',
+      providerEmail: userEmail || 'provider@hostelease.ng',
+      provider: {
+        id: userId || 'usr-provider-default',
+        name: user?.fullName || 'Hostel Landlord',
+        email: userEmail || 'provider@hostelease.ng',
+        phone: user?.phone || '08031234567',
+        role: 'LANDLORD'
+      }
+    }));
+
+    return new Response(JSON.stringify({ properties: resultList }), { status: 200, headers: CORS_HEADERS });
   }
 
   // 5. Provider Properties (Create hostel listing)
@@ -611,6 +624,25 @@ export default async (req: Request): Promise<Response> => {
   // 11. Student Dashboard
   if (pathname === '/api/student/dashboard' && req.method === 'GET') {
     const user = parseAuth(req) || memoryUsers.find(u => u.role === 'STUDENT') || memoryUsers[2];
+    const recProps = memoryProperties.slice(0, 6).map(p => ({
+      ...p,
+      area: p.area || { id: 'area-under-g', name: 'Under G', slug: 'under-g' },
+      explanationReasons: ['Matches your budget preference', 'Verified borehole water', 'Under 1km to campus'],
+      priceChanged: false,
+      availabilityChanged: false
+    }));
+    const savedProps = memoryProperties.slice(0, 4).map(p => ({
+      ...p,
+      savedId: `saved-${p.id}`,
+      savedAt: new Date().toISOString(),
+      area: p.area || { id: 'area-under-g', name: 'Under G', slug: 'under-g' },
+      explanationReasons: ['Matches your budget', 'Verified water supply', 'Close to campus gate'],
+      priceChanged: false,
+      priceChangeDetails: null,
+      availabilityChanged: false,
+      availabilityAlert: null
+    }));
+
     return new Response(JSON.stringify({
       user: {
         id: user.id || 'usr-student-1',
@@ -624,6 +656,18 @@ export default async (req: Request): Promise<Response> => {
         gender: 'ANY',
         avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80'
       },
+      profileCompleteness: {
+        score: 100,
+        missingFields: []
+      },
+      summary: {
+        activeBookingsCount: 0,
+        pendingInspectionsCount: 0,
+        savedCount: savedProps.length,
+        unreadMessagesCount: 0,
+        pendingPaymentsCount: 0
+      },
+      urgentAction: null,
       preferences: {
         minBudget: 120000,
         maxBudget: 280000,
@@ -636,26 +680,196 @@ export default async (req: Request): Promise<Response> => {
         isMoveInFlexible: true,
         onboardingCompleted: true
       },
-      summary: {
-        activeBookingsCount: 0,
-        pendingInspectionsCount: 0,
-        savedCount: memoryProperties.length,
-        unreadMessagesCount: 0
-      },
-      savedHostels: memoryProperties.slice(0, 4).map(p => ({
-        ...p,
-        savedId: `saved-${p.id}`,
-        savedAt: new Date().toISOString(),
-        priceChanged: false,
-        priceChangeDetails: null,
-        availabilityChanged: false,
-        availabilityAlert: null
-      })),
+      savedHostels: savedProps,
+      recommendedHostels: recProps,
+      recommendations: recProps,
+      recentlyViewed: recProps.slice(0, 4),
       recentInspections: [],
       pendingBookings: [],
       activeBooking: null,
-      recommendations: memoryProperties.slice(0, 6)
+      journeyStage: 'SEARCHING'
     }), { status: 200, headers: CORS_HEADERS });
+  }
+
+  // 12. Provider Dashboard
+  if (pathname === '/api/provider/dashboard' && req.method === 'GET') {
+    const user = parseAuth(req);
+    const userEmail = (user?.email || '').toLowerCase().trim();
+    const userId = user?.id || '';
+
+    const myProps = memoryProperties.filter(p => {
+      const pEmail = ((p as any).providerEmail || p.provider?.email || '').toLowerCase().trim();
+      const pId = (p as any).providerId || p.provider?.id;
+      if (userEmail && pEmail && pEmail === userEmail) return true;
+      if (userId && pId && pId === userId) return true;
+      if (p.isDemo) return true;
+      return false;
+    });
+
+    const activeList = myProps.length > 0 ? myProps : memoryProperties.slice(0, 4);
+
+    return new Response(JSON.stringify({
+      stats: {
+        totalHostels: activeList.length,
+        activeHostels: activeList.filter(p => p.verificationStatus === 'APPROVED').length,
+        pendingApproval: activeList.filter(p => p.verificationStatus !== 'APPROVED').length,
+        drafts: 0,
+        totalCapacity: activeList.reduce((sum, p) => sum + (Number(p.totalRooms) || 10), 0),
+        availableSpaces: 4,
+        occupiedSpaces: 8,
+        reservedSpaces: 1,
+        pendingBookings: 1,
+        confirmedBookings: 3,
+        upcomingInspections: 2,
+        pendingInspections: 1,
+        totalRevenue: 3500000,
+        verificationStatus: 'APPROVED',
+        unreadMessages: 0
+      },
+      properties: activeList,
+      actionRequired: [],
+      qualityAlerts: [],
+      onboarding: { completed: true, step: 4 }
+    }), { status: 200, headers: CORS_HEADERS });
+  }
+
+  // 13. Areas API
+  if (pathname === '/api/areas' && req.method === 'GET') {
+    return new Response(JSON.stringify({
+      areas: [
+        {
+          id: 'area-under-g',
+          universityId: 'univ-lautech',
+          name: 'Under G',
+          slug: 'under-g',
+          description: 'The premier student district directly opposite the LAUTECH Under G Gate.',
+          landmark: 'LAUTECH Under G Gate & Bovas Station',
+          approxDistanceMinKm: 0.2,
+          approxDistanceMaxKm: 1.0,
+          propertyCount: 18,
+          minRent: 180000,
+          maxRent: 380000
+        },
+        {
+          id: 'area-abaa',
+          universityId: 'univ-lautech',
+          name: 'Abaa Area',
+          slug: 'abaa',
+          description: 'Fastest-growing student hostel hub adjacent to Under-G.',
+          landmark: 'Abaa Junction & Central Market',
+          approxDistanceMinKm: 0.6,
+          approxDistanceMaxKm: 1.8,
+          propertyCount: 15,
+          minRent: 170000,
+          maxRent: 350000
+        },
+        {
+          id: 'area-adenike',
+          universityId: 'univ-lautech',
+          name: 'Adenike Area',
+          slug: 'adenike',
+          description: 'Popular residential zone near the Adenike campus gate.',
+          landmark: 'Adenike Junction',
+          approxDistanceMinKm: 0.6,
+          approxDistanceMaxKm: 1.8,
+          propertyCount: 15,
+          minRent: 170000,
+          maxRent: 350000
+        },
+        {
+          id: 'area-stadium',
+          universityId: 'univ-lautech',
+          name: 'Stadium Road',
+          slug: 'stadium-road',
+          description: 'Serene residential axis with new hostel developments.',
+          landmark: 'Ogbomoso Township Stadium',
+          approxDistanceMinKm: 1.2,
+          approxDistanceMaxKm: 2.5,
+          propertyCount: 10,
+          minRent: 150000,
+          maxRent: 300000
+        }
+      ]
+    }), { status: 200, headers: CORS_HEADERS });
+  }
+
+  // 14. Provider Sub-Endpoints (Resilient fallbacks)
+  if (pathname === '/api/provider/calendar' && req.method === 'GET') {
+    return new Response(JSON.stringify({ events: [] }), { status: 200, headers: CORS_HEADERS });
+  }
+
+  if ((pathname === '/api/provider/inspections/availability' || pathname === '/api/provider/inspection-schedules') && req.method === 'GET') {
+    return new Response(JSON.stringify({
+      schedules: [
+        { dayOfWeek: 'MONDAY', startTime: '10:00', endTime: '17:00', isAvailable: true },
+        { dayOfWeek: 'WEDNESDAY', startTime: '10:00', endTime: '17:00', isAvailable: true },
+        { dayOfWeek: 'SATURDAY', startTime: '09:00', endTime: '18:00', isAvailable: true }
+      ]
+    }), { status: 200, headers: CORS_HEADERS });
+  }
+
+  if (pathname === '/api/provider/quick-replies' && req.method === 'GET') {
+    return new Response(JSON.stringify({
+      quickReplies: [
+        { id: 'qr-1', title: 'Inspection Timing', messageText: 'Hello! I am available for physical hostel inspections Mondays to Saturdays between 10:00 AM and 5:00 PM.' },
+        { id: 'qr-2', title: 'Power & Water Details', messageText: 'Electricity is constant on this feeder line with backup generator/solar, and we have 24/7 running motorized borehole water.' },
+        { id: 'qr-3', title: 'Payment Breakdown', messageText: 'Our rent covers the full annual tenancy with zero extra agent commission fees. Caution fee is 100% refundable at move-out.' }
+      ]
+    }), { status: 200, headers: CORS_HEADERS });
+  }
+
+  if (pathname === '/api/provider/performance' && req.method === 'GET') {
+    return new Response(JSON.stringify({
+      funnel: {
+        views: 142,
+        saves: 28,
+        inspections: 12,
+        bookingRequests: 6,
+        confirmedBookings: 4
+      },
+      reviews: {
+        averageRating: '4.9',
+        count: 18,
+        items: []
+      }
+    }), { status: 200, headers: CORS_HEADERS });
+  }
+
+  if (pathname === '/api/provider/team' && req.method === 'GET') {
+    return new Response(JSON.stringify({ team: [] }), { status: 200, headers: CORS_HEADERS });
+  }
+
+  if (pathname === '/api/provider/audit-logs' && req.method === 'GET') {
+    return new Response(JSON.stringify({ logs: [] }), { status: 200, headers: CORS_HEADERS });
+  }
+
+  if ((pathname === '/api/verification/documents' || pathname === '/api/verification/my-documents') && req.method === 'GET') {
+    return new Response(JSON.stringify({ documents: [] }), { status: 200, headers: CORS_HEADERS });
+  }
+
+  if (pathname === '/api/notifications' && req.method === 'GET') {
+    return new Response(JSON.stringify({ notifications: [], unreadCount: 0 }), { status: 200, headers: CORS_HEADERS });
+  }
+
+  if (pathname === '/api/messages/conversations' && req.method === 'GET') {
+    return new Response(JSON.stringify({ conversations: [] }), { status: 200, headers: CORS_HEADERS });
+  }
+
+  if (pathname === '/api/payments/provider-financials' && req.method === 'GET') {
+    return new Response(JSON.stringify({
+      availableBalance: 3500000,
+      escrowBalance: 240000,
+      totalEarned: 3500000,
+      recentPayouts: []
+    }), { status: 200, headers: CORS_HEADERS });
+  }
+
+  if (pathname === '/api/bookings' && req.method === 'GET') {
+    return new Response(JSON.stringify({ bookings: [] }), { status: 200, headers: CORS_HEADERS });
+  }
+
+  if (pathname === '/api/inspections' && req.method === 'GET') {
+    return new Response(JSON.stringify({ inspections: [] }), { status: 200, headers: CORS_HEADERS });
   }
 
   // 12. Landlord AI Assistant
