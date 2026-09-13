@@ -401,8 +401,16 @@ function MainApp() {
       const role = e.detail?.role || 'STUDENT';
       handleOpenAuth(role);
     };
+    const handleAiEvent = (e: any) => {
+      const prop = e.detail?.property || null;
+      handleOpenAI(prop);
+    };
     window.addEventListener('hostel_ease_open_auth', handleAuthEvent);
-    return () => window.removeEventListener('hostel_ease_open_auth', handleAuthEvent);
+    window.addEventListener('hostel_ease_open_ai', handleAiEvent);
+    return () => {
+      window.removeEventListener('hostel_ease_open_auth', handleAuthEvent);
+      window.removeEventListener('hostel_ease_open_ai', handleAiEvent);
+    };
   }, []);
 
   const handleOpenBookingModal = (property: Property) => {
@@ -1929,21 +1937,19 @@ function MainApp() {
       )}
 
       {/* Floating AI Assistant Trigger Button (Accessible from any page on phone & laptop) */}
-      {currentView !== 'provider-portal' && (
-        <button
-          onClick={() => handleOpenAI()}
-          aria-label="Open AI Assistant"
-          className="fixed bottom-20 right-4 sm:bottom-6 sm:right-6 z-40 flex items-center gap-2 px-3.5 py-2.5 sm:px-4 sm:py-3 bg-gradient-to-r from-emerald-600 via-emerald-700 to-teal-800 hover:from-emerald-700 hover:to-teal-900 text-white rounded-full shadow-2xl shadow-emerald-950/30 hover:scale-105 active:scale-95 transition-all cursor-pointer group border border-emerald-500/30"
-        >
-          <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-amber-300 animate-spin-slow group-hover:rotate-12 transition-transform" />
-          <span className="text-xs font-black tracking-wide hidden sm:inline">
-            {isProvider ? 'Ask Landlord AI' : 'Hostel Ease AI'}
-          </span>
-          <span className="sm:hidden text-xs font-black tracking-wide">
-            {isProvider ? 'Landlord AI' : 'AI Bot'}
-          </span>
-        </button>
-      )}
+      <button
+        onClick={() => handleOpenAI()}
+        aria-label="Open AI Assistant"
+        className="fixed bottom-20 right-4 sm:bottom-6 sm:right-6 z-40 flex items-center gap-2 px-3.5 py-2.5 sm:px-4 sm:py-3 bg-gradient-to-r from-emerald-600 via-emerald-700 to-teal-800 hover:from-emerald-700 hover:to-teal-900 text-white rounded-full shadow-2xl shadow-emerald-950/30 hover:scale-105 active:scale-95 transition-all cursor-pointer group border border-emerald-500/30"
+      >
+        <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-amber-300 animate-spin-slow group-hover:rotate-12 transition-transform" />
+        <span className="text-xs font-black tracking-wide hidden sm:inline">
+          {isProvider ? 'Ask Landlord AI' : 'Hostel Ease AI'}
+        </span>
+        <span className="sm:hidden text-xs font-black tracking-wide">
+          {isProvider ? 'Landlord AI' : 'AI Bot'}
+        </span>
+      </button>
 
       {/* Mobile-First Floating Bottom Navigation Bar */}
       <MobileBottomNav

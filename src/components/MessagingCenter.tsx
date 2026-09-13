@@ -749,15 +749,28 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
                 </div>
               </div>
 
-              {isStudent && (
+              <div className="flex items-center gap-1.5">
                 <button
-                  onClick={() => setShowNewChatSelector(true)}
-                  className="p-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl shadow-lg transition-all cursor-pointer"
-                  title="Inquire about any hostel"
+                  type="button"
+                  onClick={() => window.dispatchEvent(new CustomEvent('hostel_ease_open_ai'))}
+                  className="px-2.5 py-1.5 bg-gradient-to-r from-emerald-600 via-teal-700 to-teal-800 hover:from-emerald-500 hover:to-teal-600 text-white rounded-xl text-xs font-black shadow-md transition-all flex items-center gap-1.5 cursor-pointer border border-emerald-500/30 group"
+                  title={isStudent ? "Open Student AI Assistant Bot" : "Open Landlord AI Assistant Bot"}
                 >
-                  <PlusCircle className="w-4 h-4" />
+                  <Sparkles className="w-3.5 h-3.5 text-amber-300 animate-spin-slow group-hover:rotate-12 transition-transform" />
+                  <span className="hidden sm:inline">{isStudent ? 'AI Bot' : 'Landlord Bot'}</span>
+                  <span className="sm:hidden">Bot</span>
                 </button>
-              )}
+
+                {isStudent && (
+                  <button
+                    onClick={() => setShowNewChatSelector(true)}
+                    className="p-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl shadow-lg transition-all cursor-pointer"
+                    title="Inquire about any hostel"
+                  >
+                    <PlusCircle className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* Search Input */}
@@ -1752,6 +1765,16 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
                       title="Emoji Reaction"
                     >
                       <Smile className="w-4 h-4" />
+                    </button>
+
+                    {/* Ask AI Assistant Bot Button */}
+                    <button
+                      type="button"
+                      onClick={() => window.dispatchEvent(new CustomEvent('hostel_ease_open_ai'))}
+                      className="p-2.5 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-500 hover:to-teal-600 text-white rounded-2xl shadow-md transition-colors cursor-pointer shrink-0 border border-emerald-400/30"
+                      title={isStudent ? "Ask Student Accommodation AI Bot" : "Ask Landlord AI Bot"}
+                    >
+                      <Sparkles className="w-4 h-4 text-amber-300 animate-pulse" />
                     </button>
 
                     {/* Quick Emojis Flyout */}

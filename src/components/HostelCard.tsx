@@ -393,7 +393,7 @@ export const HostelCard: React.FC<HostelCardProps> = ({
               </span>
               <span className="text-[10px] text-slate-500 dark:text-slate-400 font-bold">/yr</span>
             </div>
-            {property.priceSummary?.totalMandatoryCost && property.priceSummary.totalMandatoryCost > property.priceSummary.rentAmount && (
+            {property.priceSummary?.totalMandatoryCost && Number(property.priceSummary.totalMandatoryCost) > Number(property.priceSummary.rentAmount) && (
               <p className="text-[10px] text-emerald-800 dark:text-emerald-400 font-semibold flex items-center gap-0.5 mt-0.5">
                 <Info className="w-2.5 h-2.5 text-emerald-600 dark:text-emerald-400" />
                 Est. Total: {formatNaira(property.priceSummary.totalMandatoryCost)}

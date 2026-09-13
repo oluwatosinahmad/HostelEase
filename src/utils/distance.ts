@@ -34,12 +34,15 @@ export function calculateDistanceKm(
  * Returns formatted distance string from university gate.
  */
 export function formatProximityText(
-  distanceKm: number,
+  distanceKm: number | string | null | undefined,
   campusShortName: string = 'LAUTECH'
 ): string {
-  if (distanceKm < 1) {
-    const meters = Math.round(distanceKm * 1000);
+  if (distanceKm === null || distanceKm === undefined || distanceKm === '') return '';
+  const num = typeof distanceKm === 'number' ? distanceKm : Number(distanceKm);
+  if (isNaN(num)) return '';
+  if (num < 1) {
+    const meters = Math.round(num * 1000);
     return `${meters}m from ${campusShortName} Gate`;
   }
-  return `${distanceKm.toFixed(1)} km from ${campusShortName} Gate`;
+  return `${num.toFixed(1)} km from ${campusShortName} Gate`;
 }

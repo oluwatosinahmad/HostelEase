@@ -1,16 +1,23 @@
-export function formatNaira(amount: number | null | undefined): string {
-  if (amount === null || amount === undefined || isNaN(amount)) {
+export function formatNaira(amount: number | string | null | undefined): string {
+  if (amount === null || amount === undefined || amount === '') {
     return '₦0';
   }
-  return '₦' + Math.round(amount).toLocaleString('en-NG');
+  const cleanStr = typeof amount === 'number' ? amount : String(amount).replace(/[^0-9.-]+/g, '');
+  const num = Number(cleanStr);
+  if (isNaN(num)) {
+    return '₦0';
+  }
+  return '₦' + Math.round(num).toLocaleString('en-NG');
 }
 
-export function formatDistance(distanceKm: number | null | undefined): string {
-  if (distanceKm === null || distanceKm === undefined) return '';
-  if (distanceKm < 1) {
-    return `${Math.round(distanceKm * 1000)}m from LAUTECH Gate`;
+export function formatDistance(distanceKm: number | string | null | undefined): string {
+  if (distanceKm === null || distanceKm === undefined || distanceKm === '') return '';
+  const num = typeof distanceKm === 'number' ? distanceKm : Number(distanceKm);
+  if (isNaN(num)) return '';
+  if (num < 1) {
+    return `${Math.round(num * 1000)}m from LAUTECH Gate`;
   }
-  return `${distanceKm.toFixed(1)} km from LAUTECH`;
+  return `${num.toFixed(1)} km from LAUTECH`;
 }
 
 export function getAvailabilityBadgeInfo(status: string) {

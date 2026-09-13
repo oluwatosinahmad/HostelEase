@@ -83,6 +83,37 @@ export class ErrorBoundary extends Component<Props, State> {
               </button>
             </div>
 
+            {/* Diagnostic Technical Details (Expandable) */}
+            {this.state.error && (
+              <details className="text-left bg-slate-950/80 border border-slate-800 rounded-2xl p-3 text-xs group">
+                <summary className="cursor-pointer text-slate-400 hover:text-emerald-400 font-mono text-[11px] select-none flex items-center justify-between">
+                  <span>Diagnostic Details & Stack Trace</span>
+                  <span className="text-[10px] text-slate-500 group-open:rotate-180 transition-transform">▼</span>
+                </summary>
+                <div className="mt-3 space-y-2 font-mono text-[11px] overflow-x-auto">
+                  <div className="p-2.5 rounded-xl bg-rose-950/40 border border-rose-800/40 text-rose-300 break-words">
+                    <strong>Error:</strong> {this.state.error.name}: {this.state.error.message}
+                  </div>
+                  {this.state.errorInfo?.componentStack && (
+                    <div className="p-2.5 rounded-xl bg-slate-900 text-slate-400 text-[10px] whitespace-pre-wrap max-h-40 overflow-y-auto">
+                      {this.state.errorInfo.componentStack}
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const text = `Error: ${this.state.error?.toString()}\nComponent Stack:\n${this.state.errorInfo?.componentStack || 'N/A'}`;
+                      navigator.clipboard?.writeText(text);
+                      alert('Error details copied to clipboard!');
+                    }}
+                    className="w-full py-1.5 px-3 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] font-sans font-semibold transition"
+                  >
+                    📋 Copy Error Details
+                  </button>
+                </div>
+              </details>
+            )}
+
             {/* Security Notice */}
             <div className="border-t border-slate-800/80 pt-4 text-[11px] text-slate-500 flex items-center justify-center gap-1.5">
               <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />

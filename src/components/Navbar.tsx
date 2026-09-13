@@ -301,6 +301,24 @@ export const Navbar: React.FC<NavbarProps> = ({
               </button>
             )}
 
+            {/* My Hostels (Shown for Authenticated Landlords / Providers) */}
+            {isAuthenticated && isProvider && (
+              <button
+                onClick={() => {
+                  onNavigate('provider-portal');
+                  window.dispatchEvent(new CustomEvent('hostel_ease_provider_tab', { detail: 'listings' }));
+                }}
+                className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                  activeView === 'provider-portal' 
+                    ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 font-bold' 
+                    : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-800'
+                }`}
+              >
+                <Building2 className="w-4 h-4" />
+                <span>My Hostels</span>
+              </button>
+            )}
+
             <button
               onClick={() => onNavigate('community')}
               className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
@@ -318,7 +336,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               <button
                 onClick={onOpenAI}
                 className="ml-1 px-3 py-1.5 rounded-xl text-xs font-black transition-all bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white shadow-xs flex items-center gap-1.5 group hover:scale-[1.02]"
-                title="Ask Hostel Ease AI Accommodation Assistant"
+                title={isProvider ? "Ask Landlord AI Assistant" : "Ask Hostel Ease AI Accommodation Assistant"}
               >
                 <Sparkles className="w-3.5 h-3.5 text-amber-300 fill-amber-300 animate-pulse" />
                 <span>Ask AI</span>
@@ -344,20 +362,18 @@ export const Navbar: React.FC<NavbarProps> = ({
             {isAuthenticated ? (
               <div className="flex items-center gap-3">
                 {/* Messages Shortcut */}
-                {isStudent && (
-                  <button
-                    onClick={() => onNavigate('messages')}
-                    className="p-2 text-slate-600 hover:text-emerald-700 hover:bg-slate-100 rounded-xl relative transition-all"
-                    title="Messages"
-                  >
-                    <MessageSquare className="w-4 h-4" />
-                    {unreadMsgCount > 0 && (
-                      <span className="absolute top-1 right-1 w-4 h-4 bg-rose-600 text-white text-[9px] font-black rounded-full flex items-center justify-center">
-                        {unreadMsgCount}
-                      </span>
-                    )}
-                  </button>
-                )}
+                <button
+                  onClick={() => onNavigate('messages')}
+                  className="p-2 text-slate-600 hover:text-emerald-700 hover:bg-slate-100 rounded-xl relative transition-all"
+                  title="Messages"
+                >
+                  <MessageSquare className="w-4 h-4" />
+                  {unreadMsgCount > 0 && (
+                    <span className="absolute top-1 right-1 w-4 h-4 bg-rose-600 text-white text-[9px] font-black rounded-full flex items-center justify-center">
+                      {unreadMsgCount}
+                    </span>
+                  )}
+                </button>
 
                 {/* Notifications Bell & Dropdown */}
                 <div className="relative" ref={notifMenuRef}>
@@ -1001,8 +1017,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
                 <button
                   onClick={() => {
-                    onNavigate('provider-portal');
-                    window.dispatchEvent(new CustomEvent('hostel_ease_provider_tab', { detail: 'messages' }));
+                    onNavigate('messages');
                     setMobileMenuOpen(false);
                   }}
                   className="w-full flex items-center gap-2.5 p-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800"
