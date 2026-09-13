@@ -251,19 +251,20 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
         api.bookings.getAll().catch(() => ({ bookings: [] })),
         api.inspections.getAll().catch(() => ({ inspections: [] }))
       ]);
-      setDashboardData(data);
+      const safeData = (data && data.summary && data.user) ? data : DEFAULT_STUDENT_DASHBOARD;
+      setDashboardData(safeData);
       setAllStudentBookings(bkRes.bookings || []);
       setAllStudentInspections(inspRes.inspections || []);
 
       // Populate profile state
-      if (data.user) {
-        setProfileFullName(data.user.fullName || '');
-        setProfilePhone(data.user.phone || '');
-        setProfileDepartment(data.user.department || (data.user as any).studentDetails?.department || '');
-        setProfileLevel(data.user.level || (data.user as any).studentDetails?.level || '');
-        setProfileMatricNo(data.user.matricNo || (data.user as any).matricNumber || (data.user as any).studentDetails?.matricNo || (data.user as any).studentDetails?.matricNumber || '');
-        setProfileGender(data.user.gender || 'ANY');
-        setProfileAvatarUrl(data.user.avatarUrl || user?.avatarUrl || '');
+      if (safeData.user) {
+        setProfileFullName(safeData.user.fullName || '');
+        setProfilePhone(safeData.user.phone || '');
+        setProfileDepartment(safeData.user.department || (safeData.user as any).studentDetails?.department || '');
+        setProfileLevel(safeData.user.level || (safeData.user as any).studentDetails?.level || '');
+        setProfileMatricNo(safeData.user.matricNo || (safeData.user as any).matricNumber || (safeData.user as any).studentDetails?.matricNo || (safeData.user as any).studentDetails?.matricNumber || '');
+        setProfileGender(safeData.user.gender || 'ANY');
+        setProfileAvatarUrl(safeData.user.avatarUrl || user?.avatarUrl || '');
       } else if (user) {
         setProfileFullName(user.fullName || '');
         setProfilePhone(user.phone || '');
@@ -275,20 +276,20 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
       }
 
       // Populate preferences form state
-      if (data.preferences) {
-        setPrefMinBudget(data.preferences.minBudget || 100000);
-        setPrefMaxBudget(data.preferences.maxBudget || 250000);
-        setPrefAreas(data.preferences.preferredAreas || []);
-        setPrefRoomTypes(data.preferences.preferredRoomTypes || ['SELF_CONTAIN']);
-        setPrefFacilities(data.preferences.preferredFacilities || ['water', 'electricity']);
-        setPrefMaxDistance(data.preferences.maxDistanceKm || 2.5);
-        setPrefGender(data.preferences.genderPreference || 'ANY');
-        setPrefMoveInDate(data.preferences.preferredMoveInDate || '2026-09-01');
-        setPrefMoveInFlexible(Boolean(data.preferences.isMoveInFlexible));
+      if (safeData.preferences) {
+        setPrefMinBudget(safeData.preferences.minBudget || 100000);
+        setPrefMaxBudget(safeData.preferences.maxBudget || 250000);
+        setPrefAreas(safeData.preferences.preferredAreas || []);
+        setPrefRoomTypes(safeData.preferences.preferredRoomTypes || ['SELF_CONTAIN']);
+        setPrefFacilities(safeData.preferences.preferredFacilities || ['water', 'electricity']);
+        setPrefMaxDistance(safeData.preferences.maxDistanceKm || 2.5);
+        setPrefGender(safeData.preferences.genderPreference || 'ANY');
+        setPrefMoveInDate(safeData.preferences.preferredMoveInDate || '2026-09-01');
+        setPrefMoveInFlexible(Boolean(safeData.preferences.isMoveInFlexible));
       }
 
       // If student has never completed onboarding, prompt wizard
-      if (data.preferences && data.preferences.onboardingCompleted === false && data.summary.savedCount === 0 && data.summary.activeBookingsCount === 0) {
+      if (safeData.preferences && safeData.preferences.onboardingCompleted === false && (safeData.summary?.savedCount || 0) === 0 && (safeData.summary?.activeBookingsCount || 0) === 0) {
         setOnboardingModalOpen(true);
       }
 

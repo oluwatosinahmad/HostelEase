@@ -253,13 +253,45 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
         console.warn('API upload fallback to local FileReader:', err);
       }
 
-      // Safe local FileReader fallback if API did not return files
+      // Safe local FileReader fallback with high-performance canvas compression
       if (uploadedItems.length === 0) {
         uploadedItems = await Promise.all(
           fileArray.map(async (file) => {
             const dataUrl = await new Promise<string>((resolve) => {
+              if (file.type.startsWith('video/')) {
+                resolve(URL.createObjectURL(file));
+                return;
+              }
               const reader = new FileReader();
-              reader.onload = (ev) => resolve(ev.target?.result as string || URL.createObjectURL(file));
+              reader.onload = (ev) => {
+                const img = new Image();
+                img.onload = () => {
+                  try {
+                    const canvas = document.createElement('canvas');
+                    const maxDim = 1200;
+                    let width = img.width;
+                    let height = img.height;
+                    if (width > height && width > maxDim) {
+                      height = Math.round((height * maxDim) / width);
+                      width = maxDim;
+                    } else if (height > maxDim) {
+                      width = Math.round((width * maxDim) / height);
+                      height = maxDim;
+                    }
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    if (ctx) {
+                      ctx.drawImage(img, 0, 0, width, height);
+                      resolve(canvas.toDataURL('image/jpeg', 0.82));
+                      return;
+                    }
+                  } catch {}
+                  resolve(ev.target?.result as string || URL.createObjectURL(file));
+                };
+                img.onerror = () => resolve(ev.target?.result as string || URL.createObjectURL(file));
+                img.src = ev.target?.result as string;
+              };
               reader.onerror = () => resolve(URL.createObjectURL(file));
               reader.readAsDataURL(file);
             });

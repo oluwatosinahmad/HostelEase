@@ -1,0 +1,380 @@
+[
+  {
+    "id": "user-student-1",
+    "email": "student@lautech.edu.ng",
+    "fullName": "Tunde Adeyemi",
+    "phone": "+2348031234567",
+    "role": "STUDENT"
+  },
+  {
+    "id": "user-provider-1",
+    "email": "provider@hostelease.ng",
+    "fullName": "Chief (Alhaji) G. O. Adeleke",
+    "phone": "+2348039876543",
+    "role": "PROVIDER"
+  },
+  {
+    "id": "user-provider-2",
+    "email": "mukaila@ogbomosohousing.ng",
+    "fullName": "Alhaji Mukaila Oladapo",
+    "phone": "+2348051239876",
+    "role": "PROVIDER"
+  },
+  {
+    "id": "user-provider-3",
+    "email": "adebayo.lodges@gmail.com",
+    "fullName": "Engr. Kayode Adebayo",
+    "phone": "+2348023456789",
+    "role": "PROVIDER"
+  },
+  {
+    "id": "user-provider-4",
+    "email": "funke.balogun@hostelease.ng",
+    "fullName": "Mrs. Funke Balogun",
+    "phone": "+2348067890123",
+    "role": "PROVIDER"
+  },
+  {
+    "id": "user-admin-1",
+    "email": "admin@hostelease.ng",
+    "fullName": "Oluwatosin Ahmad",
+    "phone": "+2348004678353",
+    "role": "ADMIN"
+  },
+  {
+    "id": "user-9fc18394-5dbe-41c2-a2f0-4750bfb8ef69",
+    "email": "student.audit.1787839353225@lautech.edu.ng",
+    "fullName": "Audit Student User",
+    "phone": null,
+    "role": "STUDENT"
+  },
+  {
+    "id": "user-ef558e17-18e7-44a5-b591-77a5b10ab300",
+    "email": "landlord.audit.1787839353225@hostelease.ng",
+    "fullName": "Audit Landlord User",
+    "phone": null,
+    "role": "PROVIDER"
+  },
+  {
+    "id": "user-e948afcc-7adf-446f-81dd-c0595988d025",
+    "email": "student_auth_1787839357570@student.lautech.edu.ng",
+    "fullName": "Bolanle Olamide",
+    "phone": "08011223344",
+    "role": "STUDENT"
+  },
+  {
+    "id": "user-fbc475ce-7201-4af7-bf4a-b4687f1f6cf0",
+    "email": "landlord_auth_1787839357570@hostelease.ng",
+    "fullName": "Alhaji Kareem Adeleke",
+    "phone": "08055667788",
+    "role": "PROVIDER"
+  },
+  {
+    "id": "user-f7d328fb-976b-4d84-a85b-3df2b0fd264d",
+    "email": "student_rev_1787839363219@student.lautech.edu.ng",
+    "fullName": "Bolanle Student",
+    "phone": "08011223344",
+    "role": "STUDENT"
+  },
+  {
+    "id": "user-e9c02af4-3ac0-4e19-95e7-46f67868464f",
+    "email": "ahmad_launch_1787839367298@lautech.edu.ng",
+    "fullName": "Ahmad Babatunde",
+    "phone": "08031112233",
+    "role": "STUDENT"
+  },
+  {
+    "id": "user-5d092c75-f248-4ae7-9017-64f201afcb12",
+    "email": "provider_launch_1787839367298@hostelease.ng",
+    "fullName": "Alhaji Kareem Adeleke",
+    "phone": "08035556677",
+    "role": "PROVIDER"
+  },
+  {
+    "id": "user-82764045-a61e-4a97-b671-05698c1bf1bf",
+    "email": "student.audit.1787840734038@lautech.edu.ng",
+    "fullName": "Audit Student User",
+    "phone": null,
+    "role": "STUDENT"
+  },
+  {
+    "id": "user-94ee456f-205e-48ee-98ae-81304f9a196a",
+    "email": "landlord.audit.1787840734038@hostelease.ng",
+    "fullName": "Audit Landlord User",
+    "phone": null,
+    "role": "PROVIDER"
+  },
+  {
+    "id": "user-3775bab6-411c-40fb-ad2e-6f5e3587d266",
+    "email": "student.audit.1787841243983@lautech.edu.ng",
+    "fullName": "Audit Student User",
+    "phone": null,
+    "role": "STUDENT"
+  },
+  {
+    "id": "user-97e057d2-94c4-4162-9826-74d82177eed4",
+    "email": "landlord.audit.1787841243983@hostelease.ng",
+    "fullName": "Audit Landlord User",
+    "phone": null,
+    "role": "PROVIDER"
+  },
+  {
+    "id": "user-4e819c8e-020c-4ec8-8b57-569fc27649bf",
+    "email": "asdk@gmail.com",
+    "fullName": "smalliest",
+    "phone": null,
+    "role": "STUDENT"
+  },
+  {
+    "id": "user-f6f73ef8-7ce1-4e70-8a37-360527258159",
+    "email": "student.audit.1787843175527@lautech.edu.ng",
+    "fullName": "Audit Student User",
+    "phone": null,
+    "role": "STUDENT"
+  },
+  {
+    "id": "user-9362e2bf-696b-4515-9ab0-192d399b15dd",
+    "email": "landlord.audit.1787843175527@hostelease.ng",
+    "fullName": "Audit Landlord User",
+    "phone": null,
+    "role": "PROVIDER"
+  },
+  {
+    "id": "user-3e55fd46-a044-4c45-981e-3c5350ade52d",
+    "email": "student_auth_1787880319202@student.lautech.edu.ng",
+    "fullName": "Bolanle Olamide",
+    "phone": "08011223344",
+    "role": "STUDENT"
+  },
+  {
+    "id": "user-277bf072-3049-49d4-beae-c51839f65c51",
+    "email": "landlord_auth_1787880319202@hostelease.ng",
+    "fullName": "Alhaji Kareem Adeleke",
+    "phone": "08055667788",
+    "role": "PROVIDER"
+  },
+  {
+    "id": "user-3b9a227b-3d05-4462-9189-1d9f8de85362",
+    "email": "student_auth_1787890494586@student.lautech.edu.ng",
+    "fullName": "Bolanle Olamide",
+    "phone": "08011223344",
+    "role": "STUDENT"
+  },
+  {
+    "id": "user-81cf962a-6a54-46fd-92b1-c375c5d61226",
+    "email": "landlord_auth_1787890494586@hostelease.ng",
+    "fullName": "Alhaji Kareem Adeleke",
+    "phone": "08055667788",
+    "role": "PROVIDER"
+  },
+  {
+    "id": "user-dc8d88dc-8c73-423c-9dc9-30a95c1c0c6f",
+    "email": "student_auth_1787893915172@student.lautech.edu.ng",
+    "fullName": "Bolanle Olamide",
+    "phone": "08011223344",
+    "role": "STUDENT"
+  },
+  {
+    "id": "user-41238aee-8050-40d8-bc61-8924fb4dbce5",
+    "email": "landlord_auth_1787893915172@hostelease.ng",
+    "fullName": "Alhaji Kareem Adeleke",
+    "phone": "08055667788",
+    "role": "PROVIDER"
+  },
+  {
+    "id": "user-34263f22-19df-44d5-83ac-5aec45d09838",
+    "email": "student_auth_1787894747226@student.lautech.edu.ng",
+    "fullName": "Bolanle Olamide",
+    "phone": "08011223344",
+    "role": "STUDENT"
+  },
+  {
+    "id": "user-347fff51-1c13-4167-80ac-f9e1bc02f1d0",
+    "email": "landlord_auth_1787894747226@hostelease.ng",
+    "fullName": "Alhaji Kareem Adeleke",
+    "phone": "08055667788",
+    "role": "PROVIDER"
+  },
+  {
+    "id": "user-aea1b4c6-fd4f-4433-9691-bbd8ab51ffbd",
+    "email": "student_auth_1787895802484@student.lautech.edu.ng",
+    "fullName": "Bolanle Olamide",
+    "phone": "08011223344",
+    "role": "STUDENT"
+  },
+  {
+    "id": "user-ffbbc171-b068-45bd-84c9-17f3a236dfc6",
+    "email": "landlord_auth_1787895802484@hostelease.ng",
+    "fullName": "Alhaji Kareem Adeleke",
+    "phone": "08055667788",
+    "role": "PROVIDER"
+  },
+  {
+    "id": "user-ab7eda4a-951f-4d52-8152-7c9abcf972a3",
+    "email": "student_auth_1787897708292@student.lautech.edu.ng",
+    "fullName": "Bolanle Olamide",
+    "phone": "08011223344",
+    "role": "STUDENT"
+  },
+  {
+    "id": "user-bebb7718-d4f8-41aa-b9be-3c95f4012277",
+    "email": "landlord_auth_1787897708292@hostelease.ng",
+    "fullName": "Alhaji Kareem Adeleke",
+    "phone": "08055667788",
+    "role": "PROVIDER"
+  },
+  {
+    "id": "user-69cb7c38-72f0-46e7-8bc3-0984e49857cc",
+    "email": "student_auth_1787899122784@student.lautech.edu.ng",
+    "fullName": "Bolanle Olamide",
+    "phone": "08011223344",
+    "role": "STUDENT"
+  },
+  {
+    "id": "user-4f625cbd-0e6c-451d-a6d5-2d8298d43f2a",
+    "email": "landlord_auth_1787899122784@hostelease.ng",
+    "fullName": "Alhaji Kareem Adeleke",
+    "phone": "08055667788",
+    "role": "PROVIDER"
+  },
+  {
+    "id": "user-06a06fe2-8827-4df5-adb0-50c16cc37b52",
+    "email": "student_auth_1787899662488@student.lautech.edu.ng",
+    "fullName": "Bolanle Olamide",
+    "phone": "08011223344",
+    "role": "STUDENT"
+  },
+  {
+    "id": "user-d2c4ef7e-6a92-428e-96c1-ea33faa8e180",
+    "email": "landlord_auth_1787899662488@hostelease.ng",
+    "fullName": "Alhaji Kareem Adeleke",
+    "phone": "08055667788",
+    "role": "PROVIDER"
+  },
+  {
+    "id": "user-762cdbe9-95ec-43fb-996e-40336f46af7f",
+    "email": "student_auth_1787900383355@student.lautech.edu.ng",
+    "fullName": "Bolanle Olamide",
+    "phone": "08011223344",
+    "role": "STUDENT"
+  },
+  {
+    "id": "user-d9fa08b6-e817-490a-b336-d7afa1e66afd",
+    "email": "landlord_auth_1787900383355@hostelease.ng",
+    "fullName": "Alhaji Kareem Adeleke",
+    "phone": "08055667788",
+    "role": "PROVIDER"
+  },
+  {
+    "id": "user-2dc0815c-00a4-44ab-95b8-365aa7cd99f5",
+    "email": "student_auth_1787901749808@student.lautech.edu.ng",
+    "fullName": "Bolanle Olamide",
+    "phone": "08011223344",
+    "role": "STUDENT"
+  },
+  {
+    "id": "user-1dbbef23-a289-4267-ab09-ace626015419",
+    "email": "landlord_auth_1787901749808@hostelease.ng",
+    "fullName": "Alhaji Kareem Adeleke",
+    "phone": "08055667788",
+    "role": "PROVIDER"
+  },
+  {
+    "id": "user-a36ba75d-8dd8-4edf-ab6a-3a15d4d65aee",
+    "email": "student_auth_1787902816671@student.lautech.edu.ng",
+    "fullName": "Bolanle Olamide",
+    "phone": "08011223344",
+    "role": "STUDENT"
+  },
+  {
+    "id": "user-67dcbc66-08c3-4e0a-941f-72087c074fbe",
+    "email": "landlord_auth_1787902816671@hostelease.ng",
+    "fullName": "Alhaji Kareem Adeleke",
+    "phone": "08055667788",
+    "role": "PROVIDER"
+  },
+  {
+    "id": "user-5709fecc-48f1-4d9a-b78c-ada061e3181d",
+    "email": "student_auth_1787936842888@student.lautech.edu.ng",
+    "fullName": "Bolanle Olamide",
+    "phone": "08011223344",
+    "role": "STUDENT"
+  },
+  {
+    "id": "user-679949a1-62bf-4c1f-84eb-2f3152132fb5",
+    "email": "landlord_auth_1787936842888@hostelease.ng",
+    "fullName": "Alhaji Kareem Adeleke",
+    "phone": "08055667788",
+    "role": "PROVIDER"
+  },
+  {
+    "id": "user-23dd1eba-c7ce-4b70-800e-72ee3cd388b3",
+    "email": "student_auth_1787938062862@student.lautech.edu.ng",
+    "fullName": "Bolanle Olamide",
+    "phone": "08011223344",
+    "role": "STUDENT"
+  },
+  {
+    "id": "user-44cbd691-9b05-4340-9d9a-d99c9960402f",
+    "email": "landlord_auth_1787938062862@hostelease.ng",
+    "fullName": "Alhaji Kareem Adeleke",
+    "phone": "08055667788",
+    "role": "PROVIDER"
+  },
+  {
+    "id": "user-3fe6401d-1298-41c1-abe5-f4431a804ac7",
+    "email": "student_auth_1787939725569@student.lautech.edu.ng",
+    "fullName": "Bolanle Olamide",
+    "phone": "08011223344",
+    "role": "STUDENT"
+  },
+  {
+    "id": "user-8f04982f-9ba1-4fa3-8c8b-f76a4e6642c8",
+    "email": "landlord_auth_1787939725569@hostelease.ng",
+    "fullName": "Alhaji Kareem Adeleke",
+    "phone": "08055667788",
+    "role": "PROVIDER"
+  },
+  {
+    "id": "user-9b54e3ee-dd48-4bc5-a225-d4e449736494",
+    "email": "student_auth_1787941001548@student.lautech.edu.ng",
+    "fullName": "Bolanle Olamide",
+    "phone": "08011223344",
+    "role": "STUDENT"
+  },
+  {
+    "id": "user-7f31c878-d27e-414c-b763-c0c636a415db",
+    "email": "landlord_auth_1787941001548@hostelease.ng",
+    "fullName": "Alhaji Kareem Adeleke",
+    "phone": "08055667788",
+    "role": "PROVIDER"
+  },
+  {
+    "id": "user-e0b2914b-446d-429d-8632-f6f356da2fd7",
+    "email": "student_auth_1788323561719@student.lautech.edu.ng",
+    "fullName": "Bolanle Olamide",
+    "phone": "08011223344",
+    "role": "STUDENT"
+  },
+  {
+    "id": "user-6e7a1562-ca27-48fa-b2e1-21134e87dfd8",
+    "email": "landlord_auth_1788323561719@hostelease.ng",
+    "fullName": "Alhaji Kareem Adeleke",
+    "phone": "08055667788",
+    "role": "PROVIDER"
+  },
+  {
+    "id": "user-admin-gmail-1",
+    "email": "hostelease.admin@gmail.com",
+    "fullName": "Oluwatosin Ahmad (Admin)",
+    "phone": "+2348004678353",
+    "role": "ADMIN"
+  },
+  {
+    "id": "user-admin-gmail-2",
+    "email": "oluwatosinahmad@gmail.com",
+    "fullName": "Oluwatosin Ahmad (Admin)",
+    "phone": "+2348004678353",
+    "role": "ADMIN"
+  }
+]

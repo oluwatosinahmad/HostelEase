@@ -825,6 +825,7 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
           { id: 'dashboard', label: 'Overview', icon: Building2 },
           { id: 'listings', label: `Hostels (${properties.length})`, icon: Building2 },
           { id: 'wizard', label: '+ Add Hostel', icon: PlusCircle, highlight: true },
+          { id: 'ai', label: 'Ask AI Bot', icon: Sparkles, highlight: true },
           { id: 'rooms', label: 'Rooms & Bedspaces', icon: Layers },
           { id: 'availability', label: 'Availability', icon: CalendarIcon },
           { id: 'bookings', label: 'Bookings', icon: Receipt },
@@ -841,6 +842,10 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
             <button
               key={tab.id}
               onClick={() => {
+                if (tab.id === 'ai') {
+                  setAiDrawerOpen(true);
+                  return;
+                }
                 if (tab.id === 'wizard') {
                   setEditingProperty(null);
                 }
@@ -2637,6 +2642,21 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
           </div>
         </div>
       )}
+
+      {/* 9. FLOATING ACTION BUTTON FOR LANDLORD AI BOT (Always visible on mobile & desktop) */}
+      <button
+        onClick={() => setAiDrawerOpen(true)}
+        aria-label="Open Landlord AI Assistant Bot"
+        className="fixed bottom-20 right-4 sm:bottom-6 sm:right-6 z-40 flex items-center gap-2.5 px-4 py-3 bg-gradient-to-r from-emerald-600 via-emerald-700 to-teal-800 hover:from-emerald-700 hover:to-teal-900 text-white rounded-full shadow-2xl shadow-emerald-950/30 hover:scale-105 active:scale-95 transition-all cursor-pointer group border border-emerald-500/30"
+      >
+        <Sparkles className="w-5 h-5 text-amber-300 animate-spin-slow group-hover:rotate-12 transition-transform" />
+        <span className="text-xs font-black tracking-wide hidden sm:inline">
+          Ask Landlord AI
+        </span>
+        <span className="sm:hidden text-xs font-black tracking-wide">
+          AI Bot
+        </span>
+      </button>
 
     </div>
   );

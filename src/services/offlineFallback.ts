@@ -19,6 +19,7 @@ import {
   AdminProviderItem,
   AdminAuditLogItem
 } from '../types/hostelEase';
+import seedPropertiesData from '../data/seedProperties.json';
 
 export const DEFAULT_AREAS: Area[] = [
   {
@@ -213,6 +214,7 @@ const AMENITIES_LIST: Amenity[] = [
 ];
 
 export const DEFAULT_PROPERTIES: Property[] = [
+  ...(seedPropertiesData as unknown as Property[]),
   {
     id: 'prop-underg-1',
     title: 'Emerald Heights Luxury Self-Contain',
@@ -886,17 +888,32 @@ export const DEFAULT_PROPERTIES: Property[] = [
   }
 ];
 
-export function filterFallbackProperties(filters: any): { properties: Property[]; pagination: any } {
+export function filterFallbackProperties(filters: any, customProps?: Property[]): { properties: Property[]; pagination: any } {
   let allProps: Property[] = [];
-  try {
-    const raw = localStorage.getItem('hostel_ease_properties');
-    if (raw) {
-      allProps = JSON.parse(raw);
-    } else {
+  if (Array.isArray(customProps) && customProps.length > 0) {
+    allProps = customProps;
+  } else {
+    try {
+      const raw = localStorage.getItem('hostel_ease_properties');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          allProps = [...parsed];
+          const existingIds = new Set(allProps.map(p => p.id));
+          for (const dp of DEFAULT_PROPERTIES) {
+            if (!existingIds.has(dp.id)) {
+              allProps.push(dp);
+            }
+          }
+        } else {
+          allProps = [...DEFAULT_PROPERTIES];
+        }
+      } else {
+        allProps = [...DEFAULT_PROPERTIES];
+      }
+    } catch {
       allProps = [...DEFAULT_PROPERTIES];
     }
-  } catch {
-    allProps = [...DEFAULT_PROPERTIES];
   }
 
   let result = [...allProps];

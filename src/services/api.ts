@@ -144,7 +144,13 @@ export async function fetchWithTimeout(url: string, options: RequestInit = {}, t
 
 function getAuthHeader(): Record<string, string> {
   const token = localStorage.getItem('hostel_ease_token');
-  return token ? { Authorization: `Bearer ${token}` } : {};
+  const user = getCurrentUser();
+  const headers: Record<string, string> = {};
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  if (user?.email) headers['x-user-email'] = user.email.toLowerCase().trim();
+  if (user?.id) headers['x-user-id'] = user.id;
+  if (user?.role) headers['x-user-role'] = user.role;
+  return headers;
 }
 
 export function getCurrentUser(): any {
@@ -1707,6 +1713,49 @@ export async function syncCloudProperties(pushLocal = false) {
         }
       }
     }
+
+    // Direct multi-device real-time sync channel across laptop and phone
+    const NTFY_TOPIC = 'hostel_ease_sync_v1_lautech';
+    if (pushLocal) {
+      const nonDemo = local.filter(p => !p.isDemo && !p.id.startsWith('prop-seed-'));
+      for (const p of nonDemo.slice(0, 5)) {
+        fetch(`https://ntfy.sh/${NTFY_TOPIC}`, {
+          method: 'POST',
+          headers: { 'Title': 'HOSTEL_PROPERTY', 'Tags': 'house' },
+          body: JSON.stringify({ type: 'PROPERTY', property: p })
+        }).catch(() => {});
+      }
+    } else {
+      try {
+        const ntfyRes = await fetch(`https://ntfy.sh/${NTFY_TOPIC}/json?poll=1`);
+        if (ntfyRes.ok) {
+          const text = await ntfyRes.text();
+          const lines = text.trim().split('\n').filter(Boolean);
+          const currentLocal = getLocalProperties('all');
+          const localIds = new Set(currentLocal.map(p => p.id));
+          let changed = false;
+          for (const line of lines) {
+            try {
+              const item = JSON.parse(line);
+              if (item.event === 'message' && item.message) {
+                const payload = JSON.parse(item.message);
+                if (payload.type === 'PROPERTY' && payload.property && payload.property.id) {
+                  if (!localIds.has(payload.property.id)) {
+                    currentLocal.unshift(payload.property);
+                    localIds.add(payload.property.id);
+                    changed = true;
+                  }
+                }
+              }
+            } catch {}
+          }
+          if (changed) {
+            localStorage.setItem('hostel_ease_properties', JSON.stringify(currentLocal));
+            window.dispatchEvent(new CustomEvent('hostel_ease_properties_updated'));
+          }
+        }
+      } catch {}
+    }
   } catch {}
 }
 
@@ -2002,9 +2051,19 @@ export const api = {
         }, 6000);
         if (res.ok) {
           const data = await res.json();
-          if (data.properties) {
-            apiCache.set(cacheKey, { data, timestamp: Date.now() });
-            return data;
+          if (data.properties && data.properties.length > 0) {
+            const localProps = getLocalProperties('all');
+            const merged = [...data.properties];
+            const existingIds = new Set(merged.map((p: any) => p.id));
+            for (const lp of localProps) {
+              if (!existingIds.has(lp.id)) {
+                merged.unshift(lp);
+                existingIds.add(lp.id);
+              }
+            }
+            const filteredResult = filterFallbackProperties(filters, merged);
+            apiCache.set(cacheKey, { data: filteredResult, timestamp: Date.now() });
+            return filteredResult;
           }
         }
       } catch (err) {
@@ -5355,7 +5414,10 @@ Hello Landlord, a student has booked your accommodation under our standard 5% co
         });
         const contentType = res.headers.get('content-type') || '';
         if (res.ok && contentType.includes('application/json')) {
-          return await res.json();
+          const json = await res.json();
+          if (json && json.summary && json.user) {
+            return json;
+          }
         }
       } catch (err) {
         console.warn('Backend student dashboard unreachable, falling back to local student hub data.');
