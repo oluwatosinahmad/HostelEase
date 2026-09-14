@@ -202,16 +202,16 @@ export const Navbar: React.FC<NavbarProps> = ({
   };
 
   return (
-    <header className="sticky top-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur border-b border-slate-200 dark:border-slate-800 shadow-xs transition-colors">
+    <header className="main-navbar sticky top-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur border-b border-slate-200 dark:border-slate-800 shadow-xs transition-colors">
       {/* LAUTECH Focus Announcement Bar */}
-      <div className="bg-emerald-950 dark:bg-black text-emerald-50 px-4 py-1 text-xs font-medium flex items-center justify-between border-b border-emerald-900/30">
+      <div className="announcement-bar bg-emerald-950 dark:bg-black text-emerald-50 px-4 py-1 text-xs font-medium flex items-center justify-between border-b border-emerald-900/30">
         <div className="flex items-center gap-2 truncate">
           <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-400 text-amber-950 uppercase tracking-wide">
             LAUTECH Edition
           </span>
           <span className="truncate">Ogbomoso, Oyo State — Verified Student Accommodation Platform</span>
         </div>
-        <div className="hidden md:flex items-center gap-3 text-[11px] text-emerald-200">
+        <div className="announcement-desktop hidden md:flex items-center gap-3 text-[11px] text-emerald-200">
           <span>Search First. Visit Less.</span>
           <span>•</span>
           <span className="text-amber-300 font-semibold">100% Verified Lodges</span>
@@ -223,28 +223,28 @@ export const Navbar: React.FC<NavbarProps> = ({
           {/* Logo & Tagline */}
           <div 
             onClick={() => onNavigate('home')}
-            className="flex items-center gap-2 sm:gap-3 cursor-pointer group min-w-0 shrink"
+            className="navbar-brand flex items-center gap-2 sm:gap-3 cursor-pointer group min-w-0 shrink"
           >
-            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-emerald-600 to-teal-800 flex items-center justify-center text-white shadow-md shadow-emerald-600/20 group-hover:scale-105 transition-transform shrink-0">
+            <div className="navbar-logo-icon w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-emerald-600 to-teal-800 flex items-center justify-center text-white shadow-md shadow-emerald-600/20 group-hover:scale-105 transition-transform shrink-0">
               <Building2 className="w-4 h-4 sm:w-6 sm:h-6" />
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-1 sm:gap-1.5">
-                <span className="font-extrabold text-base sm:text-xl tracking-tight text-slate-900 dark:text-white truncate">
+                <span className="navbar-brand-name font-extrabold text-base sm:text-xl tracking-tight text-slate-900 dark:text-white truncate">
                   HOSTEL<span className="text-emerald-600 dark:text-emerald-400">EASE</span>
                 </span>
-                <span className="text-[9px] sm:text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 uppercase shrink-0">
+                <span className="navbar-brand-badge text-[9px] sm:text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 uppercase shrink-0">
                   LAUTECH
                 </span>
               </div>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium hidden sm:block">
+              <p className="navbar-brand-tagline text-[11px] text-slate-500 dark:text-slate-400 font-medium hidden sm:block">
                 Find your hostel. Stress less.
               </p>
             </div>
           </div>
 
           {/* Desktop Navigation Links */}
-          <nav className="hidden md:flex items-center gap-1.5">
+          <nav className="desktop-nav hidden md:flex items-center gap-1.5">
             <button
               onClick={() => onNavigate('home')}
               className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
@@ -348,7 +348,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           </nav>
 
           {/* Desktop Right Side: Student Profile & Notifications & Theme Toggle */}
-          <div className="hidden md:flex items-center gap-2.5">
+          <div className="desktop-actions hidden md:flex items-center gap-2.5">
             {/* Theme Toggle Button */}
             <button
               onClick={toggleTheme}
@@ -673,7 +673,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           </div>
 
           {/* Mobile Menu & Theme Toggle */}
-          <div className="flex md:hidden items-center gap-1 sm:gap-1.5 shrink-0">
+          <div className="mobile-nav-actions flex md:hidden items-center gap-1 sm:gap-1.5 shrink-0">
             <button
               onClick={toggleTheme}
               className="p-1.5 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white rounded-xl"
@@ -813,7 +813,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
       {/* Mobile Drawer Menu (Student-Focused) */}
       {mobileMenuOpen && (
-        <div className="md:hidden border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 pt-3 pb-6 space-y-3 animate-in slide-in-from-top duration-200">
+        <div className="mobile-menu-drawer md:hidden border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 pt-3 pb-6 space-y-3 animate-in slide-in-from-top duration-200">
           {/* User Profile Header in Mobile Menu */}
           {isAuthenticated && (
             <div className="p-3 bg-slate-50 dark:bg-slate-800/80 rounded-2xl flex items-center gap-3 border border-slate-200/80 dark:border-slate-700">
