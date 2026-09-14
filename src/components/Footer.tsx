@@ -40,7 +40,7 @@ export const Footer: React.FC<FooterProps> = ({
                 <Building2 className="w-5 h-5" />
               </div>
               <span className="font-black text-lg tracking-tight">
-                HOSTEL<span className="text-emerald-400">EASE</span>
+                Hostel <span className="text-emerald-400">Ease</span>
               </span>
             </div>
             <p className="text-emerald-400 font-semibold text-xs">

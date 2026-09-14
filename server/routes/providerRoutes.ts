@@ -502,6 +502,39 @@ router.get(
 );
 
 router.post(
+  '/properties/check-duplicate',
+  authenticate,
+  requireRole('PROVIDER', 'ADMIN'),
+  (req: AuthenticatedRequest, res: Response) => {
+    const providerId = req.user!.id;
+    const { title, address } = req.body;
+    if (!title || typeof title !== 'string' || !title.trim()) {
+      return res.json({ isDuplicate: false });
+    }
+
+    const cleanTitle = title.trim().toLowerCase();
+    const cleanAddress = (address || '').trim().toLowerCase();
+
+    const existing = db.prepare(`
+      SELECT id, title, address FROM properties 
+      WHERE provider_id = ? 
+      AND LOWER(TRIM(title)) = ?
+      ${cleanAddress ? 'AND LOWER(TRIM(address)) = ?' : ''}
+    `).get(cleanAddress ? [providerId, cleanTitle, cleanAddress] : [providerId, cleanTitle]) as any;
+
+    if (existing) {
+      return res.json({
+        isDuplicate: true,
+        message: 'A hostel with this title and address already exists in your account.',
+        existingPropertyId: existing.id
+      });
+    }
+
+    return res.json({ isDuplicate: false });
+  }
+);
+
+router.post(
   '/properties',
   authenticate,
   requireRole('PROVIDER', 'ADMIN'),
@@ -529,6 +562,25 @@ router.post(
 
     if (!title || typeof title !== 'string' || !title.trim()) {
       return res.status(400).json({ error: 'Hostel name is required' });
+    }
+
+    // Duplicate Protection Check (Strict 409 Conflict)
+    const cleanTitle = title.trim().toLowerCase();
+    const cleanAddress = (address || '').trim().toLowerCase();
+    if (cleanTitle && cleanAddress) {
+      const existingDuplicate = db.prepare(`
+        SELECT id, title, address FROM properties 
+        WHERE provider_id = ? 
+        AND LOWER(TRIM(title)) = ? 
+        AND LOWER(TRIM(address)) = ?
+      `).get(providerId, cleanTitle, cleanAddress) as any;
+
+      if (existingDuplicate) {
+        return res.status(409).json({
+          error: 'Duplicate hostel detected: You already have a hostel with this title and address in your portfolio.',
+          existingPropertyId: existingDuplicate.id
+        });
+      }
     }
 
     // Resilient LAUTECH Area Resolution (Safeguards against 'custom', empty, or non-existent IDs)

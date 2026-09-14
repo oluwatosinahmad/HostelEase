@@ -231,7 +231,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             <div className="min-w-0">
               <div className="flex items-center gap-1 sm:gap-1.5">
                 <span className="navbar-brand-name font-extrabold text-base sm:text-xl tracking-tight text-slate-900 dark:text-white truncate">
-                  HOSTEL<span className="text-emerald-600 dark:text-emerald-400">EASE</span>
+                  Hostel <span className="text-emerald-600 dark:text-emerald-400">Ease</span>
                 </span>
                 <span className="navbar-brand-badge text-[9px] sm:text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 uppercase shrink-0">
                   LAUTECH

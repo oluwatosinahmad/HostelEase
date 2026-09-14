@@ -264,7 +264,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             </div>
             <div>
               <h2 className="text-xl font-black tracking-tight">
-                HOSTEL<span className="text-emerald-400">EASE</span>
+                Hostel <span className="text-emerald-400">Ease</span>
               </h2>
               <p className="text-xs text-slate-400">Find your hostel. Stress less.</p>
             </div>

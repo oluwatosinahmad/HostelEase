@@ -213,7 +213,7 @@ export const HostelEaseBrandedLoader: React.FC<HostelEaseBrandedLoaderProps> = (
             <Building2 className="w-4 h-4 text-white" />
           </div>
           <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white flex items-center">
-            HOSTEL<span className="text-emerald-400 ml-0.5">EASE</span>
+            Hostel<span className="text-emerald-400 ml-1.5">Ease</span>
           </h1>
         </div>
 

@@ -148,7 +148,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
   const [savingProfile, setSavingProfile] = useState<boolean>(false);
   const studentAvatarFileRef = useRef<HTMLInputElement>(null);
 
-  const handleStudentAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleStudentAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -157,46 +157,50 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = reader.result as string;
-      if (result) {
-        setProfileAvatarUrl(result);
-
-        // Instantly synchronize with localStorage and Navbar so picture shows immediately
-        try {
-          const stored = localStorage.getItem('hostel_ease_user');
-          if (stored) {
-            const parsed = JSON.parse(stored);
-            const updatedUser = { ...parsed, avatarUrl: result };
-            localStorage.setItem('hostel_ease_user', JSON.stringify(updatedUser));
-
-            // Also update in registered users cache
-            try {
-              const registered = JSON.parse(localStorage.getItem('hostel_ease_registered_users') || '[]');
-              const idx = registered.findIndex((u: any) => u.email?.toLowerCase() === updatedUser.email?.toLowerCase());
-              if (idx >= 0) {
-                registered[idx] = { ...registered[idx], avatarUrl: result };
-                localStorage.setItem('hostel_ease_registered_users', JSON.stringify(registered));
-              }
-            } catch {}
-
-            window.dispatchEvent(new CustomEvent('hostel_ease_user_updated', { detail: updatedUser }));
-          }
-
-          // Asynchronously update profile in backend API
-          api.student.updateProfile({ 
-            fullName: user?.fullName || 'Student',
-            avatarUrl: result 
-          }).catch(() => {});
-        } catch (err) {
-          console.error('Failed to auto-sync avatar upload:', err);
-        }
-
-        onShowToast('Profile picture uploaded successfully! 📸', 'success');
+    try {
+      onShowToast('Uploading photo...', 'info');
+      // 1. Upload file via central API upload
+      const uploadRes = await api.upload.single(file);
+      const rawUrl = uploadRes?.file?.url;
+      if (!rawUrl) {
+        throw new Error('Could not upload photo');
       }
-    };
-    reader.readAsDataURL(file);
+
+      // 2. Cache-busting URL to ensure updates propagate immediately
+      const finalUrl = rawUrl.includes('?') ? `${rawUrl}&v=${Date.now()}` : `${rawUrl}?v=${Date.now()}`;
+      setProfileAvatarUrl(finalUrl);
+
+      // 3. Synchronize user profile in backend API
+      await api.student.updateProfile({
+        fullName: user?.fullName || profileFullName || 'Student',
+        avatarUrl: finalUrl
+      }).catch(() => null);
+
+      // 4. Update local user state safely
+      const stored = localStorage.getItem('hostel_ease_user');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        const updatedUser = { ...parsed, avatarUrl: finalUrl };
+        localStorage.setItem('hostel_ease_user', JSON.stringify(updatedUser));
+
+        try {
+          const registered = JSON.parse(localStorage.getItem('hostel_ease_registered_users') || '[]');
+          const idx = registered.findIndex((u: any) => u.email?.toLowerCase() === updatedUser.email?.toLowerCase());
+          if (idx >= 0) {
+            registered[idx] = { ...registered[idx], avatarUrl: finalUrl };
+            localStorage.setItem('hostel_ease_registered_users', JSON.stringify(registered));
+          }
+        } catch {}
+
+        window.dispatchEvent(new CustomEvent('hostel_ease_user_updated', { detail: updatedUser }));
+      }
+
+      onShowToast('Profile picture uploaded & synchronized! 📸', 'success');
+      loadDashboard();
+    } catch (err: any) {
+      console.error('Failed to upload avatar:', err);
+      onShowToast(err.message || 'Failed to upload photo', 'error');
+    }
   };
 
   useEffect(() => {

@@ -78,7 +78,7 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const landlordPhotoInputRef = useRef<HTMLInputElement>(null);
 
-  const handleLandlordPhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleLandlordPhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -87,28 +87,39 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      const dataUrl = reader.result as string;
-      if (dataUrl && user) {
-        const updatedUser = { ...user, avatarUrl: dataUrl };
+    try {
+      onShowToast('Uploading landlord profile picture...', 'info');
+      const uploadRes = await api.upload.single(file);
+      const rawUrl = uploadRes?.file?.url;
+      if (!rawUrl) {
+        throw new Error('Could not upload photo');
+      }
+
+      const finalUrl = rawUrl.includes('?') ? `${rawUrl}&v=${Date.now()}` : `${rawUrl}?v=${Date.now()}`;
+
+      if (user) {
+        const updatedUser = { ...user, avatarUrl: finalUrl };
         localStorage.setItem('hostel_ease_user', JSON.stringify(updatedUser));
         
         try {
           const registeredUsers = JSON.parse(localStorage.getItem('hostel_ease_registered_users') || '[]');
           const idx = registeredUsers.findIndex((u: any) => u.email?.toLowerCase() === user.email?.toLowerCase());
           if (idx !== -1) {
-            registeredUsers[idx] = { ...registeredUsers[idx], avatarUrl: dataUrl };
+            registeredUsers[idx] = { ...registeredUsers[idx], avatarUrl: finalUrl };
             localStorage.setItem('hostel_ease_registered_users', JSON.stringify(registeredUsers));
           }
         } catch (e) {}
 
+        await api.auth.updateProfile({ fullName: user.fullName, avatarUrl: finalUrl }).catch(() => {});
+
         window.dispatchEvent(new CustomEvent('hostel_ease_user_updated', { detail: updatedUser }));
         window.dispatchEvent(new CustomEvent('hostel_ease_user_profile_updated', { detail: updatedUser }));
-        onShowToast('Landlord profile photo updated successfully! 📸', 'success');
+        onShowToast('Landlord profile photo updated & synchronized! 📸', 'success');
       }
-    };
-    reader.readAsDataURL(file);
+    } catch (err: any) {
+      console.error('Landlord photo upload failed:', err);
+      onShowToast(err.message || 'Failed to upload photo', 'error');
+    }
   };
 
   // Active Tab

@@ -3331,10 +3331,35 @@ export const api = {
           return json;
         }
 
+        if (res.status === 409) {
+          const errData = await res.json().catch(() => ({}));
+          const errMsg = errData.error || 'Duplicate hostel detected: You already have a hostel with this title and address.';
+          const conflictError: any = new Error(errMsg);
+          conflictError.status = 409;
+          conflictError.isDuplicate = true;
+          throw conflictError;
+        }
+
         const errData = await res.json().catch(() => ({}));
         console.warn('Backend createListing non-ok response:', res.status, errData);
-      } catch (err) {
-        console.warn('Backend createListing failed, saving locally:', err);
+      } catch (err: any) {
+        if (err?.status === 409 || err?.isDuplicate) {
+          throw err;
+        }
+        console.warn('Backend createListing failed, checking offline store:', err);
+      }
+
+      // Check local duplicate before saving fallback
+      const existingProps = getLocalProperties(currentUserId, user?.email);
+      const isLocalDuplicate = existingProps.some(p => 
+        p.title.trim().toLowerCase() === (data.title || '').trim().toLowerCase() &&
+        p.address.trim().toLowerCase() === (data.address || '').trim().toLowerCase()
+      );
+      if (isLocalDuplicate) {
+        const conflictError: any = new Error('A hostel with this title and address already exists in your account.');
+        conflictError.status = 409;
+        conflictError.isDuplicate = true;
+        throw conflictError;
       }
 
       // Resilient fallback: Ensure property is saved locally and update event is dispatched

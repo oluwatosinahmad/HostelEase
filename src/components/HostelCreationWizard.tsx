@@ -489,16 +489,29 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
           await api.provider.createListing(payload);
           onShowToast(isDraft ? 'Hostel saved as Draft!' : 'Hostel submitted for Admin Verification!', 'success');
         }
+        onComplete();
       } catch (err: any) {
+        if (err?.status === 409 || err?.isDuplicate || err?.message?.toLowerCase().includes('duplicate') || err?.message?.toLowerCase().includes('already exists')) {
+          const msg = err.message || 'A hostel with this title and address already exists in your account.';
+          onShowToast(msg, 'error');
+          setDuplicateWarning(msg);
+          setCurrentStep(1);
+          return;
+        }
         console.warn('Network submission error handled gracefully:', err);
         onShowToast(isDraft ? 'Hostel saved as Draft!' : 'Hostel submitted for Admin Verification!', 'success');
+        onComplete();
       }
-
-      onComplete();
     } catch (err: any) {
+      if (err?.status === 409 || err?.isDuplicate || err?.message?.toLowerCase().includes('duplicate') || err?.message?.toLowerCase().includes('already exists')) {
+        const msg = err.message || 'A hostel with this title and address already exists in your account.';
+        onShowToast(msg, 'error');
+        setDuplicateWarning(msg);
+        setCurrentStep(1);
+        return;
+      }
       console.error('Wizard form handling error:', err);
-      onShowToast(isDraft ? 'Hostel saved as Draft!' : 'Hostel submitted for Admin Verification!', 'success');
-      onComplete();
+      onShowToast(err.message || 'Failed to submit hostel listing', 'error');
     } finally {
       setSubmitting(false);
     }
