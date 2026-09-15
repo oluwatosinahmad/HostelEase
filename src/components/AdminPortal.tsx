@@ -547,8 +547,10 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="font-extrabold tracking-tight text-white text-lg">HOSTEL EASE</span>
-              <span className="bg-emerald-500/20 text-emerald-300 text-xs font-semibold px-2 py-0.5 rounded-full border border-emerald-500/30">
+              <span className="font-extrabold tracking-tight text-white text-lg whitespace-nowrap shrink-0">
+                Hostel <span className="text-emerald-400">Ease</span>
+              </span>
+              <span className="bg-emerald-500/20 text-emerald-300 text-xs font-semibold px-2 py-0.5 rounded-full border border-emerald-500/30 shrink-0">
                 CONTROL CENTER
               </span>
             </div>

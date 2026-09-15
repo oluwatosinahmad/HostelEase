@@ -14,7 +14,7 @@ export const PAYMENT_GATEWAY_CONFIG = {
   publicKey: (import.meta as any).env?.VITE_PAYMENT_PUBLIC_KEY || 'pk_test_campusnest_lautech_2026_demo',
   isTestMode: true,
   currency: 'NGN',
-  merchantName: 'CampusNest Student Housing Technologies',
+  merchantName: 'Hostel Ease Student Housing Technologies',
 };
 
 // Supported Nigerian Banks for Ogbomoso / LAUTECH Landlord Direct Payouts
@@ -44,7 +44,7 @@ export interface PaymentBreakdownResult {
   cautionFee: number;
   serviceCharge: number;
   propertyAmount: number; // Sum of property-level costs
-  platformFee: number; // CampusNest commission
+  platformFee: number; // Hostel Ease commission
   providerFee: number; // Payment Gateway processing fee (e.g. 1.5% + N100)
   grossAmount: number; // What the student pays
   landlordAmount: number; // What the host receives

@@ -51,7 +51,7 @@ export const CampusExpansionModal: React.FC<CampusExpansionModalProps> = ({
                 University & Campus Coverage
               </h3>
               <p className="text-xs text-slate-500 mt-0.5">
-                CampusNest multi-university architecture & nationwide rollout roadmap
+                Hostel Ease multi-university architecture & nationwide rollout roadmap
               </p>
             </div>
           </div>
@@ -123,7 +123,7 @@ export const CampusExpansionModal: React.FC<CampusExpansionModalProps> = ({
                   Expanding to Universities Across Nigeria
                 </h4>
                 <p className="text-xs text-slate-500">
-                  CampusNest is scaling to make student accommodation seamless nationwide.
+                  Hostel Ease is scaling to make student accommodation seamless nationwide.
                 </p>
               </div>
             </div>
@@ -170,7 +170,7 @@ export const CampusExpansionModal: React.FC<CampusExpansionModalProps> = ({
                 <div className="w-10 h-10 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto">
                   <Check className="w-6 h-6" />
                 </div>
-                <h5 className="font-bold text-sm text-white">You are on the CampusNest Priority Waitlist!</h5>
+                <h5 className="font-bold text-sm text-white">You are on the Hostel Ease Priority Waitlist!</h5>
                 <p className="text-xs text-slate-400 max-w-sm mx-auto">
                   We will notify you the moment verified hostels and virtual tours go live for your university campus.
                 </p>
@@ -180,7 +180,7 @@ export const CampusExpansionModal: React.FC<CampusExpansionModalProps> = ({
                 <div className="flex items-center gap-2">
                   <Sparkles className="w-4 h-4 text-amber-400" />
                   <h5 className="font-bold text-sm text-white">
-                    Want CampusNest at your university next?
+                    Want Hostel Ease at your university next?
                   </h5>
                 </div>
                 <p className="text-xs text-slate-400">

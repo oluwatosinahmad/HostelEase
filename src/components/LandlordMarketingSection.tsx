@@ -28,7 +28,7 @@ export const LandlordMarketingSection: React.FC<LandlordMarketingSectionProps> =
   const steps = [
     { num: '01', title: 'Create Host Account', desc: 'Register as a verified property owner, authorized agent, or lodge caretaker in under 2 minutes.' },
     { num: '02', title: 'Add Property & Pricing', desc: 'Upload photos, continuous video walkthrough, set transparent rent in Naira (₦) with annual/semester frequency.' },
-    { num: '03', title: 'Physical Verification', desc: 'A CampusNest field officer inspects borehole water, prepaid meter, and compound security.' },
+    { num: '03', title: 'Physical Verification', desc: 'A Hostel Ease field officer inspects borehole water, prepaid meter, and compound security.' },
     { num: '04', title: 'Get Verified Shield', desc: 'Your listing receives the trusted verification badge, elevating ranking in student search results.' },
     { num: '05', title: 'Receive Direct Bookings', desc: 'Accept verified student reservations and schedule virtual WhatsApp video walkthroughs.' },
     { num: '06', title: 'Guaranteed Payouts', desc: 'Rent is collected via Paystack/Flutterwave escrow and settled directly into your NUBAN bank account.' },
@@ -108,7 +108,7 @@ export const LandlordMarketingSection: React.FC<LandlordMarketingSectionProps> =
         {/* Benefits Grid */}
         <div className="space-y-6">
           <div className="text-center max-w-xl mx-auto space-y-2">
-            <h2 className="text-xl sm:text-2xl font-black text-white">Why Ogbomoso Property Owners Choose CampusNest</h2>
+            <h2 className="text-xl sm:text-2xl font-black text-white">Why Ogbomoso Property Owners Choose Hostel Ease</h2>
             <p className="text-xs text-slate-400">The premier technology platform bridging student housing supply and demand.</p>
           </div>
 
@@ -148,7 +148,7 @@ export const LandlordMarketingSection: React.FC<LandlordMarketingSectionProps> =
           <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs">
             <div className="flex items-center gap-2 text-slate-300">
               <ShieldCheck className="w-4 h-4 text-emerald-400" />
-              <span>CampusNest physical verification is completely free for all LAUTECH zone property owners.</span>
+              <span>Hostel Ease physical verification is completely free for all LAUTECH zone property owners.</span>
             </div>
             <button
               onClick={onOpenAddProperty}

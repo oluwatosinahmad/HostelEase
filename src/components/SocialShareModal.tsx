@@ -32,7 +32,7 @@ export const SocialShareModal: React.FC<SocialShareModalProps> = ({
 
   const shareUrl = `${window.location.origin}/?property=${property.id}`;
   const shareTitle = `Verified Accommodation: ${property.title} in ${property.zoneName}, Ogbomoso (${formatNaira(property.fees.annualRent)}/yr)`;
-  const shareMessage = `🏠 Looking for accommodation around LAUTECH? Check out this verified student hostel "${property.title}" in ${property.zoneName}, Ogbomoso (${formatNaira(property.fees.annualRent)}/yr) on CampusNest! Verified borehole, prepaid meter & 48h escrow protection.\n\n${shareUrl}`;
+  const shareMessage = `🏠 Looking for accommodation around LAUTECH? Check out this verified student hostel "${property.title}" in ${property.zoneName}, Ogbomoso (${formatNaira(property.fees.annualRent)}/yr) on Hostel Ease! Verified borehole, prepaid meter & 48h escrow protection.\n\n${shareUrl}`;
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(shareUrl);
@@ -46,7 +46,7 @@ export const SocialShareModal: React.FC<SocialShareModalProps> = ({
   };
 
   const handleTwitterShare = () => {
-    const encoded = encodeURIComponent(`Check out "${property.title}" around LAUTECH (${property.zoneName}) on CampusNest!`);
+    const encoded = encodeURIComponent(`Check out "${property.title}" around LAUTECH (${property.zoneName}) on Hostel Ease!`);
     window.open(`https://twitter.com/intent/tweet?text=${encoded}&url=${encodeURIComponent(shareUrl)}`, '_blank');
   };
 
@@ -160,7 +160,7 @@ export const SocialShareModal: React.FC<SocialShareModalProps> = ({
 
         {/* Footer */}
         <div className="bg-slate-950 p-4 border-t border-slate-800 text-center text-[11px] text-slate-400">
-          <span>CampusNest verified link • Zero spam guarantee</span>
+          <span>Hostel Ease verified link • Zero spam guarantee</span>
         </div>
 
       </div>

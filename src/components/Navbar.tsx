@@ -223,14 +223,14 @@ export const Navbar: React.FC<NavbarProps> = ({
           {/* Logo & Tagline */}
           <div 
             onClick={() => onNavigate('home')}
-            className="navbar-brand flex items-center gap-2 sm:gap-3 cursor-pointer group min-w-0 shrink"
+            className="navbar-brand flex items-center gap-2 sm:gap-3 cursor-pointer group shrink-0"
           >
             <div className="navbar-logo-icon w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-emerald-600 to-teal-800 flex items-center justify-center text-white shadow-md shadow-emerald-600/20 group-hover:scale-105 transition-transform shrink-0">
               <Building2 className="w-4 h-4 sm:w-6 sm:h-6" />
             </div>
-            <div className="min-w-0">
-              <div className="flex items-center gap-1 sm:gap-1.5">
-                <span className="navbar-brand-name font-extrabold text-base sm:text-xl tracking-tight text-slate-900 dark:text-white truncate">
+            <div className="shrink-0 flex flex-col justify-center">
+              <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
+                <span className="navbar-brand-name font-extrabold text-base sm:text-xl tracking-tight text-slate-900 dark:text-white whitespace-nowrap shrink-0">
                   Hostel <span className="text-emerald-600 dark:text-emerald-400">Ease</span>
                 </span>
                 <span className="navbar-brand-badge text-[9px] sm:text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 uppercase shrink-0">

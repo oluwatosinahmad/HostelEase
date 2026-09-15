@@ -55,7 +55,7 @@ export const MoveInChecklistModal: React.FC<MoveInChecklistModalProps> = ({
   };
 
   const handleExportText = () => {
-    let text = '🦅 CAMPUSNEST LAUTECH HOSTEL MOVE-IN CHECKLIST\n';
+    let text = '🦅 HOSTEL EASE LAUTECH HOSTEL MOVE-IN CHECKLIST\n';
     text += `Progress: ${completedCount}/${items.length} Completed (${progressPercent}%)\n\n`;
     items.forEach((item, idx) => {
       text += `[${item.isCompleted ? 'X' : ' '}] ${idx + 1}. ${item.title}\n`;
@@ -68,7 +68,7 @@ export const MoveInChecklistModal: React.FC<MoveInChecklistModalProps> = ({
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = 'CampusNest_MoveIn_Checklist.txt';
+    link.download = 'Hostel Ease_MoveIn_Checklist.txt';
     link.click();
   };
 

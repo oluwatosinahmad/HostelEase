@@ -137,7 +137,7 @@ export const BlogAdviceModal: React.FC<BlogAdviceModalProps> = ({
         <div className="bg-slate-950 p-4 border-t border-slate-800 flex items-center justify-between text-xs shrink-0">
           <span className="text-[11px] text-slate-400 flex items-center gap-1.5">
             <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-            <span>CampusNest Student Tenancy Protection & Educational Guides</span>
+            <span>Hostel Ease Student Tenancy Protection & Educational Guides</span>
           </span>
           <button
             onClick={onClose}

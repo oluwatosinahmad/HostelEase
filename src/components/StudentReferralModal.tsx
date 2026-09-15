@@ -35,7 +35,7 @@ export const StudentReferralModal: React.FC<StudentReferralModalProps> = ({
     : `CN-${(currentUser?.name || 'STUDENT').replace(/[^A-Za-z0-9]/g, '').slice(0, 4).toUpperCase()}26`;
 
   const referralLink = `${window.location.origin}/?ref=${referralCode}`;
-  const whatsappShareText = `🎓 Looking for off-campus accommodation around LAUTECH? Avoid fake agents in Under-G & Adenike! Use my CampusNest invite to browse verified lodges with 48-hour escrow payment protection: ${referralLink}`;
+  const whatsappShareText = `🎓 Looking for off-campus accommodation around LAUTECH? Avoid fake agents in Under-G & Adenike! Use my Hostel Ease invite to browse verified lodges with 48-hour escrow payment protection: ${referralLink}`;
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(referralLink);

@@ -32,22 +32,22 @@ export const SupportFaqModal: React.FC<SupportFaqModalProps> = ({
 
   const faqs = [
     {
-      question: 'How does CampusNest work for LAUTECH students in Ogbomoso?',
+      question: 'How does Hostel Ease work for LAUTECH students in Ogbomoso?',
       category: 'DISCOVERY',
       answer:
-        'CampusNest enables LAUTECH students to search, compare, and inspect verified student accommodation in Under-G, Adenike, Stadium Road, Aroje, and General Area without walking from house to house in the sun. Every verified property features uncut video tours, verified water/light ratings, and transparent fees.',
+        'Hostel Ease enables LAUTECH students to search, compare, and inspect verified student accommodation in Under-G, Adenike, Stadium Road, Aroje, and General Area without walking from house to house in the sun. Every verified property features uncut video tours, verified water/light ratings, and transparent fees.',
     },
     {
       question: 'What is the 10-Point Physical Verification Standard?',
       category: 'SAFETY',
       answer:
-        'Before a property receives the "Verified Student Shield", a CampusNest field officer visits the premises in Ogbomoso. We verify GPS coordinates, test running borehole water, confirm prepaid meters, record continuous interior video, and inspect landlord/agent legal tenancy authorization.',
+        'Before a property receives the "Verified Student Shield", a Hostel Ease field officer visits the premises in Ogbomoso. We verify GPS coordinates, test running borehole water, confirm prepaid meters, record continuous interior video, and inspect landlord/agent legal tenancy authorization.',
     },
     {
       question: 'How does the 48-Hour Escrow Protection work?',
       category: 'PAYMENTS',
       answer:
-        'When you pay online through CampusNest via Paystack or Flutterwave, your rent and caution deposit are held in secure escrow. The funds are NOT disbursed to the landlord until you arrive, inspect the room keys, and confirm your move-in condition.',
+        'When you pay online through Hostel Ease via Paystack or Flutterwave, your rent and caution deposit are held in secure escrow. The funds are NOT disbursed to the landlord until you arrive, inspect the room keys, and confirm your move-in condition.',
     },
     {
       question: 'Can a landlord demand extra inspection fees or hidden charges?',
@@ -65,7 +65,7 @@ export const SupportFaqModal: React.FC<SupportFaqModalProps> = ({
       question: 'What happens if a property is not available after payment?',
       category: 'REFUNDS',
       answer:
-        'Under the CampusNest Escrow Guarantee, if a landlord cannot deliver access on the agreed move-in date or if the room condition contradicts verified media, you are entitled to an immediate 100% full refund.',
+        'Under the Hostel Ease Escrow Guarantee, if a landlord cannot deliver access on the agreed move-in date or if the room condition contradicts verified media, you are entitled to an immediate 100% full refund.',
     },
   ];
 
@@ -86,7 +86,7 @@ export const SupportFaqModal: React.FC<SupportFaqModalProps> = ({
                   OGBOMOSO DESK
                 </span>
               </div>
-              <h2 className="text-lg font-black text-white">How CampusNest Protects You</h2>
+              <h2 className="text-lg font-black text-white">How Hostel Ease Protects You</h2>
             </div>
           </div>
           <button
@@ -151,7 +151,7 @@ export const SupportFaqModal: React.FC<SupportFaqModalProps> = ({
         <div className="bg-slate-950 p-4 border-t border-slate-800 flex items-center justify-between shrink-0">
           <div className="text-[11px] text-slate-400 flex items-center gap-1.5">
             <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-            <span>CampusNest Student Trust & Tenancy Protection</span>
+            <span>Hostel Ease Student Trust & Tenancy Protection</span>
           </div>
           <button
             onClick={onClose}

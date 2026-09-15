@@ -83,7 +83,7 @@ export const ViewingFeedbackModal: React.FC<ViewingFeedbackModalProps> = ({
             <div>
               <h4 className="text-lg font-black text-slate-900">Thank You for Your Feedback!</h4>
               <p className="text-xs text-slate-600 mt-1 max-w-xs mx-auto">
-                Your private rating helps CampusNest monitor host punctuality and verification accuracy across Ogbomoso.
+                Your private rating helps Hostel Ease monitor host punctuality and verification accuracy across Ogbomoso.
               </p>
             </div>
             <button
@@ -140,7 +140,7 @@ export const ViewingFeedbackModal: React.FC<ViewingFeedbackModalProps> = ({
             {/* Optional Comment */}
             <div>
               <label className="block text-xs font-bold text-slate-800 mb-1">
-                Private Notes or Feedback for CampusNest (Optional)
+                Private Notes or Feedback for Hostel Ease (Optional)
               </label>
               <textarea
                 rows={3}

@@ -109,7 +109,7 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({
     }
 
     if (!hasAgreedToGuidelines) {
-      setShowError('Please acknowledge the CampusNest Review Integrity Guidelines.');
+      setShowError('Please acknowledge the Hostel Ease Review Integrity Guidelines.');
       return;
     }
 
@@ -398,11 +398,11 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({
             </div>
           )}
 
-          {/* CampusNest Community Review Guidelines */}
+          {/* Hostel Ease Community Review Guidelines */}
           <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 space-y-2 text-[11px] text-slate-600">
             <div className="flex items-center space-x-1.5 text-slate-900 font-bold">
               <Info className="w-3.5 h-3.5 text-brand-600" />
-              <span>CampusNest Review Guidelines</span>
+              <span>Hostel Ease Review Guidelines</span>
             </div>
             <ul className="list-disc list-inside space-y-0.5 text-slate-500">
               <li>Genuine negative experiences are welcomed and protected.</li>

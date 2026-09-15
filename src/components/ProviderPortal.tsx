@@ -694,7 +694,12 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <h1 className="text-base sm:text-lg font-bold text-gray-900 leading-tight truncate">Provider Portal</h1>
+                <span className="text-base sm:text-lg font-black text-gray-900 leading-tight whitespace-nowrap shrink-0">
+                  Hostel <span className="text-emerald-700">Ease</span>
+                </span>
+                <span className="text-[10px] sm:text-[11px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200 shrink-0">
+                  Landlord Portal
+                </span>
                 <span className="text-[10px] sm:text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 shrink-0">
                   {stats?.verificationStatus === 'APPROVED' ? 'Verified Landlord' : 'Verification Pending'}
                 </span>

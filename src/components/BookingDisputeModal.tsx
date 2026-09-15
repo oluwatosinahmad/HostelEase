@@ -75,7 +75,7 @@ export const BookingDisputeModal: React.FC<BookingDisputeModalProps> = ({
           <div className="space-y-1">
             <h3 className="text-lg font-black text-slate-900">Dispute Ticket Filed</h3>
             <p className="text-xs text-slate-500">
-              CampusNest Trust & Support has received your complaint regarding Booking <strong>{booking.referenceNumber}</strong>.
+              Hostel Ease Trust & Support has received your complaint regarding Booking <strong>{booking.referenceNumber}</strong>.
             </p>
           </div>
           <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 text-xs space-y-1">
@@ -194,9 +194,9 @@ export const BookingDisputeModal: React.FC<BookingDisputeModalProps> = ({
 
           {/* Fair Mediation Notice */}
           <div className="p-3 bg-slate-100 rounded-2xl text-[11px] text-slate-600 space-y-1">
-            <span className="font-extrabold text-slate-800 block">CampusNest Mediation Guarantee</span>
+            <span className="font-extrabold text-slate-800 block">Hostel Ease Mediation Guarantee</span>
             <p>
-              CampusNest maintains an impartial record of all booking timestamps and communications. Submitting this dispute alerts the compliance team for immediate review.
+              Hostel Ease maintains an impartial record of all booking timestamps and communications. Submitting this dispute alerts the compliance team for immediate review.
             </p>
           </div>
 

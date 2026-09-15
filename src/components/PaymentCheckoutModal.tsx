@@ -212,11 +212,11 @@ export const PaymentCheckoutModal: React.FC<PaymentCheckoutModalProps> = ({
             </div>
           )}
           
-          {/* CampusNest Platform Commission Item */}
+          {/* Hostel Ease Platform Commission Item */}
           <div className="pt-2 border-t border-slate-200 flex items-center justify-between text-emerald-950 font-bold bg-emerald-50/60 -mx-4 -mb-2 px-4 py-2 rounded-b-2xl">
             <div className="flex items-center gap-1.5">
               <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
-              <span>CampusNest Platform & Escrow Protection Fee:</span>
+              <span>Hostel Ease Platform & Escrow Protection Fee:</span>
               <span className="text-[10px] text-emerald-700 font-normal">
                 ({breakdown.feePercentageDisplay} • {breakdown.payer === 'STUDENT' ? 'Student Covered' : 'Host Deducted'})
               </span>
@@ -329,7 +329,7 @@ export const PaymentCheckoutModal: React.FC<PaymentCheckoutModalProps> = ({
           <div className="p-4 bg-amber-50/60 rounded-2xl border border-amber-200 space-y-2 text-xs">
             <div className="flex items-center gap-2 font-bold text-amber-950">
               <Building2 className="w-4 h-4 text-amber-700" />
-              <span>CampusNest Dynamic Paystack Virtual Account:</span>
+              <span>Hostel Ease Dynamic Paystack Virtual Account:</span>
             </div>
             <div className="p-3 bg-white rounded-xl border border-amber-200/80 space-y-1">
               <div className="flex justify-between">
@@ -342,7 +342,7 @@ export const PaymentCheckoutModal: React.FC<PaymentCheckoutModalProps> = ({
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500">Account Name:</span>
-                <span className="font-bold text-slate-900">CampusNest - {booking.studentName}</span>
+                <span className="font-bold text-slate-900">Hostel Ease - {booking.studentName}</span>
               </div>
             </div>
             <label className="flex items-center gap-2 pt-1 cursor-pointer">

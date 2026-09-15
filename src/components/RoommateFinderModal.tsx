@@ -339,7 +339,7 @@ export const RoommateFinderModal: React.FC<RoommateFinderModalProps> = ({
                       <div className="flex items-center justify-between border-t border-slate-800/80 pt-3 gap-2">
                         <button
                           onClick={() => {
-                            const waUrl = `https://wa.me/234${r.whatsapp.replace(/^0/, '')}?text=${encodeURIComponent(`Hi ${r.name}, I saw your roommate profile on CampusNest for ${r.preferredZoneName} accommodation!`)}`;
+                            const waUrl = `https://wa.me/234${r.whatsapp.replace(/^0/, '')}?text=${encodeURIComponent(`Hi ${r.name}, I saw your roommate profile on Hostel Ease for ${r.preferredZoneName} accommodation!`)}`;
                             window.open(waUrl, '_blank');
                           }}
                           className="px-3 py-2 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/40 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer"

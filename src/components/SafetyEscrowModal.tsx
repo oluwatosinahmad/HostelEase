@@ -33,7 +33,7 @@ export const SafetyEscrowModal: React.FC<SafetyEscrowModalProps> = ({ onClose })
             </div>
             <div>
               <div className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-300">
-                CampusNest Trust & Safety Standard
+                Hostel Ease Trust & Safety Standard
               </div>
               <h3 className="text-xl font-extrabold text-white">
                 Stay Safe: Student Accommodation Guide
@@ -59,7 +59,7 @@ export const SafetyEscrowModal: React.FC<SafetyEscrowModalProps> = ({ onClose })
               <span>Our Transparency Commitment</span>
             </div>
             <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-              CampusNest helps students find and evaluate accommodation online before traveling. While we thoroughly verify property details, photos, and host credentials, <strong>no online platform can guarantee that off-campus housing is 100% risk-free.</strong> We provide the evidence so you can make informed decisions.
+              Hostel Ease helps students find and evaluate accommodation online before traveling. While we thoroughly verify property details, photos, and host credentials, <strong>no online platform can guarantee that off-campus housing is 100% risk-free.</strong> We provide the evidence so you can make informed decisions.
             </p>
           </div>
 
@@ -83,7 +83,7 @@ export const SafetyEscrowModal: React.FC<SafetyEscrowModalProps> = ({ onClose })
 
               <div className="p-3.5 bg-white rounded-2xl border border-slate-200 space-y-1">
                 <strong className="text-slate-900 block font-bold">3. Check Verification Status</strong>
-                <p className="text-slate-500">Look for the "Verified by CampusNest" badge and check the last verified date.</p>
+                <p className="text-slate-500">Look for the "Verified by Hostel Ease" badge and check the last verified date.</p>
               </div>
 
               <div className="p-3.5 bg-white rounded-2xl border border-slate-200 space-y-1">
@@ -129,11 +129,11 @@ export const SafetyEscrowModal: React.FC<SafetyEscrowModalProps> = ({ onClose })
             </div>
           </div>
 
-          {/* Section 3: What CampusNest Verifies */}
+          {/* Section 3: What Hostel Ease Verifies */}
           <div className="space-y-3 pt-2">
             <h4 className="font-extrabold text-sm text-slate-900 uppercase tracking-wider flex items-center gap-2">
               <Building2 className="w-4 h-4 text-brand-600" />
-              <span>What CampusNest Actually Checks</span>
+              <span>What Hostel Ease Actually Checks</span>
             </h4>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">

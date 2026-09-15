@@ -89,7 +89,7 @@ export const StudentFeedbackModal: React.FC<StudentFeedbackModalProps> = ({
               <CheckCircle2 className="w-7 h-7" />
             </div>
             <h3 className="font-bold text-white text-base">Thank You for Your Feedback!</h3>
-            <p className="text-xs text-slate-400">Your feedback directly shapes how CampusNest protects LAUTECH students from accommodation stress.</p>
+            <p className="text-xs text-slate-400">Your feedback directly shapes how Hostel Ease protects LAUTECH students from accommodation stress.</p>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="p-6 space-y-4 text-xs max-h-[75vh] overflow-y-auto">

@@ -90,7 +90,7 @@ export const ReportLandlordModal: React.FC<ReportLandlordModalProps> = ({
               </span>
               <h4 className="text-lg font-bold text-slate-900 pt-2">Report Received by Safety Desk</h4>
               <p className="text-xs text-slate-500 max-w-sm mx-auto leading-relaxed">
-                Thank you. Your report has been securely registered with CampusNest Trust & Safety officers. We will investigate this conduct confidentially.
+                Thank you. Your report has been securely registered with Hostel Ease Trust & Safety officers. We will investigate this conduct confidentially.
               </p>
             </div>
             <button
@@ -105,7 +105,7 @@ export const ReportLandlordModal: React.FC<ReportLandlordModalProps> = ({
             <div className="p-3 bg-amber-50 rounded-2xl border border-amber-200 text-[11px] text-amber-900 flex items-start gap-2">
               <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
               <span>
-                Reports are 100% confidential. CampusNest will never disclose your identity to the reported host.
+                Reports are 100% confidential. Hostel Ease will never disclose your identity to the reported host.
               </span>
             </div>
 

@@ -142,7 +142,7 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-xs font-black text-brand-400 tracking-wider uppercase">CampusNest Control Center</span>
+                <span className="text-xs font-black text-brand-400 tracking-wider uppercase">Hostel Ease Control Center</span>
                 <span className="text-[10px] bg-brand-500/20 text-brand-300 px-2 py-0.5 rounded-full border border-brand-500/30 font-mono font-bold">
                   v8.0 ENTERPRISE
                 </span>
@@ -174,7 +174,7 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="e.g. admin@campusnest.ng"
+                    placeholder="e.g. admin@hostelease.ng"
                     className="w-full bg-slate-800/80 border border-slate-700 rounded-2xl py-2.5 pl-10 pr-4 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
                   />
                 </div>
@@ -299,7 +299,7 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
         {/* Footer Security Notice */}
         <div className="bg-slate-950 p-4 border-t border-slate-800/80 text-[11px] text-slate-500 text-center flex items-center justify-center gap-1.5">
           <ShieldAlert className="w-3.5 h-3.5 text-amber-500" />
-          <span>Restricted CampusNest internal system. All actions are cryptographically audited.</span>
+          <span>Restricted Hostel Ease internal system. All actions are cryptographically audited.</span>
         </div>
       </div>
     </div>

@@ -406,7 +406,7 @@ export const LandlordPortal: React.FC<LandlordPortalProps> = ({
       totalReviewsCount: 0,
       inspectionReport: {
         waterSourceVerified: false,
-        waterNote: 'Pending physical inspection by CampusNest.',
+        waterNote: 'Pending physical inspection by Hostel Ease.',
         electricityVerified: false,
         electricityNote: 'Pending verification.',
         structuralIntegrity: 'good',
@@ -652,7 +652,7 @@ export const LandlordPortal: React.FC<LandlordPortalProps> = ({
                           <span className={`px-2.5 py-1 rounded-md text-[10px] font-extrabold uppercase shadow-sm ${
                             p.verificationStatus === 'VERIFIED' ? 'bg-teal-600 text-white' : 'bg-slate-900/80 text-slate-200'
                           }`}>
-                            {p.verificationStatus === 'VERIFIED' ? 'Verified by CampusNest' : p.verificationStatus}
+                            {p.verificationStatus === 'VERIFIED' ? 'Verified by Hostel Ease' : p.verificationStatus}
                           </span>
                         </div>
 
@@ -840,9 +840,9 @@ export const LandlordPortal: React.FC<LandlordPortalProps> = ({
             <div className="p-4 bg-emerald-50/80 border border-emerald-200 rounded-3xl text-xs text-emerald-950 flex items-start gap-3">
               <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
               <div className="space-y-0.5">
-                <span className="font-extrabold text-emerald-900 block">CampusNest Availability Lock Active</span>
+                <span className="font-extrabold text-emerald-900 block">Hostel Ease Availability Lock Active</span>
                 <p className="text-[11px] text-emerald-800 leading-relaxed">
-                  When you accept a booking, CampusNest automatically holds the property for 48 hours to prevent overlapping reservations. If the student fails to proceed within the window, the property is automatically restored to Available.
+                  When you accept a booking, Hostel Ease automatically holds the property for 48 hours to prevent overlapping reservations. If the student fails to proceed within the window, the property is automatically restored to Available.
                 </p>
               </div>
             </div>
@@ -994,7 +994,7 @@ export const LandlordPortal: React.FC<LandlordPortalProps> = ({
                         </a>
                         {bk.studentWhatsapp && (
                           <a
-                            href={`https://wa.me/${bk.studentWhatsapp.replace(/\D/g, '')}?text=${encodeURIComponent(`Hello ${bk.studentName}, I am contacting you regarding your CampusNest booking request ${bk.referenceNumber} for ${bk.propertyTitle}.`)}`}
+                            href={`https://wa.me/${bk.studentWhatsapp.replace(/\D/g, '')}?text=${encodeURIComponent(`Hello ${bk.studentName}, I am contacting you regarding your Hostel Ease booking request ${bk.referenceNumber} for ${bk.propertyTitle}.`)}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="px-2.5 py-1 bg-emerald-50 border border-emerald-200 rounded-lg text-emerald-800 font-semibold hover:bg-emerald-100 flex items-center gap-1"
@@ -1348,7 +1348,7 @@ export const LandlordPortal: React.FC<LandlordPortalProps> = ({
                         <div className="p-3.5 bg-amber-50 rounded-2xl border border-amber-200 text-xs text-amber-950 flex items-start gap-2.5">
                           <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
                           <div>
-                            <span className="font-extrabold block">Settlement Payout Held by CampusNest Escrow Mediation</span>
+                            <span className="font-extrabold block">Settlement Payout Held by Hostel Ease Escrow Mediation</span>
                             <span className="text-[11px] text-amber-800">
                               Reason: {payout.holdReason || 'Student reported property check-in concern. Mediator is investigating.'}
                             </span>
@@ -1591,7 +1591,7 @@ export const LandlordPortal: React.FC<LandlordPortalProps> = ({
                       </div>
 
                       <a
-                        href={`https://wa.me/${inq.studentPhone.replace(/[^0-9]/g, '')}?text=Hello%20${encodeURIComponent(inq.studentName)},%20replying%20to%20your%20inquiry%20on%20CampusNest%20for%20"${encodeURIComponent(inq.propertyTitle)}".`}
+                        href={`https://wa.me/${inq.studentPhone.replace(/[^0-9]/g, '')}?text=Hello%20${encodeURIComponent(inq.studentName)},%20replying%20to%20your%20inquiry%20on%20Hostel Ease%20for%20"${encodeURIComponent(inq.propertyTitle)}".`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs whitespace-nowrap self-start sm:self-auto"
@@ -1639,7 +1639,7 @@ export const LandlordPortal: React.FC<LandlordPortalProps> = ({
 
               {/* Tips for Hosts */}
               <div className="p-4 bg-white/5 rounded-2xl border border-white/5 text-xs text-slate-300 space-y-1">
-                <strong className="text-white block font-bold">CampusNest Host Standards:</strong>
+                <strong className="text-white block font-bold">Hostel Ease Host Standards:</strong>
                 <p className="text-slate-300/90 leading-relaxed">
                   Students value timely communication, honest listing descriptions, and functional amenities (boreholes & prepaid meters). Always respond constructively to student feedback.
                 </p>
@@ -1711,7 +1711,7 @@ export const LandlordPortal: React.FC<LandlordPortalProps> = ({
                             <button
                               onClick={() => onReportReview(rev)}
                               className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors"
-                              title="Report this review to CampusNest Moderation"
+                              title="Report this review to Hostel Ease Moderation"
                             >
                               <HelpCircle className="w-4 h-4" />
                             </button>
@@ -1818,7 +1818,7 @@ export const LandlordPortal: React.FC<LandlordPortalProps> = ({
                   Listing Submitted for Admin Verification!
                 </h3>
                 <p className="text-xs text-slate-500 max-w-md mx-auto">
-                  Your listing has been submitted to the CampusNest Moderation Desk with status <strong className="text-amber-700">PENDING_VERIFICATION</strong>.
+                  Your listing has been submitted to the Hostel Ease Moderation Desk with status <strong className="text-amber-700">PENDING_VERIFICATION</strong>.
                   Our team will verify the details and publish it live for LAUTECH students.
                 </p>
                 <div className="flex justify-center gap-3 pt-2">
@@ -2047,7 +2047,7 @@ export const LandlordPortal: React.FC<LandlordPortalProps> = ({
                   {currentStep === 3 && (
                     <div className="space-y-4">
                       <div className="p-3 bg-emerald-50 rounded-2xl border border-emerald-200 text-xs text-emerald-950">
-                        <strong className="block font-bold">CampusNest Transparent Fee Engine:</strong>
+                        <strong className="block font-bold">Hostel Ease Transparent Fee Engine:</strong>
                         <span>Enter actual values only. Never invent fees. The total will be calculated automatically.</span>
                       </div>
 
@@ -2354,7 +2354,7 @@ export const LandlordPortal: React.FC<LandlordPortalProps> = ({
                         <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
                         <span>
                           Upon submission, the listing will enter <strong className="text-amber-800">PENDING_VERIFICATION</strong> status. 
-                          The CampusNest verification desk will inspect the listing before making it public to students.
+                          The Hostel Ease verification desk will inspect the listing before making it public to students.
                         </span>
                       </div>
                     </div>

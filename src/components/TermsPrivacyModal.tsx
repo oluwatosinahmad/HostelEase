@@ -46,7 +46,7 @@ export const TermsPrivacyModal: React.FC<TermsPrivacyModalProps> = ({
                   LEGAL DRAFT v9.0
                 </span>
               </div>
-              <h2 className="text-lg font-black text-white">CampusNest Platform Policies</h2>
+              <h2 className="text-lg font-black text-white">Hostel Ease Platform Policies</h2>
             </div>
           </div>
           <button
@@ -123,12 +123,12 @@ export const TermsPrivacyModal: React.FC<TermsPrivacyModalProps> = ({
               <div className="space-y-3">
                 <h4 className="font-bold text-white uppercase tracking-wider text-[11px]">1.1 Platform Nature & Marketplace Role</h4>
                 <p>
-                  CampusNest Technologies Ltd operates a digital accommodation discovery and escrow-facilitated reservation marketplace connecting verified tertiary institution students with property owners, caretakers, and authorized real estate agents in Nigeria. CampusNest is not a property owner or direct lessor, but provides verification, search intelligence, reservation workflows, and escrow payment intermediation.
+                  Hostel Ease Technologies Ltd operates a digital accommodation discovery and escrow-facilitated reservation marketplace connecting verified tertiary institution students with property owners, caretakers, and authorized real estate agents in Nigeria. Hostel Ease is not a property owner or direct lessor, but provides verification, search intelligence, reservation workflows, and escrow payment intermediation.
                 </p>
 
                 <h4 className="font-bold text-white uppercase tracking-wider text-[11px]">1.2 Student User Obligations</h4>
                 <p>
-                  By registering with CampusNest, student users warrant that they provide accurate academic institution credentials (matriculation number, full name, phone number). Students agree not to engage in impersonation, malicious reporting, false reviews, or fraudulent payment attempts.
+                  By registering with Hostel Ease, student users warrant that they provide accurate academic institution credentials (matriculation number, full name, phone number). Students agree not to engage in impersonation, malicious reporting, false reviews, or fraudulent payment attempts.
                 </p>
 
                 <h4 className="font-bold text-white uppercase tracking-wider text-[11px]">1.3 Landlord & Agent Obligations</h4>
@@ -155,12 +155,12 @@ export const TermsPrivacyModal: React.FC<TermsPrivacyModalProps> = ({
 
                 <h4 className="font-bold text-white uppercase tracking-wider text-[11px]">2.2 Protection of Financial Information</h4>
                 <p>
-                  CampusNest does not store raw debit/credit card numbers or banking PINs on its servers. All payment processing is conducted securely via licensed PCI-DSS compliant Nigerian payment gateways (Paystack / Flutterwave). Host bank account numbers are cryptographically masked in all administrative and public views (<code className="text-brand-400">•••• •••• 5521</code>).
+                  Hostel Ease does not store raw debit/credit card numbers or banking PINs on its servers. All payment processing is conducted securely via licensed PCI-DSS compliant Nigerian payment gateways (Paystack / Flutterwave). Host bank account numbers are cryptographically masked in all administrative and public views (<code className="text-brand-400">•••• •••• 5521</code>).
                 </p>
 
                 <h4 className="font-bold text-white uppercase tracking-wider text-[11px]">2.3 Student Data Rights</h4>
                 <p>
-                  Under NDPA guidelines, users have the right to request access to their stored personal data, request corrections, or request account erasure by contacting our Data Protection Officer at <span className="text-brand-400 font-mono">dpo@campusnest.ng</span>.
+                  Under NDPA guidelines, users have the right to request access to their stored personal data, request corrections, or request account erasure by contacting our Data Protection Officer at <span className="text-brand-400 font-mono">dpo@hostelease.ng</span>.
                 </p>
               </div>
             </div>
@@ -170,7 +170,7 @@ export const TermsPrivacyModal: React.FC<TermsPrivacyModalProps> = ({
           {activeTab === 'escrow' && (
             <div className="space-y-4 animate-fadeIn">
               <div className="border-b border-slate-800 pb-3">
-                <h3 className="text-base font-black text-white">3. CampusNest Escrow Guarantee & Refund Policy</h3>
+                <h3 className="text-base font-black text-white">3. Hostel Ease Escrow Guarantee & Refund Policy</h3>
                 <p className="text-slate-400 text-[11px]">48-Hour Protection Window & Safe Tenancy Settlement</p>
               </div>
 
@@ -182,7 +182,7 @@ export const TermsPrivacyModal: React.FC<TermsPrivacyModalProps> = ({
 
                 <h4 className="font-bold text-white uppercase tracking-wider text-[11px]">3.2 Refund Eligibility Criteria</h4>
                 <p>
-                  A student is entitled to a 100% full refund under the CampusNest Protection Guarantee if:
+                  A student is entitled to a 100% full refund under the Hostel Ease Protection Guarantee if:
                 </p>
                 <ul className="list-disc pl-5 space-y-1 text-slate-300">
                   <li>The physical property condition diverges significantly from verified media (e.g. missing water, collapsed ceiling, uninhabitable state).</li>
@@ -209,12 +209,12 @@ export const TermsPrivacyModal: React.FC<TermsPrivacyModalProps> = ({
               <div className="space-y-3">
                 <h4 className="font-bold text-white uppercase tracking-wider text-[11px]">4.1 Transparent Price Guarantee</h4>
                 <p>
-                  Hosts agree that the total price listed on CampusNest constitutes the complete annual cost. Requesting arbitrary additional inspection fees, gate fees, or unlisted charges upon student arrival is strictly prohibited and results in listing delisting and forfeiture of verified host status.
+                  Hosts agree that the total price listed on Hostel Ease constitutes the complete annual cost. Requesting arbitrary additional inspection fees, gate fees, or unlisted charges upon student arrival is strictly prohibited and results in listing delisting and forfeiture of verified host status.
                 </p>
 
                 <h4 className="font-bold text-white uppercase tracking-wider text-[11px]">4.2 Physical Verification Consent</h4>
                 <p>
-                  To receive the <em>Verified Student Shield</em>, hosts grant CampusNest Field Verification Officers permission to inspect the premises, test running water, inspect electricity prepaid meters, and record an uncut video walkthrough.
+                  To receive the <em>Verified Student Shield</em>, hosts grant Hostel Ease Field Verification Officers permission to inspect the premises, test running water, inspect electricity prepaid meters, and record an uncut video walkthrough.
                 </p>
 
                 <h4 className="font-bold text-white uppercase tracking-wider text-[11px]">4.3 Habitability & Safety Standard</h4>
@@ -252,7 +252,7 @@ export const TermsPrivacyModal: React.FC<TermsPrivacyModalProps> = ({
         <div className="bg-slate-950 p-4 border-t border-slate-800 flex items-center justify-between shrink-0">
           <div className="text-[11px] text-slate-400 flex items-center gap-1.5">
             <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-            <span>CampusNest Legal & Compliance Unit • Ogbomoso, Oyo State</span>
+            <span>Hostel Ease Legal & Compliance Unit • Ogbomoso, Oyo State</span>
           </div>
           <button
             onClick={onClose}

@@ -582,8 +582,8 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
             />
             <div>
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-400 text-slate-950 uppercase tracking-wide">
-                  LAUTECH Student
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-400 text-slate-950 uppercase tracking-wide shrink-0">
+                  Hostel Ease • LAUTECH Student
                 </span>
                 <span className="text-[11px] text-emerald-300 font-medium">
                   {dashboardData?.user?.department ? `${dashboardData.user.department} • ${dashboardData.user.level || 'Undergraduate'}` : 'Academic Session 2026/2027'}

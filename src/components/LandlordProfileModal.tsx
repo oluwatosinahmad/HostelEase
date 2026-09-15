@@ -42,7 +42,7 @@ export const LandlordProfileModal: React.FC<LandlordProfileModalProps> = ({
               {landlord.isIdVerified && (
                 <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-400 bg-emerald-950/80 border border-emerald-500/30 px-2 py-0.5 rounded-full mt-1.5">
                   <CheckCircle2 className="w-3 h-3 text-emerald-400" />
-                  <span>Verified by CampusNest</span>
+                  <span>Verified by Hostel Ease</span>
                 </span>
               )}
             </div>
@@ -68,7 +68,7 @@ export const LandlordProfileModal: React.FC<LandlordProfileModalProps> = ({
 
           <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200 space-y-2 text-xs text-slate-600">
             <div className="flex justify-between py-1 border-b border-slate-200/60">
-              <span className="text-slate-500">Member on CampusNest Since:</span>
+              <span className="text-slate-500">Member on Hostel Ease Since:</span>
               <span className="font-bold text-slate-800">{landlord.joinedYear}</span>
             </div>
             <div className="flex justify-between py-1 border-b border-slate-200/60">
@@ -87,7 +87,7 @@ export const LandlordProfileModal: React.FC<LandlordProfileModalProps> = ({
           {/* Action Contact */}
           <div className="space-y-2 pt-2">
             <a
-              href={`https://wa.me/${landlord.whatsapp.replace(/[^0-9]/g, '')}?text=Hello%20${encodeURIComponent(landlord.name)},%20I%20saw%20your%20hostel%20on%20CampusNest%20and%20would%20like%20to%20inquire.`}
+              href={`https://wa.me/${landlord.whatsapp.replace(/[^0-9]/g, '')}?text=Hello%20${encodeURIComponent(landlord.name)},%20I%20saw%20your%20hostel%20on%20Hostel Ease%20and%20would%20like%20to%20inquire.`}
               target="_blank"
               rel="noopener noreferrer"
               className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs sm:text-sm flex items-center justify-center gap-2 shadow-xs transition-colors"

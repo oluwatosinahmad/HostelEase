@@ -52,11 +52,11 @@ export const ReportReviewModal: React.FC<ReportReviewModalProps> = ({
     onSubmitReport({
       reviewId: review.id,
       propertyId: review.propertyId,
-      propertyTitle: review.propertyTitle || 'CampusNest Hostel',
+      propertyTitle: review.propertyTitle || 'Hostel Ease Hostel',
       reviewAuthor: review.studentName,
       reviewSnippet: review.comment.slice(0, 100),
       reporterName: reporterName.trim() || 'Anonymous Reporter',
-      reporterEmail: reporterEmail.trim() || 'reporter@campusnest.ng',
+      reporterEmail: reporterEmail.trim() || 'reporter@hostelease.ng',
       reporterRole: currentUser?.role || 'student',
       reason,
       description: description.trim(),
@@ -97,7 +97,7 @@ export const ReportReviewModal: React.FC<ReportReviewModalProps> = ({
             <div>
               <h4 className="text-lg font-black text-slate-900">Review Report Submitted</h4>
               <p className="text-xs text-slate-600 mt-1 max-w-sm mx-auto">
-                Thank you for helping keep CampusNest honest. The admin moderation desk has logged your investigation ticket.
+                Thank you for helping keep Hostel Ease honest. The admin moderation desk has logged your investigation ticket.
               </p>
             </div>
 
@@ -111,7 +111,7 @@ export const ReportReviewModal: React.FC<ReportReviewModalProps> = ({
             </div>
 
             <p className="text-[11px] text-slate-500 max-w-md mx-auto">
-              Please note: CampusNest protects genuine negative feedback. Reviews are only hidden if they violate platform rules (e.g. extortion, hate speech, doxed personal details).
+              Please note: Hostel Ease protects genuine negative feedback. Reviews are only hidden if they violate platform rules (e.g. extortion, hate speech, doxed personal details).
             </p>
 
             <button

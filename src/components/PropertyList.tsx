@@ -523,7 +523,7 @@ export const PropertyList: React.FC<PropertyListProps> = ({
                 />
                 <span className="flex items-center gap-1">
                   <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                  Verified by CampusNest
+                  Verified by Hostel Ease
                 </span>
               </label>
 

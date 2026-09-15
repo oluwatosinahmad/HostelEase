@@ -60,15 +60,15 @@ export const AmbassadorPortal: React.FC<AmbassadorPortalProps> = ({
   const promoKits = [
     {
       title: 'WhatsApp Status Broadcast (Short)',
-      text: '🏠 Searching for hostels in Under-G, Adenike, or Stadium Road? Skip fake agents! Check out verified hostels with 48h escrow protection on CampusNest: ' + referralLink,
+      text: '🏠 Searching for hostels in Under-G, Adenike, or Stadium Road? Skip fake agents! Check out verified hostels with 48h escrow protection on Hostel Ease: ' + referralLink,
     },
     {
       title: 'Department / Faculty Group Chat Broadcast',
-      text: 'Good day course mates! 🎓 CampusNest is making LAUTECH accommodation search stress-free. Real pictures, uncut video tours, tested borehole water, and direct host booking without agent cuts: ' + referralLink,
+      text: 'Good day course mates! 🎓 Hostel Ease is making LAUTECH accommodation search stress-free. Real pictures, uncut video tours, tested borehole water, and direct host booking without agent cuts: ' + referralLink,
     },
     {
       title: 'Freshmen 100L Orientation Post',
-      text: 'Welcome to LAUTECH, 100L Freshmen! ✨ Avoid falling victim to roadside accommodation scams around School Gate. Discover safe student lodges on CampusNest: ' + referralLink,
+      text: 'Welcome to LAUTECH, 100L Freshmen! ✨ Avoid falling victim to roadside accommodation scams around School Gate. Discover safe student lodges on Hostel Ease: ' + referralLink,
     },
   ];
 
@@ -110,7 +110,7 @@ export const AmbassadorPortal: React.FC<AmbassadorPortalProps> = ({
           <div className="space-y-3 max-w-2xl">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/20 border border-amber-500/30 text-amber-300 text-xs font-bold">
               <Award className="w-3.5 h-3.5" />
-              <span>CampusNest Student Ambassador Program • LAUTECH Chapter</span>
+              <span>Hostel Ease Student Ambassador Program • LAUTECH Chapter</span>
             </div>
             <h1 className="text-2xl sm:text-4xl font-black text-white">
               Lead Student Growth on Campus
@@ -236,7 +236,7 @@ export const AmbassadorPortal: React.FC<AmbassadorPortalProps> = ({
               <div className="p-8 text-center space-y-3 bg-emerald-950/30 border border-emerald-800/40 rounded-2xl">
                 <CheckCircle2 className="w-10 h-10 text-emerald-400 mx-auto" />
                 <h3 className="font-bold text-white text-base">Application Received!</h3>
-                <p className="text-slate-300 text-xs">The CampusNest Student Community Team will review your profile and assign your unique ambassador referral code within 24 hours.</p>
+                <p className="text-slate-300 text-xs">The Hostel Ease Student Community Team will review your profile and assign your unique ambassador referral code within 24 hours.</p>
               </div>
             ) : (
               <form onSubmit={handleApplicationSubmit} className="space-y-4">

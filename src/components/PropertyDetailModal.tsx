@@ -185,10 +185,10 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
               <button
                 onClick={() => setShowVerificationInfo(true)}
                 className="inline-flex items-center gap-1.5 bg-emerald-100 hover:bg-emerald-200 text-emerald-800 text-xs font-extrabold px-3 py-1 rounded-full transition-colors cursor-pointer"
-                title="Click to learn what CampusNest has verified"
+                title="Click to learn what Hostel Ease has verified"
               >
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                <span>Verified by CampusNest</span>
+                <span>Verified by Hostel Ease</span>
                 <Info className="w-3 h-3 text-emerald-600" />
               </button>
             ) : property.verificationStatus === 'EXPIRED' ? (
@@ -252,10 +252,10 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
             </button>
             <div className="font-extrabold text-sm flex items-center gap-1.5">
               <ShieldCheck className="w-4 h-4 text-emerald-700" />
-              <span>About CampusNest Verification</span>
+              <span>About Hostel Ease Verification</span>
             </div>
             <p className="leading-relaxed">
-              This property has passed CampusNest's current verification process. Verification includes reviewing submitted photos/videos, confirming the physical location, validating itemized fee breakdowns, and confirming host credentials.
+              This property has passed Hostel Ease's current verification process. Verification includes reviewing submitted photos/videos, confirming the physical location, validating itemized fee breakdowns, and confirming host credentials.
             </p>
             <p className="text-[11px] text-emerald-900/80 font-medium">
               <em>Note: Verification does not guarantee that a property is 100% risk-free. Always ask questions and review fees before commitment.</em>
@@ -484,7 +484,7 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
             <div className="space-y-4">
               <div className="bg-slate-900 text-white p-4 rounded-2xl flex items-center justify-between">
                 <div>
-                  <span className="text-xs text-slate-400 block uppercase font-bold tracking-wider">CampusNest Total Price Guarantee</span>
+                  <span className="text-xs text-slate-400 block uppercase font-bold tracking-wider">Hostel Ease Total Price Guarantee</span>
                   <span className="text-sm font-semibold text-slate-200">No surprise charges when you visit or inspect</span>
                 </div>
                 <div className="text-right">
@@ -568,7 +568,7 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
                 <div className="font-extrabold text-sm flex items-center justify-between">
                   <div className="flex items-center gap-1.5">
                     <ShieldCheck className="w-4 h-4 text-emerald-700" />
-                    <span>✓ Verified by CampusNest</span>
+                    <span>✓ Verified by Hostel Ease</span>
                   </div>
                   {property.lastVerifiedDate && (
                     <span className="text-[11px] font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full">
@@ -577,7 +577,7 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
                   )}
                 </div>
                 <p className="leading-relaxed">
-                  This property has been reviewed and verified by CampusNest administrators against our student accommodation criteria.
+                  This property has been reviewed and verified by Hostel Ease administrators against our student accommodation criteria.
                 </p>
                 {property.verificationValidUntil && (
                   <div className="text-[11px] text-emerald-800 font-semibold pt-1">
@@ -625,7 +625,7 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
               <div className="p-3 bg-slate-100 rounded-xl border border-slate-200 text-[11px] text-slate-600 flex items-start gap-2">
                 <Info className="w-4 h-4 text-slate-500 shrink-0 mt-0.5" />
                 <span>
-                  <strong>Student Transparency Note:</strong> Verification means CampusNest has inspected and validated the stated parameters. It does not constitute a financial guarantee. We advise testing facilities during your inspection before final payment.
+                  <strong>Student Transparency Note:</strong> Verification means Hostel Ease has inspected and validated the stated parameters. It does not constitute a financial guarantee. We advise testing facilities during your inspection before final payment.
                 </span>
               </div>
             </div>

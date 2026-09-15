@@ -179,7 +179,7 @@ export const BookingRequestModal: React.FC<BookingRequestModalProps> = ({
             <div className="flex items-center justify-between">
               <h4 className="text-xs font-extrabold text-amber-950 uppercase tracking-wider flex items-center gap-1.5">
                 <FileText className="w-4 h-4 text-amber-600" />
-                <span>Transparent Itemized Fees (CampusNest Policy)</span>
+                <span>Transparent Itemized Fees (Hostel Ease Policy)</span>
               </h4>
               <span className="text-[11px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-md">
                 Zero Hidden Charges
@@ -217,7 +217,7 @@ export const BookingRequestModal: React.FC<BookingRequestModalProps> = ({
               )}
               <div className="flex justify-between pt-1">
                 <span className="text-slate-600 flex items-center gap-1">
-                  <span>CampusNest Platform Fee</span>
+                  <span>Hostel Ease Platform Fee</span>
                   <span className="text-[10px] text-emerald-600 font-bold bg-emerald-50 px-1.5 py-0.2 rounded">FREE</span>
                 </span>
                 <span className="font-bold text-emerald-700">₦0 (Launch Offer)</span>
@@ -378,7 +378,7 @@ export const BookingRequestModal: React.FC<BookingRequestModalProps> = ({
                 className="mt-0.5 w-4 h-4 rounded text-brand-600 focus:ring-brand-500 cursor-pointer"
               />
               <label htmlFor="terms-check" className="text-xs font-semibold text-slate-700 cursor-pointer">
-                I agree to the <strong>CampusNest Student Booking Terms</strong> and physical verification checklist prior to final key handover.
+                I agree to the <strong>Hostel Ease Student Booking Terms</strong> and physical verification checklist prior to final key handover.
               </label>
             </div>
           </div>

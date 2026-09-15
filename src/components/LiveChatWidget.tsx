@@ -61,11 +61,11 @@ export const LiveChatWidget: React.FC<LiveChatWidgetProps> = ({
     setIsTyping(true);
     setTimeout(() => {
       setIsTyping(false);
-      let reply = 'Thank you for reaching out! A verified CampusNest housing representative or hostel caretaker will respond shortly.';
+      let reply = 'Thank you for reaching out! A verified Hostel Ease housing representative or hostel caretaker will respond shortly.';
       
       const lower = userText.toLowerCase();
       if (lower.includes('escrow') || lower.includes('safety') || lower.includes('refund')) {
-        reply = '🛡️ CampusNest 48-Hour Escrow Guarantee: Your funds are locked safely until you inspect the keys upon move-in. If anything is wrong, tap "Open Dispute" in your dashboard.';
+        reply = '🛡️ Hostel Ease 48-Hour Escrow Guarantee: Your funds are locked safely until you inspect the keys upon move-in. If anything is wrong, tap "Open Dispute" in your dashboard.';
       } else if (lower.includes('water') || lower.includes('borehole')) {
         reply = '💧 Borehole Inspection: All verified lodges in Under-G and Adenike have verified running borehole water with overhead storage tanks.';
       } else if (lower.includes('light') || lower.includes('meter')) {
@@ -178,7 +178,7 @@ export const LiveChatWidget: React.FC<LiveChatWidgetProps> = ({
             <div className="bg-slate-900/90 border border-slate-800 p-2.5 rounded-2xl flex items-start gap-2 text-[10px] text-slate-400">
               <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
               <p>
-                <strong>48-Hour Escrow Active:</strong> Always keep payments inside CampusNest. Never transfer cash directly to roadside agents.
+                <strong>48-Hour Escrow Active:</strong> Always keep payments inside Hostel Ease. Never transfer cash directly to roadside agents.
               </p>
             </div>
 

@@ -60,7 +60,7 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
             ) : property.verificationStatus === 'VERIFIED' ? (
               <div className="flex items-center gap-1 bg-emerald-600/95 text-white px-2.5 py-1 rounded-md text-[11px] font-bold shadow-sm backdrop-blur-xs">
                 <CheckCircle2 className="w-3.5 h-3.5" />
-                <span>Verified by CampusNest</span>
+                <span>Verified by Hostel Ease</span>
               </div>
             ) : property.verificationStatus === 'EXPIRED' ? (
               <div className="flex items-center gap-1 bg-amber-600/95 text-white px-2.5 py-1 rounded-md text-[10px] font-bold shadow-sm backdrop-blur-xs">

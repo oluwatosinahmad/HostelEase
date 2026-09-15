@@ -94,7 +94,7 @@ export const ReportPropertyModal: React.FC<ReportPropertyModalProps> = ({
               </span>
               <h4 className="text-lg font-bold text-slate-900 pt-2">Report Received by Safety Desk</h4>
               <p className="text-xs text-slate-500 max-w-sm mx-auto leading-relaxed">
-                Thanks. Your report has been received and will be investigated by CampusNest administrators. If verified as misleading, appropriate action will be taken.
+                Thanks. Your report has been received and will be investigated by Hostel Ease administrators. If verified as misleading, appropriate action will be taken.
               </p>
             </div>
             <button
@@ -109,7 +109,7 @@ export const ReportPropertyModal: React.FC<ReportPropertyModalProps> = ({
             <div className="p-3 bg-amber-50 rounded-2xl border border-amber-200 text-[11px] text-amber-900 flex items-start gap-2">
               <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
               <span>
-                CampusNest uses reports to identify inaccurate pricing, fake listings, and unresponsive hosts.
+                Hostel Ease uses reports to identify inaccurate pricing, fake listings, and unresponsive hosts.
               </span>
             </div>
 
@@ -187,7 +187,7 @@ export const ReportPropertyModal: React.FC<ReportPropertyModalProps> = ({
                 className="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shadow-sm transition-all flex items-center space-x-1.5"
               >
                 <Send className="w-3.5 h-3.5" />
-                <span>Submit Report to CampusNest</span>
+                <span>Submit Report to Hostel Ease</span>
               </button>
             </div>
           </form>
