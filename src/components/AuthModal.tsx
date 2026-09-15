@@ -133,10 +133,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       setEmail(formatEmailFromName(fullName, newRole));
     } else if (newRole === 'ADMIN') {
       setMode('login');
-      if (!email || email.includes('lautech.edu.ng') || email.includes('example.com')) {
-        setEmail('hostelease.admin@gmail.com');
-        setPassword('Admin123!');
-      }
+      setEmail('');
+      setPassword('');
     }
   };
 
@@ -154,13 +152,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const normalizeEmailBeforeSubmit = (rawEmail: string, targetRole: UserRole, currentMode: 'login' | 'register'): string => {
     const trimmed = rawEmail.toLowerCase().trim();
     if (!trimmed) return '';
+    if (targetRole === 'ADMIN') {
+      return trimmed;
+    }
     if (!trimmed.includes('@')) {
       if (currentMode === 'register') {
         if (targetRole === 'STUDENT') return `${trimmed}@lautech.edu.ng`;
-        if (targetRole === 'PROVIDER' || targetRole === 'ADMIN') return `${trimmed}@hostelease.ng`;
+        if (targetRole === 'PROVIDER') return `${trimmed}@hostelease.ng`;
       } else {
         if (targetRole === 'PROVIDER' || trimmed.includes('landlord') || trimmed.includes('provider')) return `${trimmed}@hostelease.ng`;
-        if (targetRole === 'ADMIN' || trimmed.includes('admin')) return `${trimmed}@hostelease.ng`;
         return `${trimmed}@lautech.edu.ng`;
       }
     }
@@ -334,14 +334,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           <div className="p-6 space-y-4">
             {/* Mode toggle (Login / Register) */}
             {role === 'ADMIN' ? (
-              <div className="p-2.5 bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800 rounded-xl text-purple-900 dark:text-purple-300 text-xs font-medium flex items-center justify-between">
-                <span className="font-bold flex items-center gap-1.5">
+              <div className="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-800">
+                <h3 className="text-sm font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
                   <ShieldCheck className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-                  Administrator Portal Authentication
-                </span>
-                <span className="text-[10px] uppercase font-bold bg-purple-200 dark:bg-purple-900/60 px-2 py-0.5 rounded text-purple-900 dark:text-purple-200">
-                  Strict RBAC
-                </span>
+                  <span>Admin Login</span>
+                </h3>
               </div>
             ) : (
               <div className="flex border-b border-slate-200 dark:border-slate-800 pb-2">
@@ -416,26 +413,32 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase">
-                    {role === 'ADMIN' ? 'Admin Email / Username' : 'Email Address'}
+                    {role === 'ADMIN' ? 'Username' : 'Email Address'}
                   </label>
-                  {email && !email.includes('@') && (
+                  {role !== 'ADMIN' && email && !email.includes('@') && (
                     <span className="text-[10px] text-amber-600 dark:text-amber-400 font-bold">
                       Domain required
                     </span>
                   )}
                 </div>
                 <div className="relative flex items-center">
-                  <Mail className="w-4 h-4 text-slate-400 absolute left-3" />
+                  {role === 'ADMIN' ? (
+                    <UserIcon className="w-4 h-4 text-slate-400 absolute left-3" />
+                  ) : (
+                    <Mail className="w-4 h-4 text-slate-400 absolute left-3" />
+                  )}
                   <input
                     type="text"
                     placeholder={
-                      role === 'STUDENT' 
+                      role === 'ADMIN'
+                        ? 'Enter username'
+                        : role === 'STUDENT' 
                         ? 'adelopo@lautech.edu.ng' 
-                        : role === 'ADMIN' 
-                        ? 'admin@hostelease.ng' 
                         : 'ahmad@hostelease.ng'
                     }
                     value={email}
+                    autoCapitalize="none"
+                    autoCorrect="off"
                     onChange={(e) => { 
                       setEmail(e.target.value); 
                       setEmailManuallyEdited(true); 
@@ -446,8 +449,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   />
                 </div>
 
-                {/* Smart Auto-Complete Domain Chip */}
-                {email && !email.includes('@') && (
+                {/* Smart Auto-Complete Domain Chip (Only for Student and Provider) */}
+                {role !== 'ADMIN' && email && !email.includes('@') && (
                   <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
                     <span className="text-[10px] text-slate-500 dark:text-slate-400">Click to complete:</span>
                     {role === 'STUDENT' && (
@@ -474,19 +477,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                         className="px-2 py-0.5 bg-emerald-100 hover:bg-emerald-200 dark:bg-emerald-950/60 dark:hover:bg-emerald-900/80 text-emerald-800 dark:text-emerald-200 text-[10px] font-bold rounded-lg transition-colors flex items-center gap-1 border border-emerald-300 dark:border-emerald-700"
                       >
                         <span>⚡ @hostelease.ng</span>
-                      </button>
-                    )}
-                    {role === 'ADMIN' && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const clean = getCleanUsernamePrefix(email);
-                          setEmail(`${clean || 'admin'}@hostelease.ng`);
-                          setError(null);
-                        }}
-                        className="px-2 py-0.5 bg-purple-100 hover:bg-purple-200 dark:bg-purple-950/60 dark:hover:bg-purple-900/80 text-purple-800 dark:text-purple-200 text-[10px] font-bold rounded-lg transition-colors flex items-center gap-1 border border-purple-300 dark:border-purple-700"
-                      >
-                        <span>👑 @hostelease.ng</span>
                       </button>
                     )}
                   </div>
@@ -715,7 +705,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               <button
                 type="submit"
                 disabled={submitting}
-                className={`w-full py-3 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-2 mt-4 disabled:opacity-50 ${
+                className={`w-full py-3 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-2 mt-4 disabled:opacity-50 cursor-pointer ${
                   role === 'ADMIN' 
                     ? 'bg-purple-600 hover:bg-purple-700 shadow-purple-600/30' 
                     : 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/30'
@@ -724,81 +714,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 {submitting 
                   ? 'Authenticating...' 
                   : mode === 'login' 
-                  ? (role === 'PROVIDER' ? 'Log in as Landlord' : role === 'ADMIN' ? '👑 Authenticate Admin Credentials' : 'Log in as Student') 
+                  ? (role === 'PROVIDER' ? 'Log in as Landlord' : role === 'ADMIN' ? 'Log In' : 'Log in as Student') 
                   : `Create ${role === 'PROVIDER' ? 'Landlord' : 'Student'} Account`}
               </button>
-
-              {/* Only Admin / Platform Owner has 1-Click Demo Login */}
-              {/* Only Admin / Platform Owner has 1-Click Demo Login */}
-              {role === 'ADMIN' && (
-                <div className="pt-3 border-t border-slate-100 dark:border-slate-800 mt-2 space-y-2">
-                  <div className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider text-center">
-                    Authorized Super Admin Quick Access
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        setEmail('hostelease.admin@gmail.com');
-                        setPassword('Admin123!');
-                        setError(null);
-                        setSubmitting(true);
-                        try {
-                          const authed = await login('hostelease.admin@gmail.com', 'Admin123!', 'ADMIN');
-                          setIsLoggingIn(true);
-                          setTimeout(() => {
-                            setIsLoggingIn(false);
-                            setSubmitting(false);
-                            if (onSuccess) onSuccess(authed);
-                            onClose();
-                          }, 700);
-                        } catch (err: any) {
-                          setError(err.message || 'Admin Gmail authentication failed');
-                          setSubmitting(false);
-                        }
-                      }}
-                      disabled={submitting}
-                      className="w-full py-2 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:hover:bg-emerald-900/60 border border-emerald-200 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200 font-bold text-[11px] rounded-xl transition-colors flex items-center justify-center gap-1.5"
-                    >
-                      <span>📧 Admin Gmail (hostelease.admin@gmail.com)</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        setEmail('admin@hostelease.ng');
-                        setPassword('Admin123!');
-                        setError(null);
-                        setSubmitting(true);
-                        try {
-                          const authed = await login('admin@hostelease.ng', 'Admin123!', 'ADMIN');
-                          setIsLoggingIn(true);
-                          setTimeout(() => {
-                            setIsLoggingIn(false);
-                            setSubmitting(false);
-                            if (onSuccess) onSuccess(authed);
-                            onClose();
-                          }, 700);
-                        } catch (err: any) {
-                          setError(err.message || 'Demo Admin authentication failed');
-                          setSubmitting(false);
-                        }
-                      }}
-                      disabled={submitting}
-                      className="w-full py-2 bg-purple-50 hover:bg-purple-100 dark:bg-purple-950/40 dark:hover:bg-purple-900/60 border border-purple-200 dark:border-purple-800 text-purple-900 dark:text-purple-200 font-bold text-[11px] rounded-xl transition-colors flex items-center justify-center gap-1.5"
-                    >
-                      <span>👑 Platform Email (admin@hostelease.ng)</span>
-                    </button>
-                  </div>
-                  <div className="bg-slate-50 dark:bg-slate-800/60 p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-center">
-                    <p className="text-[11px] text-slate-700 dark:text-slate-200 font-semibold">
-                      🔑 Universal Admin Password: <code className="px-1.5 py-0.5 bg-slate-200 dark:bg-slate-700 rounded font-mono font-bold text-slate-900 dark:text-slate-100">Admin123!</code>
-                    </p>
-                    <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1">
-                      Works on any phone, tablet, laptop, or incognito browser.
-                    </p>
-                  </div>
-                </div>
-              )}
             </form>
           </div>
         )}

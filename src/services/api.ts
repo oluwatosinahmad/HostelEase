@@ -1483,13 +1483,14 @@ function saveLocalRegisteredUsers(users: any[]) {
   } catch {}
 }
 
-function handleClientSideFallbackLogin(payload: { email?: string; password?: string; requestedRole?: string; role?: string }) {
-  const email = (payload.email || '').toLowerCase().trim();
+function handleClientSideFallbackLogin(payload: { email?: string; username?: string; password?: string; requestedRole?: string; role?: string }) {
+  const rawIdentifier = (payload.username || payload.email || '').toLowerCase().trim();
+  const email = payload.email || rawIdentifier;
   const requested = payload.requestedRole || payload.role || 'STUDENT';
 
   // Check if this user registered locally
   const registeredUsers = getLocalRegisteredUsers();
-  const matchedUser = registeredUsers.find(u => u.email?.toLowerCase().trim() === email);
+  const matchedUser = registeredUsers.find(u => u.email?.toLowerCase().trim() === rawIdentifier || (u as any).username?.toLowerCase() === rawIdentifier);
 
   if (matchedUser) {
     const mockToken = `he_token_${Date.now()}`;
@@ -1498,28 +1499,21 @@ function handleClientSideFallbackLogin(payload: { email?: string; password?: str
     return { message: 'Login successful', token: mockToken, user: matchedUser };
   }
 
-  // Strict Admin Validation on Netlify/offline static mode
-  if (requested === 'ADMIN' || email.includes('admin') || email === 'hostelease.admin@gmail.com') {
-    const isAuthorizedAdmin = 
-      email.includes('admin') || 
-      email === 'admin@hostelease.ng' || 
-      email.endsWith('@hostelease.ng') ||
-      email === 'hostelease.admin@gmail.com' ||
-      email === 'oluwatosinahmad@gmail.com' ||
-      email === 'oluwatosinahmad@users.noreply.github.com';
-
-    if (!isAuthorizedAdmin) {
-      const err: any = new Error('This account is not authorized to access the Admin Portal.');
+  // Strict Single Admin Account Validation
+  if (requested === 'ADMIN' || rawIdentifier === 'admin' || rawIdentifier === 'admin@hostelease.ng') {
+    if (rawIdentifier !== 'admin' && rawIdentifier !== 'admin@hostelease.ng') {
+      const err: any = new Error('Invalid administrator credentials.');
       err.code = 'UNAUTHORIZED_ADMIN_ACCESS';
       err.status = 403;
       throw err;
     }
     const adminUser = {
-      id: email === 'admin@hostelease.ng' ? 'usr-admin-default' : `usr-admin-${email.replace(/[^a-z0-9]/g, '-')}`,
-      fullName: 'Oluwatosin Ahmad (Admin)',
-      email: email || 'admin@hostelease.ng',
+      id: 'usr-admin-master',
+      username: 'admin',
+      fullName: 'Platform Administrator',
+      email: 'admin@hostelease.ng',
       role: 'ADMIN',
-      phone: '08004678353',
+      phone: '08000000000',
       isActive: 1,
       accountStatus: 'ACTIVE'
     };
@@ -1894,11 +1888,12 @@ export const api = {
       }
     },
 
-    async login(emailOrData: string | { email: string; password: string; role?: string; requestedRole?: string }, maybePassword?: string, selectedRole?: string): Promise<{ message: string; token: string; user: any }> {
+    async login(emailOrData: string | { email?: string; username?: string; password?: string; role?: string; requestedRole?: string }, maybePassword?: string, selectedRole?: string): Promise<{ message: string; token: string; user: any }> {
       const payload = typeof emailOrData === 'string'
-        ? { email: emailOrData, password: maybePassword, requestedRole: selectedRole }
+        ? { username: emailOrData, email: emailOrData, password: maybePassword, requestedRole: selectedRole }
         : {
-            email: emailOrData.email,
+            username: (emailOrData as any).username || (emailOrData as any).email,
+            email: (emailOrData as any).email || (emailOrData as any).username,
             password: emailOrData.password,
             requestedRole: emailOrData.requestedRole || emailOrData.role || selectedRole
           };

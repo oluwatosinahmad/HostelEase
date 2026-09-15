@@ -6,7 +6,7 @@ interface AuthContextType {
   user: User | null;
   token: string | null;
   isLoading: boolean;
-  login: (email: string, password: string, role?: UserRole) => Promise<User>;
+  login: (usernameOrEmail: string, password: string, role?: UserRole) => Promise<User>;
   register: (data: any) => Promise<User>;
   logout: () => void;
   updateProfile: (data: any) => Promise<void>;
@@ -86,10 +86,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     return () => window.removeEventListener('hostel_ease_user_updated', handleUserUpdate);
   }, []);
 
-  const login = async (email: string, password: string, role?: UserRole): Promise<User> => {
+  const login = async (usernameOrEmail: string, password: string, role?: UserRole): Promise<User> => {
     setIsLoading(true);
     try {
-      const res = await api.auth.login({ email, password, role });
+      const res = await api.auth.login({ username: usernameOrEmail, email: usernameOrEmail, password, role });
       localStorage.setItem('hostel_ease_token', res.token);
       localStorage.setItem('hostel_ease_user', JSON.stringify(res.user));
       setToken(res.token);
@@ -141,7 +141,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     } else if (role === 'PROVIDER') {
       return await login('landlord@hostelease.ng', 'Provider123!', 'PROVIDER');
     } else {
-      return await login('admin@hostelease.ng', 'Admin123!', 'ADMIN');
+      throw new Error('Administrator access requires manual authentication with username and password.');
     }
   };
 

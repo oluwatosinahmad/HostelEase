@@ -122,7 +122,7 @@ function MainApp() {
   const [targetMapAddress, setTargetMapAddress] = useState<string>('');
 
   // Admin Direct Login State
-  const [adminLoginEmail, setAdminLoginEmail] = useState('admin@hostelease.ng');
+  const [adminLoginUsername, setAdminLoginUsername] = useState('');
   const [adminLoginPassword, setAdminLoginPassword] = useState('');
   const [adminLoginError, setAdminLoginError] = useState<string | null>(null);
   const [adminLoginLoading, setAdminLoginLoading] = useState(false);
@@ -1466,12 +1466,9 @@ function MainApp() {
               </div>
               
               <div className="space-y-2">
-                <span className="text-[10px] uppercase font-black tracking-widest px-3 py-1 bg-purple-100 dark:bg-purple-950 text-purple-800 dark:text-purple-300 rounded-full border border-purple-200 dark:border-purple-800">
-                  👑 Single Owner Authentication
-                </span>
-                <h2 className="text-2xl font-black text-slate-900 dark:text-white">Admin Command Portal</h2>
+                <h2 className="text-2xl font-black text-slate-900 dark:text-white">Admin Login</h2>
                 <p className="text-xs text-slate-600 dark:text-slate-300 max-w-md mx-auto leading-relaxed">
-                  Hostel Ease enforces an exclusive single-owner administration security architecture. Please log in with the authorized platform administrator credentials.
+                  Sign in with your platform administrator credentials to access the Admin Command Portal.
                 </p>
               </div>
 
@@ -1488,7 +1485,7 @@ function MainApp() {
                     type="button"
                     onClick={() => {
                       logout();
-                      showToast('Logged out of session. Please sign in with Owner credentials.', 'info');
+                      showToast('Logged out of session. Please sign in with Admin credentials.', 'info');
                     }}
                     className="ml-6 text-[11px] font-bold text-amber-800 dark:text-amber-300 underline hover:text-amber-900 cursor-pointer"
                   >
@@ -1510,10 +1507,10 @@ function MainApp() {
                   setAdminLoginError(null);
                   setAdminLoginLoading(true);
                   try {
-                    await login(adminLoginEmail.trim(), adminLoginPassword, 'ADMIN');
-                    showToast('Authenticated as Platform Owner / Admin!', 'success');
+                    await login(adminLoginUsername.trim(), adminLoginPassword, 'ADMIN');
+                    showToast('Authenticated as Platform Administrator!', 'success');
                   } catch (err: any) {
-                    setAdminLoginError(err.message || 'Invalid Admin credentials or unauthorized account.');
+                    setAdminLoginError(err.message || 'Invalid Admin credentials.');
                   } finally {
                     setAdminLoginLoading(false);
                   }
@@ -1522,28 +1519,30 @@ function MainApp() {
               >
                 <div>
                   <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
-                    Admin Email
+                    Username
                   </label>
                   <input
-                    type="email"
-                    value={adminLoginEmail}
-                    onChange={(e) => setAdminLoginEmail(e.target.value)}
+                    type="text"
+                    value={adminLoginUsername}
+                    onChange={(e) => setAdminLoginUsername(e.target.value)}
                     className="w-full text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2.5 text-slate-900 dark:text-white font-medium focus:ring-2 focus:ring-purple-500 focus:outline-none"
-                    placeholder="admin@hostelease.ng"
+                    placeholder="Enter username"
+                    autoComplete="username"
                     required
                   />
                 </div>
 
                 <div>
                   <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
-                    Admin Password
+                    Password
                   </label>
                   <input
                     type="password"
                     value={adminLoginPassword}
                     onChange={(e) => setAdminLoginPassword(e.target.value)}
                     className="w-full text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2.5 text-slate-900 dark:text-white font-medium focus:ring-2 focus:ring-purple-500 focus:outline-none"
-                    placeholder="Enter owner password (e.g. Admin123!)"
+                    placeholder="••••••••••••"
+                    autoComplete="current-password"
                     required
                   />
                 </div>
@@ -1558,44 +1557,18 @@ function MainApp() {
                   ) : (
                     <ShieldCheck className="w-4 h-4" />
                   )}
-                  <span>Unlock Admin Portal</span>
+                  <span>Log In</span>
                 </button>
               </form>
 
-              <div className="relative flex py-1 items-center">
-                <div className="flex-grow border-t border-slate-200 dark:border-slate-800"></div>
-                <span className="flex-shrink mx-3 text-[10px] text-purple-600 dark:text-purple-400 font-bold uppercase tracking-wider">Authorized Platform Owner Access</span>
-                <div className="flex-grow border-t border-slate-200 dark:border-slate-800"></div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  type="button"
-                  onClick={async () => {
-                    setAdminLoginError(null);
-                    setAdminLoginLoading(true);
-                    try {
-                      await loginDemo('ADMIN');
-                      showToast('Authenticated as Platform Owner / Super Admin!', 'success');
-                    } catch (err: any) {
-                      setAdminLoginError(err.message || 'Failed to authenticate Admin demo.');
-                    } finally {
-                      setAdminLoginLoading(false);
-                    }
-                  }}
-                  disabled={adminLoginLoading}
-                  className="py-2.5 px-3 bg-purple-50 hover:bg-purple-100 dark:bg-purple-950/40 dark:hover:bg-purple-900/60 border border-purple-200 dark:border-purple-800 text-purple-900 dark:text-purple-200 font-bold text-[11px] rounded-xl transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
-                >
-                  <span>⚡ 1-Click Owner Demo</span>
-                </button>
-
+              <div className="pt-2">
                 <button
                   type="button"
                   onClick={() => {
                     setCurrentView('home');
                     window.scrollTo({ top: 0, behavior: 'smooth' });
                   }}
-                  className="py-2.5 px-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-[11px] rounded-xl transition-colors cursor-pointer"
+                  className="w-full py-2.5 px-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-[11px] rounded-xl transition-colors cursor-pointer"
                 >
                   <span>← Return Home</span>
                 </button>
