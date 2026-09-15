@@ -1902,6 +1902,7 @@ function MainApp() {
         }}
         onOpenAuth={handleOpenAuth}
         onOpenAI={handleOpenAI}
+        savedCount={savedProperties.length}
       />
     </div>
   );

@@ -684,7 +684,7 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
     <div className="min-h-screen bg-white pb-20">
       
       {/* 1. TOP COMMAND BAR & PROPERTY SWITCHER */}
-      <header className="bg-white border-b border-gray-200 sticky top-16 z-30 shadow-xs">
+      <header className="bg-white border-b border-gray-200 static sm:sticky sm:top-16 z-30 shadow-xs">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-wrap items-center justify-between gap-4">
           
           {/* Brand & Property Switcher */}
@@ -923,7 +923,7 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
       </header>
 
       {/* MOBILE LANDLORD HORIZONTAL SUB-NAV BAR (Instant 0px access to content on phones) */}
-      <div className="lg:hidden bg-white border-b border-gray-200 px-4 py-2.5 overflow-x-auto scrollbar-none sticky top-28 z-20 shadow-xs flex items-center gap-1.5">
+      <div className="lg:hidden bg-white border-b border-gray-200 px-4 py-2.5 overflow-x-auto scrollbar-none sticky top-16 z-20 shadow-xs flex items-center gap-1.5">
         {[
           { id: 'dashboard', label: 'Overview', icon: Building2 },
           { id: 'listings', label: `Hostels (${properties.length})`, icon: Building2 },

@@ -30,7 +30,13 @@ import {
   UserCheck,
   Zap,
   Calculator,
-  Heart
+  Heart,
+  SlidersHorizontal,
+  Layers,
+  TrendingUp,
+  DollarSign,
+  Eye,
+  Compass
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
@@ -110,6 +116,39 @@ export const Navbar: React.FC<NavbarProps> = ({
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  // Listen for mobile menu toggle/open/close events from MobileBottomNav or elsewhere
+  useEffect(() => {
+    const handleToggle = () => setMobileMenuOpen(prev => !prev);
+    const handleOpen = () => setMobileMenuOpen(true);
+    const handleClose = () => setMobileMenuOpen(false);
+
+    window.addEventListener('hostel_ease_toggle_mobile_menu', handleToggle);
+    window.addEventListener('hostel_ease_open_mobile_menu', handleOpen);
+    window.addEventListener('hostel_ease_close_mobile_menu', handleClose);
+
+    return () => {
+      window.removeEventListener('hostel_ease_toggle_mobile_menu', handleToggle);
+      window.removeEventListener('hostel_ease_open_mobile_menu', handleOpen);
+      window.removeEventListener('hostel_ease_close_mobile_menu', handleClose);
+    };
+  }, []);
+
+  const navigateLandlordTab = (tab: string) => {
+    onNavigate('provider-portal');
+    setMobileMenuOpen(false);
+    setTimeout(() => {
+      window.dispatchEvent(new CustomEvent('hostel_ease_provider_tab', { detail: tab }));
+    }, 60);
+  };
+
+  const navigateStudentTab = (tab: 'overview' | 'bookings' | 'inspections' | 'shortlist' | 'preferences' | 'search_history' | 'profile_security') => {
+    onNavigate('student-dashboard');
+    if (onNavigateToDashboardTab) {
+      onNavigateToDashboardTab(tab);
+    }
+    setMobileMenuOpen(false);
+  };
 
   const fetchNotifs = () => {
     if (!isAuthenticated) return;
@@ -220,27 +259,53 @@ export const Navbar: React.FC<NavbarProps> = ({
 
       <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 gap-2">
-          {/* Logo & Tagline */}
-          <div 
-            onClick={() => onNavigate('home')}
-            className="navbar-brand flex items-center gap-2 sm:gap-3 cursor-pointer group shrink-0"
-          >
-            <div className="navbar-logo-icon w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-emerald-600 to-teal-800 flex items-center justify-center text-white shadow-md shadow-emerald-600/20 group-hover:scale-105 transition-transform shrink-0">
-              <Building2 className="w-4 h-4 sm:w-6 sm:h-6" />
-            </div>
-            <div className="shrink-0 flex flex-col justify-center">
-              <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
-                <span className="navbar-brand-name font-extrabold text-base sm:text-xl tracking-tight text-slate-900 dark:text-white whitespace-nowrap shrink-0">
-                  Hostel <span className="text-emerald-600 dark:text-emerald-400">Ease</span>
-                </span>
-                <span className="navbar-brand-badge text-[9px] sm:text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 uppercase shrink-0">
-                  LAUTECH
-                </span>
+          {/* Logo, Tagline & Mobile Role Badge */}
+          <div className="flex items-center gap-2 shrink-0 min-w-0">
+            <div 
+              onClick={() => {
+                onNavigate('home');
+                setMobileMenuOpen(false);
+              }}
+              className="navbar-brand flex items-center gap-2 sm:gap-3 cursor-pointer group shrink-0"
+            >
+              <div className="navbar-logo-icon w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-emerald-600 to-teal-800 flex items-center justify-center text-white shadow-md shadow-emerald-600/20 group-hover:scale-105 transition-transform shrink-0">
+                <Building2 className="w-4 h-4 sm:w-6 sm:h-6" />
               </div>
-              <p className="navbar-brand-tagline text-[11px] text-slate-500 dark:text-slate-400 font-medium hidden sm:block">
-                Find your hostel. Stress less.
-              </p>
+              <div className="shrink-0 flex flex-col justify-center">
+                <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
+                  <span className="navbar-brand-name font-extrabold text-base sm:text-xl tracking-tight text-slate-900 dark:text-white whitespace-nowrap shrink-0">
+                    Hostel <span className="text-emerald-600 dark:text-emerald-400">Ease</span>
+                  </span>
+                  <span className="navbar-brand-badge text-[9px] sm:text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 uppercase shrink-0">
+                    LAUTECH
+                  </span>
+                </div>
+                <p className="navbar-brand-tagline text-[11px] text-slate-500 dark:text-slate-400 font-medium hidden sm:block">
+                  Find your hostel. Stress less.
+                </p>
+              </div>
             </div>
+
+            {/* Clean Mobile Role Pill Indicator (>= 370px) */}
+            {isAuthenticated && (
+              <div className="hidden min-[370px]:flex md:hidden items-center shrink-0">
+                {isStudent && (
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100/90 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60 whitespace-nowrap">
+                    🎓 Student
+                  </span>
+                )}
+                {isProvider && (
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100/90 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60 whitespace-nowrap">
+                    🏡 Landlord
+                  </span>
+                )}
+                {isAdmin && (
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-100/90 dark:bg-purple-950/80 text-purple-800 dark:text-purple-300 border border-purple-200 dark:border-purple-800/60 whitespace-nowrap">
+                    👑 Admin
+                  </span>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Desktop Navigation Links */}
@@ -676,32 +741,17 @@ export const Navbar: React.FC<NavbarProps> = ({
           <div className="mobile-nav-actions flex md:hidden items-center gap-1 sm:gap-1.5 shrink-0">
             <button
               onClick={toggleTheme}
-              className="p-1.5 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white rounded-xl"
+              className="p-1.5 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white rounded-xl transition-colors"
               aria-label="Toggle Dark Mode"
             >
               {isDark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-slate-600" />}
             </button>
 
-            {isAuthenticated && isStudent && (
-              <button
-                onClick={() => onNavigate('messages')}
-                className="p-1.5 text-slate-600 dark:text-slate-300 relative"
-                aria-label="Messages"
-              >
-                <MessageSquare className="w-4 h-4 text-emerald-700 dark:text-emerald-400" />
-                {unreadMsgCount > 0 && (
-                  <span className="absolute top-0 right-0 w-3.5 h-3.5 bg-rose-600 text-white text-[8px] font-black rounded-full flex items-center justify-center">
-                    {unreadMsgCount}
-                  </span>
-                )}
-              </button>
-            )}
-
             {isAuthenticated && (
               <div className="relative" ref={mobileNotifMenuRef}>
                 <button
                   onClick={() => setNotifDropdownOpen(!notifDropdownOpen)}
-                  className="p-1.5 text-slate-600 dark:text-slate-300 relative"
+                  className="p-1.5 text-slate-600 dark:text-slate-300 relative rounded-xl transition-colors"
                   aria-label="Notifications"
                 >
                   <Bell className="w-4 h-4 text-emerald-700 dark:text-emerald-400" />
@@ -788,367 +838,806 @@ export const Navbar: React.FC<NavbarProps> = ({
             )}
 
             <button
-              onClick={() => onNavigate('saved')}
-              className="p-1.5 text-slate-600 dark:text-slate-300 relative"
-              aria-label="Saved Hostels"
-            >
-              <Bookmark className="w-4 h-4" />
-              {savedCount > 0 && (
-                <span className="absolute top-0 right-0 w-3.5 h-3.5 bg-emerald-600 text-white text-[8px] font-bold rounded-full flex items-center justify-center">
-                  {savedCount}
-                </span>
-              )}
-            </button>
-
-            <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="p-1.5 rounded-xl text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800"
+              className="p-1.5 rounded-xl text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 relative transition-colors"
               aria-label="Toggle navigation menu"
             >
               {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+              {!mobileMenuOpen && (unreadMsgCount > 0 || unreadNotifCount > 0) && (
+                <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-rose-500 ring-2 ring-white dark:ring-slate-900" />
+              )}
             </button>
           </div>
         </div>
       </div>
 
-      {/* Mobile Drawer Menu (Student-Focused) */}
+      {/* ========================================================================= */}
+      {/* MOBILE DRAWER MENU (STRICT ROLE-ADAPTIVE WITH COMPLETE FEATURE PARITY)    */}
+      {/* ========================================================================= */}
       {mobileMenuOpen && (
-        <div className="mobile-menu-drawer md:hidden border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 pt-3 pb-6 space-y-3 animate-in slide-in-from-top duration-200">
-          {/* User Profile Header in Mobile Menu */}
-          {isAuthenticated && (
-            <div className="p-3 bg-slate-50 dark:bg-slate-800/80 rounded-2xl flex items-center gap-3 border border-slate-200/80 dark:border-slate-700">
-              <UserAvatar fullName={user?.fullName} avatarUrl={user?.avatarUrl} size="lg" />
-              <div className="overflow-hidden">
-                <p className="text-xs font-bold text-slate-900 dark:text-white truncate">{user?.fullName}</p>
-                <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">
-                  {isStudent ? 'LAUTECH Student' : isProvider ? 'Hostel Landlord' : 'Admin'}
-                </p>
+        <div className="mobile-menu-drawer md:hidden border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 pt-3 pb-8 space-y-4 max-h-[calc(100vh-4.5rem)] overflow-y-auto animate-in slide-in-from-top duration-200 shadow-2xl">
+          
+          {/* --------------------------------------------------------------------- */}
+          {/* ROLE 1: AUTHENTICATED STUDENT DRAWER                                  */}
+          {/* --------------------------------------------------------------------- */}
+          {isAuthenticated && isStudent && (
+            <div className="space-y-4">
+              {/* Profile Card Banner */}
+              <div className="p-3.5 bg-gradient-to-br from-emerald-50 to-teal-50/60 dark:from-slate-800 dark:to-emerald-950/40 rounded-2xl flex items-center justify-between border border-emerald-200/70 dark:border-emerald-800/60 shadow-xs">
+                <div className="flex items-center gap-3 min-w-0">
+                  <UserAvatar fullName={user?.fullName} avatarUrl={user?.avatarUrl} size="lg" />
+                  <div className="min-w-0">
+                    <p className="text-xs font-black text-slate-900 dark:text-white truncate">{user?.fullName}</p>
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">{user?.email}</p>
+                    <span className="inline-flex items-center gap-1 mt-0.5 text-[9px] font-black px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 uppercase">
+                      🎓 LAUTECH Student
+                    </span>
+                  </div>
+                </div>
+                <button
+                  onClick={() => navigateStudentTab('profile_security')}
+                  className="p-2 rounded-xl bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:text-emerald-600 shadow-xs border border-slate-200/60 dark:border-slate-600 shrink-0"
+                  title="Profile & Settings"
+                >
+                  <Settings className="w-4 h-4" />
+                </button>
               </div>
-            </div>
-          )}
 
-          <div className={`grid ${isAuthenticated ? 'grid-cols-3' : 'grid-cols-2'} gap-2 pb-2 border-b border-slate-100 dark:border-slate-800`}>
-            <button
-              onClick={() => { onNavigate('home'); setMobileMenuOpen(false); }}
-              className={`p-2.5 rounded-xl text-xs font-bold text-center flex flex-col items-center gap-1 ${
-                activeView === 'home' ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300' : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
-              }`}
-            >
-              <Home className="w-4 h-4" />
-              <span>Home</span>
-            </button>
-            <button
-              onClick={() => { onNavigate('search'); setMobileMenuOpen(false); }}
-              className={`p-2.5 rounded-xl text-xs font-bold text-center flex flex-col items-center gap-1 ${
-                activeView === 'search' ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300' : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
-              }`}
-            >
-              <Search className="w-4 h-4" />
-              <span>Find Hostels</span>
-            </button>
-            {isAuthenticated && (
-              <button
-                onClick={() => { 
-                  if (isProvider) {
-                    onNavigate('provider-portal');
-                  } else if (isAdmin) {
-                    onNavigate('admin-portal');
-                  } else {
-                    onNavigate('student-dashboard'); 
-                    if (onNavigateToDashboardTab) onNavigateToDashboardTab('overview');
-                  }
-                  setMobileMenuOpen(false); 
-                }}
-                className={`p-2.5 rounded-xl text-xs font-bold text-center flex flex-col items-center gap-1 ${
-                  (activeView === 'student-dashboard' || activeView === 'provider-portal' || activeView === 'admin-portal') 
-                    ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300' 
-                    : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
-                }`}
-              >
-                {isProvider ? (
-                  <Building2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                ) : isAdmin ? (
-                  <ShieldCheck className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-                ) : (
+              {/* Quick Jump Action Grid */}
+              <div className="grid grid-cols-3 gap-2 pb-1 border-b border-slate-100 dark:border-slate-800">
+                <button
+                  onClick={() => { onNavigate('home'); setMobileMenuOpen(false); }}
+                  className={`p-2.5 rounded-xl text-xs font-bold text-center flex flex-col items-center gap-1 transition-all ${
+                    activeView === 'home'
+                      ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 font-black'
+                      : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
+                  }`}
+                >
+                  <Home className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                  <span>Home</span>
+                </button>
+
+                <button
+                  onClick={() => { onNavigate('search'); setMobileMenuOpen(false); }}
+                  className={`p-2.5 rounded-xl text-xs font-bold text-center flex flex-col items-center gap-1 transition-all ${
+                    activeView === 'search'
+                      ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 font-black'
+                      : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
+                  }`}
+                >
+                  <Search className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                  <span>Find Hostels</span>
+                </button>
+
+                <button
+                  onClick={() => navigateStudentTab('overview')}
+                  className={`p-2.5 rounded-xl text-xs font-bold text-center flex flex-col items-center gap-1 transition-all ${
+                    activeView === 'student-dashboard'
+                      ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 font-black'
+                      : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
+                  }`}
+                >
                   <LayoutDashboard className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                )}
-                <span>{isProvider ? 'Landlord' : isAdmin ? 'Admin' : 'Dashboard'}</span>
-              </button>
-            )}
-          </div>
-
-          <div className="space-y-1 text-xs font-medium text-slate-700 dark:text-slate-300">
-            {/* Student Navigation Links */}
-            {isStudent && (
-              <>
-                <button
-                  onClick={() => {
-                    onNavigate('student-dashboard');
-                    if (onNavigateToDashboardTab) onNavigateToDashboardTab('profile_security');
-                    setMobileMenuOpen(false);
-                  }}
-                  className="w-full flex items-center gap-2.5 p-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800"
-                >
-                  <UserIcon className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                  <span>My Profile & Preferences</span>
+                  <span>Dashboard</span>
                 </button>
+              </div>
 
-                <button
-                  onClick={() => { onNavigate('bookings'); setMobileMenuOpen(false); }}
-                  className="w-full flex items-center gap-2.5 p-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800"
-                >
-                  <Receipt className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                  <span>My Bookings</span>
-                </button>
+              {/* Accommodation & Bookings Group */}
+              <div className="space-y-1">
+                <p className="px-2 text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                  Accommodation & Bookings
+                </p>
 
                 <button
                   onClick={() => { onNavigate('saved'); setMobileMenuOpen(false); }}
-                  className="w-full flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800"
+                  className={`w-full flex items-center justify-between p-2.5 rounded-xl transition-colors ${
+                    activeView === 'saved' ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 font-bold' : 'hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'
+                  }`}
                 >
                   <div className="flex items-center gap-2.5">
                     <Bookmark className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                    <span>Saved Hostels</span>
+                    <span className="text-xs">Saved Hostels</span>
                   </div>
                   {savedCount > 0 && (
-                    <span className="px-2 py-0.5 text-xs font-bold bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 rounded-full">
+                    <span className="px-2 py-0.5 text-[10px] font-black bg-emerald-600 text-white rounded-full">
                       {savedCount}
                     </span>
                   )}
                 </button>
 
                 <button
+                  onClick={() => { onNavigate('bookings'); setMobileMenuOpen(false); }}
+                  className={`w-full flex items-center gap-2.5 p-2.5 rounded-xl transition-colors ${
+                    activeView === 'bookings' ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 font-bold' : 'hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'
+                  }`}
+                >
+                  <Receipt className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                  <span className="text-xs">My Bookings & Reservations</span>
+                </button>
+
+                <button
                   onClick={() => { onNavigate('inspections'); setMobileMenuOpen(false); }}
-                  className="w-full flex items-center gap-2.5 p-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800"
+                  className={`w-full flex items-center gap-2.5 p-2.5 rounded-xl transition-colors ${
+                    activeView === 'inspections' ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 font-bold' : 'hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'
+                  }`}
                 >
                   <Calendar className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                  <span>My Inspections</span>
+                  <span className="text-xs">Scheduled Inspections</span>
                 </button>
 
                 <button
                   onClick={() => { onNavigate('move-in'); setMobileMenuOpen(false); }}
-                  className="w-full flex items-center gap-2.5 p-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 font-bold text-emerald-800 dark:text-emerald-300"
+                  className={`w-full flex items-center gap-2.5 p-2.5 rounded-xl transition-colors ${
+                    activeView === 'move-in' ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 font-bold' : 'hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'
+                  }`}
                 >
                   <KeyRound className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                  <span>Move-In Center</span>
-                </button>
-              </>
-            )}
-
-            {/* Landlord / Provider Navigation Links (Mobile Parity) */}
-            {isProvider && (
-              <>
-                <button
-                  onClick={() => {
-                    onNavigate('provider-portal');
-                    setMobileMenuOpen(false);
-                  }}
-                  className="w-full flex items-center gap-2.5 p-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 font-bold text-emerald-800 dark:text-emerald-300"
-                >
-                  <Building2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                  <span>Landlord Command Center</span>
+                  <span className="text-xs">Move-In Hub & Key Handover</span>
                 </button>
 
                 <button
-                  onClick={() => {
-                    onNavigate('provider-portal');
-                    window.dispatchEvent(new CustomEvent('hostel_ease_provider_tab', { detail: 'wizard' }));
-                    setMobileMenuOpen(false);
-                  }}
-                  className="w-full flex items-center gap-2.5 p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 font-bold"
+                  onClick={() => { onNavigate('messages'); setMobileMenuOpen(false); }}
+                  className={`w-full flex items-center justify-between p-2.5 rounded-xl transition-colors ${
+                    activeView === 'messages' ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 font-bold' : 'hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'
+                  }`}
                 >
-                  <PlusCircle className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                  <span>+ Add New Hostel Listing</span>
+                  <div className="flex items-center gap-2.5">
+                    <MessageSquare className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                    <span className="text-xs">Landlord Messages & Chat</span>
+                  </div>
+                  {unreadMsgCount > 0 && (
+                    <span className="px-2 py-0.5 text-[10px] font-black bg-rose-600 text-white rounded-full">
+                      {unreadMsgCount}
+                    </span>
+                  )}
                 </button>
 
                 <button
-                  onClick={() => {
-                    onNavigate('provider-portal');
-                    window.dispatchEvent(new CustomEvent('hostel_ease_provider_tab', { detail: 'listings' }));
-                    setMobileMenuOpen(false);
-                  }}
-                  className="w-full flex items-center gap-2.5 p-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800"
+                  onClick={() => { setNotifDropdownOpen(true); }}
+                  className="w-full flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 transition-colors"
                 >
-                  <Home className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                  <span>My Hostels & Verification</span>
-                </button>
-
-                <button
-                  onClick={() => {
-                    onNavigate('provider-portal');
-                    window.dispatchEvent(new CustomEvent('hostel_ease_provider_tab', { detail: 'rooms' }));
-                    setMobileMenuOpen(false);
-                  }}
-                  className="w-full flex items-center gap-2.5 p-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800"
-                >
-                  <Building2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                  <span>Rooms & Bedspace Inventory</span>
-                </button>
-
-                <button
-                  onClick={() => {
-                    onNavigate('provider-portal');
-                    window.dispatchEvent(new CustomEvent('hostel_ease_provider_tab', { detail: 'inspections' }));
-                    setMobileMenuOpen(false);
-                  }}
-                  className="w-full flex items-center gap-2.5 p-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800"
-                >
-                  <Calendar className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                  <span>Student Inspection Schedules</span>
-                </button>
-
-                <button
-                  onClick={() => {
-                    onNavigate('provider-portal');
-                    window.dispatchEvent(new CustomEvent('hostel_ease_provider_tab', { detail: 'move_ins' }));
-                    setMobileMenuOpen(false);
-                  }}
-                  className="w-full flex items-center gap-2.5 p-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800"
-                >
-                  <KeyRound className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                  <span>Move-In Key Handover Manager</span>
-                </button>
-
-                <button
-                  onClick={() => {
-                    onNavigate('provider-portal');
-                    window.dispatchEvent(new CustomEvent('hostel_ease_provider_tab', { detail: 'financials' }));
-                    setMobileMenuOpen(false);
-                  }}
-                  className="w-full flex items-center gap-2.5 p-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800"
-                >
-                  <CreditCard className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                  <span>Payouts & Rent Settlements</span>
-                </button>
-
-                <button
-                  onClick={() => {
-                    onNavigate('messages');
-                    setMobileMenuOpen(false);
-                  }}
-                  className="w-full flex items-center gap-2.5 p-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800"
-                >
-                  <MessageSquare className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                  <span>Student Inquiries & Chat</span>
-                </button>
-              </>
-            )}
-
-            <button
-              onClick={() => { onNavigate('community'); setMobileMenuOpen(false); }}
-              className="w-full flex items-center gap-2.5 p-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800"
-            >
-              <Users className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-              <span>Student Community & Roommates</span>
-            </button>
-
-            {/* Revolutionary: Live UtilityRadar in Mobile Menu */}
-            {onOpenUtilityRadar && (
-              <button
-                onClick={() => { onOpenUtilityRadar(); setMobileMenuOpen(false); }}
-                className="w-full flex items-center justify-between p-2.5 rounded-xl hover:bg-amber-50 dark:hover:bg-amber-950/40 text-amber-700 dark:text-amber-300 font-bold bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200/60 dark:border-amber-900/40"
-              >
-                <div className="flex items-center gap-2.5">
-                  <Zap className="w-4 h-4 text-amber-500 fill-amber-400" />
-                  <span>⚡ UtilityRadar™ (NEPA & Water)</span>
-                </div>
-                <span className="text-[10px] px-1.5 py-0.5 bg-amber-200 dark:bg-amber-900 text-amber-900 dark:text-amber-200 rounded font-black">LIVE</span>
-              </button>
-            )}
-
-            {/* Revolutionary: SafeWalk in Mobile Menu */}
-            {onOpenSafeWalk && (
-              <button
-                onClick={() => { onOpenSafeWalk(); setMobileMenuOpen(false); }}
-                className="w-full flex items-center justify-between p-2.5 rounded-xl hover:bg-emerald-50 dark:hover:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 font-bold bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200/60 dark:border-emerald-900/40"
-              >
-                <div className="flex items-center gap-2.5">
-                  <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                  <span>🚨 SafeWalk™ Night-Trek Companion</span>
-                </div>
-                <span className="text-[10px] px-1.5 py-0.5 bg-emerald-200 dark:bg-emerald-900 text-emerald-900 dark:text-emerald-200 rounded font-black">SOS</span>
-              </button>
-            )}
-
-            {/* Utility Calculator in Mobile Menu */}
-            {onOpenUtilityCalculator && (
-              <button
-                onClick={() => { onOpenUtilityCalculator(); setMobileMenuOpen(false); }}
-                className="w-full flex items-center justify-between p-2.5 rounded-xl hover:bg-blue-50 dark:hover:bg-blue-950/40 text-blue-700 dark:text-blue-300 font-bold bg-blue-50/50 dark:bg-blue-950/20 border border-blue-200/60 dark:border-blue-900/40"
-              >
-                <div className="flex items-center gap-2.5">
-                  <Calculator className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                  <span>💡 Utility Bill Calculator (IBEDC)</span>
-                </div>
-                <span className="text-[10px] px-1.5 py-0.5 bg-blue-200 dark:bg-blue-900 text-blue-900 dark:text-blue-200 rounded font-black">CALC</span>
-              </button>
-            )}
-
-            {/* Women's Living & Safety in Mobile Menu */}
-            {onOpenWomenSection && (
-              <button
-                onClick={() => { onOpenWomenSection(); setMobileMenuOpen(false); }}
-                className="w-full flex items-center justify-between p-2.5 rounded-xl hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-700 dark:text-rose-300 font-bold bg-rose-50/50 dark:bg-rose-950/20 border border-rose-200/60 dark:border-rose-900/40"
-              >
-                <div className="flex items-center gap-2.5">
-                  <Heart className="w-4 h-4 text-rose-600 dark:text-rose-400" />
-                  <span>🌸 Women's Living & Safety</span>
-                </div>
-                <span className="text-[10px] px-1.5 py-0.5 bg-rose-200 dark:bg-rose-900 text-rose-900 dark:text-rose-200 rounded font-black">SAFE</span>
-              </button>
-            )}
-
-            <button
-              onClick={() => { onNavigate('admin-portal'); setMobileMenuOpen(false); }}
-              className="w-full flex items-center gap-2.5 p-2.5 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-950/40 text-purple-700 dark:text-purple-400 font-bold"
-            >
-              <ShieldCheck className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-              <span>Admin Command Portal</span>
-            </button>
-
-            {onOpenAI && (
-              <button
-                onClick={() => { onOpenAI(); setMobileMenuOpen(false); }}
-                className="w-full py-2.5 px-3 bg-gradient-to-r from-emerald-600 to-teal-700 text-white rounded-xl text-xs font-bold flex items-center justify-between shadow-xs"
-              >
-                <div className="flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-amber-300 fill-amber-300" />
-                  <span>Ask Hostel Ease AI</span>
-                </div>
-                <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded-full font-bold">24/7</span>
-              </button>
-            )}
-          </div>
-
-          {/* Auth Action in Mobile Menu */}
-          <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
-            {isAuthenticated ? (
-              <button
-                onClick={() => {
-                  setMobileMenuOpen(false);
-                  setShowLogoutConfirm(true);
-                }}
-                className="w-full py-2 text-xs font-bold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/60 rounded-xl transition-colors flex items-center justify-center gap-1.5"
-              >
-                <LogOut className="w-4 h-4" />
-                <span>Log Out</span>
-              </button>
-            ) : (
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  onClick={() => { onOpenAuth('STUDENT'); setMobileMenuOpen(false); }}
-                  className="w-full py-2 text-xs font-bold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 rounded-xl"
-                >
-                  Log In
-                </button>
-                <button
-                  onClick={() => { onOpenAuth('STUDENT'); setMobileMenuOpen(false); }}
-                  className="w-full py-2 text-xs font-black text-slate-950 bg-emerald-400 rounded-xl shadow-xs"
-                >
-                  Sign Up
+                  <div className="flex items-center gap-2.5">
+                    <Bell className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                    <span className="text-xs">Notifications & Alerts</span>
+                  </div>
+                  {unreadNotifCount > 0 && (
+                    <span className="px-2 py-0.5 text-[10px] font-black bg-rose-600 text-white rounded-full">
+                      {unreadNotifCount}
+                    </span>
+                  )}
                 </button>
               </div>
-            )}
-          </div>
+
+              {/* Student Life & AI Group */}
+              <div className="space-y-1 pt-1 border-t border-slate-100 dark:border-slate-800">
+                <p className="px-2 text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                  Student Community & AI
+                </p>
+
+                <button
+                  onClick={() => { onNavigate('community'); setMobileMenuOpen(false); }}
+                  className={`w-full flex items-center gap-2.5 p-2.5 rounded-xl transition-colors ${
+                    activeView === 'community' ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 font-bold' : 'hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'
+                  }`}
+                >
+                  <Users className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                  <span className="text-xs">Student Community & Roommates</span>
+                </button>
+
+                {onOpenAI && (
+                  <button
+                    onClick={() => { onOpenAI(); setMobileMenuOpen(false); }}
+                    className="w-full py-2.5 px-3 bg-gradient-to-r from-emerald-600 to-teal-700 text-white rounded-xl text-xs font-bold flex items-center justify-between shadow-xs"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-amber-300 fill-amber-300 animate-pulse" />
+                      <span>Ask Hostel Ease AI Assistant</span>
+                    </div>
+                    <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded-full font-black">24/7</span>
+                  </button>
+                )}
+              </div>
+
+              {/* Campus Living & Safety Tools */}
+              <div className="space-y-1.5 pt-1 border-t border-slate-100 dark:border-slate-800">
+                <p className="px-2 text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                  Campus Living & Safety Tools
+                </p>
+
+                {onOpenUtilityRadar && (
+                  <button
+                    onClick={() => { onOpenUtilityRadar(); setMobileMenuOpen(false); }}
+                    className="w-full flex items-center justify-between p-2.5 rounded-xl hover:bg-amber-50 dark:hover:bg-amber-950/40 text-amber-700 dark:text-amber-300 font-bold bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200/60 dark:border-amber-900/40"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <Zap className="w-4 h-4 text-amber-500 fill-amber-400" />
+                      <span className="text-xs">⚡ UtilityRadar™ (NEPA & Water)</span>
+                    </div>
+                    <span className="text-[10px] px-1.5 py-0.5 bg-amber-200 dark:bg-amber-900 text-amber-900 dark:text-amber-200 rounded font-black">LIVE</span>
+                  </button>
+                )}
+
+                {onOpenSafeWalk && (
+                  <button
+                    onClick={() => { onOpenSafeWalk(); setMobileMenuOpen(false); }}
+                    className="w-full flex items-center justify-between p-2.5 rounded-xl hover:bg-emerald-50 dark:hover:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 font-bold bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200/60 dark:border-emerald-900/40"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                      <span className="text-xs">🚨 SafeWalk™ Night-Trek Companion</span>
+                    </div>
+                    <span className="text-[10px] px-1.5 py-0.5 bg-emerald-200 dark:bg-emerald-900 text-emerald-900 dark:text-emerald-200 rounded font-black">SOS</span>
+                  </button>
+                )}
+
+                {onOpenUtilityCalculator && (
+                  <button
+                    onClick={() => { onOpenUtilityCalculator(); setMobileMenuOpen(false); }}
+                    className="w-full flex items-center justify-between p-2.5 rounded-xl hover:bg-blue-50 dark:hover:bg-blue-950/40 text-blue-700 dark:text-blue-300 font-bold bg-blue-50/50 dark:bg-blue-950/20 border border-blue-200/60 dark:border-blue-900/40"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <Calculator className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                      <span className="text-xs">💡 Utility Bill Calculator (IBEDC)</span>
+                    </div>
+                    <span className="text-[10px] px-1.5 py-0.5 bg-blue-200 dark:bg-blue-900 text-blue-900 dark:text-blue-200 rounded font-black">CALC</span>
+                  </button>
+                )}
+
+                {onOpenWomenSection && (
+                  <button
+                    onClick={() => { onOpenWomenSection(); setMobileMenuOpen(false); }}
+                    className="w-full flex items-center justify-between p-2.5 rounded-xl hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-700 dark:text-rose-300 font-bold bg-rose-50/50 dark:bg-rose-950/20 border border-rose-200/60 dark:border-rose-900/40"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <Heart className="w-4 h-4 text-rose-600 dark:text-rose-400" />
+                      <span className="text-xs">🌸 Women's Living & Safety</span>
+                    </div>
+                    <span className="text-[10px] px-1.5 py-0.5 bg-rose-200 dark:bg-rose-900 text-rose-900 dark:text-rose-200 rounded font-black">SAFE</span>
+                  </button>
+                )}
+              </div>
+
+              {/* Settings & Sign Out */}
+              <div className="pt-2 border-t border-slate-100 dark:border-slate-800 space-y-2">
+                <button
+                  onClick={toggleTheme}
+                  className="w-full flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200/60 dark:border-slate-800 text-xs font-semibold"
+                >
+                  <div className="flex items-center gap-2">
+                    {isDark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-slate-600" />}
+                    <span>Theme Mode</span>
+                  </div>
+                  <span className="text-[11px] font-bold text-slate-500">
+                    {isDark ? 'Dark Mode' : 'Light Mode'}
+                  </span>
+                </button>
+
+                <button
+                  onClick={() => navigateStudentTab('profile_security')}
+                  className="w-full flex items-center gap-2.5 p-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-semibold"
+                >
+                  <UserIcon className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                  <span>Student Profile & Security</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    setShowLogoutConfirm(true);
+                  }}
+                  className="w-full py-2.5 text-xs font-bold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/60 rounded-xl transition-colors flex items-center justify-center gap-1.5"
+                >
+                  <LogOut className="w-4 h-4" />
+                  <span>Log Out of Student Account</span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* --------------------------------------------------------------------- */}
+          {/* ROLE 2: AUTHENTICATED LANDLORD (PROVIDER) DRAWER                     */}
+          {/* --------------------------------------------------------------------- */}
+          {isAuthenticated && isProvider && (
+            <div className="space-y-4">
+              {/* Landlord Profile Header */}
+              <div className="p-3.5 bg-gradient-to-br from-amber-50 to-emerald-50/60 dark:from-slate-800 dark:to-amber-950/30 rounded-2xl flex items-center justify-between border border-amber-200/70 dark:border-amber-800/60 shadow-xs">
+                <div className="flex items-center gap-3 min-w-0">
+                  <UserAvatar fullName={user?.fullName} avatarUrl={user?.avatarUrl} size="lg" />
+                  <div className="min-w-0">
+                    <p className="text-xs font-black text-slate-900 dark:text-white truncate">{user?.fullName}</p>
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">{user?.email}</p>
+                    <span className="inline-flex items-center gap-1 mt-0.5 text-[9px] font-black px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 uppercase">
+                      🏡 Hostel Landlord
+                    </span>
+                  </div>
+                </div>
+                <button
+                  onClick={() => navigateLandlordTab('profile_team')}
+                  className="p-2 rounded-xl bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:text-emerald-600 shadow-xs border border-slate-200/60 dark:border-slate-600 shrink-0"
+                  title="Landlord Verification & Profile"
+                >
+                  <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                </button>
+              </div>
+
+              {/* Quick Jump Action Grid (Landlord Operations) */}
+              <div className="grid grid-cols-3 gap-2 pb-1 border-b border-slate-100 dark:border-slate-800">
+                <button
+                  onClick={() => navigateLandlordTab('dashboard')}
+                  className={`p-2.5 rounded-xl text-xs font-bold text-center flex flex-col items-center gap-1 transition-all ${
+                    activeView === 'provider-portal'
+                      ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 font-black'
+                      : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
+                  }`}
+                >
+                  <LayoutDashboard className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                  <span>Dashboard</span>
+                </button>
+
+                <button
+                  onClick={() => navigateLandlordTab('listings')}
+                  className="p-2.5 rounded-xl text-xs font-bold text-center flex flex-col items-center gap-1 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-emerald-50"
+                >
+                  <Building2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                  <span>My Hostels</span>
+                </button>
+
+                <button
+                  onClick={() => navigateLandlordTab('wizard')}
+                  className="p-2.5 rounded-xl text-xs font-bold text-center flex flex-col items-center gap-1 bg-emerald-600 text-white shadow-xs hover:bg-emerald-700"
+                >
+                  <PlusCircle className="w-4 h-4 text-white" />
+                  <span>+ Add Hostel</span>
+                </button>
+              </div>
+
+              {/* Hostel Inventory & Availability Group */}
+              <div className="space-y-1">
+                <p className="px-2 text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                  Hostel Operations & Inventory
+                </p>
+
+                <button
+                  onClick={() => navigateLandlordTab('listings')}
+                  className="w-full flex items-center gap-2.5 p-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 transition-colors"
+                >
+                  <Home className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                  <span className="text-xs">My Hostels & Verification Status</span>
+                </button>
+
+                <button
+                  onClick={() => navigateLandlordTab('rooms')}
+                  className="w-full flex items-center gap-2.5 p-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 transition-colors"
+                >
+                  <Layers className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                  <span className="text-xs">Rooms & Bedspaces Inventory</span>
+                </button>
+
+                <button
+                  onClick={() => navigateLandlordTab('availability')}
+                  className="w-full flex items-center gap-2.5 p-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 transition-colors"
+                >
+                  <Calendar className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                  <span className="text-xs">Availability & Calendar Manager</span>
+                </button>
+              </div>
+
+              {/* Tenants, Bookings & Inquiries Group */}
+              <div className="space-y-1 pt-1 border-t border-slate-100 dark:border-slate-800">
+                <p className="px-2 text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                  Tenants, Bookings & Inquiries
+                </p>
+
+                <button
+                  onClick={() => navigateLandlordTab('bookings')}
+                  className="w-full flex items-center gap-2.5 p-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 transition-colors"
+                >
+                  <Receipt className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                  <span className="text-xs">Tenant Bookings & Reservations</span>
+                </button>
+
+                <button
+                  onClick={() => navigateLandlordTab('move_ins')}
+                  className="w-full flex items-center gap-2.5 p-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 transition-colors"
+                >
+                  <KeyRound className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                  <span className="text-xs">Move-In Key Handover Manager</span>
+                </button>
+
+                <button
+                  onClick={() => navigateLandlordTab('inspections')}
+                  className="w-full flex items-center gap-2.5 p-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 transition-colors"
+                >
+                  <Calendar className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                  <span className="text-xs">Scheduled Student Inspections</span>
+                </button>
+
+                <button
+                  onClick={() => { onNavigate('messages'); setMobileMenuOpen(false); }}
+                  className={`w-full flex items-center justify-between p-2.5 rounded-xl transition-colors ${
+                    activeView === 'messages' ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 font-bold' : 'hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <MessageSquare className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                    <span className="text-xs">Student Inquiries & Chat</span>
+                  </div>
+                  {unreadMsgCount > 0 && (
+                    <span className="px-2 py-0.5 text-[10px] font-black bg-rose-600 text-white rounded-full">
+                      {unreadMsgCount}
+                    </span>
+                  )}
+                </button>
+
+                <button
+                  onClick={() => { setNotifDropdownOpen(true); }}
+                  className="w-full flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 transition-colors"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <Bell className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                    <span className="text-xs">Landlord Booking Alerts</span>
+                  </div>
+                  {unreadNotifCount > 0 && (
+                    <span className="px-2 py-0.5 text-[10px] font-black bg-rose-600 text-white rounded-full">
+                      {unreadNotifCount}
+                    </span>
+                  )}
+                </button>
+              </div>
+
+              {/* Financials, Analytics & Team Group */}
+              <div className="space-y-1 pt-1 border-t border-slate-100 dark:border-slate-800">
+                <p className="px-2 text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                  Financials, Reports & Team
+                </p>
+
+                <button
+                  onClick={() => navigateLandlordTab('financials')}
+                  className="w-full flex items-center gap-2.5 p-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 transition-colors"
+                >
+                  <DollarSign className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                  <span className="text-xs">Payouts & Rent Settlements</span>
+                </button>
+
+                <button
+                  onClick={() => navigateLandlordTab('performance')}
+                  className="w-full flex items-center gap-2.5 p-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 transition-colors"
+                >
+                  <TrendingUp className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                  <span className="text-xs">Performance Analytics & Views</span>
+                </button>
+
+                <button
+                  onClick={() => navigateLandlordTab('profile_team')}
+                  className="w-full flex items-center gap-2.5 p-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 transition-colors"
+                >
+                  <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                  <span className="text-xs">Team & Verification Documents</span>
+                </button>
+              </div>
+
+              {/* Landlord AI Assistant & Tools */}
+              <div className="space-y-1.5 pt-1 border-t border-slate-100 dark:border-slate-800">
+                <p className="px-2 text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                  AI & Operations Tools
+                </p>
+
+                <button
+                  onClick={() => {
+                    if (onOpenAI) {
+                      onOpenAI();
+                    } else {
+                      navigateLandlordTab('dashboard');
+                    }
+                    setMobileMenuOpen(false);
+                  }}
+                  className="w-full py-2.5 px-3 bg-gradient-to-r from-emerald-700 to-teal-800 text-white rounded-xl text-xs font-bold flex items-center justify-between shadow-xs"
+                >
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-amber-300 fill-amber-300 animate-pulse" />
+                    <span>Landlord AI & Price Estimator</span>
+                  </div>
+                  <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded-full font-black">AI</span>
+                </button>
+
+                <button
+                  onClick={() => { onNavigate('home'); setMobileMenuOpen(false); }}
+                  className="w-full flex items-center gap-2.5 p-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 text-xs font-medium"
+                >
+                  <Compass className="w-4 h-4 text-slate-500" />
+                  <span>Browse Public Listings (Student View)</span>
+                </button>
+              </div>
+
+              {/* Settings & Sign Out */}
+              <div className="pt-2 border-t border-slate-100 dark:border-slate-800 space-y-2">
+                <button
+                  onClick={toggleTheme}
+                  className="w-full flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200/60 dark:border-slate-800 text-xs font-semibold"
+                >
+                  <div className="flex items-center gap-2">
+                    {isDark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-slate-600" />}
+                    <span>Theme Mode</span>
+                  </div>
+                  <span className="text-[11px] font-bold text-slate-500">
+                    {isDark ? 'Dark Mode' : 'Light Mode'}
+                  </span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    setShowLogoutConfirm(true);
+                  }}
+                  className="w-full py-2.5 text-xs font-bold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/60 rounded-xl transition-colors flex items-center justify-center gap-1.5"
+                >
+                  <LogOut className="w-4 h-4" />
+                  <span>Log Out of Landlord Portal</span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* --------------------------------------------------------------------- */}
+          {/* ROLE 3: AUTHENTICATED ADMIN DRAWER                                    */}
+          {/* --------------------------------------------------------------------- */}
+          {isAuthenticated && isAdmin && (
+            <div className="space-y-4">
+              <div className="p-3.5 bg-purple-50 dark:bg-purple-950/40 rounded-2xl flex items-center justify-between border border-purple-200 dark:border-purple-900 shadow-xs">
+                <div className="flex items-center gap-3 min-w-0">
+                  <UserAvatar fullName={user?.fullName} avatarUrl={user?.avatarUrl} size="lg" />
+                  <div className="min-w-0">
+                    <p className="text-xs font-black text-slate-900 dark:text-white truncate">{user?.fullName}</p>
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">{user?.email}</p>
+                    <span className="inline-flex items-center gap-1 mt-0.5 text-[9px] font-black px-1.5 py-0.5 rounded bg-purple-200 dark:bg-purple-900 text-purple-900 dark:text-purple-200 uppercase">
+                      👑 Super Admin
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <button
+                  onClick={() => { onNavigate('admin-portal'); setMobileMenuOpen(false); }}
+                  className="w-full flex items-center gap-2.5 p-3 rounded-xl bg-purple-100 dark:bg-purple-950 text-purple-900 dark:text-purple-200 font-black text-xs shadow-xs"
+                >
+                  <ShieldCheck className="w-4 h-4 text-purple-700 dark:text-purple-400" />
+                  <span>Admin Command Portal</span>
+                </button>
+
+                <button
+                  onClick={() => { onNavigate('home'); setMobileMenuOpen(false); }}
+                  className="w-full flex items-center gap-2.5 p-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-bold"
+                >
+                  <Home className="w-4 h-4 text-slate-500" />
+                  <span>Home</span>
+                </button>
+
+                <button
+                  onClick={() => { onNavigate('search'); setMobileMenuOpen(false); }}
+                  className="w-full flex items-center gap-2.5 p-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-bold"
+                >
+                  <Search className="w-4 h-4 text-slate-500" />
+                  <span>All Lodges Directory</span>
+                </button>
+
+                <button
+                  onClick={() => { onNavigate('community'); setMobileMenuOpen(false); }}
+                  className="w-full flex items-center gap-2.5 p-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-bold"
+                >
+                  <Users className="w-4 h-4 text-slate-500" />
+                  <span>Community Feed & Flags</span>
+                </button>
+
+                <button
+                  onClick={() => { onNavigate('messages'); setMobileMenuOpen(false); }}
+                  className="w-full flex items-center gap-2.5 p-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-bold"
+                >
+                  <MessageSquare className="w-4 h-4 text-slate-500" />
+                  <span>Support Messages</span>
+                </button>
+              </div>
+
+              <div className="pt-2 border-t border-slate-100 dark:border-slate-800 space-y-2">
+                <button
+                  onClick={toggleTheme}
+                  className="w-full flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200/60 dark:border-slate-800 text-xs font-semibold"
+                >
+                  <div className="flex items-center gap-2">
+                    {isDark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-slate-600" />}
+                    <span>Theme Mode</span>
+                  </div>
+                  <span className="text-[11px] font-bold text-slate-500">
+                    {isDark ? 'Dark Mode' : 'Light Mode'}
+                  </span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    setShowLogoutConfirm(true);
+                  }}
+                  className="w-full py-2.5 text-xs font-bold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/60 rounded-xl transition-colors flex items-center justify-center gap-1.5"
+                >
+                  <LogOut className="w-4 h-4" />
+                  <span>Log Out of Admin Portal</span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* --------------------------------------------------------------------- */}
+          {/* ROLE 4: PUBLIC / GUEST DRAWER (NOT AUTHENTICATED)                     */}
+          {/* --------------------------------------------------------------------- */}
+          {!isAuthenticated && (
+            <div className="space-y-4">
+              {/* Public Welcome Card */}
+              <div className="p-3.5 bg-gradient-to-br from-emerald-950 via-teal-950 to-slate-900 text-white rounded-2xl shadow-md border border-emerald-500/20">
+                <p className="text-xs font-extrabold text-emerald-400">Hostel Ease • LAUTECH Edition</p>
+                <p className="text-[11px] text-slate-200 mt-0.5">Verified off-campus student accommodation in Ogbomoso.</p>
+              </div>
+
+              {/* Quick Jump Action Grid */}
+              <div className="grid grid-cols-2 gap-2 pb-1 border-b border-slate-100 dark:border-slate-800">
+                <button
+                  onClick={() => { onNavigate('home'); setMobileMenuOpen(false); }}
+                  className={`p-2.5 rounded-xl text-xs font-bold text-center flex flex-col items-center gap-1 transition-all ${
+                    activeView === 'home'
+                      ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 font-black'
+                      : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
+                  }`}
+                >
+                  <Home className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                  <span>Home</span>
+                </button>
+
+                <button
+                  onClick={() => { onNavigate('search'); setMobileMenuOpen(false); }}
+                  className={`p-2.5 rounded-xl text-xs font-bold text-center flex flex-col items-center gap-1 transition-all ${
+                    activeView === 'search'
+                      ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 font-black'
+                      : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
+                  }`}
+                >
+                  <Search className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                  <span>Find Hostels</span>
+                </button>
+              </div>
+
+              {/* Public Exploration Links */}
+              <div className="space-y-1">
+                <button
+                  onClick={() => { onNavigate('community'); setMobileMenuOpen(false); }}
+                  className="w-full flex items-center gap-2.5 p-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-semibold"
+                >
+                  <Users className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                  <span>Student Community & Roommate Matching</span>
+                </button>
+
+                {onOpenAI && (
+                  <button
+                    onClick={() => { onOpenAI(); setMobileMenuOpen(false); }}
+                    className="w-full py-2.5 px-3 bg-gradient-to-r from-emerald-600 to-teal-700 text-white rounded-xl text-xs font-bold flex items-center justify-between shadow-xs"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-amber-300 fill-amber-300 animate-pulse" />
+                      <span>Ask Hostel Ease AI Assistant</span>
+                    </div>
+                    <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded-full font-black">24/7</span>
+                  </button>
+                )}
+              </div>
+
+              {/* Campus Living & Safety Tools */}
+              <div className="space-y-1.5 pt-1 border-t border-slate-100 dark:border-slate-800">
+                <p className="px-2 text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                  Campus Living Tools
+                </p>
+
+                {onOpenUtilityRadar && (
+                  <button
+                    onClick={() => { onOpenUtilityRadar(); setMobileMenuOpen(false); }}
+                    className="w-full flex items-center justify-between p-2.5 rounded-xl hover:bg-amber-50 dark:hover:bg-amber-950/40 text-amber-700 dark:text-amber-300 font-bold bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200/60 dark:border-amber-900/40"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <Zap className="w-4 h-4 text-amber-500 fill-amber-400" />
+                      <span className="text-xs">⚡ UtilityRadar™ (NEPA & Water)</span>
+                    </div>
+                    <span className="text-[10px] px-1.5 py-0.5 bg-amber-200 dark:bg-amber-900 text-amber-900 dark:text-amber-200 rounded font-black">LIVE</span>
+                  </button>
+                )}
+
+                {onOpenSafeWalk && (
+                  <button
+                    onClick={() => { onOpenSafeWalk(); setMobileMenuOpen(false); }}
+                    className="w-full flex items-center justify-between p-2.5 rounded-xl hover:bg-emerald-50 dark:hover:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 font-bold bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200/60 dark:border-emerald-900/40"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                      <span className="text-xs">🚨 SafeWalk™ Night Companion</span>
+                    </div>
+                    <span className="text-[10px] px-1.5 py-0.5 bg-emerald-200 dark:bg-emerald-900 text-emerald-900 dark:text-emerald-200 rounded font-black">SOS</span>
+                  </button>
+                )}
+
+                {onOpenUtilityCalculator && (
+                  <button
+                    onClick={() => { onOpenUtilityCalculator(); setMobileMenuOpen(false); }}
+                    className="w-full flex items-center justify-between p-2.5 rounded-xl hover:bg-blue-50 dark:hover:bg-blue-950/40 text-blue-700 dark:text-blue-300 font-bold bg-blue-50/50 dark:bg-blue-950/20 border border-blue-200/60 dark:border-blue-900/40"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <Calculator className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                      <span className="text-xs">💡 Utility Bill Calculator (IBEDC)</span>
+                    </div>
+                    <span className="text-[10px] px-1.5 py-0.5 bg-blue-200 dark:bg-blue-900 text-blue-900 dark:text-blue-200 rounded font-black">CALC</span>
+                  </button>
+                )}
+
+                {onOpenWomenSection && (
+                  <button
+                    onClick={() => { onOpenWomenSection(); setMobileMenuOpen(false); }}
+                    className="w-full flex items-center justify-between p-2.5 rounded-xl hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-700 dark:text-rose-300 font-bold bg-rose-50/50 dark:bg-rose-950/20 border border-rose-200/60 dark:border-rose-900/40"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <Heart className="w-4 h-4 text-rose-600 dark:text-rose-400" />
+                      <span className="text-xs">🌸 Women's Living & Safety</span>
+                    </div>
+                    <span className="text-[10px] px-1.5 py-0.5 bg-rose-200 dark:bg-rose-900 text-rose-900 dark:text-rose-200 rounded font-black">SAFE</span>
+                  </button>
+                )}
+              </div>
+
+              {/* Landlord Sign In Entry */}
+              <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
+                <button
+                  onClick={() => {
+                    onOpenAuth('PROVIDER');
+                    setMobileMenuOpen(false);
+                  }}
+                  className="w-full flex items-center justify-between p-3 rounded-xl bg-amber-50 dark:bg-amber-950/30 text-amber-900 dark:text-amber-200 border border-amber-200/80 dark:border-amber-800/60 text-xs font-bold"
+                >
+                  <div className="flex items-center gap-2">
+                    <Building2 className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                    <span>Are you a Landlord? List Your Hostel</span>
+                  </div>
+                  <span className="text-[10px] px-2 py-0.5 bg-amber-200 dark:bg-amber-900 text-amber-900 dark:text-amber-200 rounded-full font-black">
+                    PARTNER
+                  </span>
+                </button>
+              </div>
+
+              {/* Auth Actions in Public Drawer */}
+              <div className="pt-2 border-t border-slate-100 dark:border-slate-800 space-y-2">
+                <button
+                  onClick={toggleTheme}
+                  className="w-full flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200/60 dark:border-slate-800 text-xs font-semibold"
+                >
+                  <div className="flex items-center gap-2">
+                    {isDark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-slate-600" />}
+                    <span>Theme Mode</span>
+                  </div>
+                  <span className="text-[11px] font-bold text-slate-500">
+                    {isDark ? 'Dark Mode' : 'Light Mode'}
+                  </span>
+                </button>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => { onOpenAuth('STUDENT'); setMobileMenuOpen(false); }}
+                    className="w-full py-2.5 text-xs font-bold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl transition-colors text-center"
+                  >
+                    Log In
+                  </button>
+                  <button
+                    onClick={() => { onOpenAuth('STUDENT'); setMobileMenuOpen(false); }}
+                    className="w-full py-2.5 text-xs font-black text-slate-950 bg-emerald-400 hover:bg-emerald-300 rounded-xl shadow-xs transition-colors text-center"
+                  >
+                    Sign Up
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
