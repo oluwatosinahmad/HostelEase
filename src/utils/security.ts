@@ -135,7 +135,7 @@ export function validateUploadedFile(
   if (dangerousExtensions.includes(extension)) {
     return {
       isValid: false,
-      errorMessage: `Security Violation: File extension .${extension} is strictly forbidden on CampusNest.`,
+      errorMessage: `Security Violation: File extension .${extension} is strictly forbidden on Hostel Ease.`,
     };
   }
 
