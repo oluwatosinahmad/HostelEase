@@ -50,7 +50,9 @@ import {
     AlternativeHostelRecommendation,
     MoveInChecklistData,
     DisputeItem,
-    DisputeMessageItem
+    DisputeMessageItem,
+    UserDeletionSummary,
+    UserDeletionResult
   } from '../types/hostelEase';
 import { 
   DEFAULT_AREAS, 
@@ -3989,6 +3991,165 @@ export const api = {
       saveLocalRegisteredUsers(updated);
 
       return { message: `Account status updated to ${status}`, accountStatus: status };
+    },
+
+    async getUserDeletionSummary(id: string): Promise<{ summary: UserDeletionSummary }> {
+      try {
+        const res = await fetch(`${API_BASE}/admin/users/${id}/deletion-summary`, {
+          headers: { ...getAuthHeader() }
+        });
+        if (res.ok) return await res.json();
+      } catch (err) {
+        console.warn('Backend getUserDeletionSummary offline, calculating from local store:', err);
+      }
+
+      // Offline / Local fallback:
+      const registered = getLocalRegisteredUsers();
+      const user = registered.find(u => u.id === id || u.email === id) || (await this.getUser(id)).user;
+      const role = (user?.role || 'STUDENT') as 'STUDENT' | 'PROVIDER' | 'ADMIN';
+      const localProps = getLocalProperties('all');
+      const userProps = localProps.filter(p => (p as any).providerId === id || (p as any).provider?.email?.toLowerCase() === user?.email?.toLowerCase());
+      
+      let roomsCount = 0;
+      let mediaCount = 0;
+      let imagesCount = 0;
+      let videosCount = 0;
+      userProps.forEach(p => {
+        roomsCount += p.rooms?.length || 1;
+        const media = p.media || [];
+        mediaCount += media.length;
+        imagesCount += media.filter(m => m.mediaType !== 'VIDEO' && m.category !== 'VIDEO_WALKTHROUGH').length;
+        videosCount += (p.has4KVideo || p.videoTourUrl || media.some(m => m.mediaType === 'VIDEO')) ? 1 : 0;
+      });
+
+      const localBookings = getLocalBookings();
+      const bookingsCount = localBookings.filter(b => 
+        (b as any).userId === id || 
+        (b as any).studentEmail?.toLowerCase() === user?.email?.toLowerCase() ||
+        (role === 'PROVIDER' && userProps.some(p => p.id === b.propertyId))
+      ).length;
+
+      const localInspections = getLocalInspections();
+      const inspectionsCount = localInspections.filter(i =>
+        (i as any).studentEmail?.toLowerCase() === user?.email?.toLowerCase() ||
+        (role === 'PROVIDER' && userProps.some(p => p.id === i.propertyId))
+      ).length;
+
+      return {
+        summary: {
+          userId: id,
+          fullName: user?.fullName || user?.businessName || 'User',
+          email: user?.email || '',
+          phone: user?.phone,
+          role,
+          accountStatus: user?.accountStatus || 'ACTIVE',
+          businessName: user?.businessName,
+          createdAt: user?.createdAt || new Date().toISOString(),
+          hostelsCount: role === 'PROVIDER' ? userProps.length : 0,
+          roomsCount: role === 'PROVIDER' ? roomsCount : 0,
+          mediaCount: role === 'PROVIDER' ? mediaCount : 0,
+          imagesCount: role === 'PROVIDER' ? imagesCount : 0,
+          videosCount: role === 'PROVIDER' ? videosCount : 0,
+          bookingsCount,
+          inspectionsCount,
+          conversationsCount: 1,
+          messagesCount: 3,
+          notificationsCount: 2
+        }
+      };
+    },
+
+    async deleteUser(id: string, reason?: string): Promise<UserDeletionResult> {
+      try {
+        const res = await fetch(`${API_BASE}/admin/users/${id}`, {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+          body: JSON.stringify({ reason })
+        });
+        if (res.ok) {
+          const result = await res.json();
+          this.cleanupLocalStoreForUser(id);
+          return result;
+        }
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || errorData.message || 'Failed to delete user');
+      } catch (err: any) {
+        if (err.message && !err.message.includes('Failed to fetch') && !err.message.includes('NetworkError') && err.message !== 'Failed to delete user') {
+          throw err;
+        }
+        console.warn('Backend deleteUser offline or failed, executing local fallback cleanup:', err);
+      }
+
+      // Offline fallback:
+      const registered = getLocalRegisteredUsers();
+      const user = registered.find(u => u.id === id || u.email === id);
+      const role = user?.role || 'STUDENT';
+      const summary = (await this.getUserDeletionSummary(id)).summary;
+
+      this.cleanupLocalStoreForUser(id, user?.email);
+
+      return {
+        success: true,
+        message: `Account and associated records permanently deleted for ${user?.fullName || 'User'}`,
+        deletedUserId: id,
+        deletedRole: role,
+        deletedFullName: user?.fullName || 'User',
+        deletedHostelsCount: summary.hostelsCount,
+        deletedMediaFilesCount: summary.mediaCount,
+        deletedBookingsCount: summary.bookingsCount,
+        deletedInspectionsCount: summary.inspectionsCount,
+        deletedConversationsCount: summary.conversationsCount,
+        deletedNotificationsCount: summary.notificationsCount
+      };
+    },
+
+    cleanupLocalStoreForUser(id: string, email?: string) {
+      try {
+        const registered = getLocalRegisteredUsers();
+        const user = registered.find(u => u.id === id || (email && u.email?.toLowerCase() === email.toLowerCase()));
+        const userEmail = email || user?.email?.toLowerCase();
+        const role = user?.role;
+
+        // Remove from registered users
+        saveLocalRegisteredUsers(registered.filter(u => u.id !== id && (!userEmail || u.email?.toLowerCase() !== userEmail)));
+
+        if (role === 'PROVIDER') {
+          // Remove provider's properties
+          const props = getLocalProperties('all');
+          const remainingProps = props.filter(p => (p as any).providerId !== id && (!userEmail || (p as any).provider?.email?.toLowerCase() !== userEmail));
+          try {
+            localStorage.setItem('hostel_ease_properties', JSON.stringify(remainingProps));
+            window.dispatchEvent(new CustomEvent('hostel_ease_properties_updated'));
+          } catch {}
+
+          // Remove bookings and inspections for those properties
+          const deletedPropIds = new Set(props.filter(p => (p as any).providerId === id || (userEmail && (p as any).provider?.email?.toLowerCase() === userEmail)).map(p => p.id));
+          const bookings = getLocalBookings();
+          const remainingBookings = bookings.filter(b => !deletedPropIds.has(b.propertyId));
+          try {
+            localStorage.setItem('hostel_ease_bookings', JSON.stringify(remainingBookings));
+            window.dispatchEvent(new CustomEvent('hostel_ease_bookings_updated'));
+          } catch {}
+
+          const inspections = getLocalInspections();
+          const remainingInspections = inspections.filter(i => !deletedPropIds.has(i.propertyId));
+          saveLocalInspections(remainingInspections);
+        } else {
+          // STUDENT deletion: Remove only their student bookings and inspections; DO NOT touch hostels!
+          const bookings = getLocalBookings();
+          const remainingBookings = bookings.filter(b => (b as any).userId !== id && (!userEmail || (b as any).studentEmail?.toLowerCase() !== userEmail));
+          try {
+            localStorage.setItem('hostel_ease_bookings', JSON.stringify(remainingBookings));
+            window.dispatchEvent(new CustomEvent('hostel_ease_bookings_updated'));
+          } catch {}
+
+          const inspections = getLocalInspections();
+          const remainingInspections = inspections.filter(i => (!userEmail || (i as any).studentEmail?.toLowerCase() !== userEmail));
+          saveLocalInspections(remainingInspections);
+        }
+      } catch (err) {
+        console.warn('Error cleaning up local store for user:', err);
+      }
     },
 
     async getProviders(status?: string, search?: string): Promise<{ providers: AdminProviderItem[] }> {

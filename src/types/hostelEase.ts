@@ -1342,6 +1342,47 @@ export interface AdminUserItem {
   totalEarned?: number;
 }
 
+export interface UserDeletionSummary {
+  userId: string;
+  fullName: string;
+  email: string;
+  phone?: string;
+  role: 'STUDENT' | 'PROVIDER' | 'ADMIN';
+  accountStatus: string;
+  businessName?: string;
+  createdAt: string;
+
+  // Breakdown counts
+  hostelsCount: number;
+  roomsCount: number;
+  mediaCount: number;
+  imagesCount: number;
+  videosCount: number;
+  bookingsCount: number;
+  inspectionsCount: number;
+  conversationsCount: number;
+  messagesCount: number;
+  notificationsCount: number;
+  savedHostelsCount?: number;
+  reviewsCount?: number;
+  payoutsCount?: number;
+  verificationDocsCount?: number;
+}
+
+export interface UserDeletionResult {
+  success: boolean;
+  message: string;
+  deletedUserId: string;
+  deletedRole: string;
+  deletedFullName: string;
+  deletedHostelsCount: number;
+  deletedMediaFilesCount: number;
+  deletedBookingsCount: number;
+  deletedInspectionsCount: number;
+  deletedConversationsCount: number;
+  deletedNotificationsCount: number;
+}
+
 export interface AdminProviderItem {
   id: string;
   fullName: string;

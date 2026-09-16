@@ -46,7 +46,8 @@ import {
   LogOut,
   UserCheck,
   Video,
-  Play
+  Play,
+  Trash2
 } from 'lucide-react';
 import { 
   Area, 
@@ -61,7 +62,9 @@ import {
   AdminAuditLogItem, 
   VerificationChecklist,
   AIAdminStats,
-  RevenueOverviewResponse 
+  RevenueOverviewResponse,
+  UserDeletionSummary,
+  UserDeletionResult
 } from '../types/hostelEase';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -262,6 +265,13 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
   const [announcementAudience, setAnnouncementAudience] = useState<'ALL' | 'STUDENTS' | 'PROVIDERS'>('ALL');
   const [announcementPriority, setAnnouncementPriority] = useState<'NORMAL' | 'IMPORTANT' | 'CRITICAL'>('NORMAL');
 
+  // 7. Permanent Account Deletion Modal State
+  const [userToDelete, setUserToDelete] = useState<AdminUserItem | null>(null);
+  const [deletionSummary, setDeletionSummary] = useState<UserDeletionSummary | null>(null);
+  const [isLoadingDeletionSummary, setIsLoadingDeletionSummary] = useState<boolean>(false);
+  const [isDeletingUser, setIsDeletingUser] = useState<boolean>(false);
+  const [deletionReason, setDeletionReason] = useState<string>('');
+
   // Load Main Admin Data
   const fetchAllAdminData = async () => {
     setLoading(true);
@@ -402,6 +412,47 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
       } else {
         onNavigateView('home');
       }
+    }
+  };
+
+  // Permanent User Account Deletion Handlers
+  const handleInitiateUserDeletion = async (targetUser: AdminUserItem) => {
+    setUserToDelete(targetUser);
+    setDeletionReason('');
+    setDeletionSummary(null);
+    setIsLoadingDeletionSummary(true);
+    try {
+      const res = await api.admin.getUserDeletionSummary(targetUser.id);
+      if (res && res.summary) {
+        setDeletionSummary(res.summary);
+      }
+    } catch (err: any) {
+      console.error('Failed to load deletion summary:', err);
+      onShowToast('Could not load detailed record counts for user', 'error');
+    } finally {
+      setIsLoadingDeletionSummary(false);
+    }
+  };
+
+  const handleConfirmUserDeletion = async () => {
+    if (!userToDelete) return;
+    setIsDeletingUser(true);
+    try {
+      const res = await api.admin.deleteUser(userToDelete.id, deletionReason.trim() || undefined);
+      if (res.success) {
+        onShowToast(res.message || `Account for ${userToDelete.fullName} permanently deleted`, 'success');
+        setUserToDelete(null);
+        setDeletionSummary(null);
+        setSelectedUserForDetails(null);
+        await fetchAllAdminData();
+      } else {
+        onShowToast(res.message || 'Deletion failed', 'error');
+      }
+    } catch (err: any) {
+      console.error('Account deletion error:', err);
+      onShowToast(err.message || 'Failed to permanently delete user account', 'error');
+    } finally {
+      setIsDeletingUser(false);
     }
   };
 
@@ -1316,6 +1367,16 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                                 >
                                   <Lock className="w-3.5 h-3.5" />
                                 </button>
+
+                                {u.role !== 'ADMIN' && (
+                                  <button
+                                    onClick={() => handleInitiateUserDeletion(u)}
+                                    className="p-1 text-slate-400 hover:text-rose-400 hover:bg-rose-950/40 rounded transition-colors cursor-pointer"
+                                    title={u.role === 'PROVIDER' ? 'Permanently Delete Landlord & Purge Hostels' : 'Permanently Delete Student Account'}
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
                               </div>
                             </td>
                           </tr>
@@ -1430,6 +1491,27 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                         title="View Listed Hostels"
                       >
                         <Eye className="w-3.5 h-3.5" />
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          const matchedUser = usersList.find(u => u.id === p.id || u.email === p.email) || {
+                            id: p.id,
+                            fullName: p.fullName,
+                            email: p.email,
+                            role: 'PROVIDER' as any,
+                            phone: p.phone,
+                            businessName: p.businessName,
+                            accountStatus: p.accountStatus || 'ACTIVE',
+                            isActive: true,
+                            createdAt: p.createdAt || new Date().toISOString()
+                          };
+                          handleInitiateUserDeletion(matchedUser as any);
+                        }}
+                        className="px-2.5 py-2 bg-rose-950/40 hover:bg-rose-900/60 border border-rose-800/60 text-rose-400 hover:text-rose-300 text-xs font-semibold rounded-xl transition-colors cursor-pointer"
+                        title="Delete Landlord Account & Purge Hostels"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </div>
                   </div>
@@ -3082,6 +3164,21 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                   <span>{selectedUserForDetails.accountStatus === 'ACTIVE' ? 'Suspend Account' : 'Reactivate Account'}</span>
                 </button>
 
+                {selectedUserForDetails.role !== 'ADMIN' && (
+                  <button
+                    onClick={() => {
+                      const u = selectedUserForDetails;
+                      setSelectedUserForDetails(null);
+                      handleInitiateUserDeletion(u);
+                    }}
+                    className="px-3 py-2 bg-rose-950/40 hover:bg-rose-900/60 border border-rose-800/60 text-rose-400 hover:text-rose-300 text-xs font-bold rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer"
+                    title="Permanently Delete Account & Data"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Delete</span>
+                  </button>
+                )}
+
                 <button
                   onClick={() => setSelectedUserForDetails(null)}
                   className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-xl transition-colors cursor-pointer"
@@ -3089,6 +3186,216 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                   Close
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 7. PERMANENT ACCOUNT DELETION MODAL */}
+      {userToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto">
+          <div className="bg-slate-950 border border-rose-900/60 rounded-2xl max-w-lg w-full p-6 space-y-5 shadow-2xl shadow-rose-950/40 my-8">
+            {/* Header */}
+            <div className="flex items-start justify-between gap-3 border-b border-slate-900 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-rose-950/80 border border-rose-800/80 flex items-center justify-center text-rose-400 shrink-0 shadow-inner">
+                  <Trash2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-bold text-white text-base">Permanently Delete Account</h3>
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${
+                      userToDelete.role === 'PROVIDER' ? 'bg-cyan-950 text-cyan-300 border border-cyan-800' :
+                      'bg-emerald-950 text-emerald-300 border border-emerald-800'
+                    }`}>
+                      {userToDelete.role === 'PROVIDER' ? 'Landlord' : 'Student'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-rose-400/90 font-medium mt-0.5">
+                    This action is irreversible and executes a complete data cleanup.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  if (!isDeletingUser) {
+                    setUserToDelete(null);
+                    setDeletionSummary(null);
+                  }
+                }}
+                disabled={isDeletingUser}
+                className="p-1 text-slate-400 hover:text-white rounded-lg hover:bg-slate-900 transition-colors disabled:opacity-40 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Target User Info Card */}
+            <div className="bg-slate-900/80 p-3.5 rounded-xl border border-slate-800 space-y-1.5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-slate-400">Target User:</span>
+                <span className="text-xs font-bold text-white">{userToDelete.fullName}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-slate-400">Email Address:</span>
+                <span className="text-xs font-mono text-cyan-300">{userToDelete.email}</span>
+              </div>
+              {userToDelete.phone && (
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-slate-400">Phone:</span>
+                  <span className="text-xs font-mono text-slate-200">{userToDelete.phone}</span>
+                </div>
+              )}
+              {userToDelete.role === 'PROVIDER' && userToDelete.businessName && (
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-slate-400">Lodge / Brand:</span>
+                  <span className="text-xs font-bold text-cyan-400">{userToDelete.businessName}</span>
+                </div>
+              )}
+            </div>
+
+            {/* Role-Specific Warning Banner */}
+            {userToDelete.role === 'PROVIDER' ? (
+              <div className="bg-rose-950/30 border border-rose-900/80 rounded-xl p-3.5 space-y-1.5">
+                <div className="flex items-center gap-2 text-rose-400 font-bold text-xs">
+                  <AlertTriangle className="w-4 h-4 shrink-0" />
+                  <span>CRITICAL LANDLORD PURGE NOTICE</span>
+                </div>
+                <p className="text-[11px] text-rose-300 leading-relaxed">
+                  Deleting this landlord will permanently remove all hostels owned by this landlord, including all rooms, bedspaces, uploaded media (photos/videos), tenant bookings, and inspection requests. No orphaned listings will remain.
+                </p>
+              </div>
+            ) : (
+              <div className="bg-amber-950/30 border border-amber-900/80 rounded-xl p-3.5 space-y-1.5">
+                <div className="flex items-center gap-2 text-amber-400 font-bold text-xs">
+                  <AlertTriangle className="w-4 h-4 shrink-0" />
+                  <span>STUDENT DATA CLEANUP NOTICE</span>
+                </div>
+                <p className="text-[11px] text-amber-300 leading-relaxed">
+                  Deleting this student will erase their account, booking records, inspection requests, saved hostels, and private messages. Landlord hostel listings will NOT be deleted or corrupted.
+                </p>
+              </div>
+            )}
+
+            {/* Dynamic Deletion Breakdown Counts */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-slate-300 uppercase tracking-wider">
+                  Data Cleanup Summary
+                </span>
+                {isLoadingDeletionSummary && (
+                  <span className="text-[11px] text-slate-400 flex items-center gap-1">
+                    <RefreshCw className="w-3 h-3 animate-spin" /> Querying database...
+                  </span>
+                )}
+              </div>
+
+              {isLoadingDeletionSummary ? (
+                <div className="p-6 text-center bg-slate-900/40 rounded-xl border border-slate-800">
+                  <RefreshCw className="w-6 h-6 animate-spin mx-auto text-rose-500 mb-2" />
+                  <p className="text-xs text-slate-400">Auditing records to be removed...</p>
+                </div>
+              ) : deletionSummary ? (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {userToDelete.role === 'PROVIDER' ? (
+                    <>
+                      <div className="bg-slate-900/70 p-2.5 rounded-lg border border-slate-800 text-center">
+                        <span className="text-[10px] text-slate-400 uppercase block font-semibold">Hostels</span>
+                        <span className="text-base font-black text-rose-400">{deletionSummary.hostelsCount}</span>
+                      </div>
+                      <div className="bg-slate-900/70 p-2.5 rounded-lg border border-slate-800 text-center">
+                        <span className="text-[10px] text-slate-400 uppercase block font-semibold">Rooms / Units</span>
+                        <span className="text-base font-black text-rose-400">{deletionSummary.roomsCount}</span>
+                      </div>
+                      <div className="bg-slate-900/70 p-2.5 rounded-lg border border-slate-800 text-center">
+                        <span className="text-[10px] text-slate-400 uppercase block font-semibold">Images & Media</span>
+                        <span className="text-base font-black text-rose-400">{deletionSummary.mediaCount}</span>
+                      </div>
+                      <div className="bg-slate-900/70 p-2.5 rounded-lg border border-slate-800 text-center">
+                        <span className="text-[10px] text-slate-400 uppercase block font-semibold">4K / Videos</span>
+                        <span className="text-base font-black text-rose-400">{deletionSummary.videosCount}</span>
+                      </div>
+                      <div className="bg-slate-900/70 p-2.5 rounded-lg border border-slate-800 text-center">
+                        <span className="text-[10px] text-slate-400 uppercase block font-semibold">Bookings</span>
+                        <span className="text-base font-black text-amber-400">{deletionSummary.bookingsCount}</span>
+                      </div>
+                      <div className="bg-slate-900/70 p-2.5 rounded-lg border border-slate-800 text-center">
+                        <span className="text-[10px] text-slate-400 uppercase block font-semibold">Tour Requests</span>
+                        <span className="text-base font-black text-amber-400">{deletionSummary.inspectionsCount}</span>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="bg-slate-900/70 p-2.5 rounded-lg border border-slate-800 text-center">
+                        <span className="text-[10px] text-slate-400 uppercase block font-semibold">Student Bookings</span>
+                        <span className="text-base font-black text-rose-400">{deletionSummary.bookingsCount}</span>
+                      </div>
+                      <div className="bg-slate-900/70 p-2.5 rounded-lg border border-slate-800 text-center">
+                        <span className="text-[10px] text-slate-400 uppercase block font-semibold">Tour Requests</span>
+                        <span className="text-base font-black text-rose-400">{deletionSummary.inspectionsCount}</span>
+                      </div>
+                      <div className="bg-slate-900/70 p-2.5 rounded-lg border border-slate-800 text-center">
+                        <span className="text-[10px] text-slate-400 uppercase block font-semibold">Conversations</span>
+                        <span className="text-base font-black text-amber-400">{deletionSummary.conversationsCount}</span>
+                      </div>
+                      <div className="bg-slate-900/70 p-2.5 rounded-lg border border-slate-800 text-center col-span-3">
+                        <span className="text-[10px] text-emerald-400 font-bold block">✓ 0 Landlord Hostels Affected</span>
+                        <span className="text-[10px] text-slate-400">All student records will be cleared without affecting platform properties.</span>
+                      </div>
+                    </>
+                  )}
+                </div>
+              ) : null}
+            </div>
+
+            {/* Audit Log Reason Input */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-slate-300 flex items-center justify-between">
+                <span>Administrative Deletion Reason (Audit Log)</span>
+                <span className="text-[10px] text-slate-500 font-normal">Optional</span>
+              </label>
+              <input
+                type="text"
+                value={deletionReason}
+                onChange={(e) => setDeletionReason(e.target.value)}
+                placeholder="e.g. Requested by user / Platform policy violation / Duplicate test account"
+                className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-rose-500 transition-colors"
+                disabled={isDeletingUser}
+              />
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-900">
+              <button
+                type="button"
+                onClick={() => {
+                  setUserToDelete(null);
+                  setDeletionSummary(null);
+                }}
+                disabled={isDeletingUser}
+                className="px-4 py-2 bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300 text-xs font-bold rounded-xl transition-colors disabled:opacity-50 cursor-pointer"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                onClick={handleConfirmUserDeletion}
+                disabled={isDeletingUser || isLoadingDeletionSummary}
+                className="px-5 py-2.5 bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold rounded-xl transition-all flex items-center gap-2 shadow-lg shadow-rose-950/60 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+              >
+                {isDeletingUser ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <span>Executing Complete Deletion...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Permanently Delete Account</span>
+                  </>
+                )}
+              </button>
             </div>
           </div>
         </div>

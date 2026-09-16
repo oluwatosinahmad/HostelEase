@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import db from '../db.js';
 import { authenticate, requireRole, requirePermission, ROLE_DEFAULT_PERMISSIONS, AuthenticatedRequest } from '../middleware/auth.js';
+import { userDeletionService } from '../services/userDeletionService.js';
 
 const router = Router();
 
@@ -261,6 +262,54 @@ router.patch(
     })();
 
     res.json({ message: `User account status updated to ${status}`, accountStatus: status });
+  }
+);
+
+// Pre-deletion dynamic database summary
+router.get(
+  '/users/:id/deletion-summary',
+  authenticate,
+  requireRole('ADMIN'),
+  requirePermission('users.manage'),
+  (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const summary = userDeletionService.getUserDeletionSummary(id);
+      return res.json({ summary });
+    } catch (err: any) {
+      return res.status(err.message.includes('not found') ? 404 : 500).json({
+        error: err.message || 'Failed to generate user deletion summary'
+      });
+    }
+  }
+);
+
+// Permanent user account deletion with complete atomic cleanup
+router.delete(
+  '/users/:id',
+  authenticate,
+  requireRole('ADMIN'),
+  requirePermission('users.manage'),
+  (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const adminId = req.user!.id;
+      const { reason } = req.body || {};
+
+      if (id === adminId) {
+        return res.status(400).json({
+          error: 'Administrative security restriction: You cannot delete your own admin account.'
+        });
+      }
+
+      const result = userDeletionService.deleteUserPermanently(id, adminId, reason);
+      return res.json(result);
+    } catch (err: any) {
+      console.error('[ADMIN DELETE USER ERROR]', err);
+      return res.status(err.message.includes('does not exist') ? 404 : 400).json({
+        error: err.message || 'Failed to delete user account'
+      });
+    }
   }
 );
 
