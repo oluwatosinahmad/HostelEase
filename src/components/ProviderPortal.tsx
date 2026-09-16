@@ -1013,7 +1013,7 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
       </header>
 
       {/* MOBILE LANDLORD HORIZONTAL SUB-NAV BAR (Instant access to all 13 features on phones) */}
-      <div className="lg:hidden bg-white/95 dark:bg-slate-900/95 backdrop-blur border-b border-gray-200 dark:border-slate-800 px-3 py-2 overflow-x-auto scrollbar-none sticky top-14 z-20 shadow-xs flex items-center gap-1.5">
+      <div className="lg:hidden bg-white/95 dark:bg-slate-900/95 backdrop-blur border-b border-gray-200 dark:border-slate-800 px-3 py-2 overflow-x-auto scrollbar-none shadow-xs flex items-center gap-1.5">
         {[
           { id: 'dashboard', label: 'Overview', icon: Building2 },
           { id: 'listings', label: `Hostels (${properties.length})`, icon: Building2 },

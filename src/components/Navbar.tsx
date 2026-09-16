@@ -855,7 +855,13 @@ export const Navbar: React.FC<NavbarProps> = ({
       {/* MOBILE DRAWER MENU (STRICT ROLE-ADAPTIVE WITH COMPLETE FEATURE PARITY)    */}
       {/* ========================================================================= */}
       {mobileMenuOpen && (
-        <div className="mobile-menu-drawer md:hidden border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 pt-3 pb-8 space-y-4 max-h-[calc(100vh-4.5rem)] overflow-y-auto animate-in slide-in-from-top duration-200 shadow-2xl">
+        <>
+          <div 
+            className="fixed inset-0 bg-black/60 backdrop-blur-xs z-30 md:hidden animate-in fade-in duration-200"
+            onClick={() => setMobileMenuOpen(false)}
+            aria-hidden="true"
+          />
+          <div className="mobile-menu-drawer md:hidden relative z-40 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 pt-3 pb-8 space-y-4 max-h-[calc(100vh-4.5rem)] overflow-y-auto animate-in slide-in-from-top duration-200 shadow-2xl">
           
           {/* --------------------------------------------------------------------- */}
           {/* ROLE 1: AUTHENTICATED STUDENT DRAWER                                  */}
@@ -993,7 +999,10 @@ export const Navbar: React.FC<NavbarProps> = ({
                 </button>
 
                 <button
-                  onClick={() => { setNotifDropdownOpen(true); }}
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    setNotifDropdownOpen(true);
+                  }}
                   className="w-full flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 transition-colors"
                 >
                   <div className="flex items-center gap-2.5">
@@ -1270,7 +1279,10 @@ export const Navbar: React.FC<NavbarProps> = ({
                 </button>
 
                 <button
-                  onClick={() => { setNotifDropdownOpen(true); }}
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    setNotifDropdownOpen(true);
+                  }}
                   className="w-full flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 transition-colors"
                 >
                   <div className="flex items-center gap-2.5">
@@ -1639,7 +1651,8 @@ export const Navbar: React.FC<NavbarProps> = ({
             </div>
           )}
         </div>
-      )}
+      </>
+    )}
 
       {/* Logout Confirmation Prompt Modal */}
       {showLogoutConfirm && (

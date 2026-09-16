@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Home, 
   Search, 
@@ -9,10 +9,12 @@ import {
   LayoutDashboard, 
   Building2, 
   Menu,
-  Sparkles
+  Sparkles,
+  Bell
 } from 'lucide-react';
 import { AppView } from '../types/hostelEase';
 import { useAuth } from '../context/AuthContext';
+import { api } from '../services/api';
 
 interface MobileBottomNavProps {
   activeView: AppView;
@@ -36,6 +38,64 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
   savedCount = 0
 }) => {
   const { isAuthenticated, isStudent, isProvider, isAdmin, user } = useAuth();
+  const [liveUnreadMsg, setLiveUnreadMsg] = useState<number>(0);
+  const [liveUnreadNotif, setLiveUnreadNotif] = useState<number>(0);
+  const [liveActiveBookings, setLiveActiveBookings] = useState<number>(0);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setLiveUnreadMsg(0);
+      setLiveUnreadNotif(0);
+      setLiveActiveBookings(0);
+      return;
+    }
+
+    const refreshCounts = () => {
+      api.messages.getUnreadCount()
+        .then(res => setLiveUnreadMsg(res.unreadCount || 0))
+        .catch(() => {});
+
+      api.notifications.getAll()
+        .then(res => setLiveUnreadNotif(res.unreadCount || 0))
+        .catch(() => {});
+
+      if (isStudent) {
+        api.bookings.getAll()
+          .then(res => {
+            const active = (res.bookings || []).filter((b: any) => 
+              ['CONFIRMED', 'PENDING', 'PAID'].includes(b.status)
+            ).length;
+            setLiveActiveBookings(active);
+          })
+          .catch(() => {});
+      } else if (isProvider) {
+        api.provider.getDashboard()
+          .then(res => {
+            setLiveActiveBookings(res.stats?.pendingBookings || 0);
+          })
+          .catch(() => {});
+      }
+    };
+
+    refreshCounts();
+    const interval = setInterval(refreshCounts, 12000);
+
+    const handleUpdate = () => refreshCounts();
+    window.addEventListener('hostel_ease_notification_updated', handleUpdate);
+    window.addEventListener('hostel_ease_conversations_updated', handleUpdate);
+    window.addEventListener('hostel_ease_booking_created', handleUpdate);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('hostel_ease_notification_updated', handleUpdate);
+      window.removeEventListener('hostel_ease_conversations_updated', handleUpdate);
+      window.removeEventListener('hostel_ease_booking_created', handleUpdate);
+    };
+  }, [isAuthenticated, isStudent, isProvider]);
+
+  const effectiveMsgCount = Math.max(unreadCount, liveUnreadMsg);
+  const effectiveBookingCount = Math.max(activeBookingCount, liveActiveBookings);
+  const totalAlertCount = effectiveMsgCount + liveUnreadNotif;
 
   const handleMenuToggle = () => {
     if (onToggleMenu) {
@@ -123,30 +183,30 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
           >
             <div className={`p-1 rounded-xl transition-all relative ${activeView === 'bookings' ? 'bg-emerald-50 dark:bg-emerald-950/60' : ''}`}>
               <Receipt className="w-5 h-5" />
-              {activeBookingCount > 0 && (
+              {effectiveBookingCount > 0 && (
                 <span className="absolute -top-1 -right-1 w-4 h-4 bg-emerald-600 text-white text-[9px] font-black rounded-full flex items-center justify-center">
-                  {activeBookingCount}
+                  {effectiveBookingCount}
                 </span>
               )}
             </div>
             <span className="text-[10px] mt-0.5 tracking-tight">Bookings</span>
           </button>
 
-          {/* 5. Student Hub / Profile / Full Menu */}
+          {/* 5. Complete Student More Menu (Community, Ask AI, Chat, Notifs, Theme, Profile) */}
           <button
-            onClick={() => onNavigate('student-dashboard')}
-            className={`flex flex-col items-center justify-center w-full py-1.5 rounded-xl transition-all ${
-              activeView === 'student-dashboard'
-                ? 'text-emerald-600 dark:text-emerald-400 font-extrabold'
-                : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-            }`}
+            onClick={handleMenuToggle}
+            className="flex flex-col items-center justify-center w-full py-1.5 rounded-xl transition-all relative text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+            aria-label="Open complete student menu"
           >
-            <div className={`p-1 rounded-xl transition-all ${activeView === 'student-dashboard' ? 'bg-emerald-50 dark:bg-emerald-950/60' : ''}`}>
-              <User className="w-5 h-5" />
+            <div className="p-1 rounded-xl transition-all relative">
+              <Menu className="w-5 h-5" />
+              {totalAlertCount > 0 && (
+                <span className="absolute -top-1 -right-1 w-4 h-4 bg-rose-600 text-white text-[9px] font-black rounded-full flex items-center justify-center animate-pulse">
+                  {totalAlertCount > 9 ? '9+' : totalAlertCount}
+                </span>
+              )}
             </div>
-            <span className="text-[10px] mt-0.5 tracking-tight">
-              {user?.fullName?.split(' ')[0] || 'Hub'}
-            </span>
+            <span className="text-[10px] mt-0.5 tracking-tight font-bold">More</span>
           </button>
         </div>
       )}
@@ -189,9 +249,9 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
           >
             <div className="p-1 rounded-xl transition-all relative">
               <Receipt className="w-5 h-5" />
-              {activeBookingCount > 0 && (
+              {effectiveBookingCount > 0 && (
                 <span className="absolute -top-1 -right-1 w-4 h-4 bg-emerald-600 text-white text-[9px] font-black rounded-full flex items-center justify-center">
-                  {activeBookingCount}
+                  {effectiveBookingCount}
                 </span>
               )}
             </div>
@@ -209,9 +269,9 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
           >
             <div className={`p-1 rounded-xl transition-all relative ${activeView === 'messages' ? 'bg-emerald-50 dark:bg-emerald-950/60' : ''}`}>
               <MessageSquare className="w-5 h-5" />
-              {unreadCount > 0 && (
+              {effectiveMsgCount > 0 && (
                 <span className="absolute -top-1 -right-1 w-4 h-4 bg-rose-600 text-white text-[9px] font-black rounded-full flex items-center justify-center">
-                  {unreadCount}
+                  {effectiveMsgCount}
                 </span>
               )}
             </div>
@@ -221,12 +281,18 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
           {/* 5. Complete Landlord Menu (Operations Drawer) */}
           <button
             onClick={handleMenuToggle}
-            className="flex flex-col items-center justify-center w-full py-1.5 rounded-xl transition-all text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+            className="flex flex-col items-center justify-center w-full py-1.5 rounded-xl transition-all relative text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+            aria-label="Open complete landlord menu"
           >
-            <div className="p-1 rounded-xl transition-all">
+            <div className="p-1 rounded-xl transition-all relative">
               <Menu className="w-5 h-5" />
+              {liveUnreadNotif > 0 && (
+                <span className="absolute -top-1 -right-1 w-4 h-4 bg-rose-600 text-white text-[9px] font-black rounded-full flex items-center justify-center animate-pulse">
+                  {liveUnreadNotif > 9 ? '9+' : liveUnreadNotif}
+                </span>
+              )}
             </div>
-            <span className="text-[10px] mt-0.5 tracking-tight">Menu</span>
+            <span className="text-[10px] mt-0.5 tracking-tight font-bold">More</span>
           </button>
         </div>
       )}

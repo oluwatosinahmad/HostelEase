@@ -905,6 +905,72 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
         </div>
       )}
 
+      {/* MOBILE STUDENT HORIZONTAL SUB-NAV BAR (Instant 1-tap access to all student dashboard features on phones) */}
+      <div className="lg:hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-1.5 overflow-x-auto scrollbar-none shadow-xs flex items-center gap-1.5 mb-4">
+        {[
+          { id: 'overview', label: 'Overview', icon: Sparkles },
+          { id: 'bookings', label: 'Bookings', count: summary.activeBookingsCount, icon: Building2 },
+          { id: 'inspections', label: 'Inspections', count: dashboardData?.recentInspections?.length, icon: Calendar },
+          { id: 'shortlist', label: 'Saved', count: summary.savedCount, icon: Bookmark },
+          { id: 'preferences', label: 'Preferences', icon: SlidersHorizontal },
+          { id: 'profile_security', label: 'Profile', icon: UserIcon },
+          { id: 'payments', label: 'Payments', count: summary.pendingPaymentsCount, badgeColor: 'bg-rose-600 text-white', icon: CreditCard },
+          { id: 'move_in', label: 'Move-In', icon: KeyRound },
+          { id: 'community', label: 'Community', icon: Users },
+          { id: 'messages', label: 'Messages', count: summary.unreadMessagesCount, badgeColor: 'bg-rose-600 text-white', icon: MessageSquare },
+          { id: 'ai', label: 'Ask AI', icon: Bot, highlight: true }
+        ].map(tab => {
+          const Icon = tab.icon;
+          const isActive = activeTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => {
+                if (tab.id === 'ai') {
+                  if (onOpenAI) onOpenAI();
+                  return;
+                }
+                if (tab.id === 'payments') {
+                  if (onNavigateToPayments) onNavigateToPayments();
+                  return;
+                }
+                if (tab.id === 'move_in') {
+                  if (onNavigateToMoveIn) onNavigateToMoveIn();
+                  return;
+                }
+                if (tab.id === 'community') {
+                  if (onNavigateToCommunity) onNavigateToCommunity();
+                  return;
+                }
+                if (tab.id === 'messages') {
+                  if (onNavigateToMessages) onNavigateToMessages();
+                  else if (onOpenConversation) onOpenConversation('');
+                  return;
+                }
+                setActiveTab(tab.id as any);
+              }}
+              className={`shrink-0 px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
+                tab.highlight
+                  ? 'bg-gradient-to-r from-emerald-600 to-teal-700 text-white shadow-xs'
+                  : isActive
+                  ? 'bg-slate-900 text-white shadow-xs dark:bg-emerald-600'
+                  : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-emerald-50 dark:hover:bg-slate-700'
+              }`}
+            >
+              <Icon className="w-3.5 h-3.5" />
+              <span>{tab.label}</span>
+              {tab.count !== undefined && tab.count > 0 && (
+                <span className={`px-1.5 py-0.2 rounded-full text-[9px] font-black ${
+                  tab.badgeColor || (isActive ? 'bg-white/20 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200')
+                }`}>
+                  {tab.count}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
       {/* 2-COLUMN LAYOUT: CATEGORIZED LEFT SIDEBAR + RIGHT MAIN CONTENT */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
         
