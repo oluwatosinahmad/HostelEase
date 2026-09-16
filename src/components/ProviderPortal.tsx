@@ -684,8 +684,98 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
     <div className="min-h-screen bg-white pb-20">
       
       {/* 1. TOP COMMAND BAR & PROPERTY SWITCHER */}
-      <header className="bg-white border-b border-gray-200 static sm:sticky sm:top-16 z-30 shadow-xs">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-wrap items-center justify-between gap-4">
+      <header className="bg-white dark:bg-slate-900 border-b border-gray-200 dark:border-slate-800 static sm:sticky sm:top-16 z-30 shadow-xs">
+        {/* Mobile Command Bar (< sm) */}
+        <div className="sm:hidden px-3.5 py-2.5 space-y-2">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="p-2 bg-emerald-800 text-white rounded-xl shadow-xs shrink-0">
+                <Building2 className="w-4 h-4" />
+              </div>
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs font-black text-gray-900 dark:text-white leading-none truncate">Landlord Workspace</span>
+                  <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border shrink-0 ${
+                    stats?.verificationStatus === 'APPROVED' 
+                      ? 'bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300' 
+                      : 'bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-950 dark:text-amber-300'
+                  }`}>
+                    {stats?.verificationStatus === 'APPROVED' ? 'Verified' : 'Pending'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Quick Actions Header Bar (Mobile) */}
+            <div className="flex items-center gap-1.5 shrink-0">
+              <button
+                onClick={() => {
+                  setEditingProperty(null);
+                  setActiveTab('wizard');
+                }}
+                className="px-2.5 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white text-[11px] font-bold rounded-xl shadow-xs flex items-center gap-1 transition-all cursor-pointer"
+              >
+                <PlusCircle className="w-3.5 h-3.5" />
+                <span>+ Add</span>
+              </button>
+
+              <button
+                onClick={() => setActiveTab('rooms')}
+                className={`p-1.5 rounded-xl border transition-all cursor-pointer ${
+                  activeTab === 'rooms'
+                    ? 'bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300'
+                    : 'bg-gray-100 hover:bg-gray-200 dark:bg-slate-800 text-gray-700 dark:text-slate-300 border-transparent'
+                }`}
+                title="Spaces & Rooms"
+              >
+                <Layers className="w-4 h-4" />
+              </button>
+
+              <button
+                onClick={() => setActiveTab('messages')}
+                className={`p-1.5 rounded-xl border transition-all relative cursor-pointer ${
+                  activeTab === 'messages'
+                    ? 'bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300'
+                    : 'bg-gray-100 hover:bg-gray-200 dark:bg-slate-800 text-gray-700 dark:text-slate-300 border-transparent'
+                }`}
+                title="Student Inquiries"
+              >
+                <MessageSquare className="w-4 h-4" />
+                {conversations.some(c => (c.unreadCount || 0) > 0) && (
+                  <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
+                )}
+              </button>
+
+              <button
+                onClick={() => setAiDrawerOpen(true)}
+                className="p-1.5 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white rounded-xl shadow-xs transition-all cursor-pointer"
+                title="Ask Landlord AI"
+              >
+                <Sparkles className="w-4 h-4 text-amber-300 animate-spin-slow" />
+              </button>
+            </div>
+          </div>
+
+          {/* Full-width Property Switcher Bar on mobile */}
+          <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-800/80 px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700">
+            <span className="text-[11px] font-bold text-gray-500 dark:text-slate-400 shrink-0">Property:</span>
+            <select
+              value={selectedPropertyId}
+              onChange={e => setSelectedPropertyId(e.target.value)}
+              className="w-full text-xs font-bold text-emerald-950 dark:text-emerald-300 bg-transparent border-none focus:outline-none cursor-pointer truncate"
+            >
+              <option value="all">🏢 All Registered Hostels ({properties.length})</option>
+              {properties.map(p => (
+                <option key={p.id} value={p.id}>
+                  📍 {p.title} ({p.availabilityStatus})
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* Desktop Command Bar (sm+) */}
+        <div className="hidden sm:flex max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex-wrap items-center justify-between gap-4">
           
           {/* Brand & Property Switcher */}
           <div className="flex items-center gap-3 min-w-0 max-w-full">
@@ -694,7 +784,7 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-base sm:text-lg font-black text-gray-900 leading-tight whitespace-nowrap shrink-0">
+                <span className="text-base sm:text-lg font-black text-gray-900 dark:text-white leading-tight whitespace-nowrap shrink-0">
                   Hostel <span className="text-emerald-700">Ease</span>
                 </span>
                 <span className="text-[10px] sm:text-[11px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200 shrink-0">
@@ -724,7 +814,7 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
             </div>
           </div>
 
-          {/* Quick Actions Header Bar */}
+          {/* Quick Actions Header Bar (Desktop) */}
           <div className="flex items-center gap-2 max-w-full overflow-x-auto scrollbar-none py-1">
             
             {/* Real-time Notification Bell Dropdown */}
@@ -922,8 +1012,8 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
         </div>
       </header>
 
-      {/* MOBILE LANDLORD HORIZONTAL SUB-NAV BAR (Instant 0px access to content on phones) */}
-      <div className="lg:hidden bg-white border-b border-gray-200 px-4 py-2.5 overflow-x-auto scrollbar-none sticky top-16 z-20 shadow-xs flex items-center gap-1.5">
+      {/* MOBILE LANDLORD HORIZONTAL SUB-NAV BAR (Instant access to all 13 features on phones) */}
+      <div className="lg:hidden bg-white/95 dark:bg-slate-900/95 backdrop-blur border-b border-gray-200 dark:border-slate-800 px-3 py-2 overflow-x-auto scrollbar-none sticky top-14 z-20 shadow-xs flex items-center gap-1.5">
         {[
           { id: 'dashboard', label: 'Overview', icon: Building2 },
           { id: 'listings', label: `Hostels (${properties.length})`, icon: Building2 },
@@ -954,12 +1044,12 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
                 }
                 setActiveTab(tab.id as any);
               }}
-              className={`shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap ${
+              className={`shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
                 tab.highlight
                   ? 'bg-emerald-600 text-white shadow-xs'
                   : isActive
                   ? 'bg-emerald-800 text-white shadow-xs'
-                  : 'bg-white text-slate-700 hover:bg-emerald-50 border border-slate-200'
+                  : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-emerald-50 border border-slate-200 dark:border-slate-700'
               }`}
             >
               <Icon className="w-3.5 h-3.5" />
@@ -1134,68 +1224,68 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
           <div className="space-y-6">
             
             {/* KPI Metrics Cards Grid */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-4">
               
-              <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-xs">
-                <div className="flex items-center justify-between text-gray-500 mb-2">
-                  <span className="text-xs font-bold uppercase tracking-wider">Available Spaces</span>
-                  <div className="p-2 bg-emerald-50 text-emerald-700 rounded-xl">
-                    <Layers className="w-4 h-4" />
+              <div className="bg-white dark:bg-slate-800 p-3.5 sm:p-5 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-xs">
+                <div className="flex items-center justify-between text-gray-500 dark:text-slate-400 mb-1.5 sm:mb-2">
+                  <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider truncate">Available Spaces</span>
+                  <div className="p-1.5 sm:p-2 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 rounded-xl shrink-0">
+                    <Layers className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                   </div>
                 </div>
-                <div className="text-2xl font-black text-emerald-800">
+                <div className="text-xl sm:text-2xl font-black text-emerald-800 dark:text-emerald-300">
                   {stats?.availableSpaces || 0}
-                  <span className="text-xs font-semibold text-gray-400 ml-1.5">
-                    / {stats?.totalCapacity || 0} Total
+                  <span className="text-[10px] sm:text-xs font-semibold text-gray-400 dark:text-slate-500 ml-1">
+                    / {stats?.totalCapacity || 0}
                   </span>
                 </div>
-                <p className="text-[11px] text-gray-500 mt-1">
+                <p className="text-[10px] sm:text-[11px] text-gray-500 dark:text-slate-400 mt-1 leading-tight">
                   {stats?.occupiedSpaces || 0} occupied • {stats?.reservedSpaces || 0} reserved
                 </p>
               </div>
 
-              <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-xs">
-                <div className="flex items-center justify-between text-gray-500 mb-2">
-                  <span className="text-xs font-bold uppercase tracking-wider">Pending Bookings</span>
-                  <div className="p-2 bg-amber-50 text-amber-700 rounded-xl">
-                    <FileText className="w-4 h-4" />
+              <div className="bg-white dark:bg-slate-800 p-3.5 sm:p-5 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-xs">
+                <div className="flex items-center justify-between text-gray-500 dark:text-slate-400 mb-1.5 sm:mb-2">
+                  <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider truncate">Bookings</span>
+                  <div className="p-1.5 sm:p-2 bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400 rounded-xl shrink-0">
+                    <FileText className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                   </div>
                 </div>
-                <div className="text-2xl font-black text-amber-700">
+                <div className="text-xl sm:text-2xl font-black text-amber-700 dark:text-amber-400">
                   {stats?.pendingBookings || 0}
                 </div>
-                <p className="text-[11px] text-gray-500 mt-1">
-                  {stats?.confirmedBookings || 0} confirmed bookings
+                <p className="text-[10px] sm:text-[11px] text-gray-500 dark:text-slate-400 mt-1 leading-tight">
+                  {stats?.confirmedBookings || 0} confirmed
                 </p>
               </div>
 
-              <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-xs">
-                <div className="flex items-center justify-between text-gray-500 mb-2">
-                  <span className="text-xs font-bold uppercase tracking-wider">Upcoming Inspections</span>
-                  <div className="p-2 bg-blue-50 text-blue-700 rounded-xl">
-                    <Clock className="w-4 h-4" />
+              <div className="bg-white dark:bg-slate-800 p-3.5 sm:p-5 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-xs">
+                <div className="flex items-center justify-between text-gray-500 dark:text-slate-400 mb-1.5 sm:mb-2">
+                  <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider truncate">Inspections</span>
+                  <div className="p-1.5 sm:p-2 bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-400 rounded-xl shrink-0">
+                    <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                   </div>
                 </div>
-                <div className="text-2xl font-black text-blue-800">
+                <div className="text-xl sm:text-2xl font-black text-blue-800 dark:text-blue-400">
                   {stats?.upcomingInspections || 0}
                 </div>
-                <p className="text-[11px] text-gray-500 mt-1">
-                  {stats?.pendingInspections || 0} requests awaiting response
+                <p className="text-[10px] sm:text-[11px] text-gray-500 dark:text-slate-400 mt-1 leading-tight">
+                  {stats?.pendingInspections || 0} pending response
                 </p>
               </div>
 
-              <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-xs">
-                <div className="flex items-center justify-between text-gray-500 mb-2">
-                  <span className="text-xs font-bold uppercase tracking-wider">Total Revenue</span>
-                  <div className="p-2 bg-emerald-50 text-emerald-700 rounded-xl">
-                    <DollarSign className="w-4 h-4" />
+              <div className="bg-white dark:bg-slate-800 p-3.5 sm:p-5 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-xs">
+                <div className="flex items-center justify-between text-gray-500 dark:text-slate-400 mb-1.5 sm:mb-2">
+                  <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider truncate">Revenue</span>
+                  <div className="p-1.5 sm:p-2 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 rounded-xl shrink-0">
+                    <DollarSign className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                   </div>
                 </div>
-                <div className="text-2xl font-black text-gray-900">
+                <div className="text-xl sm:text-2xl font-black text-gray-900 dark:text-white truncate">
                   {formatNaira(stats?.totalRevenue || 0)}
                 </div>
-                <p className="text-[11px] text-emerald-600 font-semibold mt-1">
-                  Verified escrow payouts
+                <p className="text-[10px] sm:text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold mt-1 leading-tight">
+                  Verified payouts
                 </p>
               </div>
 
@@ -1683,18 +1773,18 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
         {/* TAB 3: ROOMS & BEDSPACES INVENTORY */}
         {activeTab === 'rooms' && (
           <div className="space-y-6">
-            <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-xs flex flex-wrap items-center justify-between gap-4">
+            <div className="bg-white dark:bg-slate-800 p-4 sm:p-6 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
               <div>
-                <h2 className="text-base font-bold text-gray-900">Room & Bedspace Manager</h2>
-                <p className="text-xs text-gray-500">Track individual bedspace occupancy and room configurations</p>
+                <h2 className="text-base font-bold text-gray-900 dark:text-white">Room & Bedspace Manager</h2>
+                <p className="text-xs text-gray-500 dark:text-slate-400">Track individual bedspace occupancy and room configurations</p>
               </div>
 
-              <div className="flex items-center gap-3">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 sm:gap-3 w-full sm:w-auto">
                 {properties.length > 0 ? (
                   <select
                     value={selectedRoomPropertyId}
                     onChange={e => setSelectedRoomPropertyId(e.target.value)}
-                    className="text-xs font-bold text-gray-800 bg-gray-50 border border-gray-300 rounded-xl px-3 py-2 cursor-pointer"
+                    className="w-full sm:w-auto max-w-full sm:max-w-xs text-xs font-bold text-gray-800 dark:text-slate-200 bg-gray-50 dark:bg-slate-900 border border-gray-300 dark:border-slate-600 rounded-xl px-3 py-2 cursor-pointer truncate"
                   >
                     {properties.map(p => (
                       <option key={p.id} value={p.id}>{p.title}</option>
@@ -1707,7 +1797,7 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
                 <button
                   onClick={() => setAddRoomModalOpen(true)}
                   disabled={properties.length === 0}
-                  className="px-4 py-2 bg-emerald-800 hover:bg-emerald-900 disabled:opacity-50 text-white text-xs font-bold rounded-xl shadow-xs flex items-center gap-1.5 cursor-pointer"
+                  className="w-full sm:w-auto justify-center px-4 py-2 bg-emerald-800 hover:bg-emerald-900 disabled:opacity-50 text-white text-xs font-bold rounded-xl shadow-xs flex items-center gap-1.5 cursor-pointer shrink-0"
                 >
                   <PlusCircle className="w-4 h-4" />
                   + Add Room
@@ -1717,10 +1807,10 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
 
             {/* Room List with Bedspaces */}
             {(!propertyRooms || propertyRooms.length === 0) ? (
-              <div className="bg-white rounded-2xl p-10 border border-gray-200 text-center space-y-3 shadow-xs">
-                <Layers className="w-10 h-10 text-gray-300 mx-auto" />
-                <h4 className="text-sm font-bold text-gray-700">No Rooms Configured Yet</h4>
-                <p className="text-xs text-gray-500 max-w-sm mx-auto">
+              <div className="bg-white dark:bg-slate-800 rounded-2xl p-8 sm:p-10 border border-gray-200 dark:border-slate-700 text-center space-y-3 shadow-xs">
+                <Layers className="w-10 h-10 text-gray-300 dark:text-slate-600 mx-auto" />
+                <h4 className="text-sm font-bold text-gray-700 dark:text-slate-200">No Rooms Configured Yet</h4>
+                <p className="text-xs text-gray-500 dark:text-slate-400 max-w-sm mx-auto">
                   {properties.length === 0 
                     ? 'Register your hostel first to configure individual rooms and bedspaces.' 
                     : 'Click "+ Add Room" to configure single rooms, self-contains, or bedspaces for this hostel.'}
@@ -1731,41 +1821,41 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
                       setEditingProperty(null);
                       setActiveTab('wizard');
                     }}
-                    className="px-4 py-2 bg-emerald-800 hover:bg-emerald-900 text-white text-xs font-bold rounded-xl shadow-xs"
+                    className="px-4 py-2 bg-emerald-800 hover:bg-emerald-900 text-white text-xs font-bold rounded-xl shadow-xs cursor-pointer"
                   >
                     + Add Hostel First
                   </button>
                 )}
               </div>
             ) : (
-              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
                 {propertyRooms.map(room => (
-                  <div key={room.id} className="bg-white rounded-2xl border border-gray-200 p-5 shadow-xs space-y-4">
+                  <div key={room.id} className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-200 dark:border-slate-700 p-4 sm:p-5 shadow-xs space-y-4">
                     <div className="flex items-start justify-between">
                       <div>
-                        <h4 className="text-sm font-bold text-gray-900">{room.roomName}</h4>
-                        <p className="text-xs text-gray-500">{getPropertyTypeLabel(room.roomType)} • Max: {room.maxOccupants} Occupants</p>
+                        <h4 className="text-sm font-bold text-gray-900 dark:text-white">{room.roomName}</h4>
+                        <p className="text-xs text-gray-500 dark:text-slate-400">{getPropertyTypeLabel(room.roomType)} • Max: {room.maxOccupants} Occupants</p>
                       </div>
                       <button
                         onClick={() => handleDeleteRoom(room.id)}
-                        className="p-1.5 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50 cursor-pointer"
+                        className="p-1.5 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50 dark:hover:bg-slate-700 cursor-pointer"
                         title="Delete Room"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
 
-                    <div className="flex items-center gap-2 text-[11px] font-semibold text-gray-600">
-                      {room.isEnsuite && <span className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded-md">En-suite Bathroom</span>}
-                      {room.isFurnished && <span className="px-2 py-0.5 bg-amber-50 text-amber-700 rounded-md">Furnished</span>}
+                    <div className="flex items-center gap-2 text-[11px] font-semibold text-gray-600 dark:text-slate-300 flex-wrap">
+                      {room.isEnsuite && <span className="px-2 py-0.5 bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 rounded-md">En-suite Bathroom</span>}
+                      {room.isFurnished && <span className="px-2 py-0.5 bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 rounded-md">Furnished</span>}
                     </div>
 
                     {/* Bedspaces Interactive Grid */}
-                    <div className="border-t border-gray-100 pt-3">
-                      <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider block mb-2">
+                    <div className="border-t border-gray-100 dark:border-slate-700 pt-3">
+                      <span className="text-[11px] font-bold text-gray-500 dark:text-slate-400 uppercase tracking-wider block mb-2">
                         Bedspaces ({room.quantityAvailable || 0} Available / {room.quantityTotal || 1} Total)
                       </span>
-                      <div className="grid grid-cols-2 gap-2">
+                      <div className="grid grid-cols-1 xs:grid-cols-2 gap-2">
                         {room.bedspaces?.map((bed: any) => (
                           <button
                             key={bed.id}

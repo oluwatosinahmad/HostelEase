@@ -331,4 +331,35 @@ html.dark ::-webkit-scrollbar-thumb:hover {
   }
 }
 
+/* ==========================================================================
+   🛡️ Floating Badge & Third-Party Widget Suppression
+   Ensures "Powered by Netlify" / "Powered by Notify" / host badges never 
+   float over the application UI, forms, cards, or mobile bottom navigation.
+   ========================================================================== */
+[id*="netlify"],
+[class*="netlify-badge"],
+[id*="notify"],
+[class*="notify-badge"],
+a[href*="netlify.com"][style*="fixed"],
+div[style*="fixed"][style*="bottom: 0"],
+div[style*="fixed"][style*="bottom: 4px"],
+div[style*="fixed"][style*="bottom: 8px"],
+div[style*="fixed"][style*="bottom: 12px"],
+div[style*="fixed"][style*="bottom: 16px"],
+div[style*="fixed"][style*="bottom: 20px"] {
+  display: none !important;
+  pointer-events: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+}
+
+/* Touch-friendly horizontal scrolling helper */
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
 
