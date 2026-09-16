@@ -71,6 +71,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     loadUser();
 
     const handleUserUpdate = (e: any) => {
+      const savedToken = localStorage.getItem('hostel_ease_token');
+      if (savedToken) setToken(savedToken);
       if (e.detail) {
         setUser(e.detail);
       } else {

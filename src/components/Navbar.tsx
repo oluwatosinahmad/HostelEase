@@ -77,6 +77,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   const [notifications, setNotifications] = useState<any[]>([]);
   const [unreadNotifCount, setUnreadNotifCount] = useState<number>(0);
   const [notifDropdownOpen, setNotifDropdownOpen] = useState<boolean>(false);
+  const [notifFilter, setNotifFilter] = useState<'all' | 'unread'>('all');
   const [isLoggingOut, setIsLoggingOut] = useState<boolean>(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState<boolean>(false);
 
@@ -762,17 +763,20 @@ export const Navbar: React.FC<NavbarProps> = ({
                   )}
                 </button>
 
-                {/* Centered Mobile Notification Modal with Backdrop rendered outside header via Portal */}
+                {/* Mobile Notification Bottom Sheet with Backdrop rendered outside header via Portal */}
                 {notifDropdownOpen && createPortal(
                   <div 
                     ref={mobileNotifModalRef}
-                    className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in-50 duration-200 sm:hidden"
+                    className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-xs animate-in fade-in-50 duration-200 sm:hidden"
                     onClick={() => setNotifDropdownOpen(false)}
                   >
                     <div 
-                      className="w-full max-w-sm bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-200"
+                      className="w-full max-w-lg bg-white dark:bg-slate-900 rounded-t-3xl sm:rounded-3xl shadow-2xl border-t sm:border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col max-h-[88vh] pb-[max(env(safe-area-inset-bottom),0.75rem)] animate-in slide-in-from-bottom-5 duration-200"
                       onClick={(e) => e.stopPropagation()}
                     >
+                      {/* Pull handle for native mobile app feel */}
+                      <div className="w-12 h-1 bg-slate-300 dark:bg-slate-700 rounded-full mx-auto my-2.5 sm:hidden shrink-0" />
+
                       <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-950 shrink-0">
                         <div className="flex items-center gap-2">
                           <Bell className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
@@ -787,48 +791,84 @@ export const Navbar: React.FC<NavbarProps> = ({
                           {unreadNotifCount > 0 && (
                             <button
                               onClick={handleMarkAllNotifsRead}
-                              className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline cursor-pointer"
+                              className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline cursor-pointer px-2 py-1 rounded-lg"
                             >
-                              Mark read
+                              Mark all read
                             </button>
                           )}
                           <button
                             onClick={() => setNotifDropdownOpen(false)}
-                            className="p-1 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 cursor-pointer"
+                            className="p-1.5 min-w-[36px] min-h-[36px] flex items-center justify-center rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 cursor-pointer"
+                            aria-label="Close notifications"
                           >
                             <X className="w-4 h-4" />
                           </button>
                         </div>
                       </div>
 
+                      {/* Filter tabs: All vs Unread */}
+                      <div className="px-4 py-2 bg-slate-100/70 dark:bg-slate-900/80 border-b border-slate-200/60 dark:border-slate-800 flex items-center gap-2 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => setNotifFilter('all')}
+                          className={`px-3 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                            notifFilter === 'all'
+                              ? 'bg-emerald-600 text-white shadow-xs'
+                              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                          }`}
+                        >
+                          All ({notifications.length})
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setNotifFilter('unread')}
+                          className={`px-3 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                            notifFilter === 'unread'
+                              ? 'bg-emerald-600 text-white shadow-xs'
+                              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                          }`}
+                        >
+                          Unread ({unreadNotifCount})
+                        </button>
+                      </div>
+
                       <div className="flex-1 min-h-0 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800 p-2">
-                        {notifications.length === 0 ? (
-                          <div className="p-8 text-center text-xs text-slate-500 dark:text-slate-400">
-                            No notifications yet
-                          </div>
-                        ) : (
-                          notifications.slice(0, 15).map((n) => (
+                        {(() => {
+                          const displayNotifs = notifFilter === 'unread'
+                            ? notifications.filter(n => !n.isRead)
+                            : notifications;
+
+                          if (displayNotifs.length === 0) {
+                            return (
+                              <div className="p-8 text-center text-xs text-slate-500 dark:text-slate-400 space-y-1">
+                                <p className="font-bold">No {notifFilter === 'unread' ? 'unread ' : ''}notifications</p>
+                                <p className="text-[11px]">You're all caught up!</p>
+                              </div>
+                            );
+                          }
+
+                          return displayNotifs.slice(0, 20).map((n) => (
                             <div
                               key={n.id}
                               onClick={() => {
                                 handleNotificationClick(n);
                                 setNotifDropdownOpen(false);
                               }}
-                              className={`p-3 rounded-2xl text-left cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors flex items-start gap-2.5 ${
-                                !n.isRead ? 'bg-emerald-50/60 dark:bg-emerald-950/30' : ''
+                              className={`p-3.5 rounded-2xl text-left cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors flex items-start gap-3 min-h-[48px] ${
+                                !n.isRead ? 'bg-emerald-50/70 dark:bg-emerald-950/40 border-l-3 border-emerald-500' : ''
                               }`}
                             >
-                              <div className={`mt-1.5 w-2 h-2 rounded-full shrink-0 ${!n.isRead ? 'bg-emerald-600' : 'bg-transparent'}`} />
+                              <div className={`mt-1 w-2.5 h-2.5 rounded-full shrink-0 ${!n.isRead ? 'bg-emerald-500 ring-2 ring-emerald-300 dark:ring-emerald-700' : 'bg-slate-300 dark:bg-slate-700'}`} />
                               <div className="flex-1 min-w-0">
                                 <p className="text-xs font-bold text-slate-900 dark:text-white">{n.title}</p>
                                 <p className="text-[11px] text-slate-600 dark:text-slate-300 mt-1 leading-relaxed">{n.message}</p>
-                                <span className="text-[10px] text-slate-400 dark:text-slate-500 mt-1.5 inline-block">
-                                  {new Date(n.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                <span className="text-[10px] text-slate-400 dark:text-slate-500 mt-1.5 inline-block font-medium">
+                                  {new Date(n.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • {new Date(n.createdAt).toLocaleDateString()}
                                 </span>
                               </div>
                             </div>
-                          ))
-                        )}
+                          ));
+                        })()}
                       </div>
                     </div>
                   </div>,

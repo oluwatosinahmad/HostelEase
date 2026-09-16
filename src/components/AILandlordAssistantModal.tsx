@@ -4,6 +4,7 @@ import {
   Sparkles, 
   Send, 
   X, 
+  ChevronLeft,
   CheckCircle2, 
   AlertTriangle, 
   Building2, 
@@ -437,58 +438,66 @@ export const AILandlordAssistantModal: React.FC<AILandlordAssistantModalProps> =
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-end bg-slate-950/60 backdrop-blur-sm animate-in fade-in">
       <div 
-        className="w-full max-w-2xl h-full bg-white dark:bg-slate-950 flex flex-col shadow-2xl animate-in slide-in-from-right duration-300 border-l border-slate-200 dark:border-slate-800"
+        className="w-full sm:max-w-2xl h-[100dvh] sm:h-full bg-white dark:bg-slate-950 flex flex-col shadow-2xl animate-in slide-in-from-right duration-300 border-l border-slate-200 dark:border-slate-800 overflow-hidden"
         role="dialog"
         aria-label="Hostel Ease Landlord AI Assistant"
         onClick={(e) => e.stopPropagation()}
       >
         {/* MODAL HEADER */}
-        <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-800 bg-slate-900 text-white flex items-center justify-between shadow-sm shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center shadow-inner">
+        <div className="px-3.5 sm:px-6 py-3 sm:py-4 border-b border-slate-200 dark:border-slate-800 bg-slate-900 text-white flex items-center justify-between shadow-sm shrink-0">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            <button
+              type="button"
+              onClick={onClose}
+              className="sm:hidden p-2 -ml-1 text-slate-300 hover:text-white hover:bg-slate-800 rounded-xl transition cursor-pointer shrink-0"
+              aria-label="Back"
+            >
+              <ChevronLeft className="w-5 h-5 text-white" />
+            </button>
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center shadow-inner shrink-0">
               <Bot className="w-5 h-5 text-emerald-400" />
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="font-black text-sm tracking-tight text-white flex items-center gap-1.5">
-                  Hostel Ease Landlord AI Assistant
-                  <Sparkles className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <h3 className="font-black text-xs sm:text-sm tracking-tight text-white flex items-center gap-1 truncate">
+                  Landlord AI
+                  <Sparkles className="w-3.5 h-3.5 text-amber-400 fill-amber-400 shrink-0" />
                 </h3>
-                <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-emerald-500 text-slate-950">
+                <span className="hidden xs:inline-block px-1.5 py-0.5 rounded-full text-[8px] sm:text-[9px] font-black uppercase tracking-wider bg-emerald-500 text-slate-950 shrink-0">
                   Zero Hallucination
                 </span>
               </div>
-              <p className="text-[11px] text-slate-400 font-medium">
-                24/7 LAUTECH Property Manager & Occupancy Advisor
+              <p className="text-[10px] sm:text-[11px] text-slate-400 font-medium truncate">
+                Property Manager & Occupancy Advisor
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             {/* Nigerian Pidgin & English Toggle */}
-            <div className="flex items-center bg-slate-800 p-1 rounded-xl border border-slate-700">
+            <div className="flex items-center bg-slate-800 p-0.5 sm:p-1 rounded-xl border border-slate-700">
               <button
                 type="button"
                 onClick={() => setLanguageMode('EN')}
-                className={`px-2 py-1 rounded-lg text-[10px] font-black transition cursor-pointer ${
+                className={`px-1.5 sm:px-2 py-1 rounded-lg text-[10px] font-black transition cursor-pointer ${
                   languageMode === 'EN'
                     ? 'bg-emerald-600 text-white shadow-xs'
                     : 'text-slate-400 hover:text-white'
                 }`}
               >
-                🇬🇧 English
+                🇬🇧 <span className="hidden sm:inline">English</span><span className="sm:hidden">EN</span>
               </button>
               <button
                 type="button"
                 onClick={() => setLanguageMode('PIDGIN')}
-                className={`px-2 py-1 rounded-lg text-[10px] font-black transition cursor-pointer ${
+                className={`px-1.5 sm:px-2 py-1 rounded-lg text-[10px] font-black transition cursor-pointer ${
                   languageMode === 'PIDGIN'
                     ? 'bg-amber-500 text-slate-950 font-black shadow-xs'
                     : 'text-slate-400 hover:text-white'
                 }`}
                 title="Nigerian Pidgin English"
               >
-                🇳🇬 Pidgin
+                🇳🇬 <span className="hidden sm:inline">Pidgin</span><span className="sm:hidden">NG</span>
               </button>
             </div>
 
@@ -501,10 +510,10 @@ export const AILandlordAssistantModal: React.FC<AILandlordAssistantModalProps> =
               <RefreshCw className="w-4 h-4" />
             </button>
 
-            {/* Close Button */}
+            {/* Desktop Close Button (Mobile uses back button) */}
             <button
               onClick={onClose}
-              className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition cursor-pointer"
+              className="hidden sm:flex p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition cursor-pointer"
               title="Close Modal"
             >
               <X className="w-5 h-5" />
@@ -920,7 +929,30 @@ export const AILandlordAssistantModal: React.FC<AILandlordAssistantModalProps> =
         )}
 
         {/* CHAT INPUT BAR */}
-        <div className="p-3 sm:p-4 bg-white dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800 shrink-0">
+        <div className="p-3 sm:p-4 pb-[max(env(safe-area-inset-bottom),0.75rem)] bg-white dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800 shrink-0 space-y-2.5">
+          {/* Quick suggestions carousel */}
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider shrink-0 flex items-center gap-1">
+              <Sparkles className="w-3 h-3 text-emerald-600" />
+              Quick:
+            </span>
+            {(languageMode === 'PIDGIN' ? PIDGIN_LANDLORD_SUGGESTIONS : DEFAULT_LANDLORD_SUGGESTIONS).map((sugg, idx) => (
+              <button
+                key={idx}
+                type="button"
+                onClick={() => handleSendMessage(sugg)}
+                disabled={loading}
+                className={`px-3 py-1.5 rounded-xl text-[11px] font-bold transition whitespace-nowrap shrink-0 cursor-pointer shadow-2xs ${
+                  languageMode === 'PIDGIN'
+                    ? 'bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 text-amber-900 dark:text-amber-300 border border-amber-200 dark:border-amber-800'
+                    : 'bg-slate-100 dark:bg-slate-900 hover:bg-emerald-50 dark:hover:bg-emerald-950 text-slate-700 dark:text-slate-300 hover:text-emerald-800 dark:hover:text-emerald-400 border border-slate-200 dark:border-slate-800'
+                }`}
+              >
+                {sugg}
+              </button>
+            ))}
+          </div>
+
           <form 
             onSubmit={(e) => {
               e.preventDefault();
@@ -938,7 +970,7 @@ export const AILandlordAssistantModal: React.FC<AILandlordAssistantModalProps> =
                   handleStartVoiceRecording();
                 }
               }}
-              className={`p-2.5 rounded-xl border transition-all cursor-pointer ${
+              className={`p-3 min-w-[44px] min-h-[44px] rounded-xl border transition-all cursor-pointer flex items-center justify-center shrink-0 ${
                 isRecordingVoice
                   ? 'bg-rose-600 text-white border-rose-600 animate-pulse'
                   : 'bg-slate-100 dark:bg-slate-800 hover:bg-emerald-50 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700'
@@ -959,14 +991,14 @@ export const AILandlordAssistantModal: React.FC<AILandlordAssistantModalProps> =
                   ? 'Ask about your rooms, students wey book, or price for Under G...'
                   : 'Ask about vacant spaces, pending bookings, pricing benchmarks...'
               }
-              className="flex-1 text-xs sm:text-sm bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2.5 text-slate-900 dark:text-white placeholder:text-slate-400 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+              className="flex-1 text-[16px] sm:text-sm bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-3 text-slate-900 dark:text-white placeholder:text-slate-400 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
             />
 
             {/* Send button */}
             <button
               type="submit"
               disabled={loading || !inputQuery.trim()}
-              className="p-2.5 sm:px-4 sm:py-2.5 bg-emerald-800 hover:bg-emerald-900 disabled:opacity-40 text-white font-bold text-xs rounded-xl shadow-xs transition flex items-center gap-1.5 cursor-pointer"
+              className="p-3 min-w-[44px] min-h-[44px] sm:px-4 sm:py-3 bg-emerald-800 hover:bg-emerald-900 disabled:opacity-40 text-white font-bold text-xs rounded-xl shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer shrink-0"
             >
               <Send className="w-4 h-4" />
               <span className="hidden sm:inline">Send</span>

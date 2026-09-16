@@ -537,14 +537,16 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
       {/* MOBILE STUDENT HORIZONTAL SUB-NAV BAR (Instant 0px access to content on phones) */}
-      <div className="lg:hidden bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-2xl px-3 py-2 overflow-x-auto scrollbar-none sticky top-20 z-20 shadow-xs flex items-center gap-1.5 mb-4 max-w-full">
+      <div className="lg:hidden bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-2xl px-3 py-2 overflow-x-auto scrollbar-none shadow-xs flex items-center gap-1.5 mb-4 max-w-full">
         {[
           { id: 'overview', label: 'Overview', icon: Sparkles },
           { id: 'shortlist', label: `Saved (${summary?.savedCount ?? 0})`, icon: Bookmark },
           { id: 'bookings', label: `Bookings (${summary?.activeBookingsCount ?? 0})`, icon: Building2 },
           { id: 'inspections', label: `Inspections (${summary?.pendingInspectionsCount ?? 0})`, icon: Calendar },
+          { id: 'payments', label: 'Payments & Escrow', icon: Receipt },
           { id: 'preferences', label: 'Preferences', icon: SlidersHorizontal },
-          { id: 'profile_security', label: 'My Profile', icon: UserIcon }
+          { id: 'profile_security', label: 'My Profile', icon: UserIcon },
+          { id: 'ai_bot', label: 'Ask AI Plug', icon: Bot }
         ].map(tab => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
@@ -552,16 +554,22 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
             <button
               key={tab.id}
               onClick={() => {
-                setActiveTab(tab.id as any);
-                window.scrollTo({ top: 0, behavior: 'smooth' });
+                if (tab.id === 'payments' && onNavigateToPayments) {
+                  onNavigateToPayments();
+                } else if (tab.id === 'ai_bot' && onOpenAI) {
+                  onOpenAI();
+                } else {
+                  setActiveTab(tab.id as any);
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }
               }}
-              className={`shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap ${
+              className={`shrink-0 px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
                 isActive
                   ? 'bg-emerald-800 text-white shadow-xs'
-                  : 'bg-white text-slate-700 hover:bg-emerald-50 border border-slate-200'
+                  : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-emerald-50 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700'
               }`}
             >
-              <Icon className="w-3.5 h-3.5" />
+              <Icon className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
               <span>{tab.label}</span>
             </button>
           );

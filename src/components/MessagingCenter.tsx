@@ -727,9 +727,9 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
   });
 
   return (
-    <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-6 py-2 sm:py-4">
+    <div data-testid="messaging-center-container" className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-6 pt-2 sm:pt-4 pb-20 md:pb-4">
       {/* High-End Docked Messenger Container (Fixed Height Viewport - Zero Page Jumps!) */}
-      <div className="bg-slate-900/95 backdrop-blur-xl border border-slate-800 rounded-3xl shadow-2xl overflow-hidden grid grid-cols-1 md:grid-cols-12 h-[calc(100vh-5.5rem)] sm:h-[calc(100vh-6rem)] max-h-[860px]">
+      <div className="bg-slate-900/95 backdrop-blur-xl border border-slate-800 rounded-3xl shadow-2xl overflow-hidden grid grid-cols-1 md:grid-cols-12 h-[calc(100dvh-9.5rem)] sm:h-[calc(100vh-6rem)] max-h-[860px]">
         
         {/* ========================================================================= */}
         {/* LEFT COLUMN: CONVERSATION HUB (SLACK / SNAPCHAT STYLE CHAT LIST)           */}
@@ -948,8 +948,10 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
                   <div className="flex items-center gap-3 min-w-0">
                     {/* Mobile Back Button */}
                     <button
+                      type="button"
                       onClick={() => setActiveConversationId(null)}
-                      className="md:hidden p-1.5 text-slate-300 hover:text-white bg-slate-800 rounded-xl"
+                      className="md:hidden p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center text-slate-300 hover:text-white bg-slate-800 active:bg-slate-700 rounded-xl cursor-pointer shrink-0"
+                      aria-label="Back to conversations"
                     >
                       <ChevronLeft className="w-5 h-5" />
                     </button>
@@ -1735,14 +1737,15 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
                         e.preventDefault();
                         handleSendMessage();
                       }}
-                      className="flex items-center gap-2 relative"
+                      className="flex items-center gap-1.5 sm:gap-2 relative"
                     >
                     {/* Media Snap Buttons */}
                     <button
                       type="button"
                       onClick={() => setShowPhotoModal(true)}
-                      className="p-2.5 bg-slate-800 hover:bg-slate-700 text-emerald-400 rounded-2xl border border-slate-700 transition-colors cursor-pointer shrink-0"
+                      className="p-2.5 min-w-[40px] min-h-[40px] flex items-center justify-center bg-slate-800 hover:bg-slate-700 active:bg-slate-750 text-emerald-400 rounded-2xl border border-slate-700 transition-colors cursor-pointer shrink-0"
                       title="Send Room Inspection Photo Snap"
+                      aria-label="Send Photo Snap"
                     >
                       <Camera className="w-4 h-4" />
                     </button>
@@ -1751,27 +1754,28 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
                     <button
                       type="button"
                       onClick={handleStartVoiceRecording}
-                      className="p-2.5 bg-slate-800 hover:bg-slate-700 text-purple-400 rounded-2xl border border-slate-700 transition-colors cursor-pointer shrink-0"
+                      className="p-2.5 min-w-[40px] min-h-[40px] flex items-center justify-center bg-slate-800 hover:bg-slate-700 active:bg-slate-750 text-purple-400 rounded-2xl border border-slate-700 transition-colors cursor-pointer shrink-0"
                       title="Record Voice Note"
+                      aria-label="Record Voice Note"
                     >
                       <Mic className="w-4 h-4" />
                     </button>
 
-                    {/* Emoji Picker Button */}
+                    {/* Emoji Picker Button (Tablet & Desktop) */}
                     <button
                       type="button"
                       onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                      className="p-2.5 bg-slate-800 hover:bg-slate-700 text-amber-400 rounded-2xl border border-slate-700 transition-colors cursor-pointer shrink-0"
+                      className="hidden sm:flex p-2.5 bg-slate-800 hover:bg-slate-700 text-amber-400 rounded-2xl border border-slate-700 transition-colors cursor-pointer shrink-0"
                       title="Emoji Reaction"
                     >
                       <Smile className="w-4 h-4" />
                     </button>
 
-                    {/* Ask AI Assistant Bot Button */}
+                    {/* Ask AI Assistant Bot Button (Tablet & Desktop) */}
                     <button
                       type="button"
                       onClick={() => window.dispatchEvent(new CustomEvent('hostel_ease_open_ai'))}
-                      className="p-2.5 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-500 hover:to-teal-600 text-white rounded-2xl shadow-md transition-colors cursor-pointer shrink-0 border border-emerald-400/30"
+                      className="hidden sm:flex p-2.5 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-500 hover:to-teal-600 text-white rounded-2xl shadow-md transition-colors cursor-pointer shrink-0 border border-emerald-400/30"
                       title={isStudent ? "Ask Student Accommodation AI Bot" : "Ask Landlord AI Bot"}
                     >
                       <Sparkles className="w-4 h-4 text-amber-300 animate-pulse" />
@@ -1807,14 +1811,15 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
                           ? `Message ${activeDetail.conversation.provider.name}...`
                           : `Reply to ${activeDetail.conversation.student.name}...`
                       }
-                      className="flex-1 px-4 py-3 bg-slate-800 text-white placeholder:text-slate-500 rounded-2xl border border-slate-700 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all shadow-inner"
+                      className="flex-1 min-w-0 px-3.5 sm:px-4 py-3 bg-slate-800 text-white placeholder:text-slate-500 rounded-2xl border border-slate-700 text-[16px] sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all shadow-inner"
                     />
 
                     {/* Send Button */}
                     <button
                       type="submit"
                       disabled={sending || !messageInput.trim()}
-                      className="p-3 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 disabled:opacity-40 text-slate-950 font-black rounded-2xl shadow-lg transition-all flex items-center justify-center cursor-pointer shrink-0"
+                      className="p-3 min-w-[44px] min-h-[44px] bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 disabled:opacity-40 text-slate-950 font-black rounded-2xl shadow-lg transition-all flex items-center justify-center cursor-pointer shrink-0"
+                      aria-label="Send message"
                     >
                       <Send className="w-4 h-4" />
                     </button>

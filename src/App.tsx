@@ -404,9 +404,17 @@ function MainApp() {
       const prop = e.detail?.property || null;
       handleOpenAI(prop);
     };
+    const handleNavigateEvent = (e: any) => {
+      if (e.detail) {
+        setCurrentView(e.detail);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    };
+    window.addEventListener('hostel_ease_navigate', handleNavigateEvent);
     window.addEventListener('hostel_ease_open_auth', handleAuthEvent);
     window.addEventListener('hostel_ease_open_ai', handleAiEvent);
     return () => {
+      window.removeEventListener('hostel_ease_navigate', handleNavigateEvent);
       window.removeEventListener('hostel_ease_open_auth', handleAuthEvent);
       window.removeEventListener('hostel_ease_open_ai', handleAiEvent);
     };
@@ -1878,7 +1886,7 @@ function MainApp() {
         />
       )}
 
-      {/* Floating AI Assistant Trigger Button (Accessible on tablet & laptop, while mobile uses drawer & subnav) */}
+      {/* Floating AI Assistant Trigger Button (Accessible on tablet & laptop) */}
       <button
         onClick={() => handleOpenAI()}
         aria-label="Open AI Assistant"
@@ -1888,6 +1896,16 @@ function MainApp() {
         <span className="text-xs font-black tracking-wide">
           {isProvider ? 'Ask Landlord AI' : 'Hostel Ease AI'}
         </span>
+      </button>
+
+      {/* Mobile Floating AI Thumb Button (Positioned safely above MobileBottomNav on phones) */}
+      <button
+        onClick={() => handleOpenAI()}
+        aria-label="Open AI Assistant"
+        className="sm:hidden fixed bottom-20 right-4 z-30 w-12 h-12 rounded-full bg-gradient-to-tr from-emerald-600 via-emerald-700 to-teal-800 active:scale-95 text-white shadow-xl shadow-emerald-950/40 flex items-center justify-center border border-emerald-400/40 transition-all cursor-pointer group"
+        title={isProvider ? 'Ask Landlord AI' : 'Hostel Ease AI Assistant'}
+      >
+        <Sparkles className="w-5 h-5 text-amber-300 animate-pulse group-active:rotate-12 transition-transform" />
       </button>
 
       {/* Mobile-First Floating Bottom Navigation Bar */}
