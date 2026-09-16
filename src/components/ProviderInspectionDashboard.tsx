@@ -385,7 +385,7 @@ export const ProviderInspectionDashboard: React.FC<ProviderInspectionDashboardPr
                       </button>
 
                       {isPending && (
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <button
                             onClick={() => setAcceptModalId(insp.id)}
                             className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-sm flex items-center gap-1"
@@ -411,7 +411,7 @@ export const ProviderInspectionDashboard: React.FC<ProviderInspectionDashboardPr
                       )}
 
                       {isConfirmed && (
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <button
                             onClick={() => handleComplete(insp.id)}
                             className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-sm"

@@ -336,6 +336,12 @@ html.dark ::-webkit-scrollbar-thumb:hover {
    Ensures "Powered by Netlify" / "Powered by Notify" / host badges never 
    float over the application UI, forms, cards, or mobile bottom navigation.
    ========================================================================== */
+#nl-badge-frame,
+iframe#nl-badge-frame,
+iframe[id*="nl-badge"],
+iframe[id^="nl-"],
+iframe[src*="netlify"],
+[id*="nl-badge"],
 [id*="netlify"],
 [class*="netlify-badge"],
 [id*="notify"],
@@ -351,6 +357,12 @@ div[style*="fixed"][style*="bottom: 20px"] {
   pointer-events: none !important;
   visibility: hidden !important;
   opacity: 0 !important;
+  position: absolute !important;
+  left: -9999px !important;
+  top: -9999px !important;
+  width: 0 !important;
+  height: 0 !important;
+  z-index: -9999 !important;
 }
 
 /* Touch-friendly horizontal scrolling helper */

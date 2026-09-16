@@ -255,15 +255,15 @@ export const ProviderBookingDashboard: React.FC<ProviderBookingDashboardProps> =
           {filteredBookings.map(b => (
             <div
               key={b.id}
-              className="bg-white rounded-3xl border border-slate-200 shadow-sm p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4"
+              className="bg-white rounded-3xl border border-slate-200 shadow-sm p-4 sm:p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4"
             >
               {/* Left Details */}
-              <div className="flex items-start gap-4 min-w-0 flex-1">
+              <div className="flex items-start gap-3 sm:gap-4 min-w-0 flex-1">
                 <div className="relative flex-shrink-0">
                   <img
                     src={b.studentAvatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(b.studentName)}&background=059669&color=fff&bold=true`}
                     alt={b.studentName}
-                    className="w-14 h-14 rounded-2xl object-cover border-2 border-emerald-500 shadow-sm bg-slate-100"
+                    className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl object-cover border-2 border-emerald-500 shadow-sm bg-slate-100"
                     onError={(e: any) => {
                       e.currentTarget.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(b.studentName)}&background=059669&color=fff&bold=true`;
                     }}
@@ -274,7 +274,7 @@ export const ProviderBookingDashboard: React.FC<ProviderBookingDashboardProps> =
                 </div>
 
                 <div className="min-w-0 space-y-1">
-                  <div className="flex items-center gap-2 flex-wrap">
+                  <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
                     <span className="font-mono font-black text-xs text-slate-900 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
                       {b.bookingReference}
                     </span>
@@ -308,7 +308,7 @@ export const ProviderBookingDashboard: React.FC<ProviderBookingDashboardProps> =
               </div>
 
               {/* Action Buttons Right */}
-              <div className="flex items-center gap-2 flex-shrink-0 w-full md:w-auto justify-end pt-3 md:pt-0 border-t md:border-t-0 border-slate-100">
+              <div className="flex items-center gap-2 flex-wrap flex-shrink-0 w-full md:w-auto justify-start sm:justify-end pt-3 md:pt-0 border-t md:border-t-0 border-slate-100">
                 {onOpenConversation && (
                   <button
                     onClick={() => onOpenConversation(b.propertyId)}

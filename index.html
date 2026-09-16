@@ -35,7 +35,7 @@
       if ('caches' in window) {
         caches.keys().then(function(names) {
           names.forEach(function(name) {
-            if (name !== 'hostel-ease-shell-v4-live') {
+            if (name !== 'hostel-ease-shell-v5-live') {
               caches.delete(name);
             }
           });
@@ -48,6 +48,47 @@
           }
         });
       }
+    </script>
+
+    <!-- 🛡️ Netlify Badge Frame Suppression -->
+    <style id="nl-badge-eradicator">
+      #nl-badge-frame,
+      iframe#nl-badge-frame,
+      iframe[id*="nl-badge"],
+      iframe[id^="nl-"],
+      iframe[src*="netlify"],
+      [id*="nl-badge"],
+      div[style*="fixed"][style*="bottom: 0"] {
+        display: none !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
+        position: absolute !important;
+        left: -9999px !important;
+        top: -9999px !important;
+        width: 0 !important;
+        height: 0 !important;
+        z-index: -9999 !important;
+      }
+    </style>
+
+    <script>
+      (function() {
+        function removeNetlifyBadge() {
+          var frames = document.querySelectorAll('#nl-badge-frame, iframe[id*="nl-badge"], iframe[id^="nl-"], iframe[src*="netlify"], [id*="nl-badge"]');
+          frames.forEach(function(el) {
+            try { el.remove(); } catch(e) { el.style.display = 'none'; }
+          });
+        }
+        removeNetlifyBadge();
+        if (window.MutationObserver) {
+          var observer = new MutationObserver(removeNetlifyBadge);
+          observer.observe(document.documentElement, { childList: true, subtree: true });
+        }
+        window.addEventListener('DOMContentLoaded', removeNetlifyBadge);
+        window.addEventListener('load', removeNetlifyBadge);
+        setInterval(removeNetlifyBadge, 500);
+      })();
     </script>
   </head>
   <body class="bg-slate-900 text-slate-100 antialiased font-sans">
