@@ -15,8 +15,13 @@ const DB_PATH = process.env.DATABASE_PATH || path.join(DB_DIR, 'hostel_ease.db')
 
 export const db = new Database(DB_PATH);
 
-// Enable SQLite Foreign Key constraints & WAL mode for high concurrency
+// Enable SQLite Foreign Key constraints, WAL mode & high-performance PRAGMAs for concurrency & speed
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
+db.pragma('synchronous = NORMAL');
+db.pragma('cache_size = -64000'); // 64MB memory page cache
+db.pragma('temp_store = MEMORY');
+db.pragma('mmap_size = 268435456'); // 256MB memory mapped I/O
 
 export default db;
+

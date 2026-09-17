@@ -139,6 +139,7 @@ export const HostelCard: React.FC<HostelCardProps> = ({
 
   return (
     <div 
+      data-testid="hostel-card"
       onClick={() => onViewDetails(property)}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}

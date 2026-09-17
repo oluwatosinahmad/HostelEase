@@ -6,27 +6,31 @@ import { authenticate, AuthenticatedRequest } from '../middleware/auth';
 
 const router = Router();
 
+// Pre-compiled prepared statements for Student Dashboard hostel formatting
+const getPriceSummaryStmt = db.prepare(`
+  SELECT * FROM prices WHERE property_id = ? ORDER BY rent_amount ASC LIMIT 1
+`);
+const getCoverMediaStmt = db.prepare(`
+  SELECT url FROM property_media WHERE property_id = ? AND is_cover = 1 LIMIT 1
+`);
+const getFallbackMediaStmt = db.prepare(`
+  SELECT url FROM property_media WHERE property_id = ? ORDER BY display_order ASC LIMIT 1
+`);
+const getKeyAmenitiesStmt = db.prepare(`
+  SELECT a.key, a.name, a.icon 
+  FROM property_amenities pa
+  JOIN amenities a ON pa.amenity_id = a.id
+  WHERE pa.property_id = ? AND pa.is_available = 1
+  LIMIT 4
+`);
+const getAreaByIdStmt = db.prepare('SELECT id, name, slug, landmark FROM areas WHERE id = ?');
+
 // Helper to format hostel card details
 function formatPropertySummary(p: any) {
-  const price = db.prepare(`
-    SELECT * FROM prices WHERE property_id = ? ORDER BY rent_amount ASC LIMIT 1
-  `).get(p.id) as any;
-
-  const coverMedia = db.prepare(`
-    SELECT url FROM property_media WHERE property_id = ? AND is_cover = 1 LIMIT 1
-  `).get(p.id) as any || db.prepare(`
-    SELECT url FROM property_media WHERE property_id = ? ORDER BY display_order ASC LIMIT 1
-  `).get(p.id) as any;
-
-  const keyAmenities = db.prepare(`
-    SELECT a.key, a.name, a.icon 
-    FROM property_amenities pa
-    JOIN amenities a ON pa.amenity_id = a.id
-    WHERE pa.property_id = ? AND pa.is_available = 1
-    LIMIT 4
-  `).all(p.id) as any[];
-
-  const area = db.prepare('SELECT id, name, slug, landmark FROM areas WHERE id = ?').get(p.area_id) as any;
+  const price = getPriceSummaryStmt.get(p.id) as any;
+  const coverMedia = (getCoverMediaStmt.get(p.id) || getFallbackMediaStmt.get(p.id)) as any;
+  const keyAmenities = getKeyAmenitiesStmt.all(p.id) as any[];
+  const area = getAreaByIdStmt.get(p.area_id) as any;
 
   return {
     id: p.id,

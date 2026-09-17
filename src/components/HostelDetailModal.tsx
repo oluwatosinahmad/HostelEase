@@ -49,6 +49,7 @@ import { HostelImageGalleryModal } from './HostelImageGalleryModal';
 
 interface HostelDetailModalProps {
   propertyId: string;
+  initialProperty?: Property | null;
   isOpen: boolean;
   onClose: () => void;
   onToggleSave: (propertyId: string, isSaved: boolean) => void;
@@ -65,6 +66,7 @@ interface HostelDetailModalProps {
 
 export const HostelDetailModal: React.FC<HostelDetailModalProps> = ({
   propertyId,
+  initialProperty = null,
   isOpen,
   onClose,
   onToggleSave,
@@ -79,8 +81,8 @@ export const HostelDetailModal: React.FC<HostelDetailModalProps> = ({
   onViewOnMap
 }) => {
   const { isAuthenticated } = useAuth();
-  const [property, setProperty] = useState<Property | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [property, setProperty] = useState<Property | null>(initialProperty);
+  const [loading, setLoading] = useState<boolean>(!initialProperty);
   const [error, setError] = useState<string | null>(null);
 
   // Gallery state
@@ -181,15 +183,26 @@ export const HostelDetailModal: React.FC<HostelDetailModalProps> = ({
     if (!isOpen || !propertyId) return;
 
     let isMounted = true;
-    setLoading(true);
+
+    // Instant zero-delay load if initialProperty was provided
+    if (initialProperty && (initialProperty.id === propertyId || initialProperty.slug === propertyId)) {
+      setProperty(initialProperty);
+      setIsSaved(Boolean(initialProperty.isSaved));
+      setLoading(false);
+    } else if (!property) {
+      setLoading(true);
+    }
     setError(null);
 
+    // Fetch full specification, rooms, price breakdown, and reviews in background
     api.properties.getById(propertyId)
       .then(res => {
-        if (isMounted) {
-          setProperty(res.property);
+        if (isMounted && res?.property) {
+          setProperty(prev => ({
+            ...(prev || {}),
+            ...res.property
+          }));
           setIsSaved(Boolean(res.property.isSaved));
-          setActiveMediaIndex(0);
           setLoading(false);
           api.discovery.trackRecentlyViewed(propertyId).catch(() => {});
           api.student.recordRecentlyViewed(propertyId).catch(() => {});
@@ -197,7 +210,10 @@ export const HostelDetailModal: React.FC<HostelDetailModalProps> = ({
       })
       .catch(err => {
         if (isMounted) {
-          setError(err.message || 'Failed to load property details');
+          // Only show error if no cached/initial property exists
+          if (!property && !initialProperty) {
+            setError(err.message || 'Failed to load property details');
+          }
           setLoading(false);
         }
       });
@@ -205,7 +221,7 @@ export const HostelDetailModal: React.FC<HostelDetailModalProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [isOpen, propertyId]);
+  }, [isOpen, propertyId, initialProperty]);
 
   if (!isOpen) return null;
 
@@ -265,7 +281,13 @@ export const HostelDetailModal: React.FC<HostelDetailModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-0 md:p-4 bg-slate-900/70 backdrop-blur-sm overflow-y-auto">
+    <div 
+      role="dialog"
+      aria-modal="true"
+      aria-label="Hostel Details"
+      data-testid="hostel-detail-modal"
+      className="fixed inset-0 z-50 flex items-center justify-center p-0 md:p-4 bg-slate-900/70 backdrop-blur-sm overflow-y-auto"
+    >
       <div className="bg-white dark:bg-slate-900 w-full max-w-5xl md:rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 min-h-screen md:min-h-0 md:max-h-[92vh] flex flex-col overflow-hidden text-slate-900 dark:text-slate-100">
         {/* Sticky Header Bar */}
         <div className="sticky top-0 z-30 bg-white/95 dark:bg-slate-900/95 backdrop-blur border-b border-slate-200 dark:border-slate-800 px-4 md:px-6 py-3.5 flex items-center justify-between">

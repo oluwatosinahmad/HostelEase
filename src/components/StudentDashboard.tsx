@@ -157,6 +157,10 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
       return;
     }
 
+    // Instant optimistic image preview (0ms UI feedback!)
+    const localPreviewUrl = URL.createObjectURL(file);
+    setProfileAvatarUrl(localPreviewUrl);
+
     try {
       onShowToast('Uploading photo...', 'info');
       // 1. Upload file via central API upload
@@ -246,9 +250,12 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
   const [allStudentBookings, setAllStudentBookings] = useState<any[]>([]);
   const [allStudentInspections, setAllStudentInspections] = useState<any[]>([]);
 
-  // Fetch complete aggregated dashboard
+  // Fetch complete aggregated dashboard (Non-blocking Stale-While-Revalidate)
   const loadDashboard = async () => {
-    setLoading(true);
+    // Only block screen if no dashboard data is present yet
+    if (!dashboardData || !dashboardData.user) {
+      setLoading(true);
+    }
     try {
       const [data, bkRes, inspRes] = await Promise.all([
         api.student.getDashboard(),

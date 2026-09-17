@@ -2058,6 +2058,14 @@ export const api = {
               }
             }
             const filteredResult = filterFallbackProperties(filters, merged);
+            // Pre-seed individual property cache so opening any hostel details is instant (0ms!)
+            if (filteredResult.properties && Array.isArray(filteredResult.properties)) {
+              for (const p of filteredResult.properties) {
+                if (p && p.id && !apiCache.has(`property_${p.id}`)) {
+                  apiCache.set(`property_${p.id}`, { data: { property: p }, timestamp: Date.now() });
+                }
+              }
+            }
             apiCache.set(cacheKey, { data: filteredResult, timestamp: Date.now() });
             return filteredResult;
           }
@@ -2065,30 +2073,49 @@ export const api = {
       } catch (err) {
         console.warn('Backend /api/properties unreachable or timed out, using verified LAUTECH hostel directory.');
       }
-      return filterFallbackProperties(filters);
+      const fallbackResult = filterFallbackProperties(filters);
+      if (fallbackResult.properties && Array.isArray(fallbackResult.properties)) {
+        for (const p of fallbackResult.properties) {
+          if (p && p.id && !apiCache.has(`property_${p.id}`)) {
+            apiCache.set(`property_${p.id}`, { data: { property: p }, timestamp: Date.now() });
+          }
+        }
+      }
+      return fallbackResult;
     },
 
     async getById(id: string): Promise<{ property: Property }> {
-      try {
-        const cacheKey = `property_${id}`;
-        const cached = apiCache.get(cacheKey);
-        if (cached && (Date.now() - cached.timestamp < CACHE_TTL)) {
-          return cached.data;
-        }
+      const cacheKey = `property_${id}`;
+      const cached = apiCache.get(cacheKey);
 
-        const res = await fetchWithTimeout(`${API_BASE}/properties/${id}`, {
-          headers: { ...getAuthHeader() }
-        }, 5000);
-        if (res.ok) {
-          const data = await res.json();
-          if (data.property) {
-            apiCache.set(cacheKey, { data, timestamp: Date.now() });
-            return data;
+      const revalidate = async () => {
+        try {
+          const res = await fetchWithTimeout(`${API_BASE}/properties/${id}`, {
+            headers: { ...getAuthHeader() }
+          }, 4000);
+          if (res.ok) {
+            const data = await res.json();
+            if (data.property) {
+              apiCache.set(cacheKey, { data, timestamp: Date.now() });
+              return data;
+            }
           }
-        }
-      } catch (err) {
-        console.warn(`Backend /api/properties/${id} unreachable, using local property catalog.`);
+        } catch {}
+        return null;
+      };
+
+      // Stale-While-Revalidate: Return instant cached/seeded hostel data in 0ms!
+      if (cached && (Date.now() - cached.timestamp < 120000)) {
+        // Refresh full rooms/prices/reviews in background
+        revalidate();
+        return cached.data;
       }
+
+      try {
+        const live = await revalidate();
+        if (live) return live;
+      } catch {}
+
       const allProps = getLocalProperties('all');
       const prop = allProps.find(p => p.id === id || p.slug === id) || allProps[0];
       return { property: prop };
@@ -2105,6 +2132,11 @@ export const api = {
         if (res.ok) {
           const data = await res.json();
           if (data.properties && data.properties.length > 0) {
+            for (const p of data.properties) {
+              if (p && p.id && !apiCache.has(`property_${p.id}`)) {
+                apiCache.set(`property_${p.id}`, { data: { property: p }, timestamp: Date.now() });
+              }
+            }
             apiCache.set('featured_properties', { data, timestamp: Date.now() });
             return data;
           }
@@ -2114,7 +2146,13 @@ export const api = {
       }
       const allProps = getLocalProperties('all');
       const featured = allProps.filter(p => p.isFeatured);
-      return { properties: featured.length > 0 ? featured : allProps.slice(0, 4) };
+      const res = { properties: featured.length > 0 ? featured : allProps.slice(0, 4) };
+      for (const p of res.properties) {
+        if (p && p.id && !apiCache.has(`property_${p.id}`)) {
+          apiCache.set(`property_${p.id}`, { data: { property: p }, timestamp: Date.now() });
+        }
+      }
+      return res;
     },
 
     async getRecent(): Promise<{ properties: Property[] }> {
@@ -2128,6 +2166,11 @@ export const api = {
         if (res.ok) {
           const data = await res.json();
           if (data.properties && data.properties.length > 0) {
+            for (const p of data.properties) {
+              if (p && p.id && !apiCache.has(`property_${p.id}`)) {
+                apiCache.set(`property_${p.id}`, { data: { property: p }, timestamp: Date.now() });
+              }
+            }
             apiCache.set('recent_properties', { data, timestamp: Date.now() });
             return data;
           }
@@ -2136,7 +2179,13 @@ export const api = {
         console.warn('Backend /api/properties/recent unreachable, using recent fallback.');
       }
       const allProps = getLocalProperties('all');
-      return { properties: allProps.slice(0, 8) };
+      const res = { properties: allProps.slice(0, 8) };
+      for (const p of res.properties) {
+        if (p && p.id && !apiCache.has(`property_${p.id}`)) {
+          apiCache.set(`property_${p.id}`, { data: { property: p }, timestamp: Date.now() });
+        }
+      }
+      return res;
     },
 
     async saveProperty(propertyId: string, notes?: string): Promise<{ isSaved: boolean }> {

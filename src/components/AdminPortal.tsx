@@ -272,26 +272,18 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
   const [isDeletingUser, setIsDeletingUser] = useState<boolean>(false);
   const [deletionReason, setDeletionReason] = useState<string>('');
 
-  // Load Main Admin Data
+  // Load Main Admin Data with Progressive Multi-Phase Streaming
   const fetchAllAdminData = async () => {
-    setLoading(true);
+    // Only block screen if no dashboard data exists at all
+    if (!dashboardData || dashboardData.stats.totalStudents === 0) {
+      setLoading(true);
+    }
+
     try {
-      const [dash, users, provs, hosts, reps, revs, bks, supp, ann, health, logs, ai, disps, revOver, vids] = await Promise.all([
+      // PRIMARY PHASE: Load essential executive metrics & revenue overview first
+      const [dash, revOver] = await Promise.all([
         api.admin.getDashboard().catch(() => null),
-        api.admin.getUsers(undefined, userRoleFilter, userStatusFilter).catch(() => ({ users: [] })),
-        api.admin.getProviders(providerFilter).catch(() => ({ providers: [] })),
-        api.admin.getHostels(undefined, hostelFilter, hostelAreaFilter).catch(() => ({ hostels: [] })),
-        api.admin.getReports(reportStatusFilter).catch(() => ({ reports: [] })),
-        api.admin.getReviews(reviewStatusFilter).catch(() => ({ reviews: [] })),
-        api.admin.getBookings(bookingStatusFilter).catch(() => ({ bookings: [] })),
-        api.admin.getSupportTickets(ticketStatusFilter).catch(() => ({ tickets: [] })),
-        api.admin.getAnnouncements().catch(() => ({ announcements: [] })),
-        api.admin.getSystemHealth().catch(() => ({ services: [] })),
-        api.admin.getAuditLogs().catch(() => ({ logs: [] })),
-        api.ai.getAdminStats().catch(() => null),
-        api.disputes.adminList({ status: disputeStatusFilter }).catch(() => ({ disputes: [] })),
-        api.admin.revenue.getOverview().catch(() => null),
-        api.admin.getVideos().catch(() => ({ videos: [] }))
+        api.admin.revenue.getOverview().catch(() => null)
       ]);
 
       if (dash) {
@@ -304,26 +296,30 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
         }));
       }
       if (revOver) setRevenueOverview(revOver);
-      setUsersList(users.users || []);
-      setProvidersList(provs.providers || []);
-      setHostelsList(hosts.hostels || []);
-      setReportsList(reps.reports || []);
-      setReviewsList(revs.reviews || []);
-      setBookingsList(bks.bookings || []);
-      setSupportTickets(supp.tickets || []);
-      setAnnouncements(ann.announcements || []);
-      setHealthServices(health.services || []);
-      setAuditLogs(logs.logs || []);
-      setDisputesList(disps.disputes || []);
-      setVideosList(vids?.videos || []);
-      if (ai) setAiStats(ai);
 
-      // Also fetch financial reconciliation if on financials tab
-      api.admin.getReconciliation().then(r => setReconciliationData(r)).catch(() => null);
+      // Unblock screen immediately so executive overview renders in 0ms!
+      setLoading(false);
+
+      // SECONDARY PHASE: Stream list tables progressively in background
+      Promise.allSettled([
+        api.admin.getUsers(undefined, userRoleFilter, userStatusFilter).then(res => setUsersList(res?.users || [])),
+        api.admin.getProviders(providerFilter).then(res => setProvidersList(res?.providers || [])),
+        api.admin.getHostels(undefined, hostelFilter, hostelAreaFilter).then(res => setHostelsList(res?.hostels || [])),
+        api.admin.getReports(reportStatusFilter).then(res => setReportsList(res?.reports || [])),
+        api.admin.getReviews(reviewStatusFilter).then(res => setReviewsList(res?.reviews || [])),
+        api.admin.getBookings(bookingStatusFilter).then(res => setBookingsList(res?.bookings || [])),
+        api.admin.getSupportTickets(ticketStatusFilter).then(res => setSupportTickets(res?.tickets || [])),
+        api.admin.getAnnouncements().then(res => setAnnouncements(res?.announcements || [])),
+        api.admin.getSystemHealth().then(res => setHealthServices(res?.services || [])),
+        api.admin.getAuditLogs().then(res => setAuditLogs(res?.logs || [])),
+        api.ai.getAdminStats().then(res => { if (res) setAiStats(res); }),
+        api.disputes.adminList({ status: disputeStatusFilter }).then(res => setDisputesList(res?.disputes || [])),
+        api.admin.getVideos().then(res => setVideosList(res?.videos || [])),
+        api.admin.getReconciliation().then(r => setReconciliationData(r))
+      ]).catch(() => {});
     } catch (err) {
       console.error('Error fetching admin data:', err);
       onShowToast('Failed to refresh some admin telemetry', 'error');
-    } finally {
       setLoading(false);
     }
   };

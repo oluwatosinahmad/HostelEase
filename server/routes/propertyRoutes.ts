@@ -4,28 +4,71 @@ import { optionalAuthenticate, authenticate, AuthenticatedRequest } from '../mid
 
 const router = Router();
 
+// Pre-compiled SQLite prepared statements for extreme performance (Zero re-compilation in loops!)
+const getPriceStmt = db.prepare(`
+  SELECT * FROM prices WHERE property_id = ? ORDER BY rent_amount ASC LIMIT 1
+`);
+const getCoverMediaStmt = db.prepare(`
+  SELECT * FROM property_media WHERE property_id = ? AND is_cover = 1 LIMIT 1
+`);
+const getFallbackMediaStmt = db.prepare(`
+  SELECT * FROM property_media WHERE property_id = ? ORDER BY display_order ASC LIMIT 1
+`);
+const getKeyAmenitiesStmt = db.prepare(`
+  SELECT a.key, a.name, a.icon, a.category 
+  FROM property_amenities pa
+  JOIN amenities a ON pa.amenity_id = a.id
+  WHERE pa.property_id = ? AND pa.is_available = 1
+  LIMIT 6
+`);
+const getSavedPropStmt = db.prepare(`
+  SELECT property_id FROM saved_properties WHERE user_id = ?
+`);
+
+// Pre-compiled statements for Single Property Details
+const getPropertyByIdStmt = db.prepare(`
+  SELECT p.*, a.name as area_name, a.slug as area_slug, a.landmark as area_landmark,
+         u.full_name as provider_name, u.phone as provider_phone,
+         pp.business_name as provider_business_name, pp.verification_status as provider_verification_status
+  FROM properties p
+  JOIN areas a ON p.area_id = a.id
+  JOIN users u ON p.provider_id = u.id
+  LEFT JOIN provider_profiles pp ON u.id = pp.user_id
+  WHERE p.id = ? OR p.slug = ?
+`);
+const getRoomsByPropIdStmt = db.prepare(`
+  SELECT * FROM rooms WHERE property_id = ?
+`);
+const getPricesByPropIdStmt = db.prepare(`
+  SELECT * FROM prices WHERE property_id = ?
+`);
+const getMediaByPropIdStmt = db.prepare(`
+  SELECT * FROM property_media 
+  WHERE property_id = ? 
+  ORDER BY is_cover DESC, display_order ASC
+`);
+const getAllAmenitiesByPropIdStmt = db.prepare(`
+  SELECT a.id, a.key, a.name, a.category, a.icon, a.description, pa.is_available, pa.notes
+  FROM property_amenities pa
+  JOIN amenities a ON pa.amenity_id = a.id
+  WHERE pa.property_id = ?
+`);
+const checkSavedUserPropStmt = db.prepare(`
+  SELECT id FROM saved_properties WHERE user_id = ? AND property_id = ?
+`);
+const getReviewsByPropIdStmt = db.prepare(`
+  SELECT r.*, u.full_name as student_name
+  FROM reviews r
+  JOIN users u ON r.student_id = u.id
+  WHERE r.property_id = ? AND r.status = 'APPROVED'
+  ORDER BY r.created_at DESC
+`);
+
 // Helper to format property row with rooms, prices, media, amenities
 function formatPropertySummary(p: any, savedPropertyIds: Set<string> = new Set()) {
-  // Get price summary
-  const price = db.prepare(`
-    SELECT * FROM prices WHERE property_id = ? ORDER BY rent_amount ASC LIMIT 1
-  `).get(p.id) as any;
-
-  // Get cover media
-  const coverMedia = db.prepare(`
-    SELECT * FROM property_media WHERE property_id = ? AND is_cover = 1 LIMIT 1
-  `).get(p.id) as any || db.prepare(`
-    SELECT * FROM property_media WHERE property_id = ? ORDER BY display_order ASC LIMIT 1
-  `).get(p.id) as any;
-
-  // Get key amenities
-  const keyAmenities = db.prepare(`
-    SELECT a.key, a.name, a.icon, a.category 
-    FROM property_amenities pa
-    JOIN amenities a ON pa.amenity_id = a.id
-    WHERE pa.property_id = ? AND pa.is_available = 1
-    LIMIT 6
-  `).all(p.id);
+  const price = getPriceStmt.get(p.id) as any;
+  const coverMedia = (getCoverMediaStmt.get(p.id) || getFallbackMediaStmt.get(p.id)) as any;
+  const keyAmenities = getKeyAmenitiesStmt.all(p.id);
 
   return {
     id: p.id,
@@ -183,24 +226,30 @@ router.get('/', optionalAuthenticate, (req: AuthenticatedRequest, res: Response)
         break;
     }
 
-    // Execute query
-    const allMatching = db.prepare(query).all(...params);
-    const totalCount = allMatching.length;
-
-    // Pagination
+    // Pagination via SQL LIMIT / OFFSET for zero-overhead streaming
     const pageNum = Math.max(1, parseInt(page as string, 10) || 1);
     const limitNum = Math.max(1, Math.min(50, parseInt(limit as string, 10) || 12));
     const offset = (pageNum - 1) * limitNum;
-    const paginated = allMatching.slice(offset, offset + limitNum);
+
+    // Count total matches efficiently
+    const countQuery = `SELECT COUNT(*) as count FROM (${query})`;
+    const totalRow = db.prepare(countQuery).get(...params) as { count: number };
+    const totalCount = totalRow ? totalRow.count : 0;
+
+    // Paginated database fetch
+    const paginated = db.prepare(`${query} LIMIT ? OFFSET ?`).all(...params, limitNum, offset);
 
     // Get saved properties for current user if logged in
     const savedPropertyIds = new Set<string>();
     if (req.user) {
-      const savedRows = db.prepare('SELECT property_id FROM saved_properties WHERE user_id = ?').all(req.user.id) as any[];
+      const savedRows = getSavedPropStmt.all(req.user.id) as any[];
       savedRows.forEach(r => savedPropertyIds.add(r.property_id));
     }
 
     const results = paginated.map(p => formatPropertySummary(p, savedPropertyIds));
+
+    // High performance client caching header for discovery
+    res.setHeader('Cache-Control', 'public, max-age=15, stale-while-revalidate=30');
 
     return res.json({
       properties: results,
@@ -231,9 +280,11 @@ router.get('/featured', optionalAuthenticate, (req: AuthenticatedRequest, res: R
 
     const savedPropertyIds = new Set<string>();
     if (req.user) {
-      const savedRows = db.prepare('SELECT property_id FROM saved_properties WHERE user_id = ?').all(req.user.id) as any[];
+      const savedRows = getSavedPropStmt.all(req.user.id) as any[];
       savedRows.forEach(r => savedPropertyIds.add(r.property_id));
     }
+
+    res.setHeader('Cache-Control', 'public, max-age=30, stale-while-revalidate=60');
 
     return res.json({
       properties: properties.map(p => formatPropertySummary(p, savedPropertyIds))
@@ -258,9 +309,11 @@ router.get('/recent', optionalAuthenticate, (req: AuthenticatedRequest, res: Res
 
     const savedPropertyIds = new Set<string>();
     if (req.user) {
-      const savedRows = db.prepare('SELECT property_id FROM saved_properties WHERE user_id = ?').all(req.user.id) as any[];
+      const savedRows = getSavedPropStmt.all(req.user.id) as any[];
       savedRows.forEach(r => savedPropertyIds.add(r.property_id));
     }
+
+    res.setHeader('Cache-Control', 'public, max-age=30, stale-while-revalidate=60');
 
     return res.json({
       properties: properties.map(p => formatPropertySummary(p, savedPropertyIds))
@@ -271,66 +324,34 @@ router.get('/recent', optionalAuthenticate, (req: AuthenticatedRequest, res: Res
   }
 });
 
-// 4. Get Single Property Details (Full detailed breakdown)
+// 4. Get Single Property Details (Full detailed breakdown with precompiled queries)
 router.get('/:id', optionalAuthenticate, (req: AuthenticatedRequest, res: Response) => {
   const { id } = req.params;
 
   try {
-    const property = db.prepare(`
-      SELECT p.*, a.name as area_name, a.slug as area_slug, a.landmark as area_landmark,
-             u.full_name as provider_name, u.phone as provider_phone,
-             pp.business_name as provider_business_name, pp.verification_status as provider_verification_status
-      FROM properties p
-      JOIN areas a ON p.area_id = a.id
-      JOIN users u ON p.provider_id = u.id
-      LEFT JOIN provider_profiles pp ON u.id = pp.user_id
-      WHERE p.id = ? OR p.slug = ?
-    `).get(id, id) as any;
+    const property = getPropertyByIdStmt.get(id, id) as any;
 
     if (!property) {
       return res.status(404).json({ error: 'Property listing not found' });
     }
 
-    // Fetch rooms
-    const rooms = db.prepare(`
-      SELECT * FROM rooms WHERE property_id = ?
-    `).all(property.id);
-
-    // Fetch price breakdown records
-    const prices = db.prepare(`
-      SELECT * FROM prices WHERE property_id = ?
-    `).all(property.id);
-
-    // Fetch categorized media
-    const media = db.prepare(`
-      SELECT * FROM property_media 
-      WHERE property_id = ? 
-      ORDER BY is_cover DESC, display_order ASC
-    `).all(property.id);
-
-    // Fetch all amenities
-    const amenities = db.prepare(`
-      SELECT a.id, a.key, a.name, a.category, a.icon, a.description, pa.is_available, pa.notes
-      FROM property_amenities pa
-      JOIN amenities a ON pa.amenity_id = a.id
-      WHERE pa.property_id = ?
-    `).all(property.id);
+    // Fetch rooms, prices, media, amenities via precompiled statements
+    const rooms = getRoomsByPropIdStmt.all(property.id);
+    const prices = getPricesByPropIdStmt.all(property.id);
+    const media = getMediaByPropIdStmt.all(property.id);
+    const amenities = getAllAmenitiesByPropIdStmt.all(property.id);
 
     // Check if saved by current user
     let isSaved = false;
     if (req.user) {
-      const saved = db.prepare('SELECT id FROM saved_properties WHERE user_id = ? AND property_id = ?').get(req.user.id, property.id);
+      const saved = checkSavedUserPropStmt.get(req.user.id, property.id);
       isSaved = Boolean(saved);
     }
 
     // Fetch legitimate reviews if any
-    const reviews = db.prepare(`
-      SELECT r.*, u.full_name as student_name
-      FROM reviews r
-      JOIN users u ON r.student_id = u.id
-      WHERE r.property_id = ? AND r.status = 'APPROVED'
-      ORDER BY r.created_at DESC
-    `).all(property.id);
+    const reviews = getReviewsByPropIdStmt.all(property.id);
+
+    res.setHeader('Cache-Control', 'public, max-age=15, stale-while-revalidate=30');
 
     return res.json({
       property: {

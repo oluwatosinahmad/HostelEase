@@ -306,9 +306,13 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
   };
 
   const fetchAllProviderData = (propId: string = selectedPropertyId) => {
-    setLoading(true);
+    // Only set blocking loading if we don't have dashboard data yet
+    if (!dashboardData || dashboardData.stats.totalHostels === 0) {
+      setLoading(true);
+    }
     const isDemoLandlord = user?.email === 'landlord@hostelease.ng' || user?.email === 'provider@hostelease.ng' || user?.id === 'user-provider-default' || user?.id === 'usr-provider-default';
 
+    // PRIMARY PHASE (High Priority): Load dashboard overview stats & listings first
     Promise.all([
       api.provider.getDashboard(propId).catch(err => {
         console.warn('api.provider.getDashboard fallback:', err);
@@ -317,83 +321,92 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
       api.provider.getMyListings().catch(err => {
         console.warn('api.provider.getMyListings fallback:', err);
         return { properties: isDemoLandlord ? DEFAULT_PROPERTIES.slice(0, 4) : [] };
-      }),
-      api.provider.getCalendar(propId).catch(() => ({ events: [] })),
-      api.provider.getInspectionSchedules().catch(() => ({ schedules: [] })),
-      api.provider.getQuickReplies().catch(() => ({ quickReplies: [] })),
-      api.provider.getPerformance(propId).catch(() => DEFAULT_PROVIDER_PERFORMANCE),
-      api.provider.getTeam().catch(() => ({ team: [] })),
-      api.provider.getAuditLogs().catch(() => ({ logs: [] })),
-      api.verification.getMyDocuments().catch(() => ({ documents: [] })),
-      api.notifications.getAll().catch(() => ({ notifications: [], unreadCount: 0 })),
-      api.messages.getConversations().catch(() => ({ conversations: [] }))
-    ])
-      .then(([dashRes, propsRes, calRes, schedRes, qrRes, perfRes, teamRes, logsRes, docsRes, notifsRes, msgsRes]) => {
-        let fetchedProps: Property[] = [];
-        if (propsRes && Array.isArray(propsRes.properties)) {
-          fetchedProps = propsRes.properties;
-        } else if (isDemoLandlord) {
-          fetchedProps = DEFAULT_PROPERTIES.slice(0, 4);
-        }
-
-        const resolvedDashboard = dashRes ? { ...dashRes } : { ...DEFAULT_PROVIDER_DASHBOARD };
-        if (!isDemoLandlord && fetchedProps.length === 0) {
-          resolvedDashboard.stats = {
-            ...resolvedDashboard.stats,
-            totalHostels: 0,
-            activeHostels: 0,
-            pendingApproval: 0,
-            drafts: 0,
-            totalCapacity: 0,
-            availableSpaces: 0,
-            occupiedSpaces: 0,
-            reservedSpaces: 0,
-            pendingBookings: 0,
-            confirmedBookings: 0,
-            upcomingInspections: 0,
-            pendingInspections: 0,
-            totalRevenue: 0
-          };
-          resolvedDashboard.properties = [];
-        }
-
-        setDashboardData(resolvedDashboard);
-        setProperties(fetchedProps);
-        setCalendarEvents(calRes?.events || []);
-        setInspectionSchedules(schedRes?.schedules || []);
-        setQuickReplies(qrRes?.quickReplies || []);
-        setPerformanceData(perfRes || DEFAULT_PROVIDER_PERFORMANCE);
-        setTeamMembers(teamRes?.team || []);
-        setAuditLogs(logsRes?.logs || []);
-        setDocuments(docsRes?.documents || []);
-        setNotifications(notifsRes?.notifications || []);
-        setUnreadNotifsCount(notifsRes?.unreadCount || 0);
-        
-        const convList = msgsRes?.conversations || [];
-        setConversations(convList);
-        if (convList.length > 0 && !activeConversationId) {
-          setActiveConversationId(convList[0].id);
-          loadConversationDetail(convList[0].id);
-        }
-
-        if (fetchedProps.length > 0 && !selectedRoomPropertyId) {
-          setSelectedRoomPropertyId(fetchedProps[0].id);
-        }
-
-        // Check if onboarding needs to be shown for new providers
-        if (resolvedDashboard?.onboarding && !resolvedDashboard.onboarding.completed && (!propsRes?.properties || propsRes.properties.length === 0)) {
-          setOnboardingOpen(true);
-        }
-
-        setLoading(false);
       })
-      .catch(err => {
-        console.error('Error loading provider data', err);
-        setDashboardData(DEFAULT_PROVIDER_DASHBOARD);
-        setProperties(isDemoLandlord ? DEFAULT_PROPERTIES.slice(0, 4) : []);
-        setPerformanceData(DEFAULT_PROVIDER_PERFORMANCE);
-        setLoading(false);
-      });
+    ]).then(([dashRes, propsRes]) => {
+      let fetchedProps: Property[] = [];
+      if (propsRes && Array.isArray(propsRes.properties)) {
+        fetchedProps = propsRes.properties;
+      } else if (isDemoLandlord) {
+        fetchedProps = DEFAULT_PROPERTIES.slice(0, 4);
+      }
+
+      const resolvedDashboard = dashRes ? { ...dashRes } : { ...DEFAULT_PROVIDER_DASHBOARD };
+      if (!isDemoLandlord && fetchedProps.length === 0) {
+        resolvedDashboard.stats = {
+          ...resolvedDashboard.stats,
+          totalHostels: 0,
+          activeHostels: 0,
+          pendingApproval: 0,
+          drafts: 0,
+          totalCapacity: 0,
+          availableSpaces: 0,
+          occupiedSpaces: 0,
+          reservedSpaces: 0,
+          pendingBookings: 0,
+          confirmedBookings: 0,
+          upcomingInspections: 0,
+          pendingInspections: 0,
+          totalRevenue: 0
+        };
+        resolvedDashboard.properties = [];
+      }
+
+      setDashboardData(resolvedDashboard);
+      setProperties(fetchedProps);
+      if (fetchedProps.length > 0 && !selectedRoomPropertyId) {
+        setSelectedRoomPropertyId(fetchedProps[0].id);
+      }
+      // Instantly unblock UI so landlord sees dashboard and listings in 0ms!
+      setLoading(false);
+
+      // Check if onboarding needs to be shown for new providers
+      if (resolvedDashboard?.onboarding && !resolvedDashboard.onboarding.completed && (!propsRes?.properties || propsRes.properties.length === 0)) {
+        setOnboardingOpen(true);
+      }
+
+      // SECONDARY PHASE (Background Progressive): Load remaining modules non-blockingly
+      Promise.allSettled([
+        api.notifications.getAll().then(res => {
+          setNotifications(res?.notifications || []);
+          setUnreadNotifsCount(res?.unreadCount || 0);
+        }),
+        api.messages.getConversations().then(res => {
+          const convList = res?.conversations || [];
+          setConversations(convList);
+          if (convList.length > 0 && !activeConversationId) {
+            setActiveConversationId(convList[0].id);
+            loadConversationDetail(convList[0].id);
+          }
+        }),
+        api.provider.getPerformance(propId).then(res => {
+          setPerformanceData(res || DEFAULT_PROVIDER_PERFORMANCE);
+        }),
+        api.provider.getCalendar(propId).then(res => {
+          setCalendarEvents(res?.events || []);
+        }),
+        api.provider.getInspectionSchedules().then(res => {
+          setInspectionSchedules(res?.schedules || []);
+        }),
+        api.provider.getQuickReplies().then(res => {
+          setQuickReplies(res?.quickReplies || []);
+        }),
+        api.provider.getTeam().then(res => {
+          setTeamMembers(res?.team || []);
+        }),
+        api.provider.getAuditLogs().then(res => {
+          setAuditLogs(res?.logs || []);
+        }),
+        api.verification.getMyDocuments().then(res => {
+          setDocuments(res?.documents || []);
+        })
+      ]).catch(() => {});
+    }).catch(err => {
+      console.error('Error loading primary provider data', err);
+      setDashboardData(DEFAULT_PROVIDER_DASHBOARD);
+      setProperties(isDemoLandlord ? DEFAULT_PROPERTIES.slice(0, 4) : []);
+      setPerformanceData(DEFAULT_PROVIDER_PERFORMANCE);
+      setLoading(false);
+    });
   };
 
   useEffect(() => {
