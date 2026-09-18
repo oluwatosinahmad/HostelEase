@@ -131,17 +131,18 @@ router.post('/', authenticate, (req: AuthenticatedRequest, res: Response) => {
   }
 });
 
-// 2. Student / Provider gets their disputes
-router.get('/my', authenticate, (req: AuthenticatedRequest, res: Response) => {
+// 2. Student / Provider gets their disputes (or Admin lists all disputes)
+router.get(['/', '/my'], authenticate, (req: AuthenticatedRequest, res: Response) => {
   const userId = req.user!.id;
   const userRole = req.user!.role;
+  const { status, category } = req.query;
 
   let query = `
     SELECT d.*,
            b.booking_reference, b.rent_amount, b.total_cost,
            p.title as property_title, p.address as property_address,
-           u_student.full_name as student_name,
-           u_prov.full_name as provider_name
+           u_student.full_name as student_name, u_student.email as student_email,
+           u_prov.full_name as provider_name, u_prov.email as provider_email
     FROM disputes d
     JOIN bookings b ON d.booking_id = b.id
     JOIN properties p ON d.property_id = p.id
@@ -157,6 +158,15 @@ router.get('/my', authenticate, (req: AuthenticatedRequest, res: Response) => {
   } else if (userRole === 'PROVIDER') {
     query += ' AND d.provider_id = ?';
     params.push(userId);
+  }
+
+  if (status && status !== 'all') {
+    query += ' AND d.status = ?';
+    params.push(status);
+  }
+  if (category && category !== 'all') {
+    query += ' AND d.category = ?';
+    params.push(category);
   }
 
   query += ' ORDER BY d.created_at DESC';
@@ -178,7 +188,9 @@ router.get('/my', authenticate, (req: AuthenticatedRequest, res: Response) => {
       resolutionNotes: d.resolution_notes,
       refundAmount: d.refund_amount,
       studentName: d.student_name,
+      studentEmail: d.student_email,
       providerName: d.provider_name,
+      providerEmail: d.provider_email,
       evidence: JSON.parse(d.evidence_json || '[]'),
       createdAt: d.created_at,
       updatedAt: d.updated_at

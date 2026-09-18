@@ -176,7 +176,7 @@ router.post('/properties/:propertyId', authenticate, (req: AuthenticatedRequest,
 // ----------------------------------------------------
 // 2. LIST INSPECTIONS (Role-Aware)
 // ----------------------------------------------------
-router.get('/', authenticate, (req: AuthenticatedRequest, res: Response) => {
+router.get(['/', '/my-inspections', '/my'], authenticate, (req: AuthenticatedRequest, res: Response) => {
   if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
 
   const { status, type } = req.query;

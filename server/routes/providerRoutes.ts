@@ -442,7 +442,7 @@ router.put(
 // 3. PROPERTY CRUD & MANAGEMENT (With Location Confirmation & Photos)
 // -----------------------------------------------------------------------------
 router.get(
-  '/properties',
+  ['/properties', '/my-listings'],
   authenticate,
   requireRole('PROVIDER', 'ADMIN'),
   (req: AuthenticatedRequest, res: Response) => {
@@ -2054,6 +2054,68 @@ router.get(
     `).all(providerId) as any[];
 
     res.json({ logs });
+  }
+);
+
+// -----------------------------------------------------------------------------
+// 12. PROVIDER FINANCIAL REPORT & EARNINGS BREAKDOWN
+// -----------------------------------------------------------------------------
+router.get(
+  '/financials',
+  authenticate,
+  requireRole('PROVIDER', 'ADMIN'),
+  (req: AuthenticatedRequest, res: Response) => {
+    const userId = req.user!.id;
+    try {
+      const metrics = db.prepare(`
+        SELECT 
+          COALESCE(SUM(CASE WHEN status = 'SUCCESS' THEN provider_amount ELSE 0 END), 0) as totalRevenue,
+          COALESCE(SUM(CASE WHEN status = 'PENDING' THEN provider_amount ELSE 0 END), 0) as pendingRevenue,
+          COALESCE(SUM(CASE WHEN status = 'REFUNDED' THEN provider_amount ELSE 0 END), 0) as refundedAmount,
+          COUNT(CASE WHEN status = 'SUCCESS' THEN 1 END) as paidBookingsCount,
+          COUNT(CASE WHEN status = 'PENDING' THEN 1 END) as pendingPaymentsCount,
+          COUNT(*) as totalTransactionsCount
+        FROM payments
+        WHERE provider_id = ?
+      `).get(userId) as any;
+
+      const propertyRevenue = db.prepare(`
+        SELECT 
+          prop.id as propertyId,
+          prop.title as propertyTitle,
+          a.name as areaName,
+          COALESCE(SUM(CASE WHEN p.status = 'SUCCESS' THEN p.provider_amount ELSE 0 END), 0) as revenue,
+          COUNT(CASE WHEN p.status = 'SUCCESS' THEN 1 END) as paidCount
+        FROM properties prop
+        JOIN areas a ON prop.area_id = a.id
+        LEFT JOIN payments p ON prop.id = p.property_id
+        WHERE prop.provider_id = ?
+        GROUP BY prop.id
+        ORDER BY revenue DESC
+      `).all(userId);
+
+      const recentTransactions = db.prepare(`
+        SELECT 
+          p.id, p.payment_reference, p.amount, p.provider_amount, p.status, p.created_at,
+          prop.title as propertyTitle, u.full_name as studentName
+        FROM payments p
+        JOIN properties prop ON p.property_id = prop.id
+        JOIN users u ON p.student_id = u.id
+        WHERE p.provider_id = ?
+        ORDER BY p.created_at DESC
+        LIMIT 20
+      `).all(userId);
+
+      res.json({
+        financials: {
+          metrics,
+          propertyRevenue,
+          recentTransactions
+        }
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || 'Failed to fetch provider financials' });
+    }
   }
 );
 

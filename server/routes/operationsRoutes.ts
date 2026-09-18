@@ -9,7 +9,7 @@ const router = Router();
 // 1. HIGH-LEVEL OPERATIONS DASHBOARD
 // =============================================================================
 router.get(
-  '/',
+  ['/', '/dashboard'],
   authenticate,
   requireRole('ADMIN'),
   (req: AuthenticatedRequest, res: Response) => {
@@ -41,7 +41,7 @@ router.get(
 
       // Payouts
       const recentPayouts = db.prepare(`
-        SELECT p.*, u.full_name as provider_name, u.phone as provider_phone, pr.title as hostel_title, r.name as room_name
+        SELECT p.*, u.full_name as provider_name, u.phone as provider_phone, pr.title as hostel_title, r.room_name as room_name
         FROM provider_payouts p
         LEFT JOIN users u ON p.provider_id = u.id
         LEFT JOIN bookings b ON p.booking_id = b.id
@@ -339,7 +339,7 @@ router.get(
   (req: AuthenticatedRequest, res: Response) => {
     try {
       const payouts = db.prepare(`
-        SELECT p.*, u.full_name as provider_name, u.phone as provider_phone, pr.title as hostel_title, r.name as room_name
+        SELECT p.*, u.full_name as provider_name, u.phone as provider_phone, pr.title as hostel_title, r.room_name as room_name
         FROM provider_payouts p
         LEFT JOIN users u ON p.provider_id = u.id
         LEFT JOIN bookings b ON p.booking_id = b.id

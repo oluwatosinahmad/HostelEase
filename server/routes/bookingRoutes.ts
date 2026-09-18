@@ -355,7 +355,7 @@ router.post('/reserve', authenticate, createReservationHandler);
 router.post('/', authenticate, createReservationHandler);
 
 // 3. Get Bookings List (Student or Provider)
-router.get('/', authenticate, (req: AuthenticatedRequest, res: Response) => {
+router.get(['/', '/my-bookings', '/my'], authenticate, (req: AuthenticatedRequest, res: Response) => {
   const userId = req.user!.id;
   const userRole = req.user!.role;
   const { status } = req.query;

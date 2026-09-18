@@ -905,7 +905,7 @@ router.get(
 // 8. FINANCIAL RECONCILIATION & REFUNDS
 // =============================================================================
 router.get(
-  '/payments/reconciliation',
+  ['/payments/reconciliation', '/reconciliation'],
   authenticate,
   requirePermission('payments.view'),
   (req: AuthenticatedRequest, res: Response) => {
@@ -947,7 +947,7 @@ router.get(
 // 9. SUPPORT TICKETS HUB
 // =============================================================================
 router.get(
-  '/support/tickets',
+  ['/support/tickets', '/support-tickets'],
   authenticate,
   requirePermission('support.manage'),
   (req: AuthenticatedRequest, res: Response) => {

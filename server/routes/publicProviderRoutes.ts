@@ -63,5 +63,32 @@ router.get('/:id', (req: Request, res: Response) => {
     }
   });
 });
+// List all active verified accommodation providers
+router.get('/', (req: Request, res: Response) => {
+  const providers = db.prepare(`
+    SELECT u.id, u.full_name, u.avatar_url, u.created_at,
+           pp.business_name, pp.provider_type, pp.bio, pp.verification_status, pp.phone_verified,
+           (SELECT COUNT(*) FROM properties WHERE provider_id = u.id AND verification_status = 'APPROVED') as active_properties_count
+    FROM users u
+    LEFT JOIN provider_profiles pp ON pp.user_id = u.id
+    WHERE u.role = 'PROVIDER' AND u.is_active = 1
+    ORDER BY active_properties_count DESC, u.created_at DESC
+  `).all() as any[];
+
+  res.json({
+    providers: providers.map(p => ({
+      id: p.id,
+      fullName: p.full_name,
+      businessName: p.business_name || p.full_name,
+      avatarUrl: p.avatar_url,
+      providerType: p.provider_type || 'HOSTEL_OWNER',
+      bio: p.bio || 'Verified accommodation provider for LAUTECH students in Ogbomoso.',
+      verificationStatus: p.verification_status || 'PENDING',
+      phoneVerified: Boolean(p.phone_verified),
+      activePropertiesCount: p.active_properties_count,
+      joinedDate: p.created_at
+    }))
+  });
+});
 
 export default router;
