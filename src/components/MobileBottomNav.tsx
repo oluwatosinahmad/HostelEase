@@ -100,11 +100,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
   const totalAlertCount = effectiveMsgCount + liveUnreadNotif;
 
   const handleMenuToggle = () => {
-    if (onToggleMenu) {
-      onToggleMenu();
-    } else {
-      window.dispatchEvent(new CustomEvent('hostel_ease_toggle_mobile_menu'));
-    }
+    onNavigate('more');
   };
 
   const navigateProviderTab = (tab: string) => {
@@ -197,11 +193,15 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
 
           {/* 5. Complete Student More Menu (Community, Ask AI, Chat, Notifs, Theme, Profile) */}
           <button
-            onClick={handleMenuToggle}
-            className="flex flex-col items-center justify-center w-full py-1 rounded-xl transition-all relative text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+            onClick={() => onNavigate('more')}
+            className={`flex flex-col items-center justify-center w-full py-1 rounded-xl transition-all relative ${
+              activeView === 'more'
+                ? 'text-emerald-600 dark:text-emerald-400 font-extrabold'
+                : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+            }`}
             aria-label="Open complete student menu"
           >
-            <div className="p-1 rounded-xl transition-all relative">
+            <div className={`p-1 rounded-xl transition-all relative ${activeView === 'more' ? 'bg-emerald-50 dark:bg-emerald-950/60' : ''}`}>
               <Menu className="w-5 h-5" />
               {totalAlertCount > 0 && (
                 <span className="absolute -top-1 -right-1 w-4 h-4 bg-rose-600 text-white text-[9px] font-black rounded-full flex items-center justify-center animate-pulse">
@@ -283,11 +283,15 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
 
           {/* 5. Complete Landlord Menu (Operations Drawer: Dashboard, Ask AI, Community, Chat, etc.) */}
           <button
-            onClick={handleMenuToggle}
-            className="flex flex-col items-center justify-center w-full py-1 rounded-xl transition-all relative text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+            onClick={() => onNavigate('more')}
+            className={`flex flex-col items-center justify-center w-full py-1 rounded-xl transition-all relative ${
+              activeView === 'more'
+                ? 'text-emerald-600 dark:text-emerald-400 font-extrabold'
+                : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+            }`}
             aria-label="Open complete landlord menu"
           >
-            <div className="p-1 rounded-xl transition-all relative">
+            <div className={`p-1 rounded-xl transition-all relative ${activeView === 'more' ? 'bg-emerald-50 dark:bg-emerald-950/60' : ''}`}>
               <Menu className="w-5 h-5" />
               {totalAlertCount > 0 && (
                 <span className="absolute -top-1 -right-1 w-4 h-4 bg-rose-600 text-white text-[9px] font-black rounded-full flex items-center justify-center animate-pulse">
@@ -368,10 +372,14 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
 
           {/* 5. More Menu */}
           <button
-            onClick={handleMenuToggle}
-            className="flex flex-col items-center justify-center w-full py-1 rounded-xl transition-all relative text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+            onClick={() => onNavigate('more')}
+            className={`flex flex-col items-center justify-center w-full py-1 rounded-xl transition-all relative ${
+              activeView === 'more'
+                ? 'text-purple-600 dark:text-purple-400 font-extrabold'
+                : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+            }`}
           >
-            <div className="p-1 rounded-xl transition-all relative">
+            <div className={`p-1 rounded-xl transition-all relative ${activeView === 'more' ? 'bg-purple-50 dark:bg-purple-950/60' : ''}`}>
               <Menu className="w-5 h-5" />
               {effectiveMsgCount > 0 && (
                 <span className="absolute -top-1 -right-1 w-4 h-4 bg-rose-600 text-white text-[9px] font-black rounded-full flex items-center justify-center">

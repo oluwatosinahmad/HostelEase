@@ -57,6 +57,7 @@ import { HostelDetailModal } from './components/HostelDetailModal';
 import { AIAccommodationAssistantModal } from './components/AIAccommodationAssistantModal';
 import { AILandlordAssistantModal } from './components/AILandlordAssistantModal';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { MorePageView } from './components/MorePageView';
 
 // Dynamic Code Splitting for heavy portals & views (Slashes initial bundle by ~70%!)
 const AdminPortal = lazy(() => import('./components/AdminPortal').then(m => ({ default: m.AdminPortal })));
@@ -117,7 +118,30 @@ function MainApp() {
     try {
       localStorage.setItem('hostel_ease_current_view', currentView);
     } catch {}
+
+    // Synchronize browser history entry so browser back button navigates between views naturally
+    try {
+      if (window.history.state?.view !== currentView) {
+        window.history.pushState({ view: currentView }, '', currentView === 'home' ? '/' : `#${currentView}`);
+      }
+    } catch {}
   }, [currentView]);
+
+  // Listen for browser Back/Forward popstate events
+  useEffect(() => {
+    const handlePopState = (event: PopStateEvent) => {
+      if (event.state && event.state.view) {
+        setCurrentView(event.state.view);
+      } else if (window.location.hash) {
+        const hashView = window.location.hash.replace('#', '') as AppView;
+        if (hashView) setCurrentView(hashView);
+      } else {
+        setCurrentView('home');
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
 
   const [searchViewMode, setSearchViewMode] = useState<'list' | 'map'>('list');
   const [messagingTargetPropertyId, setMessagingTargetPropertyId] = useState<string | null>(null);
@@ -1644,6 +1668,29 @@ function MainApp() {
               setCurrentView('messages');
               window.scrollTo({ top: 0, behavior: 'smooth' });
             }}
+            onShowToast={showToast}
+          />
+        )}
+
+        {/* VIEW 11: MORE FULL-PAGE VIEW */}
+        {currentView === 'more' && (
+          <MorePageView
+            onNavigate={(v) => {
+              setCurrentView(v);
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            onNavigateToDashboardTab={(tab) => {
+              setStudentDashboardTab(tab);
+              setCurrentView('student-dashboard');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            onOpenAuth={handleOpenAuth}
+            savedCount={savedProperties.length}
+            onOpenAI={handleOpenAI}
+            onOpenUtilityRadar={() => setUtilityRadarOpen(true)}
+            onOpenSafeWalk={() => setSafeWalkOpen(true)}
+            onOpenUtilityCalculator={() => setUtilityCalcOpen(true)}
+            onOpenWomenSection={() => setWomensLivingOpen(true)}
             onShowToast={showToast}
           />
         )}
