@@ -1494,10 +1494,36 @@ async function handleResponse<T>(res: Response): Promise<T> {
   return res.json();
 }
 
+export function getDeletedUserIds(): Set<string> {
+  try {
+    const raw = localStorage.getItem('hostel_ease_deleted_user_ids');
+    if (raw) {
+      const arr = JSON.parse(raw);
+      if (Array.isArray(arr)) return new Set(arr.map(x => String(x).toLowerCase().trim()));
+    }
+  } catch {}
+  return new Set();
+}
+
+export function addDeletedUserId(id: string, email?: string) {
+  try {
+    const set = getDeletedUserIds();
+    if (id) set.add(id.toLowerCase().trim());
+    if (email) set.add(email.toLowerCase().trim());
+    localStorage.setItem('hostel_ease_deleted_user_ids', JSON.stringify(Array.from(set)));
+  } catch {}
+}
+
 function getLocalRegisteredUsers(): any[] {
   try {
     const raw = localStorage.getItem('hostel_ease_registered_users');
-    if (raw) return JSON.parse(raw);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        const deleted = getDeletedUserIds();
+        return parsed.filter(u => !deleted.has(u.id?.toLowerCase()) && !deleted.has((u.email || '').toLowerCase().trim()));
+      }
+    }
   } catch {}
   return [];
 }
@@ -1512,6 +1538,15 @@ function handleClientSideFallbackLogin(payload: { email?: string; username?: str
   const rawIdentifier = (payload.username || payload.email || '').toLowerCase().trim();
   const email = payload.email || rawIdentifier;
   const requested = payload.requestedRole || payload.role || 'STUDENT';
+
+  // Strict check: permanently deleted accounts can NEVER log in
+  const deletedIds = getDeletedUserIds();
+  if (deletedIds.has(rawIdentifier) || deletedIds.has(email.toLowerCase())) {
+    const deletedErr: any = new Error('No account found with this email. Please check your credentials or register.');
+    deletedErr.code = 'INVALID_CREDENTIALS';
+    deletedErr.status = 401;
+    throw deletedErr;
+  }
 
   // Check if this user registered locally
   const registeredUsers = getLocalRegisteredUsers();
@@ -3909,113 +3944,125 @@ export const api = {
       if (role && role !== 'all') params.append('role', role);
       if (status && status !== 'all') params.append('status', status);
 
+      const deletedIds = getDeletedUserIds();
       let serverUsers: AdminUserItem[] = [];
+      let isServerOnline = false;
       try {
         const res = await fetch(`${API_BASE}/admin/users?${params.toString()}`, {
           headers: { ...getAuthHeader() }
         });
         if (res.ok) {
           const data = await res.json();
-          if (data && Array.isArray(data.users)) serverUsers = data.users;
+          if (data && Array.isArray(data.users)) {
+            serverUsers = data.users;
+            isServerOnline = true;
+          }
         }
       } catch (err) {
         console.warn('Backend getUsers offline, using registered & fallback store:', err);
       }
 
-      // Merge with persistent local registered users so all newly created student & landlord accounts appear!
-      const registeredUsers = getLocalRegisteredUsers();
-      const localBookings = getLocalBookings();
-      const localInspections = getLocalInspections();
-      const localProperties = getLocalProperties('all');
+      let allUsers: AdminUserItem[] = [];
 
-      const convertedLocalUsers: AdminUserItem[] = registeredUsers.map(reg => {
-        const studentBookings = localBookings.filter(b => (b as any).userId === reg.id || (b as any).studentEmail?.toLowerCase() === reg.email?.toLowerCase()).length;
-        const studentInspections = localInspections.filter(i => (i as any).studentEmail?.toLowerCase() === reg.email?.toLowerCase()).length;
-        const providerHostels = localProperties.filter(p => (p as any).providerId === reg.id || (p as any).provider?.email?.toLowerCase() === reg.email?.toLowerCase()).length;
-        
-        return {
-          id: reg.id,
-          fullName: reg.fullName || reg.businessName || 'Registered User',
-          email: reg.email,
-          phone: reg.phone || '',
-          role: reg.role as any,
-          isActive: true,
-          accountStatus: 'ACTIVE',
-          createdAt: reg.createdAt || new Date().toISOString(),
-          studentBookingsCount: studentBookings,
-          studentInspectionsCount: studentInspections,
-          providerHostelsCount: providerHostels,
-          department: reg.studentDetails?.department,
-          matricNo: reg.studentDetails?.matricNo || reg.studentDetails?.matricNumber,
-          matricNumber: reg.studentDetails?.matricNo || reg.studentDetails?.matricNumber,
-          level: reg.studentDetails?.level,
-          businessName: reg.providerDetails?.businessName || reg.businessName,
-          avatarUrl: reg.avatarUrl || reg.studentDetails?.avatarUrl,
-          verificationStatus: reg.role === 'PROVIDER' ? 'VERIFIED' : undefined
-        };
-      });
+      if (isServerOnline) {
+        // When online, the server is the single source of truth.
+        // Never resurrect deleted accounts with default mock users!
+        allUsers = serverUsers.filter(u => !deletedIds.has(u.id.toLowerCase()) && !deletedIds.has((u.email || '').toLowerCase().trim()));
+      } else {
+        // Merge with persistent local registered users so all newly created student & landlord accounts appear in offline mode!
+        const registeredUsers = getLocalRegisteredUsers();
+        const localBookings = getLocalBookings();
+        const localInspections = getLocalInspections();
+        const localProperties = getLocalProperties('all');
 
-      // Default mock users to merge
-      const defaultUsers: AdminUserItem[] = [
-        {
-          id: 'user-admin-1',
-          fullName: 'Oluwatosin Ahmad',
-          email: 'admin@hostelease.ng',
-          role: 'ADMIN',
-          isActive: true,
-          accountStatus: 'ACTIVE',
-          phone: '+2348039876543',
-          createdAt: '2026-08-01T00:00:00Z',
-          studentBookingsCount: 0,
-          studentInspectionsCount: 0,
-          providerHostelsCount: 0
-        },
-        {
-          id: 'usr-student-1',
-          fullName: 'Babatunde Adeleke',
-          email: 'student@lautech.edu.ng',
-          role: 'STUDENT',
-          isActive: true,
-          accountStatus: 'ACTIVE',
-          phone: '+2348123456789',
-          createdAt: '2026-08-10T00:00:00Z',
-          studentBookingsCount: 2,
-          studentInspectionsCount: 1,
-          providerHostelsCount: 0,
-          department: 'Computer Science',
-          matricNo: '20/47CS/0118',
-          matricNumber: '20/47CS/0118',
-          level: '400L',
-          avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80'
-        },
-        {
-          id: 'usr-provider-1',
-          fullName: 'Chief (Alhaji) G. O. Adeleke',
-          email: 'landlord@hostelease.ng',
-          role: 'PROVIDER',
-          isActive: true,
-          accountStatus: 'ACTIVE',
-          phone: '+2348039876543',
-          createdAt: '2026-08-05T00:00:00Z',
-          studentBookingsCount: 0,
-          studentInspectionsCount: 0,
-          providerHostelsCount: 3,
-          businessName: 'Adeleke Heritage Properties Ogbomoso',
-          verificationStatus: 'VERIFIED',
-          avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=400&q=80'
-        }
-      ];
+        const convertedLocalUsers: AdminUserItem[] = registeredUsers.map(reg => {
+          const studentBookings = localBookings.filter(b => (b as any).userId === reg.id || (b as any).studentEmail?.toLowerCase() === reg.email?.toLowerCase()).length;
+          const studentInspections = localInspections.filter(i => (i as any).studentEmail?.toLowerCase() === reg.email?.toLowerCase()).length;
+          const providerHostels = localProperties.filter(p => (p as any).providerId === reg.id || (p as any).provider?.email?.toLowerCase() === reg.email?.toLowerCase()).length;
+          
+          return {
+            id: reg.id,
+            fullName: reg.fullName || reg.businessName || 'Registered User',
+            email: reg.email,
+            phone: reg.phone || '',
+            role: reg.role as any,
+            isActive: true,
+            accountStatus: 'ACTIVE',
+            createdAt: reg.createdAt || new Date().toISOString(),
+            studentBookingsCount: studentBookings,
+            studentInspectionsCount: studentInspections,
+            providerHostelsCount: providerHostels,
+            department: reg.studentDetails?.department,
+            matricNo: reg.studentDetails?.matricNo || reg.studentDetails?.matricNumber,
+            matricNumber: reg.studentDetails?.matricNo || reg.studentDetails?.matricNumber,
+            level: reg.studentDetails?.level,
+            businessName: reg.providerDetails?.businessName || reg.businessName,
+            avatarUrl: reg.avatarUrl || reg.studentDetails?.avatarUrl,
+            verificationStatus: reg.role === 'PROVIDER' ? 'VERIFIED' : undefined
+          };
+        });
 
-      // Merge serverUsers + convertedLocalUsers + defaultUsers without duplicates
-      const userMap = new Map<string, AdminUserItem>();
-      [...serverUsers, ...convertedLocalUsers, ...defaultUsers].forEach(u => {
-        const key = u.email ? u.email.toLowerCase() : u.id;
-        if (!userMap.has(key)) {
-          userMap.set(key, u);
-        }
-      });
+        // Default mock users to merge in offline fallback
+        const defaultUsers: AdminUserItem[] = [
+          {
+            id: 'user-admin-1',
+            fullName: 'Oluwatosin Ahmad',
+            email: 'admin@hostelease.ng',
+            role: 'ADMIN',
+            isActive: true,
+            accountStatus: 'ACTIVE',
+            phone: '+2348039876543',
+            createdAt: '2026-08-01T00:00:00Z',
+            studentBookingsCount: 0,
+            studentInspectionsCount: 0,
+            providerHostelsCount: 0
+          },
+          {
+            id: 'usr-student-1',
+            fullName: 'Babatunde Adeleke',
+            email: 'student@lautech.edu.ng',
+            role: 'STUDENT',
+            isActive: true,
+            accountStatus: 'ACTIVE',
+            phone: '+2348123456789',
+            createdAt: '2026-08-10T00:00:00Z',
+            studentBookingsCount: 2,
+            studentInspectionsCount: 1,
+            providerHostelsCount: 0,
+            department: 'Computer Science',
+            matricNo: '20/47CS/0118',
+            matricNumber: '20/47CS/0118',
+            level: '400L',
+            avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80'
+          },
+          {
+            id: 'usr-provider-1',
+            fullName: 'Chief (Alhaji) G. O. Adeleke',
+            email: 'landlord@hostelease.ng',
+            role: 'PROVIDER',
+            isActive: true,
+            accountStatus: 'ACTIVE',
+            phone: '+2348039876543',
+            createdAt: '2026-08-05T00:00:00Z',
+            studentBookingsCount: 0,
+            studentInspectionsCount: 0,
+            providerHostelsCount: 3,
+            businessName: 'Adeleke Heritage Properties Ogbomoso',
+            verificationStatus: 'VERIFIED',
+            avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=400&q=80'
+          }
+        ];
 
-      let allUsers = Array.from(userMap.values());
+        const userMap = new Map<string, AdminUserItem>();
+        [...convertedLocalUsers, ...defaultUsers].forEach(u => {
+          const key = u.email ? u.email.toLowerCase() : u.id;
+          if (!userMap.has(key) && !deletedIds.has(u.id.toLowerCase()) && !deletedIds.has(key)) {
+            userMap.set(key, u);
+          }
+        });
+
+        allUsers = Array.from(userMap.values());
+      }
 
       // Apply search, role, and status filters
       if (role && role !== 'all') {
@@ -4137,6 +4184,14 @@ export const api = {
     },
 
     async deleteUser(id: string, reason?: string): Promise<UserDeletionResult> {
+      let targetUserEmail: string | undefined = undefined;
+
+      try {
+        const registered = getLocalRegisteredUsers();
+        const found = registered.find(u => u.id === id || u.email === id);
+        if (found) targetUserEmail = found.email;
+      } catch {}
+
       try {
         const res = await fetch(`${API_BASE}/admin/users/${id}`, {
           method: 'DELETE',
@@ -4145,25 +4200,31 @@ export const api = {
         });
         if (res.ok) {
           const result = await res.json();
-          this.cleanupLocalStoreForUser(id);
+          addDeletedUserId(id, targetUserEmail);
+          this.cleanupLocalStoreForUser(id, targetUserEmail);
+          window.dispatchEvent(new CustomEvent('hostel_ease_user_deleted', { detail: { userId: id } }));
           return result;
         }
         const errorData = await res.json().catch(() => ({}));
         throw new Error(errorData.error || errorData.message || 'Failed to delete user');
       } catch (err: any) {
-        if (err.message && !err.message.includes('Failed to fetch') && !err.message.includes('NetworkError') && err.message !== 'Failed to delete user') {
+        // If it's a real HTTP error from server (e.g. 400 Admin cannot delete own account, 404, etc.)
+        // DO NOT silently swallow it and report fake success!
+        if (err.message && !err.message.includes('Failed to fetch') && !err.message.includes('NetworkError') && !err.message.includes('network error')) {
           throw err;
         }
-        console.warn('Backend deleteUser offline or failed, executing local fallback cleanup:', err);
+        console.warn('Backend deleteUser network unreachable, executing local fallback cleanup:', err);
       }
 
-      // Offline fallback:
+      // Offline fallback only when network completely unreachable:
       const registered = getLocalRegisteredUsers();
       const user = registered.find(u => u.id === id || u.email === id);
       const role = user?.role || 'STUDENT';
       const summary = (await this.getUserDeletionSummary(id)).summary;
 
+      addDeletedUserId(id, user?.email);
       this.cleanupLocalStoreForUser(id, user?.email);
+      window.dispatchEvent(new CustomEvent('hostel_ease_user_deleted', { detail: { userId: id } }));
 
       return {
         success: true,
@@ -4182,25 +4243,26 @@ export const api = {
 
     cleanupLocalStoreForUser(id: string, email?: string) {
       try {
+        addDeletedUserId(id, email);
         const registered = getLocalRegisteredUsers();
-        const user = registered.find(u => u.id === id || (email && u.email?.toLowerCase() === email.toLowerCase()));
-        const userEmail = email || user?.email?.toLowerCase();
+        const user = registered.find(u => u.id === id || (email && u.email?.toLowerCase().trim() === email.toLowerCase().trim()));
+        const userEmail = (email || user?.email || '').toLowerCase().trim();
         const role = user?.role;
 
         // Remove from registered users
-        saveLocalRegisteredUsers(registered.filter(u => u.id !== id && (!userEmail || u.email?.toLowerCase() !== userEmail)));
+        saveLocalRegisteredUsers(registered.filter(u => u.id !== id && (!userEmail || u.email?.toLowerCase().trim() !== userEmail)));
 
         if (role === 'PROVIDER') {
           // Remove provider's properties
           const props = getLocalProperties('all');
-          const remainingProps = props.filter(p => (p as any).providerId !== id && (!userEmail || (p as any).provider?.email?.toLowerCase() !== userEmail));
+          const remainingProps = props.filter(p => (p as any).providerId !== id && (!userEmail || (p as any).provider?.email?.toLowerCase().trim() !== userEmail));
           try {
             localStorage.setItem('hostel_ease_properties', JSON.stringify(remainingProps));
             window.dispatchEvent(new CustomEvent('hostel_ease_properties_updated'));
           } catch {}
 
           // Remove bookings and inspections for those properties
-          const deletedPropIds = new Set(props.filter(p => (p as any).providerId === id || (userEmail && (p as any).provider?.email?.toLowerCase() === userEmail)).map(p => p.id));
+          const deletedPropIds = new Set(props.filter(p => (p as any).providerId === id || (userEmail && (p as any).provider?.email?.toLowerCase().trim() === userEmail)).map(p => p.id));
           const bookings = getLocalBookings();
           const remainingBookings = bookings.filter(b => !deletedPropIds.has(b.propertyId));
           try {
@@ -4214,14 +4276,14 @@ export const api = {
         } else {
           // STUDENT deletion: Remove only their student bookings and inspections; DO NOT touch hostels!
           const bookings = getLocalBookings();
-          const remainingBookings = bookings.filter(b => (b as any).userId !== id && (!userEmail || (b as any).studentEmail?.toLowerCase() !== userEmail));
+          const remainingBookings = bookings.filter(b => (b as any).userId !== id && (!userEmail || (b as any).studentEmail?.toLowerCase().trim() !== userEmail));
           try {
             localStorage.setItem('hostel_ease_bookings', JSON.stringify(remainingBookings));
             window.dispatchEvent(new CustomEvent('hostel_ease_bookings_updated'));
           } catch {}
 
           const inspections = getLocalInspections();
-          const remainingInspections = inspections.filter(i => (!userEmail || (i as any).studentEmail?.toLowerCase() !== userEmail));
+          const remainingInspections = inspections.filter(i => (!userEmail || (i as any).studentEmail?.toLowerCase().trim() !== userEmail));
           saveLocalInspections(remainingInspections);
         }
       } catch (err) {

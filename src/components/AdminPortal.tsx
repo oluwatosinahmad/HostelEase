@@ -432,14 +432,18 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
 
   const handleConfirmUserDeletion = async () => {
     if (!userToDelete) return;
+    const deletedId = userToDelete.id;
+    const deletedEmail = (userToDelete.email || '').toLowerCase().trim();
     setIsDeletingUser(true);
     try {
       const res = await api.admin.deleteUser(userToDelete.id, deletionReason.trim() || undefined);
       if (res.success) {
-        onShowToast(res.message || `Account for ${userToDelete.fullName} permanently deleted`, 'success');
+        onShowToast(res.message || 'Account permanently deleted.', 'success');
         setUserToDelete(null);
         setDeletionSummary(null);
         setSelectedUserForDetails(null);
+        // Immediately remove user from usersList state for instant UI update
+        setUsersList(prev => prev.filter(u => u.id !== deletedId && (!deletedEmail || u.email?.toLowerCase().trim() !== deletedEmail)));
         await fetchAllAdminData();
       } else {
         onShowToast(res.message || 'Deletion failed', 'error');
@@ -1230,20 +1234,37 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-900">
-                      {usersList
-                        .filter(u => {
+                      {(() => {
+                        const filtered = usersList.filter(u => {
                           if (!userSearchQuery.trim()) return true;
                           const q = userSearchQuery.toLowerCase();
                           return (
-                            u.fullName.toLowerCase().includes(q) ||
-                            u.email.toLowerCase().includes(q) ||
+                            (u.fullName && u.fullName.toLowerCase().includes(q)) ||
+                            (u.email && u.email.toLowerCase().includes(q)) ||
                             (u.phone && u.phone.includes(q)) ||
                             (u.matricNo && u.matricNo.toLowerCase().includes(q)) ||
                             (u.businessName && u.businessName.toLowerCase().includes(q)) ||
                             (u.department && u.department.toLowerCase().includes(q))
                           );
-                        })
-                        .map((u) => (
+                        });
+
+                        if (filtered.length === 0) {
+                          return (
+                            <tr>
+                              <td colSpan={7} className="p-12 text-center text-slate-500">
+                                <Users className="w-9 h-9 mx-auto mb-2 text-slate-600 opacity-60" />
+                                <p className="font-bold text-slate-300 text-sm">No user found</p>
+                                <p className="text-xs text-slate-500 mt-1">
+                                  {userSearchQuery 
+                                    ? `No matching account found for "${userSearchQuery}".` 
+                                    : 'No accounts registered under the selected filters.'}
+                                </p>
+                              </td>
+                            </tr>
+                          );
+                        }
+
+                        return filtered.map((u) => (
                           <tr key={u.id} className="hover:bg-slate-900/60 transition-colors">
                             {/* Identity */}
                             <td className="p-3.5">
@@ -1376,7 +1397,8 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                               </div>
                             </td>
                           </tr>
-                        ))}
+                        ));
+                      })()}
                     </tbody>
                   </table>
                 </div>

@@ -145,6 +145,7 @@ let memoryMessages: any[] = [];
 let memoryNotifications: any[] = [];
 let memoryInspections: any[] = [];
 let memoryBookings: any[] = [];
+let memoryDeletedUserIds = new Set<string>();
 const memoryMedia = new Map<string, { buffer: Uint8Array; mimeType: string; filename: string }>();
 
 const NTFY_TOPIC = 'hostel_ease_sync_v2_lautech';
@@ -397,6 +398,17 @@ async function loadCloudData(force = false) {
   if (!force && Date.now() - lastCloudLoad < 2500) return;
   lastCloudLoad = Date.now();
 
+  // 0. Load tombstones of permanently deleted users
+  try {
+    const delStore = getBlobsStore('deleted_users');
+    if (delStore) {
+      const { blobs } = await delStore.list();
+      for (const b of blobs) {
+        memoryDeletedUserIds.add(b.key.toLowerCase());
+      }
+    }
+  } catch {}
+
   // 1. Try loading from @netlify/blobs if configured
   try {
     const userStore = getBlobsStore('users');
@@ -404,9 +416,12 @@ async function loadCloudData(force = false) {
       const { blobs } = await userStore.list();
       for (const b of blobs) {
         if (b.key.includes('@')) {
+          if (memoryDeletedUserIds.has(b.key.toLowerCase())) continue;
           const u = await userStore.get(b.key, { type: 'json' });
           if (u && u.email) {
-            const idx = memoryUsers.findIndex(mu => mu.email.toLowerCase() === u.email.toLowerCase());
+            const cleanEmail = u.email.toLowerCase().trim();
+            if (memoryDeletedUserIds.has(cleanEmail) || (u.id && memoryDeletedUserIds.has(u.id))) continue;
+            const idx = memoryUsers.findIndex(mu => mu.email.toLowerCase() === cleanEmail);
             if (idx >= 0) {
               memoryUsers[idx] = { ...memoryUsers[idx], ...u };
             } else {
@@ -417,6 +432,11 @@ async function loadCloudData(force = false) {
       }
     }
   } catch {}
+
+  // Purge any deleted users from memory
+  if (memoryDeletedUserIds.size > 0) {
+    memoryUsers = memoryUsers.filter(u => !memoryDeletedUserIds.has(u.id) && !memoryDeletedUserIds.has((u.email || '').toLowerCase().trim()));
+  }
 
   try {
     const propStore = getBlobsStore('properties');
@@ -507,13 +527,25 @@ async function loadCloudData(force = false) {
           const item = JSON.parse(line);
           if (item.event === 'message' && item.message) {
             const payload = JSON.parse(item.message);
+            if (payload.type === 'USER_DELETED') {
+              const dId = payload.userId;
+              const dEmail = (payload.email || '').toLowerCase().trim();
+              if (dId) memoryDeletedUserIds.add(dId);
+              if (dEmail) memoryDeletedUserIds.add(dEmail);
+              memoryUsers = memoryUsers.filter(u => u.id !== dId && (!dEmail || u.email?.toLowerCase().trim() !== dEmail));
+            }
             if ((payload.type === 'USER_REGISTERED' || payload.type === 'USER') && payload.user && payload.user.email) {
               const u = payload.user;
-              const idx = memoryUsers.findIndex(mu => mu.email.toLowerCase() === u.email.toLowerCase());
-              if (idx >= 0) {
-                memoryUsers[idx] = { ...memoryUsers[idx], ...u };
+              const cleanEmail = u.email.toLowerCase().trim();
+              if (memoryDeletedUserIds.has(cleanEmail) || (u.id && memoryDeletedUserIds.has(u.id))) {
+                // Ignore resurrected events for deleted users
               } else {
-                memoryUsers.push(u);
+                const idx = memoryUsers.findIndex(mu => mu.email.toLowerCase() === cleanEmail);
+                if (idx >= 0) {
+                  memoryUsers[idx] = { ...memoryUsers[idx], ...u };
+                } else {
+                  memoryUsers.push(u);
+                }
               }
             }
             if ((payload.type === 'PROPERTY_CREATED' || payload.type === 'PROPERTY') && payload.property && payload.property.id) {
@@ -582,8 +614,13 @@ function parseAuth(req: Request): any | null {
           const raw = Buffer.from(token.substring(3), 'base64url').toString('utf8');
           const payload = JSON.parse(raw);
           if (payload && (payload.id || payload.email)) {
-            const inMem = memoryUsers.find(u => u.id === payload.id || (u.email && payload.email && u.email.toLowerCase() === payload.email.toLowerCase()));
-            return inMem ? { ...inMem, role: payload.role || inMem.role } : payload;
+            const pEmail = (payload.email || '').toLowerCase().trim();
+            if (memoryDeletedUserIds.has(payload.id) || (pEmail && memoryDeletedUserIds.has(pEmail))) {
+              return null;
+            }
+            const inMem = memoryUsers.find(u => u.id === payload.id || (u.email && pEmail && u.email.toLowerCase().trim() === pEmail));
+            if (!inMem) return null;
+            return { ...inMem, role: payload.role || inMem.role };
           }
         } catch {}
       }
@@ -593,13 +630,18 @@ function parseAuth(req: Request): any | null {
         if (parts.length >= 2) {
           const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString('utf8'));
           if (payload && (payload.id || payload.email)) {
-            const inMem = memoryUsers.find(u => u.id === payload.id || (u.email && payload.email && u.email.toLowerCase() === payload.email.toLowerCase()));
-            return inMem ? { ...inMem, role: payload.role || inMem.role } : payload;
+            const pEmail = (payload.email || '').toLowerCase().trim();
+            if (memoryDeletedUserIds.has(payload.id) || (pEmail && memoryDeletedUserIds.has(pEmail))) {
+              return null;
+            }
+            const inMem = memoryUsers.find(u => u.id === payload.id || (u.email && pEmail && u.email.toLowerCase().trim() === pEmail));
+            if (!inMem) return null;
+            return { ...inMem, role: payload.role || inMem.role };
           }
         }
       } catch {}
 
-      const matched = memoryUsers.find(u => token.includes(u.id) || (u.email && token.includes(u.email)));
+      const matched = memoryUsers.find(u => (token.includes(u.id) || (u.email && token.includes(u.email))) && !memoryDeletedUserIds.has(u.id) && !memoryDeletedUserIds.has((u.email || '').toLowerCase().trim()));
       if (matched) return matched;
     }
   }
@@ -609,6 +651,9 @@ function parseAuth(req: Request): any | null {
   const headerRole = req.headers.get('x-user-role');
 
   if (headerEmail) {
+    if (memoryDeletedUserIds.has(headerEmail) || (headerId && memoryDeletedUserIds.has(headerId))) {
+      return null;
+    }
     let matched = memoryUsers.find(u => u.email.toLowerCase() === headerEmail);
     if (matched) return matched;
     const cleanRole = (headerRole || 'PROVIDER').toUpperCase();
@@ -2416,6 +2461,365 @@ export default async (req: Request): Promise<Response> => {
         structuredData: { type: 'METRICS_OVERVIEW' }
       }), { status: 200, headers: CORS_HEADERS });
     }
+  }
+
+  // =============================================================================
+  // 19. ADMIN USERS MANAGEMENT & PERMANENT ACCOUNT DELETION
+  // =============================================================================
+  
+  // 19a. Admin: List All Users with Live Metrics
+  if (pathname === '/api/admin/users' && req.method === 'GET') {
+    const caller = parseAuth(req);
+    if (!caller || (caller.role !== 'ADMIN' && caller.role !== 'OWNER')) {
+      return new Response(JSON.stringify({ error: 'Unauthorized: Administrative credentials required' }), { status: 403, headers: CORS_HEADERS });
+    }
+
+    const searchParam = (url.searchParams.get('search') || '').toLowerCase().trim();
+    const roleParam = url.searchParams.get('role');
+    const statusParam = url.searchParams.get('status');
+
+    let userList = memoryUsers
+      .filter(u => !memoryDeletedUserIds.has(u.id) && !memoryDeletedUserIds.has((u.email || '').toLowerCase().trim()))
+      .map(u => {
+        const uEmail = (u.email || '').toLowerCase().trim();
+        const uId = u.id;
+
+        const studentBookings = memoryBookings.filter(b => b.studentId === uId || (uEmail && b.studentEmail?.toLowerCase() === uEmail)).length;
+        const studentInspections = memoryInspections.filter(i => i.studentId === uId || (uEmail && i.studentEmail?.toLowerCase() === uEmail)).length;
+        const providerHostels = memoryProperties.filter(p => {
+          const pEmail = ((p as any).providerEmail || p.provider?.email || '').toLowerCase().trim();
+          const pId = (p as any).providerId || p.provider?.id;
+          return (uEmail && pEmail === uEmail) || (uId && pId === uId);
+        }).length;
+
+        return {
+          id: u.id,
+          fullName: u.fullName || (u.role === 'PROVIDER' ? 'Hostel Landlord' : 'Student User'),
+          email: u.email,
+          phone: u.phone || '',
+          role: u.role,
+          isActive: u.isActive !== undefined ? Boolean(u.isActive) : true,
+          accountStatus: u.accountStatus || 'ACTIVE',
+          createdAt: u.createdAt || '2026-08-01T00:00:00Z',
+          studentBookingsCount: studentBookings,
+          studentInspectionsCount: studentInspections,
+          providerHostelsCount: providerHostels,
+          department: u.department,
+          matricNo: u.matricNo,
+          level: u.level,
+          businessName: u.businessName,
+          avatarUrl: u.avatarUrl,
+          verificationStatus: u.role === 'PROVIDER' ? 'VERIFIED' : undefined
+        };
+      });
+
+    if (roleParam && roleParam !== 'all') {
+      userList = userList.filter(u => u.role === roleParam);
+    }
+    if (statusParam && statusParam !== 'all') {
+      userList = userList.filter(u => u.accountStatus === statusParam);
+    }
+    if (searchParam) {
+      userList = userList.filter(u => 
+        (u.fullName && u.fullName.toLowerCase().includes(searchParam)) ||
+        (u.email && u.email.toLowerCase().includes(searchParam)) ||
+        (u.phone && u.phone.includes(searchParam)) ||
+        (u.matricNo && u.matricNo.toLowerCase().includes(searchParam)) ||
+        (u.businessName && u.businessName.toLowerCase().includes(searchParam))
+      );
+    }
+
+    return new Response(JSON.stringify({ users: userList }), { status: 200, headers: CORS_HEADERS });
+  }
+
+  // 19b. Admin: User Pre-Deletion Summary
+  if (pathname.startsWith('/api/admin/users/') && pathname.endsWith('/deletion-summary') && req.method === 'GET') {
+    const caller = parseAuth(req);
+    if (!caller || (caller.role !== 'ADMIN' && caller.role !== 'OWNER')) {
+      return new Response(JSON.stringify({ error: 'Unauthorized: Administrative credentials required' }), { status: 403, headers: CORS_HEADERS });
+    }
+
+    const targetUserId = pathname.replace('/api/admin/users/', '').replace('/deletion-summary', '');
+    const targetUser = memoryUsers.find(u => u.id === targetUserId || u.email?.toLowerCase().trim() === targetUserId.toLowerCase().trim());
+
+    if (!targetUser || memoryDeletedUserIds.has(targetUser.id) || memoryDeletedUserIds.has((targetUser.email || '').toLowerCase().trim())) {
+      return new Response(JSON.stringify({ error: `User with ID ${targetUserId} not found` }), { status: 404, headers: CORS_HEADERS });
+    }
+
+    const isProvider = targetUser.role === 'PROVIDER';
+    const isStudent = targetUser.role === 'STUDENT';
+    const tEmail = (targetUser.email || '').toLowerCase().trim();
+    const tId = targetUser.id;
+
+    const userProps = isProvider ? memoryProperties.filter(p => {
+      const pEmail = ((p as any).providerEmail || p.provider?.email || '').toLowerCase().trim();
+      const pId = (p as any).providerId || p.provider?.id;
+      return (tEmail && pEmail === tEmail) || (tId && pId === tId);
+    }) : [];
+
+    let roomsCount = 0;
+    let mediaCount = 0;
+    let imagesCount = 0;
+    let videosCount = 0;
+    if (isProvider) {
+      userProps.forEach(p => {
+        roomsCount += Number(p.totalRooms) || 1;
+        const media = (p.mediaItems || p.media || []);
+        mediaCount += media.length;
+        imagesCount += media.filter((m: any) => m.mediaType !== 'VIDEO' && m.type !== 'VIDEO' && m.category !== 'VIDEO_WALKTHROUGH').length;
+        videosCount += (p.has4KVideo || p.videoTourUrl || media.some((m: any) => m.mediaType === 'VIDEO' || m.type === 'VIDEO')) ? 1 : 0;
+      });
+    }
+
+    const bookingsCount = memoryBookings.filter(b => 
+      b.studentId === tId || 
+      (tEmail && b.studentEmail?.toLowerCase() === tEmail) ||
+      (isProvider && (b.providerId === tId || (tEmail && b.providerEmail?.toLowerCase() === tEmail) || userProps.some(p => p.id === b.propertyId)))
+    ).length;
+
+    const inspectionsCount = memoryInspections.filter(i => 
+      i.studentId === tId || 
+      (tEmail && i.studentEmail?.toLowerCase() === tEmail) ||
+      (isProvider && (i.providerId === tId || (tEmail && i.providerEmail?.toLowerCase() === tEmail) || userProps.some(p => p.id === i.propertyId)))
+    ).length;
+
+    const convCount = memoryConversations.filter(c => 
+      c.studentId === tId || 
+      (isProvider && (c.providerId === tId || userProps.some(p => p.id === c.propertyId)))
+    ).length;
+
+    const notifCount = memoryNotifications.filter(n => n.userId === tId || (tEmail && n.userEmail?.toLowerCase() === tEmail)).length;
+    const savedCount = isStudent ? memorySavedProperties.filter(s => s.userId === tId || (tEmail && s.userEmail?.toLowerCase() === tEmail)).length : 0;
+
+    return new Response(JSON.stringify({
+      summary: {
+        userId: targetUser.id,
+        fullName: targetUser.fullName || (isProvider ? 'Landlord' : 'Student'),
+        email: targetUser.email,
+        phone: targetUser.phone,
+        role: targetUser.role,
+        accountStatus: targetUser.accountStatus || 'ACTIVE',
+        businessName: targetUser.businessName,
+        createdAt: targetUser.createdAt || new Date().toISOString(),
+        hostelsCount: userProps.length,
+        roomsCount,
+        mediaCount,
+        imagesCount,
+        videosCount,
+        bookingsCount,
+        inspectionsCount,
+        conversationsCount: convCount,
+        messagesCount: convCount * 2,
+        notificationsCount: notifCount,
+        savedHostelsCount: savedCount
+      }
+    }), { status: 200, headers: CORS_HEADERS });
+  }
+
+  // 19c. Admin: Permanently Delete User Account (Atomic Multi-Store Purge)
+  if (pathname.startsWith('/api/admin/users/') && !pathname.endsWith('/deletion-summary') && !pathname.endsWith('/status') && req.method === 'DELETE') {
+    const caller = parseAuth(req);
+    if (!caller || (caller.role !== 'ADMIN' && caller.role !== 'OWNER')) {
+      return new Response(JSON.stringify({ error: 'Unauthorized: Administrative credentials required' }), { status: 403, headers: CORS_HEADERS });
+    }
+
+    const targetUserId = pathname.replace('/api/admin/users/', '');
+    if (caller.id === targetUserId || caller.email?.toLowerCase().trim() === targetUserId.toLowerCase().trim()) {
+      return new Response(JSON.stringify({ error: 'Administrative security restriction: You cannot delete your own admin account.' }), { status: 400, headers: CORS_HEADERS });
+    }
+
+    const targetUser = memoryUsers.find(u => u.id === targetUserId || u.email?.toLowerCase().trim() === targetUserId.toLowerCase().trim());
+    if (!targetUser || memoryDeletedUserIds.has(targetUser.id) || memoryDeletedUserIds.has((targetUser.email || '').toLowerCase().trim())) {
+      return new Response(JSON.stringify({ error: `User with ID ${targetUserId} does not exist` }), { status: 404, headers: CORS_HEADERS });
+    }
+
+    if (targetUser.role === 'ADMIN' || targetUser.email?.toLowerCase().trim() === 'admin@hostelease.ng' || targetUser.id === SINGLE_ADMIN_ACCOUNT.id) {
+      return new Response(JSON.stringify({ error: 'Admin accounts cannot be deleted through this interface. Contact platform governance.' }), { status: 400, headers: CORS_HEADERS });
+    }
+
+    const isProvider = targetUser.role === 'PROVIDER';
+    const isStudent = targetUser.role === 'STUDENT';
+    const tEmail = (targetUser.email || '').toLowerCase().trim();
+    const tId = targetUser.id;
+
+    let deletedHostelsCount = 0;
+    let deletedBookingsCount = 0;
+    let deletedInspectionsCount = 0;
+    let deletedConversationsCount = 0;
+    let deletedNotificationsCount = 0;
+
+    const propStore = getBlobsStore('properties');
+    const bookingStore = getBlobsStore('bookings');
+    const inspStore = getBlobsStore('inspections');
+    const savedStore = getBlobsStore('saved_properties');
+    const userStore = getBlobsStore('users');
+    const delStore = getBlobsStore('deleted_users');
+
+    if (isProvider) {
+      // 1. Collect landlord hostels
+      const userProps = memoryProperties.filter(p => {
+        const pEmail = ((p as any).providerEmail || p.provider?.email || '').toLowerCase().trim();
+        const pId = (p as any).providerId || p.provider?.id;
+        return (tEmail && pEmail === tEmail) || (tId && pId === tId);
+      });
+      deletedHostelsCount = userProps.length;
+      const propIdSet = new Set(userProps.map(p => p.id));
+
+      // Remove properties
+      memoryProperties = memoryProperties.filter(p => !propIdSet.has(p.id));
+      if (propStore) {
+        for (const pid of propIdSet) {
+          try { await propStore.delete(pid); } catch {}
+        }
+      }
+
+      // Remove bookings for landlord properties
+      const bksToDelete = memoryBookings.filter(b => b.providerId === tId || (tEmail && b.providerEmail?.toLowerCase() === tEmail) || propIdSet.has(b.propertyId));
+      deletedBookingsCount = bksToDelete.length;
+      const bkIdSet = new Set(bksToDelete.map(b => b.id));
+      memoryBookings = memoryBookings.filter(b => !bkIdSet.has(b.id));
+      if (bookingStore) {
+        for (const bid of bkIdSet) {
+          try { await bookingStore.delete(bid); } catch {}
+        }
+      }
+
+      // Remove inspections for landlord properties
+      const inspsToDelete = memoryInspections.filter(i => i.providerId === tId || (tEmail && i.providerEmail?.toLowerCase() === tEmail) || propIdSet.has(i.propertyId));
+      deletedInspectionsCount = inspsToDelete.length;
+      const inspIdSet = new Set(inspsToDelete.map(i => i.id));
+      memoryInspections = memoryInspections.filter(i => !inspIdSet.has(i.id));
+      if (inspStore) {
+        for (const iid of inspIdSet) {
+          try { await inspStore.delete(iid); } catch {}
+        }
+      }
+
+      // Remove conversations for landlord
+      const convsToDelete = memoryConversations.filter(c => c.providerId === tId || (c.propertyId && propIdSet.has(c.propertyId)));
+      deletedConversationsCount = convsToDelete.length;
+      const convIdSet = new Set(convsToDelete.map(c => c.id));
+      memoryConversations = memoryConversations.filter(c => !convIdSet.has(c.id));
+      memoryMessages = memoryMessages.filter(m => !convIdSet.has(m.conversationId));
+
+      // Remove saved properties referencing deleted landlord hostels
+      memorySavedProperties = memorySavedProperties.filter(sp => !propIdSet.has(sp.propertyId));
+
+    } else if (isStudent) {
+      // STUDENT DELETION: Landlord properties remain completely untouched and safe!
+      // Remove student bookings
+      const bksToDelete = memoryBookings.filter(b => b.studentId === tId || (tEmail && b.studentEmail?.toLowerCase() === tEmail));
+      deletedBookingsCount = bksToDelete.length;
+      const bkIdSet = new Set(bksToDelete.map(b => b.id));
+      memoryBookings = memoryBookings.filter(b => !bkIdSet.has(b.id));
+      if (bookingStore) {
+        for (const bid of bkIdSet) {
+          try { await bookingStore.delete(bid); } catch {}
+        }
+      }
+
+      // Remove student inspections
+      const inspsToDelete = memoryInspections.filter(i => i.studentId === tId || (tEmail && i.studentEmail?.toLowerCase() === tEmail));
+      deletedInspectionsCount = inspsToDelete.length;
+      const inspIdSet = new Set(inspsToDelete.map(i => i.id));
+      memoryInspections = memoryInspections.filter(i => !inspIdSet.has(i.id));
+      if (inspStore) {
+        for (const iid of inspIdSet) {
+          try { await inspStore.delete(iid); } catch {}
+        }
+      }
+
+      // Remove student saved hostels
+      const savedToDelete = memorySavedProperties.filter(s => s.userId === tId || (tEmail && s.userEmail?.toLowerCase() === tEmail));
+      const savedIdSet = new Set(savedToDelete.map(s => s.id));
+      memorySavedProperties = memorySavedProperties.filter(s => !savedIdSet.has(s.id));
+      if (savedStore) {
+        for (const sid of savedIdSet) {
+          try { await savedStore.delete(sid); } catch {}
+        }
+      }
+
+      // Remove student conversations
+      const convsToDelete = memoryConversations.filter(c => c.studentId === tId);
+      deletedConversationsCount = convsToDelete.length;
+      const convIdSet = new Set(convsToDelete.map(c => c.id));
+      memoryConversations = memoryConversations.filter(c => !convIdSet.has(c.id));
+      memoryMessages = memoryMessages.filter(m => !convIdSet.has(m.conversationId));
+    }
+
+    // Common: Remove notifications
+    const notifsToDelete = memoryNotifications.filter(n => n.userId === tId || (tEmail && n.userEmail?.toLowerCase() === tEmail));
+    deletedNotificationsCount = notifsToDelete.length;
+    memoryNotifications = memoryNotifications.filter(n => !(n.userId === tId || (tEmail && n.userEmail?.toLowerCase() === tEmail)));
+
+    // Tombstone the user so they cannot be restored or authenticate
+    memoryDeletedUserIds.add(tId);
+    if (tEmail) memoryDeletedUserIds.add(tEmail);
+
+    if (delStore) {
+      try {
+        await delStore.setJSON(tId, { id: tId, email: tEmail, deletedAt: new Date().toISOString() });
+        if (tEmail) await delStore.setJSON(tEmail, { id: tId, email: tEmail, deletedAt: new Date().toISOString() });
+      } catch {}
+    }
+
+    // Remove user from memory & Netlify Blobs
+    memoryUsers = memoryUsers.filter(u => u.id !== tId && (!tEmail || u.email?.toLowerCase().trim() !== tEmail));
+    if (userStore) {
+      try {
+        await userStore.delete(tId);
+        if (tEmail) await userStore.delete(tEmail);
+      } catch {}
+    }
+
+    // Broadcast sync event to notify any running nodes
+    try {
+      await fetch(`https://ntfy.sh/${NTFY_TOPIC}`, {
+        method: 'POST',
+        headers: { 'Title': 'HOSTEL_USER_DELETED', 'Tags': 'wastebasket,skull' },
+        body: JSON.stringify({ type: 'USER_DELETED', userId: tId, email: tEmail }),
+        signal: AbortSignal.timeout(3000)
+      });
+    } catch {}
+
+    return new Response(JSON.stringify({
+      success: true,
+      message: `${targetUser.role === 'PROVIDER' ? 'Landlord' : 'Student'} account and all associated records permanently deleted.`,
+      deletedUserId: tId,
+      deletedRole: targetUser.role,
+      deletedFullName: targetUser.fullName,
+      deletedHostelsCount,
+      deletedMediaFilesCount: 0,
+      deletedBookingsCount,
+      deletedInspectionsCount,
+      deletedConversationsCount,
+      deletedNotificationsCount
+    }), { status: 200, headers: CORS_HEADERS });
+  }
+
+  // 19d. Admin: Update User Account Status (ACTIVE / SUSPENDED)
+  if (pathname.startsWith('/api/admin/users/') && pathname.endsWith('/status') && req.method === 'PATCH') {
+    const caller = parseAuth(req);
+    if (!caller || (caller.role !== 'ADMIN' && caller.role !== 'OWNER')) {
+      return new Response(JSON.stringify({ error: 'Unauthorized: Administrative credentials required' }), { status: 403, headers: CORS_HEADERS });
+    }
+
+    const targetUserId = pathname.replace('/api/admin/users/', '').replace('/status', '');
+    const body = await req.json().catch(() => ({}));
+    const newStatus = body.status || 'ACTIVE';
+
+    const targetUser = memoryUsers.find(u => u.id === targetUserId || u.email?.toLowerCase().trim() === targetUserId.toLowerCase().trim());
+    if (!targetUser) {
+      return new Response(JSON.stringify({ error: 'User not found' }), { status: 404, headers: CORS_HEADERS });
+    }
+
+    targetUser.accountStatus = newStatus;
+    await saveCloudUser(targetUser);
+
+    return new Response(JSON.stringify({
+      message: `Account status updated to ${newStatus}`,
+      accountStatus: newStatus
+    }), { status: 200, headers: CORS_HEADERS });
   }
 
   return new Response(JSON.stringify({ error: 'Endpoint not found', path: pathname }), { status: 404, headers: CORS_HEADERS });

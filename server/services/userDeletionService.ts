@@ -433,6 +433,13 @@ export const userDeletionService = {
         ).all(userId) as any[];
         deletedBookingsCount = bRows.length;
         const bIds = bRows.map(b => b.id);
+        const bedspaceIds = bRows.map(b => b.bedspace_id).filter(Boolean);
+
+        // Safely free up occupied bedspaces on landlord properties without altering the room or hostel
+        if (bedspaceIds.length > 0) {
+          const bsPlaceholders = bedspaceIds.map(() => '?').join(',');
+          db.prepare(`UPDATE bedspaces SET is_occupied = 0, status = 'AVAILABLE' WHERE id IN (${bsPlaceholders})`).run(...bedspaceIds);
+        }
 
         if (bIds.length > 0) {
           const bPlaceholders = bIds.map(() => '?').join(',');
@@ -449,7 +456,7 @@ export const userDeletionService = {
             db.prepare(`DELETE FROM financial_ledger WHERE payment_id IN (${pPlaceholders})`).run(...paymentIds);
           }
 
-          db.prepare(`DELETE FROM refunds WHERE booking_id IN (${bPlaceholders})`).run(...bIds);
+          db.prepare(`DELETE FROM refunds WHERE booking_id IN (${bPlaceholders}) OR initiated_by = ?`).run(...bIds, userId);
           db.prepare(`DELETE FROM financial_ledger WHERE booking_id IN (${bPlaceholders})`).run(...bIds);
           db.prepare(`DELETE FROM payments WHERE booking_id IN (${bPlaceholders}) OR student_id = ?`).run(...bIds, userId);
 
@@ -562,6 +569,9 @@ export const userDeletionService = {
       db.prepare('DELETE FROM user_blocks WHERE blocker_id = ? OR blocked_id = ?').run(userId, userId);
       db.prepare('DELETE FROM platform_invoices WHERE user_id = ?').run(userId);
       db.prepare("DELETE FROM admin_internal_notes WHERE entity_type = 'USER' AND entity_id = ?").run(userId);
+      db.prepare('DELETE FROM refunds WHERE initiated_by = ?').run(userId);
+      db.prepare('UPDATE disputes SET resolved_by = NULL WHERE resolved_by = ?').run(userId);
+      db.prepare('UPDATE community_reports SET resolved_by = NULL WHERE resolved_by = ?').run(userId);
 
       // 5. Record Administrative Audit Log
       const auditDetails = {
