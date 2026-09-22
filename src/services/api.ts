@@ -125,6 +125,29 @@ try {
         }
       } catch {}
     }
+    const rawProps = localStorage.getItem('hostel_ease_properties');
+    if (rawProps) {
+      try {
+        const parsed = JSON.parse(rawProps);
+        if (Array.isArray(parsed)) {
+          const seen = new Map<string, any>();
+          for (const p of parsed) {
+            const key = `${(p.title || '').trim().toLowerCase()}|${(p.address || '').trim().toLowerCase()}`;
+            if (!seen.has(key)) {
+              seen.set(key, p);
+            } else {
+              const existing = seen.get(key);
+              if (p.verificationStatus === 'APPROVED' && existing.verificationStatus !== 'APPROVED') {
+                seen.set(key, p);
+              } else if (p.id.split('-').length > existing.id.split('-').length) {
+                seen.set(key, p);
+              }
+            }
+          }
+          localStorage.setItem('hostel_ease_properties', JSON.stringify(Array.from(seen.values())));
+        }
+      } catch {}
+    }
   }
 } catch {}
 
@@ -2052,7 +2075,7 @@ export const api = {
             const merged = [...data.properties];
             const existingIds = new Set(merged.map((p: any) => p.id));
             for (const lp of localProps) {
-              if (!existingIds.has(lp.id)) {
+              if (!existingIds.has(lp.id) && lp.verificationStatus === 'APPROVED') {
                 merged.unshift(lp);
                 existingIds.add(lp.id);
               }
@@ -3321,46 +3344,6 @@ export const api = {
       (newProp as any).providerId = currentUserId;
       (newProp as any).providerEmail = (user?.email || '').toLowerCase().trim();
 
-      saveLocalProperty(newProp);
-
-      // Notification for Landlord
-      addIsolatedNotification({
-        userId: currentUserId,
-        title: 'Hostel Submitted for Verification',
-        message: `"${newProp.title}" was registered and is in the Admin Verification Queue.`,
-        type: 'LISTING'
-      });
-
-      // Notification & Audit Trail for Super Admin
-      try {
-        const adminAudit = JSON.parse(localStorage.getItem('hostel_ease_admin_audit_logs') || '[]');
-        adminAudit.unshift({
-          id: `audit-${Date.now()}`,
-          actorId: currentUserId,
-          actorName: user?.fullName || 'Landlord',
-          actorEmail: user?.email || 'landlord@hostelease.ng',
-          actorRole: 'PROVIDER',
-          action: 'HOSTEL_VERIFICATION_SUBMITTED',
-          entityType: 'PROPERTY',
-          entityId: propertyId,
-          details: `Submitted new hostel "${newProp.title}" in ${areaName} (Rent: ₦${rent.toLocaleString()}/yr) for physical 8-point verification.`,
-          createdAt: new Date().toISOString()
-        });
-        localStorage.setItem('hostel_ease_admin_audit_logs', JSON.stringify(adminAudit.slice(0, 50)));
-
-        const adminNotifs = JSON.parse(localStorage.getItem('hostel_ease_admin_notifications') || '[]');
-        adminNotifs.unshift({
-          id: `admin-notif-${Date.now()}`,
-          title: '🏢 New Hostel Awaiting Verification',
-          message: `Landlord "${user?.fullName || 'Landlord'}" submitted "${newProp.title}" in ${areaName} for physical verification.`,
-          type: 'VERIFICATION',
-          entityId: propertyId,
-          read: false,
-          createdAt: new Date().toISOString()
-        });
-        localStorage.setItem('hostel_ease_admin_notifications', JSON.stringify(adminNotifs.slice(0, 50)));
-      } catch {}
-
       try {
         const res = await fetch(`${API_BASE}/provider/properties`, {
           method: 'POST',
@@ -3373,6 +3356,45 @@ export const api = {
           newProp.id = json.propertyId || propertyId;
           newProp.slug = json.slug || slug;
           saveLocalProperty(newProp);
+
+          // Notification for Landlord
+          addIsolatedNotification({
+            userId: currentUserId,
+            title: 'Hostel Submitted for Verification',
+            message: `"${newProp.title}" was registered and is in the Admin Verification Queue.`,
+            type: 'LISTING'
+          });
+
+          // Notification & Audit Trail for Super Admin
+          try {
+            const adminAudit = JSON.parse(localStorage.getItem('hostel_ease_admin_audit_logs') || '[]');
+            adminAudit.unshift({
+              id: `audit-${Date.now()}`,
+              actorId: currentUserId,
+              actorName: user?.fullName || 'Landlord',
+              actorEmail: user?.email || 'landlord@hostelease.ng',
+              actorRole: 'PROVIDER',
+              action: 'HOSTEL_VERIFICATION_SUBMITTED',
+              entityType: 'PROPERTY',
+              entityId: newProp.id,
+              details: `Submitted new hostel "${newProp.title}" in ${areaName} (Rent: ₦${rent.toLocaleString()}/yr) for physical 8-point verification.`,
+              createdAt: new Date().toISOString()
+            });
+            localStorage.setItem('hostel_ease_admin_audit_logs', JSON.stringify(adminAudit.slice(0, 50)));
+
+            const adminNotifs = JSON.parse(localStorage.getItem('hostel_ease_admin_notifications') || '[]');
+            adminNotifs.unshift({
+              id: `admin-notif-${Date.now()}`,
+              title: '🏢 New Hostel Awaiting Verification',
+              message: `Landlord "${user?.fullName || 'Landlord'}" submitted "${newProp.title}" in ${areaName} for physical verification.`,
+              type: 'VERIFICATION',
+              entityId: newProp.id,
+              read: false,
+              createdAt: new Date().toISOString()
+            });
+            localStorage.setItem('hostel_ease_admin_notifications', JSON.stringify(adminNotifs.slice(0, 50)));
+          } catch {}
+
           window.dispatchEvent(new CustomEvent('hostel_ease_properties_updated', { detail: newProp }));
           return json;
         }
@@ -3395,7 +3417,7 @@ export const api = {
         console.warn('Backend createListing failed, checking offline store:', err);
       }
 
-      // Check local duplicate before saving fallback
+      // Check local duplicate before saving offline fallback
       const existingProps = getLocalProperties(currentUserId, user?.email);
       const isLocalDuplicate = existingProps.some(p => 
         p.title.trim().toLowerCase() === (data.title || '').trim().toLowerCase() &&
@@ -3408,8 +3430,14 @@ export const api = {
         throw conflictError;
       }
 
-      // Resilient fallback: Ensure property is saved locally and update event is dispatched
+      // Resilient offline fallback: Save property locally once and dispatch event
       saveLocalProperty(newProp);
+      addIsolatedNotification({
+        userId: currentUserId,
+        title: 'Hostel Submitted for Verification',
+        message: `"${newProp.title}" was registered locally and is in the Admin Verification Queue.`,
+        type: 'LISTING'
+      });
       window.dispatchEvent(new CustomEvent('hostel_ease_properties_updated', { detail: newProp }));
       return {
         message: 'Hostel added and submitted for review',

@@ -280,6 +280,7 @@ export function runMigrations() {
         FOREIGN KEY (property_id) REFERENCES properties(id) ON DELETE CASCADE
       );
       CREATE INDEX IF NOT EXISTS idx_prop_media_prop ON property_media(property_id);
+      CREATE INDEX IF NOT EXISTS idx_prop_media_type ON property_media(property_id, media_type);
     `);
 
     // 15. Verification Documents table
@@ -2520,6 +2521,13 @@ Your caution deposit is refundable upon move-out provided no unauthorized struct
     ['department', 'level', 'matric_no', 'gender', 'account_status', 'status_reason'].forEach(col => {
       try { db.exec(`ALTER TABLE users ADD COLUMN ${col} TEXT`); } catch {}
     });
+
+    try {
+      db.prepare(`
+        INSERT OR IGNORE INTO users (id, email, password_hash, full_name, phone, role, is_active)
+        VALUES ('usr-admin-master', 'master.admin@hostelease.ng', '$2a$10$w6QjV7nN8d0Q1xN2q5mZ9uY3kP0xL4vM7nR9sT1wU2vW3xY4z5A6B', 'Platform Administrator', '+2348000000000', 'ADMIN', 1)
+      `).run();
+    } catch {}
   })();
 
   db.pragma('foreign_keys = ON');

@@ -12,10 +12,13 @@ import {
   Receipt, 
   MessageSquare, 
   Sparkles,
-  RotateCcw
+  RotateCcw,
+  VideoOff,
+  AlertCircle
 } from 'lucide-react';
 import { Property } from '../types/hostelEase';
 import { formatNaira, formatDistance } from '../utils/formatters';
+import { getMediaUrl } from '../services/api';
 
 interface HostelVideoTourModalProps {
   property: Property | null;
@@ -41,14 +44,20 @@ export const HostelVideoTourModal: React.FC<HostelVideoTourModalProps> = ({
   const [duration, setDuration] = useState<number>(0);
   const [currentTime, setCurrentTime] = useState<number>(0);
   const [isBuffering, setIsBuffering] = useState<boolean>(false);
+  const [hasVideoError, setHasVideoError] = useState<boolean>(false);
+  const [playbackSpeed, setPlaybackSpeed] = useState<number>(1);
 
-  // Extract video media if available, or use reliable default walkthrough video
-  const videoItem = property?.media?.find(m => m.mediaType === 'VIDEO' || (m.category === 'EXTERIOR' && m.url?.includes('.mp4')));
-  const videoSrc = videoItem?.url || 'https://assets.mixkit.co/videos/preview/mixkit-modern-apartment-living-room-interior-41525-large.mp4';
+  // Extract authentic property video only — no fake demo or Mixkit placeholders
+  const rawVideoUrl = property?.videoTourUrl || 
+    property?.media?.find(m => m.mediaType === 'VIDEO' || m.category === 'VIDEO_WALKTHROUGH' || String(m.url || '').toLowerCase().includes('.mp4'))?.url;
+  const videoSrc = rawVideoUrl ? getMediaUrl(rawVideoUrl) : null;
+  const posterUrl = property?.coverImage ? getMediaUrl(property.coverImage) : undefined;
 
   useEffect(() => {
-    if (isOpen && videoRef.current) {
+    setHasVideoError(false);
+    if (isOpen && videoRef.current && videoSrc) {
       videoRef.current.currentTime = 0;
+      videoRef.current.playbackRate = playbackSpeed;
       videoRef.current.play().catch(() => {
         // Auto-play might require mute in some browsers
         if (videoRef.current) {
@@ -59,7 +68,7 @@ export const HostelVideoTourModal: React.FC<HostelVideoTourModalProps> = ({
       });
       setIsPlaying(true);
     }
-  }, [isOpen, property?.id]);
+  }, [isOpen, property?.id, videoSrc]);
 
   if (!isOpen || !property) return null;
 
@@ -154,95 +163,148 @@ export const HostelVideoTourModal: React.FC<HostelVideoTourModalProps> = ({
 
         {/* Video Player Container */}
         <div className="relative aspect-video bg-black flex items-center justify-center overflow-hidden group">
-          <video
-            ref={videoRef}
-            src={videoSrc}
-            playsInline
-            loop
-            onTimeUpdate={handleTimeUpdate}
-            onLoadedMetadata={handleLoadedMetadata}
-            onWaiting={() => setIsBuffering(true)}
-            onPlaying={() => setIsBuffering(false)}
-            onClick={togglePlay}
-            className="w-full h-full object-cover cursor-pointer"
-          />
-
-          {/* Watermark badge */}
-          <div className="absolute top-4 left-4 pointer-events-none bg-slate-950/60 backdrop-blur-md px-3 py-1.5 rounded-xl border border-white/10 flex items-center gap-2">
-            <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-            <span className="text-[11px] font-bold text-white tracking-wide">
-              Hostel Ease 4K Virtual Walkthrough
-            </span>
-          </div>
-
-          {/* Center Play/Pause button overlay (pops on hover or when paused) */}
-          {(!isPlaying || isBuffering) && (
-            <button
-              onClick={togglePlay}
-              className="absolute inset-0 m-auto w-16 h-16 rounded-full bg-emerald-600/90 hover:bg-emerald-500 text-white flex items-center justify-center shadow-2xl backdrop-blur-sm transition-transform hover:scale-110 cursor-pointer"
-            >
-              {isBuffering ? (
-                <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              ) : (
-                <Play className="w-8 h-8 fill-current ml-1" />
-              )}
-            </button>
-          )}
-
-          {/* Video Controls Bar Overlay */}
-          <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-slate-950 via-slate-950/70 to-transparent p-4 pt-8 space-y-2 opacity-95 group-hover:opacity-100 transition-opacity">
-            {/* Progress / Scrub Bar */}
-            <div 
-              onClick={handleSeek} 
-              className="w-full h-1.5 bg-white/20 hover:h-2.5 rounded-full overflow-hidden cursor-pointer transition-all relative"
-            >
-              <div 
-                className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full transition-all"
-                style={{ width: `${progress}%` }}
+          {videoSrc && !hasVideoError ? (
+            <>
+              <video
+                ref={videoRef}
+                src={videoSrc}
+                poster={posterUrl}
+                preload="metadata"
+                playsInline
+                loop
+                onTimeUpdate={handleTimeUpdate}
+                onLoadedMetadata={handleLoadedMetadata}
+                onWaiting={() => setIsBuffering(true)}
+                onPlaying={() => setIsBuffering(false)}
+                onError={() => setHasVideoError(true)}
+                onClick={togglePlay}
+                className="w-full h-full object-cover cursor-pointer"
               />
-            </div>
 
-            <div className="flex items-center justify-between text-xs text-slate-300">
-              <div className="flex items-center gap-3">
-                <button 
-                  onClick={togglePlay} 
-                  className="hover:text-white transition-colors"
-                >
-                  {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 fill-current" />}
-                </button>
-
-                <button 
-                  onClick={toggleMute} 
-                  className="hover:text-white transition-colors flex items-center gap-1"
-                >
-                  {isMuted ? <VolumeX className="w-4 h-4 text-rose-400" /> : <Volume2 className="w-4 h-4" />}
-                </button>
-
-                <span className="font-mono text-[11px] text-slate-400">
-                  {formatSeconds(currentTime)} / {formatSeconds(duration)}
+              {/* Watermark badge */}
+              <div className="absolute top-4 left-4 pointer-events-none bg-slate-950/60 backdrop-blur-md px-3 py-1.5 rounded-xl border border-white/10 flex items-center gap-2">
+                <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                <span className="text-[11px] font-bold text-white tracking-wide">
+                  Hostel Ease 4K Virtual Walkthrough
                 </span>
               </div>
 
-              <div className="flex items-center gap-2">
+              {/* Center Play/Pause button overlay (pops on hover or when paused) */}
+              {(!isPlaying || isBuffering) && (
                 <button
-                  onClick={() => {
-                    if (videoRef.current) videoRef.current.currentTime = 0;
-                  }}
-                  className="hover:text-white transition-colors p-1"
-                  title="Replay from start"
+                  onClick={togglePlay}
+                  className="absolute inset-0 m-auto w-16 h-16 rounded-full bg-emerald-600/90 hover:bg-emerald-500 text-white flex items-center justify-center shadow-2xl backdrop-blur-sm transition-transform hover:scale-110 cursor-pointer"
                 >
-                  <RotateCcw className="w-3.5 h-3.5" />
+                  {isBuffering ? (
+                    <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <Play className="w-8 h-8 fill-current ml-1" />
+                  )}
                 </button>
-                <button
-                  onClick={toggleFullScreen}
-                  className="hover:text-white transition-colors p-1"
-                  title="Full screen"
+              )}
+
+              {/* Video Controls Bar Overlay */}
+              <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-slate-950 via-slate-950/70 to-transparent p-4 pt-8 space-y-2 opacity-95 group-hover:opacity-100 transition-opacity">
+                {/* Progress / Scrub Bar */}
+                <div 
+                  onClick={handleSeek} 
+                  className="w-full h-1.5 bg-white/20 hover:h-2.5 rounded-full overflow-hidden cursor-pointer transition-all relative"
                 >
-                  <Maximize2 className="w-4 h-4" />
-                </button>
+                  <div 
+                    className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full transition-all"
+                    style={{ width: `${progress}%` }}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between text-xs text-slate-300">
+                  <div className="flex items-center gap-3">
+                    <button 
+                      onClick={togglePlay} 
+                      className="hover:text-white transition-colors"
+                    >
+                      {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 fill-current" />}
+                    </button>
+
+                    <button 
+                      onClick={toggleMute} 
+                      className="hover:text-white transition-colors flex items-center gap-1"
+                    >
+                      {isMuted ? <VolumeX className="w-4 h-4 text-rose-400" /> : <Volume2 className="w-4 h-4" />}
+                    </button>
+
+                    <span className="font-mono text-[11px] text-slate-400">
+                      {formatSeconds(currentTime)} / {formatSeconds(duration)}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => {
+                        const speeds = [1, 1.25, 1.5, 2];
+                        const nextSpeed = speeds[(speeds.indexOf(playbackSpeed) + 1) % speeds.length];
+                        setPlaybackSpeed(nextSpeed);
+                        if (videoRef.current) videoRef.current.playbackRate = nextSpeed;
+                      }}
+                      className="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-[10px] font-mono font-bold text-slate-300 hover:text-white transition"
+                      title="Toggle playback speed"
+                    >
+                      {playbackSpeed}x
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (videoRef.current) videoRef.current.currentTime = 0;
+                      }}
+                      className="hover:text-white transition-colors p-1"
+                      title="Replay from start"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={toggleFullScreen}
+                      className="hover:text-white transition-colors p-1"
+                      title="Full screen"
+                    >
+                      <Maximize2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="relative w-full h-full flex flex-col items-center justify-center text-center p-6 bg-slate-950">
+              {posterUrl && (
+                <img 
+                  src={posterUrl} 
+                  alt={property.title} 
+                  className="absolute inset-0 w-full h-full object-cover opacity-20 filter blur-xs"
+                />
+              )}
+              <div className="relative z-10 max-w-md space-y-3">
+                <div className="w-14 h-14 rounded-2xl bg-slate-800/80 border border-slate-700 mx-auto flex items-center justify-center text-amber-400 shadow-lg">
+                  <VideoOff className="w-7 h-7" />
+                </div>
+                <div>
+                  <h4 className="text-base font-bold text-white">4K Video Walkthrough In Production</h4>
+                  <p className="text-xs text-slate-400 mt-1">
+                    The verified 4K walkthrough video for <strong className="text-slate-200">{property.title}</strong> is currently being reviewed by our physical campus inspection team.
+                  </p>
+                </div>
+                {onOpenInspectionModal && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClose();
+                      onOpenInspectionModal(property);
+                    }}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl transition cursor-pointer shadow-md"
+                  >
+                    <Calendar className="w-3.5 h-3.5" />
+                    <span>Book Physical Inspection Instead</span>
+                  </button>
+                )}
               </div>
             </div>
-          </div>
+          )}
         </div>
 
         {/* Bottom Details & Action Bar */}

@@ -64,11 +64,44 @@ const getReviewsByPropIdStmt = db.prepare(`
   ORDER BY r.created_at DESC
 `);
 
+const getVideoMediaStmt = db.prepare(`
+  SELECT url, thumbnail_url, caption, category
+  FROM property_media
+  WHERE property_id = ? AND (media_type = 'VIDEO' OR category = 'VIDEO_WALKTHROUGH' OR url LIKE '%.mp4' OR url LIKE '%.webm')
+  LIMIT 1
+`);
+
 // Helper to format property row with rooms, prices, media, amenities
 function formatPropertySummary(p: any, savedPropertyIds: Set<string> = new Set()) {
   const price = getPriceStmt.get(p.id) as any;
   const coverMedia = (getCoverMediaStmt.get(p.id) || getFallbackMediaStmt.get(p.id)) as any;
+  const videoMedia = getVideoMediaStmt.get(p.id) as any;
   const keyAmenities = getKeyAmenitiesStmt.all(p.id);
+
+  const videoUrl = videoMedia ? videoMedia.url : (p.video_tour_url || null);
+  const hasVideo = Boolean(videoUrl);
+
+  const mediaList: any[] = [];
+  if (coverMedia) {
+    mediaList.push({
+      id: `media-${p.id}-cover`,
+      url: coverMedia.url,
+      caption: coverMedia.caption || 'Hostel Front View',
+      mediaType: 'IMAGE',
+      category: 'EXTERIOR',
+      isCover: true
+    });
+  }
+  if (videoMedia) {
+    mediaList.push({
+      id: `media-${p.id}-video`,
+      url: videoMedia.url,
+      caption: videoMedia.caption || '4K Virtual Inspection Walkthrough',
+      mediaType: 'VIDEO',
+      category: 'VIDEO_WALKTHROUGH',
+      isCover: false
+    });
+  }
 
   return {
     id: p.id,
@@ -87,6 +120,10 @@ function formatPropertySummary(p: any, savedPropertyIds: Set<string> = new Set()
     availabilityStatus: p.availability_status,
     isDemo: Boolean(p.is_demo),
     isFeatured: Boolean(p.is_featured),
+    has4KVideo: hasVideo,
+    videoTourUrl: videoUrl,
+    videoVerificationStatus: hasVideo ? 'APPROVED' : 'NONE',
+    media: mediaList,
     createdAt: p.created_at,
     area: {
       id: p.area_id,
@@ -335,11 +372,25 @@ router.get('/:id', optionalAuthenticate, (req: AuthenticatedRequest, res: Respon
       return res.status(404).json({ error: 'Property listing not found' });
     }
 
+    // Public privacy guard: unapproved properties are only accessible to their landlord or an admin
+    if (property.verification_status !== 'APPROVED') {
+      const isOwner = req.user && (req.user.id === property.provider_id || (req.user as any).role === 'ADMIN');
+      const isAdmin = req.user && (req.user as any).role === 'ADMIN';
+      if (!isOwner && !isAdmin) {
+        return res.status(404).json({ error: 'Property listing is pending verification or not publicly available' });
+      }
+    }
+
     // Fetch rooms, prices, media, amenities via precompiled statements
     const rooms = getRoomsByPropIdStmt.all(property.id);
     const prices = getPricesByPropIdStmt.all(property.id);
     const media = getMediaByPropIdStmt.all(property.id);
     const amenities = getAllAmenitiesByPropIdStmt.all(property.id);
+
+    const videoItem = media.find((m: any) => m.media_type === 'VIDEO' || m.category === 'VIDEO_WALKTHROUGH' || String(m.url || '').toLowerCase().includes('.mp4'));
+    const coverMedia = media.find((m: any) => m.is_cover) || media[0];
+    const videoUrl = videoItem ? videoItem.url : (property.video_tour_url || null);
+    const hasVideo = Boolean(videoUrl);
 
     // Check if saved by current user
     let isSaved = false;
@@ -371,6 +422,10 @@ router.get('/:id', optionalAuthenticate, (req: AuthenticatedRequest, res: Respon
         availabilityStatus: property.availability_status,
         isDemo: Boolean(property.is_demo),
         isFeatured: Boolean(property.is_featured),
+        has4KVideo: hasVideo,
+        videoTourUrl: videoUrl,
+        videoVerificationStatus: hasVideo ? 'APPROVED' : 'NONE',
+        coverImage: coverMedia ? coverMedia.url : 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=1200&q=80',
         createdAt: property.created_at,
         updatedAt: property.updated_at,
         area: {

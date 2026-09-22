@@ -1,4 +1,4 @@
-const CACHE_NAME = 'hostel-ease-shell-v4-live';
+const CACHE_NAME = 'hostel-ease-shell-v5-live';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',

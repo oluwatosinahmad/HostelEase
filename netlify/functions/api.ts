@@ -78,7 +78,7 @@ let memoryProperties: any[] = [
     isDemo: true,
     isFeatured: true,
     has4KVideo: true,
-    videoTourUrl: 'https://assets.mixkit.co/videos/preview/mixkit-modern-apartment-living-room-interior-41525-large.mp4',
+    videoTourUrl: '/uploads/sample_hostel_tour.mp4',
     videoVerificationStatus: 'APPROVED',
     coverImage: 'https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?auto=format&fit=crop&w=1000&q=80',
     area: { id: 'area-under-g', name: 'Under G', slug: 'under-g', landmark: 'LAUTECH Under-G Gate' },
@@ -104,7 +104,7 @@ let memoryProperties: any[] = [
     isDemo: true,
     isFeatured: true,
     has4KVideo: true,
-    videoTourUrl: 'https://assets.mixkit.co/videos/preview/mixkit-bright-kitchen-in-an-apartment-41528-large.mp4',
+    videoTourUrl: '/uploads/sample_hostel_tour.mp4',
     videoVerificationStatus: 'APPROVED',
     coverImage: 'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&w=1000&q=80',
     area: { id: 'area-adenike', name: 'Adenike Area', slug: 'adenike', landmark: 'Adenike Junction' },
@@ -1132,9 +1132,89 @@ export default async (req: Request): Promise<Response> => {
     }
   }
 
-  // 6. Public Properties
+  // 6. Public Properties (Strictly APPROVED listings only)
   if (pathname === '/api/properties' && req.method === 'GET') {
-    return new Response(JSON.stringify({ properties: memoryProperties }), { status: 200, headers: CORS_HEADERS });
+    const urlObj = new URL(req.url);
+    const search = (urlObj.searchParams.get('search') || '').toLowerCase().trim();
+    const areaId = urlObj.searchParams.get('areaId') || urlObj.searchParams.get('area');
+    const propertyType = urlObj.searchParams.get('propertyType') || urlObj.searchParams.get('type');
+    const maxRent = Number(urlObj.searchParams.get('maxRent')) || 0;
+
+    let publicProps = memoryProperties.filter(p => (p.verificationStatus || 'APPROVED') === 'APPROVED');
+
+    if (search) {
+      publicProps = publicProps.filter(p =>
+        p.title?.toLowerCase().includes(search) ||
+        p.address?.toLowerCase().includes(search) ||
+        p.description?.toLowerCase().includes(search) ||
+        p.area?.name?.toLowerCase().includes(search)
+      );
+    }
+    if (areaId && areaId !== 'all') {
+      publicProps = publicProps.filter(p => p.area?.id === areaId || p.area?.slug === areaId);
+    }
+    if (propertyType && propertyType !== 'ALL') {
+      publicProps = publicProps.filter(p => p.propertyType === propertyType);
+    }
+    if (maxRent > 0) {
+      publicProps = publicProps.filter(p => (p.priceSummary?.rentAmount || 0) <= maxRent);
+    }
+
+    return new Response(JSON.stringify({ properties: publicProps }), { status: 200, headers: CORS_HEADERS });
+  }
+
+  // 6b. Single Property Details
+  if (pathname.startsWith('/api/properties/') && !pathname.includes('/save') && req.method === 'GET') {
+    const propId = pathname.replace('/api/properties/', '').split('?')[0];
+    const found = memoryProperties.find(p => p.id === propId || p.slug === propId);
+    if (!found) {
+      return new Response(JSON.stringify({ error: 'Property not found' }), { status: 404, headers: CORS_HEADERS });
+    }
+
+    const user = parseAuth(req);
+    const isOwner = user && (user.id === found.providerId || (user.email && found.providerEmail && user.email.toLowerCase() === found.providerEmail.toLowerCase()));
+    const isAdmin = user && (user.role === 'ADMIN' || user.role === 'OWNER');
+
+    if (found.verificationStatus !== 'APPROVED' && !isOwner && !isAdmin) {
+      return new Response(JSON.stringify({ error: 'Property not found or pending review' }), { status: 404, headers: CORS_HEADERS });
+    }
+
+    return new Response(JSON.stringify({ property: found }), { status: 200, headers: CORS_HEADERS });
+  }
+
+  // 6c. Admin 8-Point Physical Inspection Verification Review
+  if (pathname.startsWith('/api/admin/verification/properties/') && pathname.endsWith('/review') && req.method === 'POST') {
+    try {
+      const parts = pathname.split('/');
+      const propId = parts[5];
+      const body = await req.json();
+      const decision = body.decision; // 'APPROVED', 'REJECTED'
+
+      const pIdx = memoryProperties.findIndex(p => p.id === propId);
+      if (pIdx === -1) {
+        return new Response(JSON.stringify({ error: 'Property not found' }), { status: 404, headers: CORS_HEADERS });
+      }
+
+      const propStatus = decision === 'APPROVED' ? 'APPROVED' : decision === 'REJECTED' ? 'REJECTED' : 'PENDING_REVIEW';
+      memoryProperties[pIdx].verificationStatus = propStatus;
+      memoryProperties[pIdx].adminFeedbackNotes = body.notes || body.adminFeedback || '';
+      memoryProperties[pIdx].verificationChecklist = body.checklist || {};
+      memoryProperties[pIdx].verifiedAt = new Date().toISOString();
+
+      if (decision === 'APPROVED' && memoryProperties[pIdx].has4KVideo) {
+        memoryProperties[pIdx].videoVerificationStatus = 'APPROVED';
+      }
+
+      await saveCloudProperty(memoryProperties[pIdx]);
+
+      return new Response(JSON.stringify({
+        message: `Property verification decision applied: ${decision}`,
+        reviewId: `vr-${Date.now()}`,
+        verificationStatus: propStatus
+      }), { status: 200, headers: CORS_HEADERS });
+    } catch (err: any) {
+      return new Response(JSON.stringify({ error: err.message || 'Failed to submit verification review' }), { status: 400, headers: CORS_HEADERS });
+    }
   }
 
   // 7. Admin Videos Queue
@@ -1310,6 +1390,9 @@ export default async (req: Request): Promise<Response> => {
       providerPhone: p.provider?.phone || '08012345678',
       coverImage: p.coverImage,
       has4KVideo: !!(p.has4KVideo || p.videoTourUrl),
+      videoTourUrl: p.videoTourUrl || undefined,
+      videoVerificationStatus: p.videoVerificationStatus || 'NONE',
+      media: p.media || [],
       createdAt: p.createdAt || new Date().toISOString()
     }));
     return new Response(JSON.stringify({ hostels }), { status: 200, headers: CORS_HEADERS });
@@ -1435,7 +1518,7 @@ export default async (req: Request): Promise<Response> => {
       if (!fileObj) {
         const isVideoReq = contentType.includes('video') || pathname.includes('video');
         const defaultImg = 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=1200&q=80';
-        const defaultVid = 'https://assets.mixkit.co/videos/preview/mixkit-modern-apartment-living-room-interior-41525-large.mp4';
+        const defaultVid = '/uploads/sample_hostel_tour.mp4';
         
         fileObj = {
           url: isVideoReq ? defaultVid : defaultImg,

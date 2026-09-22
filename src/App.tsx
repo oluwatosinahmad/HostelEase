@@ -242,11 +242,7 @@ function MainApp() {
     Promise.allSettled([
       api.areas.getAll().then(res => setAreas(res.areas || [])),
       api.properties.getFeatured().then(res => setFeaturedProperties(res.properties || [])),
-      api.properties.getRecent().then(res => setRecentProperties(res.properties || [])),
-      api.properties.search(filters).then(res => {
-        setProperties(res.properties || []);
-        setPagination(res.pagination || { page: 1, limit: 12, total: res.properties?.length || 0, totalPages: 1 });
-      })
+      api.properties.getRecent().then(res => setRecentProperties(res.properties || []))
     ]).finally(() => {
       setIsInitialReady(true);
     });
@@ -313,12 +309,14 @@ function MainApp() {
     return () => clearTimeout(timer);
   }, [filters, currentView]);
 
-  // Video properties for Virtual Campus Inspection 4K rolling carousel
+  // Video properties for Virtual Campus Inspection 4K rolling carousel (only verified properties with authentic video tours)
   const rollingVideoList = properties.filter(p => 
-    p.media?.some(m => m.mediaType === 'VIDEO') || (p as any).has4KVideo || (p as any).videoTourUrl
-  ).length >= 3 
-    ? properties.filter(p => p.media?.some(m => m.mediaType === 'VIDEO') || (p as any).has4KVideo || (p as any).videoTourUrl)
-    : properties.slice(0, 6);
+    p.verificationStatus === 'APPROVED' && (
+      p.media?.some(m => m.mediaType === 'VIDEO' || m.category === 'VIDEO_WALKTHROUGH' || String(m.url || '').toLowerCase().includes('.mp4')) || 
+      Boolean((p as any).has4KVideo) || 
+      Boolean((p as any).videoTourUrl)
+    )
+  );
 
   // Auto-roll 4K video walkthrough carousel every 3 minutes smoothly
   useEffect(() => {
@@ -911,7 +909,7 @@ function MainApp() {
               >
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                   {rollingVideoList.length > 0 ? (
-                    [0, 1, 2].map((offset) => {
+                    [0, 1, 2].slice(0, Math.min(3, rollingVideoList.length)).map((offset) => {
                       const idx = (videoSliderIndex + offset) % rollingVideoList.length;
                       const property = rollingVideoList[idx];
                       if (!property) return null;
@@ -994,7 +992,17 @@ function MainApp() {
                         </div>
                       </div>
                     );
-                  })) : null}
+                  })) : (
+                    <div className="col-span-full py-12 px-6 rounded-3xl bg-slate-900 border border-slate-800 text-center space-y-3">
+                      <div className="w-12 h-12 rounded-2xl bg-slate-800 flex items-center justify-center mx-auto text-emerald-400">
+                        <Video className="w-6 h-6" />
+                      </div>
+                      <h4 className="text-sm font-bold text-white">4K Campus Video Walkthroughs</h4>
+                      <p className="text-xs text-slate-400 max-w-md mx-auto">
+                        New on-site 4K video inspection walkthroughs are currently being processed by our physical inspection team.
+                      </p>
+                    </div>
+                  )}
                 </div>
 
                 {/* Bottom Slide Pagination Dots */}

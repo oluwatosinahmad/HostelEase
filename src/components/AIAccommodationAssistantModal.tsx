@@ -112,6 +112,7 @@ export const AIAccommodationAssistantModal: React.FC<AIAccommodationAssistantMod
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const audioStreamRef = useRef<MediaStream | null>(null);
+  const isSubmittingQueryRef = useRef<boolean>(false);
 
   // Voice recording timer effect
   useEffect(() => {
@@ -261,6 +262,8 @@ export const AIAccommodationAssistantModal: React.FC<AIAccommodationAssistantMod
   }, [isOpen, initialPropertyContext]);
 
   const loadConversations = async () => {
+    const token = localStorage.getItem('hostel_ease_token');
+    if (!token) return; // Prevent 401 for unauthenticated visitors
     try {
       const res = await api.ai.getConversations();
       setConversationsList(res.conversations || []);
@@ -309,7 +312,8 @@ export const AIAccommodationAssistantModal: React.FC<AIAccommodationAssistantMod
     options?: { isVoiceNote?: boolean; audioUrl?: string; audioDuration?: number }
   ) => {
     const query = (textToSend || inputQuery).trim();
-    if (!query || loading) return;
+    if (!query || isSubmittingQueryRef.current) return;
+    isSubmittingQueryRef.current = true;
 
     const replyMeta = replyingToMessage ? {
       id: replyingToMessage.id,
@@ -370,6 +374,7 @@ export const AIAccommodationAssistantModal: React.FC<AIAccommodationAssistantMod
       onShowToast(err.message || 'AI service temporarily unavailable', 'error');
     } finally {
       setLoading(false);
+      isSubmittingQueryRef.current = false;
     }
   };
 
@@ -1160,18 +1165,21 @@ export const AIAccommodationAssistantModal: React.FC<AIAccommodationAssistantMod
             </div>
           ))}
 
-          {/* Loading Skeleton */}
+          {/* Message-level Typing Indicator Bubble */}
           {loading && (
-            <div className="flex items-start gap-2 animate-in fade-in">
-              <div className="w-7 h-7 rounded-xl bg-emerald-100 border border-emerald-300 flex items-center justify-center">
-                <Bot className="w-4 h-4 text-emerald-700 animate-pulse" />
+            <div className="flex items-start gap-2.5 animate-in fade-in duration-150">
+              <div className="w-8 h-8 rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-600 text-white flex items-center justify-center shadow-xs">
+                <Bot className="w-4 h-4 text-white animate-pulse" />
               </div>
-              <div className="bg-white border border-slate-200 rounded-2xl rounded-bl-none p-4 shadow-sm space-y-2 max-w-[80%]">
+              <div className="bg-white border border-slate-200 rounded-3xl rounded-tl-xs px-4 py-3 shadow-xs space-y-1 max-w-[85%]">
                 <div className="flex items-center gap-2">
-                  <RefreshCw className="w-3.5 h-3.5 text-emerald-600 animate-spin" />
-                  <span className="text-xs text-slate-500 font-bold">Querying verified database records...</span>
+                  <div className="flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-bounce [animation-delay:-0.3s]"></span>
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-bounce [animation-delay:-0.15s]"></span>
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-bounce"></span>
+                  </div>
+                  <span className="text-xs text-slate-500 font-medium">Researching verified LAUTECH hostels...</span>
                 </div>
-                <div className="h-2 bg-slate-100 rounded-full w-48 animate-pulse"></div>
               </div>
             </div>
           )}
@@ -1192,7 +1200,6 @@ export const AIAccommodationAssistantModal: React.FC<AIAccommodationAssistantMod
                 key={idx}
                 type="button"
                 onClick={() => handleSendMessage(sugg)}
-                disabled={loading}
                 className={`px-3 py-1.5 rounded-xl text-[11px] font-bold transition whitespace-nowrap shrink-0 cursor-pointer shadow-2xs ${
                   languageMode === 'PIDGIN'
                     ? 'bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200'
@@ -1293,7 +1300,6 @@ export const AIAccommodationAssistantModal: React.FC<AIAccommodationAssistantMod
                     ? "Ask in Pidgin: e.g., 'Lodge wey get steady light for Under G dey?'"
                     : "Ask about LAUTECH hostels, budget, fees, inspections, or safety..."
                 }
-                disabled={loading}
                 className="w-full pl-4 pr-10 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-[16px] sm:text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition"
               />
               <Sparkles className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-emerald-500 pointer-events-none" />
@@ -1321,7 +1327,7 @@ export const AIAccommodationAssistantModal: React.FC<AIAccommodationAssistantMod
             {/* Send Button */}
             <button
               type="submit"
-              disabled={!inputQuery.trim() || loading}
+              disabled={!inputQuery.trim()}
               className="p-3.5 min-w-[44px] min-h-[44px] bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 disabled:hover:bg-emerald-600 text-white rounded-2xl shadow-md transition flex items-center justify-center shrink-0 cursor-pointer"
               aria-label="Send message"
             >

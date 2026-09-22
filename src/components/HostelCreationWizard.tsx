@@ -410,6 +410,8 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
 
   // Submit Handler
   const handleFinalSubmit = async (isDraft: boolean) => {
+    if (submitting) return;
+
     if (!title.trim()) {
       onShowToast('Please provide a hostel title', 'error');
       setCurrentStep(1);

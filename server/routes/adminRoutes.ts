@@ -465,6 +465,13 @@ router.patch(
   }
 );
 
+// Precompiled statement for admin hostel media lookup
+const getHostelMediaForAdminStmt = db.prepare(`
+  SELECT * FROM property_media 
+  WHERE property_id = ? 
+  ORDER BY is_cover DESC, display_order ASC
+`);
+
 // =============================================================================
 // 4. HOSTEL MANAGEMENT & VERIFICATION CENTER
 // =============================================================================
@@ -510,30 +517,51 @@ router.get(
     const hostels = db.prepare(query).all(...params) as any[];
 
     res.json({
-      hostels: hostels.map(h => ({
-        id: h.id,
-        title: h.title,
-        slug: h.slug,
-        address: h.address,
-        nearbyLandmark: h.nearby_landmark,
-        distanceFromCampusKm: h.distance_from_campus_km,
-        propertyType: h.property_type,
-        genderPreference: h.gender_preference,
-        totalRooms: h.total_rooms,
-        verificationStatus: h.verification_status,
-        availabilityStatus: h.availability_status,
-        completenessScore: h.completeness_score,
-        coverImage: h.cover_image,
-        rentAmount: h.rent_amount || 0,
-        totalMandatoryCost: h.total_mandatory_cost || 0,
-        areaName: h.area_name || 'LAUTECH Off-Campus',
-        provider: {
-          name: h.provider_name,
-          phone: h.provider_phone,
-          email: h.provider_email
-        },
-        createdAt: h.created_at
-      }))
+      hostels: hostels.map(h => {
+        const mediaList = getHostelMediaForAdminStmt.all(h.id) as any[];
+        const videoMedia = mediaList.find((m: any) => 
+          m.media_type === 'VIDEO' || m.category === 'VIDEO_WALKTHROUGH' || String(m.url || '').toLowerCase().includes('.mp4')
+        );
+        const videoUrl = videoMedia ? videoMedia.url : (h.video_tour_url || null);
+        const hasVideo = Boolean(videoUrl);
+
+        return {
+          id: h.id,
+          title: h.title,
+          slug: h.slug,
+          address: h.address,
+          nearbyLandmark: h.nearby_landmark,
+          distanceFromCampusKm: h.distance_from_campus_km,
+          propertyType: h.property_type,
+          genderPreference: h.gender_preference,
+          totalRooms: h.total_rooms,
+          verificationStatus: h.verification_status,
+          availabilityStatus: h.availability_status,
+          completenessScore: h.completeness_score,
+          coverImage: h.cover_image,
+          has4KVideo: hasVideo,
+          videoTourUrl: videoUrl,
+          videoVerificationStatus: h.video_verification_status || (hasVideo ? 'APPROVED' : 'NONE'),
+          media: mediaList.map((m: any) => ({
+            id: m.id,
+            url: m.url,
+            mediaType: m.media_type,
+            type: m.media_type,
+            category: m.category,
+            caption: m.caption,
+            isCover: Boolean(m.is_cover)
+          })),
+          rentAmount: h.rent_amount || 0,
+          totalMandatoryCost: h.total_mandatory_cost || 0,
+          areaName: h.area_name || 'LAUTECH Off-Campus',
+          provider: {
+            name: h.provider_name,
+            phone: h.provider_phone,
+            email: h.provider_email
+          },
+          createdAt: h.created_at
+        };
+      })
     });
   }
 );
@@ -567,6 +595,18 @@ router.post(
     nextReviewDate.setMonth(nextReviewDate.getMonth() + (parseInt(validMonths, 10) || 12));
     const nextReviewStr = nextReviewDate.toISOString();
 
+    // Ensure foreign key integrity for admin_id and provider_id
+    const adminUser = db.prepare('SELECT id FROM users WHERE id = ?').get(adminId) as any;
+    const resolvedAdminId = adminUser ? adminId : ((db.prepare("SELECT id FROM users WHERE role = 'ADMIN' LIMIT 1").get() as any)?.id || adminId);
+
+    let resolvedProviderId = prop.provider_id;
+    if (resolvedProviderId) {
+      const providerUser = db.prepare('SELECT id FROM users WHERE id = ?').get(resolvedProviderId) as any;
+      if (!providerUser) {
+        resolvedProviderId = null;
+      }
+    }
+
     db.transaction(() => {
       // 1. Insert Verification Review Record
       db.prepare(`
@@ -576,8 +616,8 @@ router.post(
       `).run(
         reviewId,
         id,
-        prop.provider_id,
-        adminId,
+        resolvedProviderId,
+        resolvedAdminId,
         JSON.stringify(checklist || {}),
         decision,
         notes || null,
@@ -600,7 +640,7 @@ router.post(
       `).run(
         propStatus,
         decision,
-        adminId,
+        resolvedAdminId,
         decision,
         nextReviewStr,
         decision,
