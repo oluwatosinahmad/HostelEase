@@ -28,7 +28,8 @@ import {
   Compass, 
   ArrowLeft,
   ChevronRight,
-  X
+  X,
+  Video
 } from 'lucide-react';
 import { AppView } from '../types/hostelEase';
 import { useAuth } from '../context/AuthContext';
@@ -293,6 +294,27 @@ export const MorePageView: React.FC<MorePageViewProps> = ({
                   <div>
                     <span className="text-xs font-bold text-slate-900 dark:text-white">My Bookings & Reservations</span>
                     <p className="text-[11px] text-slate-500 dark:text-slate-400">Active requests, acceptance & receipts</p>
+                  </div>
+                </div>
+                <ChevronRight className="w-4 h-4 text-slate-400" />
+              </button>
+
+              <button
+                onClick={() => onNavigate('virtual-tours')}
+                className="w-full flex items-center justify-between p-3 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors text-left"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+                    <Video className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <span className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                      <span>4K Virtual Property Tours</span>
+                      <span className="px-1.5 py-0.2 rounded text-[9px] font-black bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 uppercase">
+                        4K
+                      </span>
+                    </span>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400">Watch uncut on-site inspection videos</p>
                   </div>
                 </div>
                 <ChevronRight className="w-4 h-4 text-slate-400" />

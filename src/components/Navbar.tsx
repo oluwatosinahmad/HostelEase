@@ -36,7 +36,8 @@ import {
   TrendingUp,
   DollarSign,
   Eye,
-  Compass
+  Compass,
+  Video
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
@@ -311,6 +312,18 @@ export const Navbar: React.FC<NavbarProps> = ({
             >
               <Search className="w-4 h-4" />
               <span>Find Hostels</span>
+            </button>
+
+            <button
+              onClick={() => onNavigate('virtual-tours')}
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                activeView === 'virtual-tours' 
+                  ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 font-bold' 
+                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-800'
+              }`}
+            >
+              <Video className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+              <span>4K Tours</span>
             </button>
 
             {/* Saved Hostels (Shown only for Authenticated Students) */}

@@ -1,5 +1,5 @@
 export type UserRole = 'STUDENT' | 'PROVIDER' | 'ADMIN';
-export type AppView = 'home' | 'search' | 'saved' | 'community' | 'student-dashboard' | 'provider-portal' | 'admin-portal' | 'messages' | 'inspections' | 'bookings' | 'payments' | 'move-in' | 'history' | 'more';
+export type AppView = 'home' | 'search' | 'saved' | 'community' | 'student-dashboard' | 'provider-portal' | 'admin-portal' | 'messages' | 'inspections' | 'bookings' | 'payments' | 'move-in' | 'history' | 'more' | 'virtual-tours';
 
 export type PropertyType = 'SELF_CONTAIN' | 'SINGLE_ROOM' | 'FLAT' | 'SHARED_BEDSPACE';
 export type GenderPreference = 'ANY' | 'MALE_ONLY' | 'FEMALE_ONLY';

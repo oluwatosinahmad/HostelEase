@@ -1,4 +1,4 @@
-import React, { useState, useEffect, Suspense, lazy } from 'react';
+import React, { useState, useEffect, useRef, Suspense, lazy } from 'react';
 import { 
   Building2, 
   Search, 
@@ -47,6 +47,7 @@ import { ComparisonDock } from './components/ComparisonDock';
 import { BookingModal } from './components/BookingModal';
 import { InspectionModal } from './components/InspectionModal';
 import { HostelVideoTourModal } from './components/HostelVideoTourModal';
+import { VirtualToursView } from './components/VirtualToursView';
 import { AuthModal } from './components/AuthModal';
 import { Footer } from './components/Footer';
 import { MobileBottomNav } from './components/MobileBottomNav';
@@ -106,42 +107,202 @@ function MainApp() {
   const { user, isAuthenticated, isStudent, isProvider, isAdmin, login, logout, loginDemo, impersonateUser, exitImpersonation, isImpersonating } = useAuth();
 
   // Navigation & View State
+  // Navigation & View State with Hash Routing & History Synchronization
   const [currentView, setCurrentView] = useState<AppView>(() => {
     try {
+      const hash = window.location.hash;
+      if (hash) {
+        const videoMatch = hash.match(/^#virtual-tours?\/([^/?#]+)/);
+        if (videoMatch) return 'virtual-tours';
+        const cleanHash = hash.replace('#', '').split('/')[0] as AppView;
+        const validViews: AppView[] = [
+          'home', 'search', 'saved', 'community', 'student-dashboard', 
+          'provider-portal', 'admin-portal', 'messages', 'inspections', 
+          'bookings', 'payments', 'move-in', 'history', 'more', 'virtual-tours'
+        ];
+        if (validViews.includes(cleanHash)) return cleanHash;
+      }
       const saved = localStorage.getItem('hostel_ease_current_view') as AppView;
       if (saved) return saved;
     } catch {}
     return 'home';
   });
 
+  // Track initial deep-link property video if opened via #virtual-tours/:id or #virtual-tour/:id
+  const [pendingVideoPropertyId, setPendingVideoPropertyId] = useState<string | null>(() => {
+    try {
+      const match = window.location.hash.match(/^#virtual-tours?\/([^/?#]+)/);
+      return match ? match[1] : null;
+    } catch {
+      return null;
+    }
+  });
+
+  // Data State
+  const [areas, setAreas] = useState<Area[]>([]);
+  const [properties, setProperties] = useState<Property[]>([]);
+  const [featuredProperties, setFeaturedProperties] = useState<Property[]>([]);
+  const [recentProperties, setRecentProperties] = useState<Property[]>([]);
+  const [savedProperties, setSavedProperties] = useState<Property[]>([]);
+  const [pagination, setPagination] = useState({ page: 1, limit: 12, total: 0, totalPages: 1 });
+
+  // Track navigation origin and scroll position before entering 4K video viewer
+  const videoTourOriginRef = useRef<{
+    fromView: AppView;
+    scrollY: number;
+    hasHistoryPushed: boolean;
+  } | null>(null);
+
+  // Modals
+  const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null);
+  const [bookingModalOpen, setBookingModalOpen] = useState<boolean>(false);
+  const [bookingTargetProperty, setBookingTargetProperty] = useState<Property | null>(null);
+  const [standaloneInspectionModalOpen, setStandaloneInspectionModalOpen] = useState<boolean>(false);
+  const [inspectionTargetProperty, setInspectionTargetProperty] = useState<Property | null>(null);
+  const [selectedVideoTourProperty, setSelectedVideoTourProperty] = useState<Property | null>(null);
+
+  // Synchronize browser history entry so browser back button navigates between views naturally
   useEffect(() => {
     try {
       localStorage.setItem('hostel_ease_current_view', currentView);
     } catch {}
 
-    // Synchronize browser history entry so browser back button navigates between views naturally
+    // Only update history state if video tour is NOT active, preserving #virtual-tour/:id
     try {
-      if (window.history.state?.view !== currentView) {
-        window.history.pushState({ view: currentView }, '', currentView === 'home' ? '/' : `#${currentView}`);
+      if (!selectedVideoTourProperty) {
+        const currentHash = window.location.hash;
+        const expectedHash = currentView === 'home' ? '' : `#${currentView}`;
+        if (window.history.state?.view !== currentView || currentHash !== expectedHash) {
+          window.history.pushState({ view: currentView }, '', currentView === 'home' ? '/' : `#${currentView}`);
+        }
       }
     } catch {}
-  }, [currentView]);
+  }, [currentView, selectedVideoTourProperty]);
+
+  // Open 4K video tour and push history entry so browser/mobile Back button navigates back cleanly
+  const handleOpenVideoTour = (property: Property) => {
+    const currentScroll = window.scrollY;
+    const fromView = currentView;
+    videoTourOriginRef.current = {
+      fromView,
+      scrollY: currentScroll,
+      hasHistoryPushed: true
+    };
+    setSelectedVideoTourProperty(property);
+
+    const tourHash = fromView === 'virtual-tours' ? `#virtual-tours/${property.id}` : `#virtual-tour/${property.id}`;
+    try {
+      window.history.pushState(
+        {
+          view: fromView,
+          videoTourPropertyId: property.id,
+          fromView,
+          scrollY: currentScroll
+        },
+        '',
+        tourHash
+      );
+    } catch {}
+  };
+
+  // Close 4K video tour and return to previous listing
+  const handleCloseVideoTour = () => {
+    if (window.history.state && window.history.state.videoTourPropertyId) {
+      window.history.back();
+    } else {
+      setSelectedVideoTourProperty(null);
+      const targetView = videoTourOriginRef.current?.fromView || (currentView === 'home' ? 'home' : 'virtual-tours');
+      setCurrentView(targetView);
+      try {
+        window.history.replaceState({ view: targetView }, '', targetView === 'home' ? '/' : `#${targetView}`);
+      } catch {}
+      if (videoTourOriginRef.current?.scrollY !== undefined) {
+        const y = videoTourOriginRef.current.scrollY;
+        setTimeout(() => window.scrollTo({ top: y, behavior: 'instant' }), 10);
+      }
+      videoTourOriginRef.current = null;
+    }
+  };
 
   // Listen for browser Back/Forward popstate events
   useEffect(() => {
     const handlePopState = (event: PopStateEvent) => {
-      if (event.state && event.state.view) {
-        setCurrentView(event.state.view);
-      } else if (window.location.hash) {
-        const hashView = window.location.hash.replace('#', '') as AppView;
-        if (hashView) setCurrentView(hashView);
+      const state = event.state;
+      const hash = window.location.hash;
+
+      // 1. If currently showing video tour modal
+      if (selectedVideoTourProperty) {
+        // If moving between videos in history
+        if (state && state.videoTourPropertyId) {
+          const nextProp = properties.find(p => p.id === state.videoTourPropertyId) ||
+                           featuredProperties.find(p => p.id === state.videoTourPropertyId);
+          if (nextProp) {
+            setSelectedVideoTourProperty(nextProp);
+            return;
+          }
+        }
+
+        // User pressed BACK to return to the 4K video listing
+        setSelectedVideoTourProperty(null);
+
+        // Restore view: prioritize state.view or state.fromView or previous view
+        const targetView: AppView = (state && state.view) || (state && state.fromView) || 
+          (hash.includes('virtual-tours') ? 'virtual-tours' : (videoTourOriginRef.current?.fromView || 'virtual-tours'));
+        setCurrentView(targetView);
+
+        // Restore scroll position so user returns to exact browsing position
+        const targetScroll = state?.scrollY ?? videoTourOriginRef.current?.scrollY;
+        if (typeof targetScroll === 'number') {
+          setTimeout(() => {
+            window.scrollTo({ top: targetScroll, behavior: 'instant' });
+          }, 15);
+        }
+        videoTourOriginRef.current = null;
+        return;
+      }
+
+      // 2. If not showing video tour, but popstate moved to a video URL (e.g. Forward button)
+      const videoMatch = hash.match(/^#virtual-tours?\/([^/?#]+)/);
+      const targetVideoId = state?.videoTourPropertyId || (videoMatch ? videoMatch[1] : null);
+      if (targetVideoId) {
+        const targetProp = properties.find(p => p.id === targetVideoId) ||
+                           featuredProperties.find(p => p.id === targetVideoId);
+        if (targetProp) {
+          videoTourOriginRef.current = {
+            fromView: (state?.fromView as AppView) || currentView,
+            scrollY: state?.scrollY ?? window.scrollY,
+            hasHistoryPushed: true
+          };
+          setSelectedVideoTourProperty(targetProp);
+          return;
+        } else {
+          setPendingVideoPropertyId(targetVideoId);
+        }
+      }
+
+      // 3. Normal view navigation
+      if (state && state.view) {
+        setCurrentView(state.view);
+      } else if (hash) {
+        const cleanHash = hash.replace('#', '').split('/')[0] as AppView;
+        const validViews: AppView[] = [
+          'home', 'search', 'saved', 'community', 'student-dashboard', 
+          'provider-portal', 'admin-portal', 'messages', 'inspections', 
+          'bookings', 'payments', 'move-in', 'history', 'more', 'virtual-tours'
+        ];
+        if (validViews.includes(cleanHash)) {
+          setCurrentView(cleanHash);
+        } else {
+          setCurrentView('home');
+        }
       } else {
         setCurrentView('home');
       }
     };
+
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
-  }, []);
+  }, [selectedVideoTourProperty, properties, featuredProperties, currentView]);
 
   const [searchViewMode, setSearchViewMode] = useState<'list' | 'map'>('list');
   const [messagingTargetPropertyId, setMessagingTargetPropertyId] = useState<string | null>(null);
@@ -157,14 +318,6 @@ function MainApp() {
   const [isInitialLoading, setIsInitialLoading] = useState<boolean>(true);
   const [isInitialReady, setIsInitialReady] = useState<boolean>(false);
 
-  // Data State
-  const [areas, setAreas] = useState<Area[]>([]);
-  const [properties, setProperties] = useState<Property[]>([]);
-  const [featuredProperties, setFeaturedProperties] = useState<Property[]>([]);
-  const [recentProperties, setRecentProperties] = useState<Property[]>([]);
-  const [savedProperties, setSavedProperties] = useState<Property[]>([]);
-  const [pagination, setPagination] = useState({ page: 1, limit: 12, total: 0, totalPages: 1 });
-  
   // Search & Filter State
   const [filters, setFilters] = useState<SearchFilterState>(initialFilters);
   const [searchLoading, setSearchLoading] = useState<boolean>(false);
@@ -175,13 +328,7 @@ function MainApp() {
   const [comparedPropertyIds, setComparedPropertyIds] = useState<string[]>([]);
   const [comparisonModalOpen, setComparisonModalOpen] = useState<boolean>(false);
 
-  // Modals
-  const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null);
-  const [bookingModalOpen, setBookingModalOpen] = useState<boolean>(false);
-  const [bookingTargetProperty, setBookingTargetProperty] = useState<Property | null>(null);
-  const [standaloneInspectionModalOpen, setStandaloneInspectionModalOpen] = useState<boolean>(false);
-  const [inspectionTargetProperty, setInspectionTargetProperty] = useState<Property | null>(null);
-  const [selectedVideoTourProperty, setSelectedVideoTourProperty] = useState<Property | null>(null);
+  // Modals & Sliders
   const [videoSliderIndex, setVideoSliderIndex] = useState<number>(0);
   const [isVideoSliderHovered, setIsVideoSliderHovered] = useState<boolean>(false);
   const [featuredSliderIndex, setFeaturedSliderIndex] = useState<number>(0);
@@ -287,7 +434,7 @@ function MainApp() {
 
   // Execute Search query when filters change or when search view is open (Instant Stale-While-Revalidate & Debounce)
   useEffect(() => {
-    if (currentView !== 'search' && currentView !== 'home') return;
+    if (currentView !== 'search' && currentView !== 'home' && currentView !== 'virtual-tours') return;
 
     // Stale-While-Revalidate: Only show skeleton if we have no properties loaded yet
     if (properties.length === 0) {
@@ -308,6 +455,27 @@ function MainApp() {
 
     return () => clearTimeout(timer);
   }, [filters, currentView]);
+
+  // Resolve deep-linked video tour when properties are loaded
+  useEffect(() => {
+    if (pendingVideoPropertyId) {
+      const prop = properties.find(p => p.id === pendingVideoPropertyId) ||
+                   featuredProperties.find(p => p.id === pendingVideoPropertyId);
+      if (prop) {
+        handleOpenVideoTour(prop);
+        setPendingVideoPropertyId(null);
+      } else if (properties.length > 0) {
+        api.properties.getById(pendingVideoPropertyId)
+          .then(res => {
+            if (res.property) {
+              handleOpenVideoTour(res.property);
+            }
+          })
+          .catch(() => {})
+          .finally(() => setPendingVideoPropertyId(null));
+      }
+    }
+  }, [pendingVideoPropertyId, properties, featuredProperties]);
 
   // Video properties for Virtual Campus Inspection 4K rolling carousel (only verified properties with authentic video tours)
   const rollingVideoList = properties.filter(p => 
@@ -831,7 +999,7 @@ function MainApp() {
                           }}
                           onOpenBookingModal={(prop) => handleOpenBookingModal(prop)}
                           onOpenInspectionModal={(prop) => handleOpenInspectionModal(prop)}
-                          onOpenVideoTour={(prop) => setSelectedVideoTourProperty(prop)}
+                          onOpenVideoTour={(prop) => handleOpenVideoTour(prop)}
                           isCompared={comparedPropertyIds.includes(property.id)}
                         />
                       );
@@ -883,6 +1051,17 @@ function MainApp() {
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
+                    onClick={() => {
+                      setCurrentView('virtual-tours');
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }}
+                    className="text-xs font-bold text-emerald-400 hover:text-emerald-300 flex items-center gap-1 transition-colors cursor-pointer mr-2"
+                  >
+                    View all 4K tours <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+
+                  <button
+                    type="button"
                     onClick={() => setVideoSliderIndex(prev => (rollingVideoList.length > 0 ? (prev > 0 ? prev - 1 : rollingVideoList.length - 1) : 0))}
                     className="p-2 rounded-xl bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 shadow-xs transition-colors cursor-pointer"
                     title="Previous Video"
@@ -919,7 +1098,7 @@ function MainApp() {
                       return (
                         <div
                           key={`vid-roll-${property.id}-${offset}`}
-                          onClick={() => setSelectedVideoTourProperty(property)}
+                          onClick={() => handleOpenVideoTour(property)}
                           className="group relative bg-slate-900 rounded-3xl overflow-hidden shadow-lg border border-slate-800 hover:border-emerald-500/50 hover:shadow-2xl transition-all duration-300 cursor-pointer flex flex-col hover:-translate-y-1.5"
                         >
                         {/* Video Thumbnail with Hover Zoom */}
@@ -982,7 +1161,7 @@ function MainApp() {
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
-                              setSelectedVideoTourProperty(property);
+                              handleOpenVideoTour(property);
                             }}
                             className="px-3 py-1.5 bg-emerald-600/80 group-hover:bg-emerald-600 text-white text-[11px] font-extrabold rounded-xl transition-all shadow-sm flex items-center gap-1 flex-shrink-0 cursor-pointer"
                           >
@@ -1253,7 +1432,7 @@ function MainApp() {
                           }}
                           onOpenBookingModal={(prop) => handleOpenBookingModal(prop)}
                           onOpenInspectionModal={(prop) => handleOpenInspectionModal(prop)}
-                          onOpenVideoTour={(prop) => setSelectedVideoTourProperty(prop)}
+                          onOpenVideoTour={(prop) => handleOpenVideoTour(prop)}
                           isCompared={comparedPropertyIds.includes(property.id)}
                         />
                       ))}
@@ -1263,6 +1442,22 @@ function MainApp() {
               </div>
             )}
           </div>
+        )}
+
+        {/* VIEW: 4K VIRTUAL TOURS GALLERY */}
+        {currentView === 'virtual-tours' && (
+          <VirtualToursView
+            properties={properties}
+            areas={areas}
+            onOpenVideoTour={(prop) => handleOpenVideoTour(prop)}
+            onViewDetails={(prop) => setSelectedPropertyId(prop.id)}
+            onOpenBookingModal={(prop) => handleOpenBookingModal(prop)}
+            onOpenInspectionModal={(prop) => handleOpenInspectionModal(prop)}
+            onNavigateHome={() => {
+              setCurrentView('home');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+          />
         )}
 
         {/* VIEW 3: SAVED HOSTELS */}
@@ -1821,17 +2016,19 @@ function MainApp() {
         <HostelVideoTourModal
           property={selectedVideoTourProperty}
           isOpen={Boolean(selectedVideoTourProperty)}
-          onClose={() => setSelectedVideoTourProperty(null)}
+          onClose={handleCloseVideoTour}
+          onBack={handleCloseVideoTour}
+          backButtonLabel={videoTourOriginRef.current?.fromView === 'home' ? 'Back to 4K Spotlight' : 'Back to 4K Tours'}
           onOpenBookingModal={(prop) => {
-            setSelectedVideoTourProperty(null);
+            handleCloseVideoTour();
             handleOpenBookingModal(prop);
           }}
           onOpenInspectionModal={(prop) => {
-            setSelectedVideoTourProperty(null);
+            handleCloseVideoTour();
             handleOpenInspectionModal(prop);
           }}
           onOpenConversation={(propId) => {
-            setSelectedVideoTourProperty(null);
+            handleCloseVideoTour();
             setMessagingTargetPropertyId(propId);
             setCurrentView('messages');
             window.scrollTo({ top: 0, behavior: 'smooth' });

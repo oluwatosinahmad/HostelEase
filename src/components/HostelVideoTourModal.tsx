@@ -11,10 +11,11 @@ import {
   Calendar, 
   Receipt, 
   MessageSquare, 
-  Sparkles,
-  RotateCcw,
-  VideoOff,
-  AlertCircle
+  Sparkles, 
+  RotateCcw, 
+  VideoOff, 
+  AlertCircle,
+  ArrowLeft
 } from 'lucide-react';
 import { Property } from '../types/hostelEase';
 import { formatNaira, formatDistance } from '../utils/formatters';
@@ -24,6 +25,8 @@ interface HostelVideoTourModalProps {
   property: Property | null;
   isOpen: boolean;
   onClose: () => void;
+  onBack?: () => void;
+  backButtonLabel?: string;
   onOpenBookingModal?: (property: Property) => void;
   onOpenInspectionModal?: (property: Property) => void;
   onOpenConversation?: (propertyId: string) => void;
@@ -33,6 +36,8 @@ export const HostelVideoTourModal: React.FC<HostelVideoTourModalProps> = ({
   property,
   isOpen,
   onClose,
+  onBack,
+  backButtonLabel,
   onOpenBookingModal,
   onOpenInspectionModal,
   onOpenConversation
@@ -69,6 +74,27 @@ export const HostelVideoTourModal: React.FC<HostelVideoTourModalProps> = ({
       setIsPlaying(true);
     }
   }, [isOpen, property?.id, videoSrc]);
+
+  const handleBack = () => {
+    if (videoRef.current) {
+      videoRef.current.pause();
+    }
+    if (onBack) {
+      onBack();
+    } else {
+      onClose();
+    }
+  };
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isOpen) {
+        handleBack();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen]);
 
   if (!isOpen || !property) return null;
 
@@ -126,35 +152,43 @@ export const HostelVideoTourModal: React.FC<HostelVideoTourModalProps> = ({
     <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 animate-in fade-in duration-200">
       <div className="bg-slate-900 border border-slate-700/80 rounded-3xl max-w-4xl w-full shadow-2xl overflow-hidden relative flex flex-col text-white">
         
-        {/* Top Header Bar */}
-        <div className="flex items-center justify-between p-4 sm:p-5 border-b border-slate-800 bg-slate-900/90 backdrop-blur z-10">
-          <div className="flex items-center gap-3">
-            <span className="flex h-3 w-3 relative">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
-            </span>
-            <div>
+        {/* Top Header Bar with Prominent In-App Back Button */}
+        <div className="flex items-center justify-between p-3.5 sm:p-5 border-b border-slate-800 bg-slate-900/90 backdrop-blur z-10 gap-3">
+          <div className="flex items-center gap-2.5 sm:gap-4 min-w-0">
+            {/* Obvious In-App Back Button */}
+            <button
+              type="button"
+              onClick={handleBack}
+              className="px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 hover:border-emerald-500/50 flex items-center gap-1.5 text-xs font-black transition-all shadow-sm shrink-0 cursor-pointer group active:scale-95"
+              title="Return to previous 4K video listing"
+            >
+              <ArrowLeft className="w-3.5 h-3.5 text-emerald-400 group-hover:-translate-x-0.5 transition-transform" />
+              <span>{backButtonLabel || 'Back to 4K Tours'}</span>
+            </button>
+
+            <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <h3 className="text-sm sm:text-base font-black truncate max-w-md">
+                <h3 className="text-sm sm:text-base font-black truncate max-w-[180px] sm:max-w-md text-white">
                   {property.title}
                 </h3>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
+                <span className="hidden sm:inline-flex px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 items-center gap-1 shrink-0">
                   <ShieldCheck className="w-3 h-3" />
                   Verified Walkthrough
                 </span>
               </div>
-              <p className="text-xs text-slate-400 flex items-center gap-1 mt-0.5">
-                <MapPin className="w-3.5 h-3.5 text-emerald-400" />
-                <span>{property.area.name}</span>
+              <p className="text-xs text-slate-400 flex items-center gap-1 mt-0.5 truncate">
+                <MapPin className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                <span className="truncate">{property.area?.name || (property as any).areaName || 'LAUTECH Area'}</span>
                 <span>•</span>
-                <span>{formatDistance(property.distanceFromCampusKm)} to LAUTECH Gate</span>
+                <span className="shrink-0">{formatDistance(property.distanceFromCampusKm)} to Campus Gate</span>
               </p>
             </div>
           </div>
 
           <button
-            onClick={onClose}
-            className="p-2 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors"
+            type="button"
+            onClick={handleBack}
+            className="p-2 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors shrink-0 cursor-pointer"
             title="Close video tour"
           >
             <X className="w-5 h-5" />
@@ -293,7 +327,7 @@ export const HostelVideoTourModal: React.FC<HostelVideoTourModalProps> = ({
                   <button
                     type="button"
                     onClick={() => {
-                      onClose();
+                      handleBack();
                       onOpenInspectionModal(property);
                     }}
                     className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl transition cursor-pointer shadow-md"
@@ -331,10 +365,10 @@ export const HostelVideoTourModal: React.FC<HostelVideoTourModalProps> = ({
               <button
                 type="button"
                 onClick={() => {
-                  onClose();
+                  handleBack();
                   onOpenConversation(property.id);
                 }}
-                className="px-3.5 py-2.5 bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold rounded-xl border border-slate-700 flex items-center gap-1.5 transition-colors"
+                className="px-3.5 py-2.5 bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold rounded-xl border border-slate-700 flex items-center gap-1.5 transition-colors cursor-pointer"
               >
                 <MessageSquare className="w-3.5 h-3.5 text-emerald-400" />
                 <span>Chat Host</span>
@@ -345,10 +379,10 @@ export const HostelVideoTourModal: React.FC<HostelVideoTourModalProps> = ({
               <button
                 type="button"
                 onClick={() => {
-                  onClose();
+                  handleBack();
                   onOpenInspectionModal(property);
                 }}
-                className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold rounded-xl border border-slate-700 flex items-center gap-1.5 transition-colors"
+                className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold rounded-xl border border-slate-700 flex items-center gap-1.5 transition-colors cursor-pointer"
               >
                 <Calendar className="w-3.5 h-3.5 text-emerald-400" />
                 <span>Schedule In-Person Tour</span>
@@ -359,10 +393,10 @@ export const HostelVideoTourModal: React.FC<HostelVideoTourModalProps> = ({
               <button
                 type="button"
                 onClick={() => {
-                  onClose();
+                  handleBack();
                   onOpenBookingModal(property);
                 }}
-                className="px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-500 hover:to-teal-600 text-white text-xs font-black rounded-xl shadow-lg shadow-emerald-600/30 flex items-center gap-1.5 transition-all hover:scale-105"
+                className="px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-500 hover:to-teal-600 text-white text-xs font-black rounded-xl shadow-lg shadow-emerald-600/30 flex items-center gap-1.5 transition-all hover:scale-105 cursor-pointer"
               >
                 <Receipt className="w-3.5 h-3.5" />
                 <span>Book This Room</span>
