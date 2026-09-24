@@ -277,7 +277,7 @@ export const StudentInspectionCenter: React.FC<StudentInspectionCenterProps> = (
                       isCompleted ? 'bg-slate-100 text-slate-800' :
                       'bg-rose-100 text-rose-900'
                     }`}>
-                      {isConfirmed ? '✓ Confirmed by Landlord' : isPending ? '⏳ Awaiting Landlord' : insp.status.replace(/_/g, ' ')}
+                      {isConfirmed ? '✓ Confirmed by Agent' : isPending ? '⏳ Awaiting Agent' : insp.status.replace(/_/g, ' ')}
                     </span>
                   </div>
                 </div>
@@ -287,10 +287,10 @@ export const StudentInspectionCenter: React.FC<StudentInspectionCenterProps> = (
                   <div className="p-3.5 bg-emerald-50 rounded-2xl border border-emerald-300 text-xs text-emerald-950 space-y-1.5 animate-in fade-in">
                     <div className="flex items-center gap-2 font-black text-emerald-900">
                       <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                      <span>🎉 Inspection Confirmed by Landlord ({insp.providerName || 'Accommodation Owner'})!</span>
+                      <span>🎉 Inspection Confirmed by Agent ({insp.providerName || 'Accommodation Owner'})!</span>
                     </div>
                     <p className="text-emerald-800 text-[11px] leading-relaxed">
-                      The accommodation provider has approved your appointment for <strong>{insp.preferredDate} at {insp.preferredTime}</strong>. Meeting point: <strong>{insp.nearbyLandmark ? `Near ${insp.nearbyLandmark}` : insp.areaName}</strong>. You can chat with the landlord or proceed to secure your bedspace below!
+                      The accommodation provider has approved your appointment for <strong>{insp.preferredDate} at {insp.preferredTime}</strong>. Meeting point: <strong>{insp.nearbyLandmark ? `Near ${insp.nearbyLandmark}` : insp.areaName}</strong>. You can chat with the agent or proceed to secure your bedspace below!
                     </p>
                   </div>
                 )}
@@ -299,7 +299,7 @@ export const StudentInspectionCenter: React.FC<StudentInspectionCenterProps> = (
                 {isPending && (
                   <div className="p-3 bg-amber-50 rounded-2xl border border-amber-200 text-xs text-amber-950 flex items-center gap-2">
                     <Clock className="w-4 h-4 text-amber-600 shrink-0" />
-                    <span><strong>Awaiting Landlord Confirmation:</strong> The landlord was notified and is reviewing your requested inspection slot for {insp.preferredDate} at {insp.preferredTime}.</span>
+                    <span><strong>Awaiting Agent Confirmation:</strong> The agent was notified and is reviewing your requested inspection slot for {insp.preferredDate} at {insp.preferredTime}.</span>
                   </div>
                 )}
 
@@ -308,7 +308,7 @@ export const StudentInspectionCenter: React.FC<StudentInspectionCenterProps> = (
                   <div className="p-4 bg-purple-50 rounded-2xl border border-purple-200 text-xs text-purple-950 space-y-2 animate-in fade-in">
                     <div className="flex items-center gap-2 font-bold text-purple-900">
                       <AlertCircle className="w-4 h-4 text-purple-700" />
-                      <span>The landlord proposed a new time slot:</span>
+                      <span>The agent proposed a new time slot:</span>
                     </div>
                     <div className="p-2.5 bg-white rounded-xl border border-purple-200 font-black text-sm text-purple-950">
                       📅 {insp.proposedAlternativeDate} at {insp.proposedAlternativeTime}
@@ -347,7 +347,7 @@ export const StudentInspectionCenter: React.FC<StudentInspectionCenterProps> = (
                     <span className="text-[10px] text-slate-400 font-bold uppercase">Hostel Provider</span>
                     <p className="font-bold text-slate-900 flex items-center gap-1 mt-0.5">
                       <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                      {insp.providerName || 'Verified Landlord'}
+                      {insp.providerName || 'Verified Agent'}
                     </p>
                   </div>
 
@@ -387,7 +387,7 @@ export const StudentInspectionCenter: React.FC<StudentInspectionCenterProps> = (
                         <textarea
                           value={notesText}
                           onChange={(e) => setNotesText(e.target.value)}
-                          placeholder="e.g. Room was spacious, water pressure was good, landlord seems friendly..."
+                          placeholder="e.g. Room was spacious, water pressure was good, agent seems friendly..."
                           rows={2}
                           className="w-full text-xs p-2.5 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                         />
@@ -595,7 +595,7 @@ export const StudentInspectionCenter: React.FC<StudentInspectionCenterProps> = (
               <textarea
                 value={feedbackComment}
                 onChange={(e) => setFeedbackComment(e.target.value)}
-                placeholder="e.g. Landlord was on time, property matched description..."
+                placeholder="e.g. Agent was on time, property matched description..."
                 rows={3}
                 className="w-full text-xs p-3 bg-slate-50 border border-slate-200 rounded-xl"
               />

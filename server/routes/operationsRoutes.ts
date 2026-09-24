@@ -57,7 +57,7 @@ router.get(
         actionItems.push({
           id: 'act-1',
           title: `${pendingBookingsRow.count} Booking Requests Require Confirmation`,
-          description: 'Students waiting for landlord reservation approval.',
+          description: 'Students waiting for agent reservation approval.',
           category: 'BOOKING',
           priority: 'HIGH',
           actionUrl: '/admin/bookings'
@@ -78,7 +78,7 @@ router.get(
       if ((openDisputesRow?.count || 0) > 0) {
         actionItems.push({
           id: 'act-3',
-          title: `${openDisputesRow.count} Open Student-Landlord Escrow Disputes`,
+          title: `${openDisputesRow.count} Open Student-Agent Escrow Disputes`,
           description: 'Mediation and evidence review required before fund release.',
           category: 'DISPUTE',
           priority: 'URGENT',
@@ -191,7 +191,7 @@ router.get(
         recentPayouts: recentPayouts.map(p => ({
           id: p.id,
           providerId: p.provider_id,
-          providerName: p.provider_name || 'Verified Landlord',
+          providerName: p.provider_name || 'Verified Agent',
           providerPhone: p.provider_phone,
           bookingId: p.booking_id,
           hostelTitle: p.hostel_title || 'LAUTECH Lodge',
@@ -431,7 +431,7 @@ router.post(
 
       let summary = '';
       if (type === 'DISPUTE') {
-        summary = `[Operational Summary] Dispute #${entityId}: Student reported a non-functioning bathroom tap upon move-in. Landlord was notified and agreed to send a plumber within 24h. Escrow caution deposit remains protected in platform holding until student signs off on repair.`;
+        summary = `[Operational Summary] Dispute #${entityId}: Student reported a non-functioning bathroom tap upon move-in. Agent was notified and agreed to send a plumber within 24h. Escrow caution deposit remains protected in platform holding until student signs off on repair.`;
       } else if (type === 'BOOKING') {
         summary = `[Operational Summary] Booking #${entityId}: Booking initiated and payment confirmed. Room inspection completed physically at Under G. Move-in scheduled for 2026/2027 academic session.`;
       } else {

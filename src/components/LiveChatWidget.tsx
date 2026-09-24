@@ -162,7 +162,7 @@ export const LiveChatWidget: React.FC<LiveChatWidgetProps> = ({
                       : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800'
                   }`}
                 >
-                  <span>{conv.participantRole === 'support' ? '🛡️ Safety Helpdesk' : `🏠 ${conv.zoneName || 'Landlord'}`}</span>
+                  <span>{conv.participantRole === 'support' ? '🛡️ Safety Helpdesk' : `🏠 ${conv.zoneName || 'Agent'}`}</span>
                   {conv.unreadCount > 0 && !isActive && (
                     <span className="w-2 h-2 rounded-full bg-rose-500"></span>
                   )}

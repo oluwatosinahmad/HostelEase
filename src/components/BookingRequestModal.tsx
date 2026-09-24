@@ -92,7 +92,7 @@ export const BookingRequestModal: React.FC<BookingRequestModalProps> = ({
     }
 
     if (!studentPhone.trim()) {
-      setFormError('Please provide your phone number so the landlord can reach you.');
+      setFormError('Please provide your phone number so the agent can reach you.');
       return;
     }
 
@@ -271,7 +271,7 @@ export const BookingRequestModal: React.FC<BookingRequestModalProps> = ({
           <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
             <h4 className="text-xs font-extrabold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
               <User className="w-4 h-4 text-slate-600" />
-              <span>Student Details for Landlord Evaluation</span>
+              <span>Student Details for Agent Evaluation</span>
             </h4>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
@@ -343,7 +343,7 @@ export const BookingRequestModal: React.FC<BookingRequestModalProps> = ({
           {/* Optional Message */}
           <div className="space-y-1.5">
             <label className="block text-xs font-bold text-slate-700">
-              Optional Note for the Landlord / Host
+              Optional Note for the Agent / Host
             </label>
             <textarea
               rows={2}
@@ -365,7 +365,7 @@ export const BookingRequestModal: React.FC<BookingRequestModalProps> = ({
                 className="mt-0.5 w-4 h-4 rounded text-brand-600 focus:ring-brand-500 cursor-pointer"
               />
               <label htmlFor="disclaimer-check" className="text-xs font-semibold text-slate-700 cursor-pointer">
-                I understand that submitting this request does <strong>NOT automatically guarantee</strong> the property. The landlord must review and accept before payment is due.
+                I understand that submitting this request does <strong>NOT automatically guarantee</strong> the property. The agent must review and accept before payment is due.
               </label>
             </div>
 

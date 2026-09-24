@@ -182,7 +182,7 @@ export const StudentPaymentHistory: React.FC<StudentPaymentHistoryProps> = ({
           <p className="text-xs text-slate-500 max-w-sm mx-auto">
             {searchQuery 
               ? 'No transactions matched your search query.' 
-              : 'You have not made any payments yet. When a landlord confirms your booking, you can pay and view receipts here.'}
+              : 'You have not made any payments yet. When an agent confirms your booking, you can pay and view receipts here.'}
           </p>
           {onNavigateToBookings && (
             <button

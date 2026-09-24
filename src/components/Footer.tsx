@@ -84,7 +84,7 @@ export const Footer: React.FC<FooterProps> = ({
               {onOpenUtilityCalculator && (
                 <li><button onClick={onOpenUtilityCalculator} className="hover:text-emerald-400 transition-colors text-left">🧮 IBEDC Utility Cost Calculator</button></li>
               )}
-              <li><button onClick={() => onOpenAuth('PROVIDER')} className="hover:text-emerald-400 transition-colors text-left">List Your Property (Landlords)</button></li>
+              <li><button onClick={() => onOpenAuth('PROVIDER')} className="hover:text-emerald-400 transition-colors text-left">List Your Property (Agents)</button></li>
               <li><button onClick={() => onOpenAuth('ADMIN')} className="hover:text-emerald-400 transition-colors text-left">Admin Moderation</button></li>
             </ul>
           </div>

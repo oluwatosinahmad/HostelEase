@@ -1,4 +1,4 @@
-export type UserRole = 'STUDENT' | 'PROVIDER' | 'ADMIN';
+export type UserRole = 'STUDENT' | 'PROVIDER' | 'ADMIN' | 'AGENT';
 export type AppView = 'home' | 'search' | 'saved' | 'community' | 'student-dashboard' | 'provider-portal' | 'admin-portal' | 'messages' | 'inspections' | 'bookings' | 'payments' | 'move-in' | 'history' | 'more' | 'virtual-tours';
 
 export type PropertyType = 'SELF_CONTAIN' | 'SINGLE_ROOM' | 'FLAT' | 'SHARED_BEDSPACE';
@@ -68,6 +68,7 @@ export interface ProviderProfile {
   adminFeedback?: string;
   verifiedAt?: string;
 }
+export type AgentProfile = ProviderProfile;
 
 export interface VerificationDocument {
   id: string;
@@ -1648,7 +1649,8 @@ export interface MoveInChecklistData {
   checklist: {
     confirmMoveInDate: boolean;
     saveVoucher: boolean;
-    contactLandlord: boolean;
+    contactAgent?: boolean;
+    contactLandlord?: boolean;
     reviewHostelRules: boolean;
     prepareDocuments: boolean;
     confirmZeroOutstandingBalance: boolean;
@@ -2097,7 +2099,7 @@ export interface ProviderSubscriptionItem {
   providerEmail: string;
   providerPhone?: string;
   businessName?: string;
-  plan_name: 'STARTER' | 'PRO_LANDLORD' | 'ENTERPRISE_ESTATE';
+  plan_name: 'STARTER' | 'PRO_AGENT' | 'PRO_LANDLORD' | 'ENTERPRISE_ESTATE';
   amount: number;
   billing_cycle: 'MONTHLY' | 'SEMESTER' | 'ANNUAL';
   max_listings: number;

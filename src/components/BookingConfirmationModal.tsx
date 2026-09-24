@@ -124,7 +124,7 @@ export const BookingConfirmationModal: React.FC<BookingConfirmationModalProps> =
             </div>
             <p className="text-xs text-gray-700 leading-relaxed">
               1. Your room/bedspace is reserved and locked from other students.<br />
-              2. You can contact your landlord directly to arrange your key handover and move-in time.<br />
+              2. You can contact your agent directly to arrange your key handover and move-in time.<br />
               3. Check the items on your Move-In Checklist below to ensure a smooth transition.
             </p>
           </div>
@@ -141,7 +141,7 @@ export const BookingConfirmationModal: React.FC<BookingConfirmationModalProps> =
                 {[
                   { key: 'confirmMoveInDate', label: `Confirm move-in date (${checklistData.moveInDate})` },
                   { key: 'saveVoucher', label: `Save digital booking voucher (${checklistData.bookingReference})` },
-                  { key: 'contactLandlord', label: 'Contact landlord on WhatsApp for key pickup' },
+                  { key: 'contactLandlord', label: 'Contact agent on WhatsApp for key pickup' },
                   { key: 'reviewHostelRules', label: 'Review hostel gate hours and rules' },
                   { key: 'prepareDocuments', label: 'Prepare student ID / admission letter copy' },
                   { key: 'confirmZeroOutstandingBalance', label: 'Confirm zero outstanding fee balance' },

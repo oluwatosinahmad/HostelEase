@@ -244,7 +244,7 @@ export function getLocalProperties(providerId?: string, providerEmail?: string):
       providerEmail: 'landlord@hostelease.ng',
       provider: {
         id: 'usr-provider-default',
-        name: 'Verified Landlord',
+        name: 'Verified Agent',
         email: 'landlord@hostelease.ng',
         phone: '08012345678',
         role: 'PROVIDER'
@@ -492,7 +492,7 @@ function generateOfflineFallbackResponse(url?: string): any {
     saveLocalInspection(newInsp);
 
     return {
-      message: 'Inspection request submitted successfully. The landlord will review and confirm your slot.',
+      message: 'Inspection request submitted successfully. The agent will review and confirm your slot.',
       inspectionId: mockId,
       status: 'PENDING',
       inspection: newInsp
@@ -606,7 +606,7 @@ function generateOfflineFallbackResponse(url?: string): any {
     saveLocalBooking(newBooking);
 
     return {
-      message: 'Reservation request successfully created and submitted to landlord',
+      message: 'Reservation request successfully created and submitted to agent',
       bookingId: mockBookingId,
       bookingReference: mockRef,
       status: 'PENDING',
@@ -804,7 +804,7 @@ function generateOfflineFallbackResponse(url?: string): any {
           phone: '08012345678'
         },
         provider: {
-          name: 'Hostel Landlord',
+          name: 'Hostel Agent',
           email: 'landlord@hostelease.ng',
           phone: '08039876543'
         },
@@ -1321,7 +1321,7 @@ function generateOfflineFallbackResponse(url?: string): any {
       },
       provider: {
         id: 'user-provider-1',
-        name: 'Verified Landlord',
+        name: 'Verified Agent',
         phone: '08031234567',
         isVerified: true
       },
@@ -1856,14 +1856,14 @@ export const api = {
             : 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=300&q=80';
           const mockUser = {
             id: `usr-${fallbackRole.toLowerCase()}-${Date.now()}`,
-            fullName: data.fullName || (fallbackRole === 'PROVIDER' ? 'Hostel Landlord' : 'Student User'),
+            fullName: data.fullName || (fallbackRole === 'PROVIDER' ? 'Hostel Agent' : 'Student User'),
             email: data.email,
             role: fallbackRole,
             phone: data.phone || '08012345678',
             avatarUrl: data.avatarUrl || defaultAvatar,
             isActive: 1,
             accountStatus: 'ACTIVE',
-            providerDetails: fallbackRole === 'PROVIDER' ? { businessName: data.providerDetails?.businessName || data.businessName || `${data.fullName || 'Landlord'} Properties` } : undefined,
+            providerDetails: fallbackRole === 'PROVIDER' ? { businessName: data.providerDetails?.businessName || data.businessName || `${data.fullName || 'Agent'} Properties` } : undefined,
             studentDetails: fallbackRole === 'STUDENT' ? { 
               matricNo: data.studentDetails?.matricNo || data.matricNo || data.studentDetails?.matricNumber || '2024/04812',
               matricNumber: data.studentDetails?.matricNo || data.matricNo || data.studentDetails?.matricNumber || '2024/04812',
@@ -1912,14 +1912,14 @@ export const api = {
             : 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=300&q=80';
           const mockUser = {
             id: stableId,
-            fullName: data.fullName || (fallbackRole === 'PROVIDER' ? 'Hostel Landlord' : 'Student User'),
+            fullName: data.fullName || (fallbackRole === 'PROVIDER' ? 'Hostel Agent' : 'Student User'),
             email: cleanEmail,
             role: fallbackRole,
             phone: data.phone || '08012345678',
             avatarUrl: data.avatarUrl || defaultAvatar,
             isActive: 1,
             accountStatus: 'ACTIVE',
-            providerDetails: fallbackRole === 'PROVIDER' ? { businessName: data.providerDetails?.businessName || `${data.fullName || 'Landlord'} Accommodations` } : undefined,
+            providerDetails: fallbackRole === 'PROVIDER' ? { businessName: data.providerDetails?.businessName || `${data.fullName || 'Agent'} Accommodations` } : undefined,
             studentDetails: fallbackRole === 'STUDENT' ? { 
               matricNo: data.studentDetails?.matricNo || data.studentDetails?.matricNumber || '2024/04812',
               matricNumber: data.studentDetails?.matricNo || data.studentDetails?.matricNumber || '2024/04812',
@@ -2370,8 +2370,8 @@ export const api = {
 
       saveLocalInspection(newInsp);
 
-      // 1. Send direct message to Landlord's DM inbox
-      const inspectionMsg = `📅 New Inspection Request: ${data.inspectionType} inspection requested for ${foundProp.title} on ${data.preferredDate} at ${data.preferredTime}. Student Phone: ${data.studentPhone || currentUser?.phone || '08031234567'}. Hello Landlord, I have scheduled an inspection for your hostel.`;
+      // 1. Send direct message to Agent's DM inbox
+      const inspectionMsg = `📅 New Inspection Request: ${data.inspectionType} inspection requested for ${foundProp.title} on ${data.preferredDate} at ${data.preferredTime}. Student Phone: ${data.studentPhone || currentUser?.phone || '08031234567'}. Hello Agent, I have scheduled an inspection for your hostel.`;
       api.messages.startConversation(foundProp.id, inspectionMsg).catch(() => {});
 
       // 2. Add notification for Student
@@ -2383,7 +2383,7 @@ export const api = {
         role: 'STUDENT'
       });
 
-      // 3. Add notification for Landlord
+      // 3. Add notification for Agent
       addIsolatedNotification({
         userId: foundProp.provider?.id || (foundProp as any).providerId || 'usr-provider-default',
         title: 'New Student Inspection Request 📅',
@@ -2396,7 +2396,7 @@ export const api = {
       window.dispatchEvent(new CustomEvent('hostel_ease_inspections_updated'));
 
       return {
-        message: 'Inspection request submitted successfully! Landlord has been notified to confirm your slot.',
+        message: 'Inspection request submitted successfully! Agent has been notified to confirm your slot.',
         inspectionId: mockId
       };
     },
@@ -2486,7 +2486,7 @@ export const api = {
       if (found) {
         addIsolatedNotification({
           userId: (found as any).studentId || 'usr-student-default',
-          title: 'Inspection Confirmed by Landlord! 🎉',
+          title: 'Inspection Confirmed by Agent! 🎉',
           message: `Your inspection for ${found.propertyTitle} on ${found.preferredDate} at ${found.preferredTime} was confirmed. You can now visit or book!`,
           linkUrl: '/student',
           role: 'STUDENT'
@@ -2538,7 +2538,7 @@ export const api = {
       if (found) {
         addIsolatedNotification({
           userId: (found as any).studentId || 'usr-student-default',
-          title: 'Landlord Proposed New Inspection Time 📅',
+          title: 'Agent Proposed New Inspection Time 📅',
           message: `Alternative slot for ${found.propertyTitle}: ${data.alternativeDate} at ${data.alternativeTime}.`,
           linkUrl: '/student',
           role: 'STUDENT'
@@ -2680,7 +2680,7 @@ export const api = {
         coverImage: 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=1200&q=80',
         provider: {
           id: `usr-provider-${propertyId}`,
-          name: 'Verified Landlord',
+          name: 'Verified Agent',
           phone: '+234 800 000 0000'
         }
       };
@@ -2689,7 +2689,7 @@ export const api = {
       const currentUser = userRaw ? JSON.parse(userRaw) : null;
       const sId = studentId || currentUser?.id || `usr-student-${Date.now()}`;
       const sName = currentUser?.fullName || 'Student User';
-      const provName = property.provider?.name || (property.provider as any)?.businessName || (property as any).businessName || 'Verified Landlord';
+      const provName = property.provider?.name || (property.provider as any)?.businessName || (property as any).businessName || 'Verified Agent';
       const provId = property.provider?.id || (property as any).providerId || `usr-prov-${property.id}`;
       const convId = `conv_${sId}_${property.id}`;
       
@@ -2803,7 +2803,7 @@ export const api = {
         coverImage: convItem?.propertyCoverImage || 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=1200&q=80',
         provider: {
           id: convItem?.providerId || `usr-prov-${targetPropertyId}`,
-          name: convItem?.providerName || 'Verified Landlord'
+          name: convItem?.providerName || 'Verified Agent'
         }
       };
 
@@ -2833,7 +2833,7 @@ export const api = {
           },
           provider: {
             id: prop.provider?.id || convItem?.providerId || 'usr-provider-default',
-            name: convItem?.providerName || prop.provider?.name || 'Verified Landlord'
+            name: convItem?.providerName || prop.provider?.name || 'Verified Agent'
           },
           status: 'ACTIVE',
           createdAt: convItem?.createdAt || new Date().toISOString()
@@ -2848,7 +2848,7 @@ export const api = {
       const isProvider = currentUser?.role === 'PROVIDER' || currentUser?.role === 'LANDLORD';
       const senderRole: 'STUDENT' | 'PROVIDER' = isProvider ? 'PROVIDER' : 'STUDENT';
       const senderId = currentUser?.id || (isProvider ? 'usr-provider-default' : 'usr-student-default');
-      const senderName = currentUser?.fullName || (isProvider ? 'Landlord' : 'Student User');
+      const senderName = currentUser?.fullName || (isProvider ? 'Agent' : 'Student User');
 
       const newMsg: MessageItem = {
         id: `msg-${Date.now()}`,
@@ -2907,7 +2907,7 @@ export const api = {
         const notif = {
           id: `notif-msg-${Date.now()}`,
           userId: isProvider ? (targetConv?.studentId || 'usr-student-default') : (targetConv?.providerId || 'usr-provider-default'),
-          title: isProvider ? `Message from Landlord (${senderName})` : `New Student Message (${senderName})`,
+          title: isProvider ? `Message from Agent (${senderName})` : `New Student Message (${senderName})`,
           message: `Regarding ${propertyTitle}: "${content.substring(0, 60)}${content.length > 60 ? '...' : ''}"`,
           type: 'NEW_MESSAGE',
           linkUrl: '/messages',
@@ -3312,7 +3312,7 @@ export const api = {
         videoVerificationStatus: (data.has4KVideo || (data.mediaItems && data.mediaItems.some((m: any) => m.mediaType === 'VIDEO' || m.type === 'VIDEO' || m.category === 'VIDEO_WALKTHROUGH'))) ? 'PENDING_AUDIT' : 'NONE',
         provider: {
           id: currentUserId,
-          name: user?.fullName || 'Verified Landlord',
+          name: user?.fullName || 'Verified Agent',
           phone: user?.phone || '08012345678',
           businessName: user?.providerDetails?.businessName || 'LAUTECH Accommodation'
         },
@@ -3392,7 +3392,7 @@ export const api = {
           newProp.slug = json.slug || slug;
           saveLocalProperty(newProp);
 
-          // Notification for Landlord
+          // Notification for Agent
           addIsolatedNotification({
             userId: currentUserId,
             title: 'Hostel Submitted for Verification',
@@ -3406,7 +3406,7 @@ export const api = {
             adminAudit.unshift({
               id: `audit-${Date.now()}`,
               actorId: currentUserId,
-              actorName: user?.fullName || 'Landlord',
+              actorName: user?.fullName || 'Agent',
               actorEmail: user?.email || 'landlord@hostelease.ng',
               actorRole: 'PROVIDER',
               action: 'HOSTEL_VERIFICATION_SUBMITTED',
@@ -3421,7 +3421,7 @@ export const api = {
             adminNotifs.unshift({
               id: `admin-notif-${Date.now()}`,
               title: '🏢 New Hostel Awaiting Verification',
-              message: `Landlord "${user?.fullName || 'Landlord'}" submitted "${newProp.title}" in ${areaName} for physical verification.`,
+              message: `Agent "${user?.fullName || 'Agent'}" submitted "${newProp.title}" in ${areaName} for physical verification.`,
               type: 'VERIFICATION',
               entityId: newProp.id,
               read: false,
@@ -3864,9 +3864,9 @@ export const api = {
           const welcomeNotif = {
             id: `notif-welcome-${currentUser.id}`,
             userId: currentUser.id,
-            title: `Welcome to Hostel Ease, ${currentUser.fullName || 'Landlord'}!`,
+            title: `Welcome to Hostel Ease, ${currentUser.fullName || 'Agent'}!`,
             message: currentUser.role === 'PROVIDER'
-              ? 'Your Landlord dashboard is ready. Add your first hostel accommodation to start receiving student inquiries and booking tours.'
+              ? 'Your Agent dashboard is ready. Add your first hostel accommodation to start receiving student inquiries and booking tours.'
               : 'Your Student account is active. Explore verified hostels around LAUTECH with transparent pricing.',
             type: 'WELCOME',
             isRead: false,
@@ -4318,7 +4318,7 @@ export const api = {
           fullName: u.fullName,
           email: u.email,
           phone: u.phone || '',
-          businessName: u.businessName || 'Landlord Accommodations',
+          businessName: u.businessName || 'Agent Accommodations',
           verificationStatus: (u.verificationStatus as any) || 'VERIFIED',
           phoneVerified: true,
           providerType: 'INDIVIDUAL',
@@ -4385,7 +4385,7 @@ export const api = {
         const totalCost = Number((p as any).totalMandatoryCost ?? p.priceSummary?.totalMandatoryCost ?? rent);
         const cover = p.coverImage || (p.media?.[0]?.url || 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=1200&q=80');
         const areaName = (p as any).areaName || (p as any).area?.name || 'Under G';
-        const provName = p.provider?.name || (p.provider as any)?.businessName || (p as any).businessName || 'Verified Landlord';
+        const provName = p.provider?.name || (p.provider as any)?.businessName || (p as any).businessName || 'Verified Agent';
         const provPhone = p.provider?.phone || (p as any).phone || '+234 800 000 0000';
         const provEmail = (p.provider as any)?.email || (p as any).email || 'landlord@hostelease.ng';
 
@@ -4435,7 +4435,7 @@ export const api = {
           totalMandatoryCost: Number((h as any).totalMandatoryCost ?? (h as any).priceSummary?.totalMandatoryCost ?? 200000),
           areaName: h.areaName || (h as any).area?.name || 'Under G',
           provider: {
-            name: h.provider?.name || (h.provider as any)?.businessName || 'Verified Landlord',
+            name: h.provider?.name || (h.provider as any)?.businessName || 'Verified Agent',
             phone: h.provider?.phone || '+234 800 000 0000',
             email: h.provider?.email || 'landlord@hostelease.ng'
           },
@@ -4537,7 +4537,7 @@ export const api = {
             createdAt: p.createdAt || new Date().toISOString(),
             propertyTitle: p.title,
             propertyAddress: p.address,
-            providerName: p.provider?.name || 'Verified Landlord',
+            providerName: p.provider?.name || 'Verified Agent',
             providerEmail: (p as any).providerEmail || (p.provider as any)?.email || 'landlord@hostelease.ng',
             providerPhone: p.provider?.phone || '08012345678'
           });
@@ -4646,7 +4646,7 @@ export const api = {
       window.dispatchEvent(new CustomEvent('hostel_ease_notifications_updated'));
 
       return {
-        message: '4K Video Walkthrough rejected with feedback sent to landlord.',
+        message: '4K Video Walkthrough rejected with feedback sent to agent.',
         success: true
       };
     },
@@ -4716,7 +4716,7 @@ export const api = {
           studentName: b.studentName || 'LAUTECH Student',
           studentEmail: b.studentEmail || 'student@lautech.edu.ng',
           studentPhone: b.studentPhone || '+234 800 000 0000',
-          providerName: b.providerName || prop?.provider?.name || 'Verified Landlord',
+          providerName: b.providerName || prop?.provider?.name || 'Verified Agent',
           providerPhone: b.providerPhone || prop?.provider?.phone || '+234 800 000 0000',
           roomName: b.roomName || 'Single Study Unit',
           totalAmount: b.totalAmount || b.rentAmount || 220000,
@@ -5277,9 +5277,9 @@ Session: ${data.academicSession || '2026/2027'} (12 Months)
 💰 FINANCIAL SETTLEMENT BREAKDOWN (5% Agreement):
 • Disclosed Rent: ₦${rentAmount.toLocaleString()}
 • 5% Hostel Ease Commission: ₦${platformCommission.toLocaleString()} (platform facilitation fee)
-• Net Landlord Payout: ₦${netLandlordPayout.toLocaleString()} (agreed amount to be disbursed upon student move-in verification)
+• Net Agent Payout: ₦${netLandlordPayout.toLocaleString()} (agreed amount to be disbursed upon student move-in verification)
 
-Hello Landlord, a student has booked your accommodation under our standard 5% commission agreement. Please review and confirm the space!`;
+Hello Agent, a student has booked your accommodation under our standard 5% commission agreement. Please review and confirm the space!`;
 
       api.messages.startConversation(foundProp.id, bookingMsg).catch(() => {});
 
@@ -5287,16 +5287,16 @@ Hello Landlord, a student has booked your accommodation under our standard 5% co
       addIsolatedNotification({
         userId: currentUser?.id || 'usr-student-default',
         title: 'Hostel Reservation Created',
-        message: `Reservation request submitted for ${foundProp.title} (Ref: ${bookingReference}). Waiting for landlord confirmation.`,
+        message: `Reservation request submitted for ${foundProp.title} (Ref: ${bookingReference}). Waiting for agent confirmation.`,
         linkUrl: '/student',
         role: 'STUDENT'
       });
 
-      // 3. Add notification for Landlord with 5% commission agreement details
+      // 3. Add notification for Agent with 5% commission agreement details
       addIsolatedNotification({
         userId: foundProp.provider?.id || (foundProp as any).providerId || 'usr-provider-default',
         title: `New Booking: ₦${rentAmount.toLocaleString()} (5% Commission: ₦${platformCommission.toLocaleString()})`,
-        message: `Student ${currentUser?.fullName || 'Student'} reserved ${foundProp.title} (Ref: ${bookingReference}). Disclosed Rent: ₦${rentAmount.toLocaleString()} | 5% Platform Commission: ₦${platformCommission.toLocaleString()} | Net Landlord Payout: ₦${netLandlordPayout.toLocaleString()}.`,
+        message: `Student ${currentUser?.fullName || 'Student'} reserved ${foundProp.title} (Ref: ${bookingReference}). Disclosed Rent: ₦${rentAmount.toLocaleString()} | 5% Platform Commission: ₦${platformCommission.toLocaleString()} | Net Agent Payout: ₦${netLandlordPayout.toLocaleString()}.`,
         linkUrl: '/provider',
         role: 'PROVIDER'
       });
@@ -5304,7 +5304,7 @@ Hello Landlord, a student has booked your accommodation under our standard 5% co
       window.dispatchEvent(new CustomEvent('hostel_ease_conversations_updated'));
 
       return {
-        message: 'Reservation request successfully created and submitted to landlord',
+        message: 'Reservation request successfully created and submitted to agent',
         bookingId,
         bookingReference,
         status: 'PENDING',
@@ -5852,7 +5852,7 @@ Hello Landlord, a student has booked your accommodation under our standard 5% co
           type: firstInsp.inspectionType,
           status: firstInsp.status,
           provider: {
-            name: firstInsp.providerName || 'Landlord',
+            name: firstInsp.providerName || 'Agent',
             phone: firstInsp.providerPhone || '08039876543'
           }
         } : null,
@@ -5862,7 +5862,7 @@ Hello Landlord, a student has booked your accommodation under our standard 5% co
           badge: firstInsp.status === 'CONFIRMED' ? 'Confirmed Tour' : 'Inspection Pending',
           badgeColor: firstInsp.status === 'CONFIRMED' ? 'bg-emerald-100 text-emerald-900 border-emerald-300' : 'bg-amber-100 text-amber-900 border-amber-300',
           title: `Scheduled ${firstInsp.inspectionType === 'PHYSICAL' ? 'Physical' : 'Virtual'} Tour: ${firstInsp.propertyTitle}`,
-          message: `Your inspection is scheduled for ${firstInsp.preferredDate} at ${firstInsp.preferredTime}. Meet landlord ${firstInsp.providerName || 'caretaker'}.`,
+          message: `Your inspection is scheduled for ${firstInsp.preferredDate} at ${firstInsp.preferredTime}. Meet agent ${firstInsp.providerName || 'caretaker'}.`,
           actionLabel: 'View Inspection Details',
           actionType: 'VIEW_INSPECTIONS',
           inspectionId: firstInsp.id
@@ -6194,7 +6194,7 @@ Hello Landlord, a student has booked your accommodation under our standard 5% co
             `• **⚡ Reliable Power & Solar Inverter Lodges:** 24/7 lighting and laptop charging for serious scholars during tests and exams.\n\n` +
             `• **💧 Guaranteed Water Supply:** Deep motorized boreholes with dual backup overhead storage tanks.\n\n` +
             `• **💰 100% Upfront Pricing:** Transparent breakdown of Rent, Caution Deposits, and Service Charges with **zero hidden agent fees**.\n\n` +
-            `• **📅 Free Landlord Inspections & Escrow Protection:** Schedule free walkthroughs and pay securely through Escrow until keys are received in hand.\n\n` +
+            `• **📅 Free Agent Inspections & Escrow Protection:** Schedule free walkthroughs and pay securely through Escrow until keys are received in hand.\n\n` +
             `What type of accommodation or location around LAUTECH are you looking for?`,
           structuredData: {
             type: 'HOSTEL_LIST',
@@ -6327,8 +6327,8 @@ Hello Landlord, a student has booked your accommodation under our standard 5% co
           messageId: msgId,
           response: `### 🏠 How to Secure Your LAUTECH Accommodation in 4 Easy Steps\n\n` +
             `1. **Explore & Shortlist:** Browse 100% verified lodges with genuine photos, exact distances from campus gates, and total upfront prices.\n` +
-            `2. **Book a Free Inspection:** Schedule a physical walkthrough or live video tour directly with the verified landlord.\n` +
-            `3. **Chat & Confirm Bedspace:** Message the landlord directly to ask questions or reserve your preferred room.\n` +
+            `2. **Book a Free Inspection:** Schedule a physical walkthrough or live video tour directly with the verified agent.\n` +
+            `3. **Chat & Confirm Bedspace:** Message the agent directly to ask questions or reserve your preferred room.\n` +
             `4. **Pay via Escrow:** Complete payment securely through Hostel Ease Escrow. Funds are only disbursed once you confirm satisfactory key handover.`,
           structuredData: {
             type: 'HOSTEL_LIST',
@@ -6355,7 +6355,7 @@ Hello Landlord, a student has booked your accommodation under our standard 5% co
       return {
         conversationId: convId,
         messageId: msgId,
-        response: `I found several verified student accommodations around LAUTECH matching your inquiry. All listings feature authentic photos, verified borehole water, and transparent total prices without hidden charges. Would you like to schedule an inspection or chat with the landlord?`,
+        response: `I found several verified student accommodations around LAUTECH matching your inquiry. All listings feature authentic photos, verified borehole water, and transparent total prices without hidden charges. Would you like to schedule an inspection or chat with the agent?`,
         structuredData: {
           type: 'HOSTEL_LIST',
           properties: (matched.length > 0 ? matched : DEFAULT_PROPERTIES.slice(0, 3)).map(mapAIProp),

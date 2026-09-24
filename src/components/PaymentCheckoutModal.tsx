@@ -165,7 +165,7 @@ export const PaymentCheckoutModal: React.FC<PaymentCheckoutModalProps> = ({
               </span>
               <span className="flex items-center gap-1">
                 <User className="w-3.5 h-3.5 text-slate-400" />
-                Host: {booking.landlordName}
+                Agent: {(booking as any).agentName || booking.landlordName}
               </span>
               <span className="flex items-center gap-1">
                 <Calendar className="w-3.5 h-3.5 text-slate-400" />

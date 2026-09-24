@@ -148,10 +148,10 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({
                 <div className="p-3.5 bg-emerald-50 rounded-2xl border border-emerald-200 text-xs text-emerald-950 space-y-1">
                   <div className="font-black flex items-center gap-1.5 text-emerald-900">
                     <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                    Reservation Confirmed by Landlord!
+                    Reservation Confirmed by Agent!
                   </div>
                   <p className="text-[11px] text-emerald-800">
-                    Your space has been locked. In Phase 6, secure online payment will be completed. Contact the landlord directly to prepare for move-in.
+                    Your space has been locked. In Phase 6, secure online payment will be completed. Contact the agent directly to prepare for move-in.
                   </p>
                 </div>
               )}
@@ -160,7 +160,7 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({
                 <div className="p-3.5 bg-amber-50 rounded-2xl border border-amber-200 text-xs text-amber-950 space-y-1">
                   <div className="font-black flex items-center gap-1.5 text-amber-900">
                     <Clock className="w-4 h-4 text-amber-600" />
-                    Awaiting Landlord Confirmation
+                    Awaiting Agent Confirmation
                   </div>
                   <p className="text-[11px] text-amber-800">
                     The accommodation provider has 48 hours to confirm this reservation. If unresponded by {new Date(detail.booking.expiresAt).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}, the hold will expire.
@@ -327,7 +327,7 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({
                       className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl shadow transition-colors flex items-center gap-1.5"
                     >
                       <MessageSquare className="w-3.5 h-3.5 text-emerald-400" />
-                      Chat Landlord
+                      Chat Agent
                     </button>
                   )}
 

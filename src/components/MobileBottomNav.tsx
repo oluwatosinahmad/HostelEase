@@ -281,7 +281,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
             <span className="text-[10px] mt-0.5 tracking-tight">Bookings</span>
           </button>
 
-          {/* 5. Complete Landlord Menu (Operations Drawer: Dashboard, Ask AI, Community, Chat, etc.) */}
+          {/* 5. Complete Agent Menu (Operations Drawer: Dashboard, Ask AI, Community, Chat, etc.) */}
           <button
             onClick={() => onNavigate('more')}
             className={`flex flex-col items-center justify-center w-full py-1 rounded-xl transition-all relative ${
@@ -289,7 +289,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                 ? 'text-emerald-600 dark:text-emerald-400 font-extrabold'
                 : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
             }`}
-            aria-label="Open complete landlord menu"
+            aria-label="Open complete agent menu"
           >
             <div className={`p-1 rounded-xl transition-all relative ${activeView === 'more' ? 'bg-emerald-50 dark:bg-emerald-950/60' : ''}`}>
               <Menu className="w-5 h-5" />

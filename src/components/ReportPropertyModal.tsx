@@ -45,7 +45,7 @@ export const ReportPropertyModal: React.FC<ReportPropertyModalProps> = ({
       reason,
       description: description.trim(),
       status: 'NEW',
-      priority: reason === 'Fake property' || reason === 'Suspicious landlord/agent' || reason === 'Unsafe condition' ? 'HIGH' : 'MEDIUM',
+      priority: reason === 'Fake property' || reason === 'Suspicious landlord/agent' || reason === 'Suspicious agent behavior' || reason === 'Unsafe condition' ? 'HIGH' : 'MEDIUM',
       createdAt: new Date().toISOString(),
     };
 
@@ -129,7 +129,7 @@ export const ReportPropertyModal: React.FC<ReportPropertyModalProps> = ({
                 <option value="Property unavailable">Property is already rented out / Unavailable</option>
                 <option value="Misleading photos">Misleading photos</option>
                 <option value="Misleading video">Misleading video tour</option>
-                <option value="Suspicious landlord/agent">Suspicious landlord or agent behavior</option>
+                <option value="Suspicious agent behavior">Suspicious agent behavior</option>
                 <option value="Duplicate listing">Duplicate listing / Cloned post</option>
                 <option value="Unsafe condition">Unsafe condition or hazardous building</option>
                 <option value="Other">Other issue</option>

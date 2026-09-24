@@ -67,7 +67,7 @@ export function getOrCreateMoveInRecord(bookingId: string) {
     // Initialize Default Move-in Checklist
     const defaultItems = [
       { id: 'chk_pay', category: 'BEFORE_MOVE_IN', title: 'Confirm full payment & digital receipt', isCompleted: booking.payment_status === 'PAID' },
-      { id: 'chk_cont', category: 'BEFORE_MOVE_IN', title: 'Contact landlord to confirm arrival time', isCompleted: false },
+      { id: 'chk_cont', category: 'BEFORE_MOVE_IN', title: 'Contact agent to confirm arrival time', isCompleted: false },
       { id: 'chk_rules', category: 'BEFORE_MOVE_IN', title: 'Review and acknowledge hostel rules', isCompleted: false },
       { id: 'chk_dir', category: 'BEFORE_MOVE_IN', title: 'Save GPS directions to hostel', isCompleted: false },
       { id: 'chk_docs', category: 'BEFORE_MOVE_IN', title: 'Prepare student ID card & admission documents', isCompleted: false },
@@ -616,11 +616,11 @@ router.patch('/issues/:issueId/provider-action', authenticate, requireRole('PROV
     // Notify Student
     db.prepare(`
       INSERT INTO notifications (id, user_id, title, message, type, link_url)
-      VALUES (?, ?, '🔧 Landlord Responded to Issue', ?, 'BOOKING_UPDATE', ?)
+      VALUES (?, ?, '🔧 Agent Responded to Issue', ?, 'BOOKING_UPDATE', ?)
     `).run(
       `notif-${crypto.randomUUID()}`,
       issue.student_id,
-      `Landlord updated issue #${issue.issue_code}: "${responseText.trim() || actionStatus}"`,
+      `Agent updated issue #${issue.issue_code}: "${responseText.trim() || actionStatus}"`,
       `/student/move-in`
     );
   })();
@@ -670,7 +670,7 @@ router.patch('/issues/:issueId/student-confirm', authenticate, (req: Authenticat
         issue.provider_id,
         issue.property_id,
         `Unresolved Move-In Issue: ${issue.title}`,
-        `Student confirmed issue remains unresolved after landlord response: ${feedbackNotes || issue.description}`
+        `Student confirmed issue remains unresolved after agent response: ${feedbackNotes || issue.description}`
       );
 
       db.prepare(`

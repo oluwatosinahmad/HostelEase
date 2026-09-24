@@ -139,8 +139,8 @@ export const AILandlordAssistantModal: React.FC<AILandlordAssistantModalProps> =
             id: 'landlord-welcome',
             sender: 'AI',
             content: languageMode === 'PIDGIN'
-              ? `Hello Oga Landlord! 👋 Welcome to **Hostel Ease Landlord AI Assistant**.\n\nI be your 24/7 LAUTECH accommodation assistant. I fit help you check free bedspaces, manage pending booking requests, track student inspection appointments, compare hostel market prices across Under G / Adenike, or rewrite your hostel description.\n\nWetin you go like make I check for you today?`
-              : `Hello! 👋 Welcome to **Hostel Ease Landlord AI Assistant** — your 24/7 LAUTECH property manager, occupancy advisor, and revenue optimizer.\n\nI can help you monitor real-time bedspace availability, respond to pending student bookings, manage inspection schedules, benchmark LAUTECH campus rents, and craft high-converting listing descriptions.\n\nHow can I assist your hostel operations today?`,
+              ? `Hello Oga Agent! 👋 Welcome to **Hostel Ease Agent AI Assistant**.\n\nI be your 24/7 LAUTECH accommodation assistant. I fit help you check free bedspaces, manage pending booking requests, track student inspection appointments, compare hostel market prices across Under G / Adenike, or rewrite your hostel description.\n\nWetin you go like make I check for you today?`
+              : `Hello! 👋 Welcome to **Hostel Ease Agent AI Assistant** — your 24/7 LAUTECH property manager, occupancy advisor, and revenue optimizer.\n\nI can help you monitor real-time bedspace availability, respond to pending student bookings, manage inspection schedules, benchmark LAUTECH campus rents, and craft high-converting listing descriptions.\n\nHow can I assist your hostel operations today?`,
             structuredData: {
               type: 'CLARIFYING_QUESTION',
               suggestedQueries: languageMode === 'PIDGIN' ? PIDGIN_LANDLORD_SUGGESTIONS : DEFAULT_LANDLORD_SUGGESTIONS
@@ -334,7 +334,7 @@ export const AILandlordAssistantModal: React.FC<AILandlordAssistantModalProps> =
     onShowToast(
       languageMode === 'PIDGIN'
         ? '🎙️ Dey record voice note... Talk wetin you wan check!'
-        : '🎙️ Recording voice note... Speak your landlord inquiry!',
+        : '🎙️ Recording voice note... Speak your agent inquiry!',
       'info'
     );
   };
@@ -421,7 +421,7 @@ export const AILandlordAssistantModal: React.FC<AILandlordAssistantModalProps> =
       {
         id: `welcome-${Date.now()}`,
         sender: 'AI',
-        content: `Hello! I am your **Landlord AI Assistant** for LAUTECH accommodations. How can I help you manage your hostels, inspect bookings, check vacancies, or optimize your rental income today?`,
+        content: `Hello! I am your **Agent AI Assistant** for LAUTECH accommodations. How can I help you manage your hostels, inspect bookings, check vacancies, or optimize your rental income today?`,
         structuredData: {
           type: 'LANDLORD_TIPS',
           suggestedQueries: DEFAULT_LANDLORD_SUGGESTIONS
@@ -440,7 +440,7 @@ export const AILandlordAssistantModal: React.FC<AILandlordAssistantModalProps> =
       <div 
         className="w-full sm:max-w-2xl h-[100dvh] sm:h-full bg-white dark:bg-slate-950 flex flex-col shadow-2xl animate-in slide-in-from-right duration-300 border-l border-slate-200 dark:border-slate-800 overflow-hidden"
         role="dialog"
-        aria-label="Hostel Ease Landlord AI Assistant"
+        aria-label="Hostel Ease Agent AI Assistant"
         onClick={(e) => e.stopPropagation()}
       >
         {/* MODAL HEADER */}
@@ -460,7 +460,7 @@ export const AILandlordAssistantModal: React.FC<AILandlordAssistantModalProps> =
             <div className="min-w-0">
               <div className="flex items-center gap-1.5 sm:gap-2">
                 <h3 className="font-black text-xs sm:text-sm tracking-tight text-white flex items-center gap-1 truncate">
-                  Landlord AI
+                  Agent AI
                   <Sparkles className="w-3.5 h-3.5 text-amber-400 fill-amber-400 shrink-0" />
                 </h3>
                 <span className="hidden xs:inline-block px-1.5 py-0.5 rounded-full text-[8px] sm:text-[9px] font-black uppercase tracking-wider bg-emerald-500 text-slate-950 shrink-0">
@@ -549,10 +549,10 @@ export const AILandlordAssistantModal: React.FC<AILandlordAssistantModalProps> =
               {/* Message Header & Desktop Hover Reply Button */}
               <div className="flex items-center gap-2 text-[10px] text-slate-400 font-bold px-1">
                 {msg.sender === 'USER' ? (
-                  <span>You (Landlord)</span>
+                  <span>You (Agent)</span>
                 ) : (
                   <span className="flex items-center gap-1 text-emerald-700 dark:text-emerald-400 font-black">
-                    <Bot className="w-3.5 h-3.5" /> Hostel Ease Landlord AI
+                    <Bot className="w-3.5 h-3.5" /> Hostel Ease Agent AI
                   </span>
                 )}
                 <span>• {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
@@ -588,7 +588,7 @@ export const AILandlordAssistantModal: React.FC<AILandlordAssistantModalProps> =
                   }`}>
                     <div className="font-bold uppercase text-[9px] opacity-80 flex items-center gap-1">
                       <Reply className="w-2.5 h-2.5 rotate-180" />
-                      Replying to {msg.replyTo.sender === 'USER' ? 'Landlord' : 'Hostel Ease AI'}
+                      Replying to {msg.replyTo.sender === 'USER' ? 'Agent' : 'Hostel Ease AI'}
                     </div>
                     <p className="truncate font-medium mt-0.5">{msg.replyTo.text}</p>
                   </div>
@@ -1010,3 +1010,6 @@ export const AILandlordAssistantModal: React.FC<AILandlordAssistantModalProps> =
     </div>
   );
 };
+
+export const AIAgentAssistantModal = AILandlordAssistantModal;
+export type AIAgentAssistantModalProps = AILandlordAssistantModalProps;

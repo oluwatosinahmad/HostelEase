@@ -487,7 +487,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                     <span>Bedspace 100% Reserved!</span>
                   </div>
                   <p className="text-[11px] text-emerald-800 leading-relaxed">
-                    The landlord has been officially notified of your verified deposit. Your room key gate pass is generated and accessible on your dashboard.
+                    The agent has been officially notified of your verified deposit. Your room key gate pass is generated and accessible on your dashboard.
                   </p>
                 </div>
 

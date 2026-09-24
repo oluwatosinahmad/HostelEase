@@ -17,7 +17,7 @@ export const PAYMENT_GATEWAY_CONFIG = {
   merchantName: 'Hostel Ease Student Housing Technologies',
 };
 
-// Supported Nigerian Banks for Ogbomoso / LAUTECH Landlord Direct Payouts
+// Supported Nigerian Banks for Ogbomoso / LAUTECH Agent Direct Payouts
 export const NIGERIAN_BANKS = [
   { code: '044', name: 'Access Bank', slug: 'access-bank' },
   { code: '058', name: 'Guaranty Trust Bank (GTBank)', slug: 'gtb' },
@@ -48,7 +48,8 @@ export interface PaymentBreakdownResult {
   providerFee: number; // Payment Gateway processing fee (e.g. 1.5% + N100)
   grossAmount: number; // What the student pays
   landlordAmount: number; // What the host receives
-  payer: 'STUDENT' | 'LANDLORD' | 'SPLIT';
+  agentAmount?: number; // Alias for landlordAmount
+  payer: 'STUDENT' | 'LANDLORD' | 'AGENT' | 'SPLIT';
   feePercentageDisplay: string;
 }
 
@@ -89,8 +90,8 @@ export function calculatePaymentBreakdown(
 
   if (payer === 'STUDENT') {
     grossAmount = propertyAmount + calculatedPlatformFee;
-    landlordAmount = propertyAmount; // Landlord gets full property amount
-  } else if (payer === 'LANDLORD') {
+    landlordAmount = propertyAmount; // Agent gets full property amount
+  } else if (payer === 'LANDLORD' || (payer as string) === 'AGENT') {
     grossAmount = propertyAmount;
     landlordAmount = Math.max(0, propertyAmount - calculatedPlatformFee); // Deducted from host payout
   } else if (payer === 'SPLIT') {
@@ -113,6 +114,7 @@ export function calculatePaymentBreakdown(
     providerFee,
     grossAmount,
     landlordAmount,
+    agentAmount: landlordAmount,
     payer,
     feePercentageDisplay,
   };

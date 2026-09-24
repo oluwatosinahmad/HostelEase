@@ -241,7 +241,7 @@ router.post('/alerts/price', authenticate, (req: AuthenticatedRequest, res: Resp
   `).run(alertId, userId, propertyId, currentPrice);
 
   res.status(201).json({
-    message: 'Price change alert active. You will be notified if the landlord changes the price.',
+    message: 'Price change alert active. You will be notified if the agent changes the price.',
     alertId
   });
 });

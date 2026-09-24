@@ -177,7 +177,7 @@ export const MorePageView: React.FC<MorePageViewProps> = ({
             </button>
             <div className="h-4 w-px bg-slate-200 dark:bg-slate-700" />
             <h1 className="text-base font-black text-slate-900 dark:text-white tracking-tight">
-              {isAdmin ? 'Admin Menu' : isProvider ? 'Landlord Hub' : isStudent ? 'Student Hub' : 'Menu & Services'}
+              {isAdmin ? 'Admin Menu' : isProvider ? 'Agent Hub' : isStudent ? 'Student Hub' : 'Menu & Services'}
             </h1>
           </div>
 
@@ -361,7 +361,7 @@ export const MorePageView: React.FC<MorePageViewProps> = ({
                     <MessageSquare className="w-4 h-4" />
                   </div>
                   <div>
-                    <span className="text-xs font-bold text-slate-900 dark:text-white">Landlord Messages & Chat</span>
+                    <span className="text-xs font-bold text-slate-900 dark:text-white">Agent Messages & Chat</span>
                     <p className="text-[11px] text-slate-500 dark:text-slate-400">Direct real-time conversations</p>
                   </div>
                 </div>
@@ -563,11 +563,11 @@ export const MorePageView: React.FC<MorePageViewProps> = ({
         )}
 
         {/* ========================================================================= */}
-        {/* ROLE 2: AUTHENTICATED LANDLORD (PROVIDER)                                */}
+        {/* ROLE 2: AUTHENTICATED AGENT (PROVIDER)                                   */}
         {/* ========================================================================= */}
         {isAuthenticated && isProvider && (
           <div className="space-y-4 animate-in fade-in duration-200">
-            {/* Landlord Profile Header */}
+            {/* Agent Profile Header */}
             <div className="p-4 bg-gradient-to-br from-amber-50 to-emerald-50/60 dark:from-slate-800 dark:to-amber-950/30 rounded-3xl flex items-center justify-between border border-amber-200/70 dark:border-amber-800/60 shadow-xs">
               <div className="flex items-center gap-3.5 min-w-0">
                 <UserAvatar fullName={user?.fullName} avatarUrl={user?.avatarUrl} size="lg" />
@@ -575,15 +575,15 @@ export const MorePageView: React.FC<MorePageViewProps> = ({
                   <p className="text-sm font-black text-slate-900 dark:text-white truncate">{user?.fullName}</p>
                   <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{user?.email}</p>
                   <span className="inline-flex items-center gap-1 mt-1 text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 uppercase">
-                    🏡 Hostel Landlord
+                    🏡 Hostel Agent
                   </span>
                 </div>
               </div>
               <button
                 onClick={() => navigateLandlordTab('profile_team')}
                 className="p-2.5 rounded-2xl bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:text-emerald-600 shadow-xs border border-slate-200/60 dark:border-slate-600 shrink-0"
-                title="Landlord Verification & Profile"
-                aria-label="Landlord Verification & Profile"
+                title="Agent Verification & Profile"
+                aria-label="Agent Verification & Profile"
               >
                 <ShieldCheck className="w-5 h-5 text-emerald-600" />
               </button>
@@ -763,7 +763,7 @@ export const MorePageView: React.FC<MorePageViewProps> = ({
                     <Bell className="w-4 h-4" />
                   </div>
                   <div>
-                    <span className="text-xs font-bold text-slate-900 dark:text-white">Landlord Booking Alerts</span>
+                    <span className="text-xs font-bold text-slate-900 dark:text-white">Agent Booking Alerts</span>
                     <p className="text-[11px] text-slate-500 dark:text-slate-400">Inspection reminders and payment confirmations</p>
                   </div>
                 </div>
@@ -848,7 +848,7 @@ export const MorePageView: React.FC<MorePageViewProps> = ({
               >
                 <div className="flex items-center gap-2.5">
                   <Sparkles className="w-4 h-4 text-amber-300 fill-amber-300 animate-pulse" />
-                  <span>Landlord AI & Price Estimator</span>
+                  <span>Agent AI & Price Estimator</span>
                 </div>
                 <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded-full font-black">AI TOOLS</span>
               </button>
@@ -893,7 +893,7 @@ export const MorePageView: React.FC<MorePageViewProps> = ({
                 className="w-full py-3 px-4 text-xs font-bold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/60 rounded-2xl transition-colors flex items-center justify-center gap-2 mt-2"
               >
                 <LogOut className="w-4 h-4" />
-                <span>Log Out of Landlord Portal</span>
+                <span>Log Out of Agent Portal</span>
               </button>
             </div>
           </div>
@@ -1153,7 +1153,7 @@ export const MorePageView: React.FC<MorePageViewProps> = ({
               )}
             </div>
 
-            {/* Landlord Sign In Entry */}
+            {/* Agent Sign In Entry */}
             <div className="bg-white dark:bg-slate-900 rounded-3xl p-3.5 border border-slate-200/80 dark:border-slate-800 shadow-xs">
               <button
                 onClick={() => onOpenAuth('PROVIDER')}
@@ -1161,7 +1161,7 @@ export const MorePageView: React.FC<MorePageViewProps> = ({
               >
                 <div className="flex items-center gap-2.5">
                   <Building2 className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-                  <span>Are you a Landlord? List Your Hostel</span>
+                  <span>Are you an Agent? List Your Hostel</span>
                 </div>
                 <span className="text-[10px] px-2 py-0.5 bg-amber-200 dark:bg-amber-900 text-amber-900 dark:text-amber-200 rounded-full font-black">
                   PARTNER

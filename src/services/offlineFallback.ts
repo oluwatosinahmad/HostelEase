@@ -1060,7 +1060,7 @@ export const DEFAULT_OPERATIONAL_TASKS = [
   {
     id: 'opt-2',
     title: 'Move-In Checkin Audit for Peace Haven Room 104',
-    description: 'Student marked minor faucet leakage during move-in. Landlord dispatched plumber.',
+    description: 'Student marked minor faucet leakage during move-in. Agent dispatched plumber.',
     category: 'MOVE_IN' as const,
     priority: 'MEDIUM' as const,
     status: 'IN_PROGRESS' as const,
@@ -1135,7 +1135,7 @@ export const DEFAULT_NOTIFICATION_LOGS = [
     channel: 'IN_APP' as const,
     eventType: 'BOOKING_CONFIRMED',
     recipient: 'tunde@lautech.edu.ng',
-    message: 'Your booking for Emerald Heights (Room 101) has been approved by the landlord.',
+    message: 'Your booking for Emerald Heights (Room 101) has been approved by the agent.',
     deliveryStatus: 'DELIVERED' as const,
     readStatus: true,
     createdAt: '2026-08-25T12:00:00Z'
@@ -1172,7 +1172,7 @@ export const DEFAULT_OPERATIONS_DASHBOARD = {
     {
       id: 'act-1',
       title: '2 Booking Requests Require Attention',
-      description: 'Students waiting for landlord reservation approval on Under G lodges.',
+      description: 'Students waiting for agent reservation approval on Under G lodges.',
       category: 'BOOKING',
       priority: 'HIGH' as const,
       actionUrl: '/admin/bookings'
@@ -1292,7 +1292,7 @@ export const DEFAULT_STUDENT_DASHBOARD: StudentDashboardData = {
     explanationReasons: [
       'Verified listing around LAUTECH campus',
       'Audited electricity and running borehole water',
-      'Direct landlord contact with escrow protection'
+      'Direct agent contact with escrow protection'
     ]
   })),
   preferences: DEFAULT_STUDENT_PREFERENCES,
@@ -1454,7 +1454,7 @@ export const DEFAULT_SUBSCRIPTIONS_LIST: ProviderSubscriptionItem[] = [
     providerEmail: 'provider@hostelease.ng',
     providerPhone: '+234 803 123 4567',
     businessName: 'Destiny Properties LAUTECH',
-    plan_name: 'PRO_LANDLORD',
+    plan_name: 'PRO_AGENT',
     amount: 15000,
     billing_cycle: 'MONTHLY',
     max_listings: 10,
@@ -1572,7 +1572,7 @@ export const DEFAULT_INVOICES_LIST: PlatformInvoiceItem[] = [
     user_name: 'Engr. Segun Adeyemi',
     user_email: 'provider@hostelease.ng',
     item_type: 'SUBSCRIPTION',
-    item_description: 'Pro Landlord Subscription (August 2026)',
+    item_description: 'Pro Agent Subscription (August 2026)',
     subtotal: 15000,
     tax_amount: 0,
     total_amount: 15000,
@@ -1668,7 +1668,7 @@ export const DEFAULT_ADMIN_DISPUTES = [
     bookingReference: 'HE-BK-2026-7712',
     category: 'MAINTENANCE_ISSUE',
     subject: 'Borehole Water Pump Maintenance Delay',
-    description: 'Student reported water supply maintenance taking longer than 48 hours. Landlord has engaged a technician.',
+    description: 'Student reported water supply maintenance taking longer than 48 hours. Agent has engaged a technician.',
     status: 'UNDER_REVIEW',
     totalCost: 240000,
     studentName: 'Ahmad Adelopo',

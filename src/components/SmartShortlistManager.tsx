@@ -76,7 +76,7 @@ export const SmartShortlistManager: React.FC<SmartShortlistManagerProps> = ({
           pricePerYear: 220000,
           matchScore: 95,
           tag: 'TOP_CHOICE',
-          personalNotes: 'Spoke with landlord Segun. Steady power and close to gate.',
+          personalNotes: 'Spoke with agent Segun. Steady power and close to gate.',
           positiveReasons: ['0.6km from Under G Gate', 'Dedicated transformer', 'Borehole water'],
           negativeWarnings: [],
           coverImage: 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=1000&q=80'

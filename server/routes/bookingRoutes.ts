@@ -342,7 +342,7 @@ const createReservationHandler = (req: AuthenticatedRequest, res: Response) => {
     })();
 
     res.status(201).json({
-      message: 'Reservation request successfully created and submitted to landlord',
+      message: 'Reservation request successfully created and submitted to agent',
       ...result
     });
   } catch (err: any) {
@@ -552,7 +552,7 @@ const handleBookingReview = (req: AuthenticatedRequest, res: Response) => {
     },
     cancellationPolicy: {
       policyType: 'STANDARD_FLEXIBLE',
-      summary: 'Free 100% refund within 24 hours of booking or if landlord cancels before move-in. 10% platform processing fee applies if cancelled by student after 24 hours.',
+      summary: 'Free 100% refund within 24 hours of booking or if agent cancels before move-in. 10% platform processing fee applies if cancelled by student after 24 hours.',
       freeCancellationWindowHours: 24,
       refundableCautionDeposit: true
     }
@@ -726,7 +726,7 @@ router.patch('/:id/confirm', authenticate, (req: AuthenticatedRequest, res: Resp
 
       db.prepare(`
         INSERT INTO booking_status_history (id, booking_id, actor_id, actor_role, previous_status, new_status, notes)
-        VALUES (?, ?, ?, ?, 'PENDING', 'CONFIRMED', 'Reservation confirmed by landlord')
+        VALUES (?, ?, ?, ?, 'PENDING', 'CONFIRMED', 'Reservation confirmed by agent')
       `).run(`bhist-${crypto.randomUUID()}`, id, userId, userRole);
 
       // Send notification to student
@@ -737,7 +737,7 @@ router.patch('/:id/confirm', authenticate, (req: AuthenticatedRequest, res: Resp
         `notif-${crypto.randomUUID()}`,
         booking.student_id,
         '🎉 Reservation Confirmed!',
-        `Your reservation for ${booking.propertyTitle} (Ref: ${booking.booking_reference}) has been confirmed by the landlord.`,
+        `Your reservation for ${booking.propertyTitle} (Ref: ${booking.booking_reference}) has been confirmed by the agent.`,
         `/bookings/${booking.id}`
       );
 
@@ -755,7 +755,7 @@ router.patch('/:id/confirm', authenticate, (req: AuthenticatedRequest, res: Resp
           `msg-${crypto.randomUUID()}`,
           conv.id,
           userId,
-          `✅ Reservation ${booking.booking_reference} has been CONFIRMED by the landlord!`
+          `✅ Reservation ${booking.booking_reference} has been CONFIRMED by the agent!`
         );
       }
     })();
@@ -821,7 +821,7 @@ router.patch('/:id/decline', authenticate, (req: AuthenticatedRequest, res: Resp
       // 4. Record Status History
       db.prepare(`
         INSERT INTO booking_status_history (id, booking_id, actor_id, actor_role, previous_status, new_status, reason, notes)
-        VALUES (?, ?, ?, ?, 'PENDING', 'DECLINED', ?, 'Reservation declined by landlord')
+        VALUES (?, ?, ?, ?, 'PENDING', 'DECLINED', ?, 'Reservation declined by agent')
       `).run(`bhist-${crypto.randomUUID()}`, id, userId, userRole, reason || null);
 
       // 5. Send notification to student
@@ -892,7 +892,7 @@ router.patch('/:id/cancel', authenticate, (req: AuthenticatedRequest, res: Respo
 
   const newStatus = isStudent ? 'CANCELLED_BY_STUDENT' : 'CANCELLED_BY_PROVIDER';
   const notifyUserId = isStudent ? booking.provider_id : booking.student_id;
-  const actorTitle = isStudent ? 'Student' : 'Landlord';
+  const actorTitle = isStudent ? 'Student' : 'Agent';
 
   try {
     db.transaction(() => {

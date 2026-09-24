@@ -500,7 +500,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
                 </div>
               </div>
 
-              {/* Special Requests / Notes to Landlord */}
+              {/* Special Requests / Notes to Agent */}
               <div className="space-y-1.5">
                 <label className="block text-xs font-bold text-slate-700">
                   Special Notes or Requests (Optional)
@@ -550,7 +550,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
                   Review Your Accommodation Reservation
                 </div>
                 <p className="text-[11px] text-emerald-800">
-                  Please review the 100% disclosed fee breakdown before submitting to the landlord.
+                  Please review the 100% disclosed fee breakdown before submitting to the agent.
                 </p>
               </div>
 
@@ -580,7 +580,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
 
                 <div className="flex justify-between items-center text-xs">
                   <span className="text-slate-500 font-bold">Hostel Provider</span>
-                  <span className="font-bold text-slate-800">{property.provider?.name || 'Verified Landlord'}</span>
+                  <span className="font-bold text-slate-800">{property.provider?.name || 'Verified Agent'}</span>
                 </div>
               </div>
 
@@ -640,24 +640,24 @@ export const BookingModal: React.FC<BookingModalProps> = ({
                 </div>
               </div>
 
-              {/* 5% Booking Commission Agreement Box (Landlords & Admin Only - Hidden from Students) */}
+              {/* 5% Booking Commission Agreement Box (Agents & Admin Only - Hidden from Students) */}
               {(isProvider || isAdmin) && (
                 <div className="p-3.5 bg-emerald-50/80 rounded-2xl border border-emerald-200 text-emerald-950 text-[11px] space-y-1.5">
                   <div className="flex items-center justify-between font-black">
                     <span className="flex items-center gap-1.5 text-emerald-900">
                       <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
-                      5% Booking Commission Agreement (Landlord Portal)
+                      5% Booking Commission Agreement (Agent Portal)
                     </span>
                     <span className="bg-emerald-600 text-white px-2 py-0.5 rounded text-[10px] font-black">
                       Standard 5%
                     </span>
                   </div>
                   <p className="text-slate-600 text-[10px] leading-relaxed">
-                    Per Hostel Ease policy: For this {formatNaira(currentRoom.pricing.rentAmount)} accommodation, Hostel Ease receives a 5% platform facilitation commission ({formatNaira(currentRoom.pricing.rentAmount * 0.05)}). Landlord receives the agreed net payout of {formatNaira(currentRoom.pricing.rentAmount * 0.95)} upon student move-in verification.
+                    Per Hostel Ease policy: For this {formatNaira(currentRoom.pricing.rentAmount)} accommodation, Hostel Ease receives a 5% platform facilitation commission ({formatNaira(currentRoom.pricing.rentAmount * 0.05)}). Agent receives the agreed net payout of {formatNaira(currentRoom.pricing.rentAmount * 0.95)} upon student move-in verification.
                   </p>
                   <div className="flex items-center justify-between pt-1 border-t border-emerald-200/60 font-mono text-[10px] text-emerald-900">
                     <span>Hostel Ease 5% Fee: {formatNaira(currentRoom.pricing.rentAmount * 0.05)}</span>
-                    <span className="font-black">Net Landlord Payout: {formatNaira(currentRoom.pricing.rentAmount * 0.95)}</span>
+                    <span className="font-black">Net Agent Payout: {formatNaira(currentRoom.pricing.rentAmount * 0.95)}</span>
                   </div>
                 </div>
               )}
@@ -669,7 +669,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
                   What happens when you confirm?
                 </p>
                 <p className="text-amber-800">
-                  Your space will be held and submitted to Landlord <strong>{property.provider?.name}</strong> for review. The provider has 48 hours to confirm your reservation. (No online payment required at this stage).
+                  Your space will be held and submitted to Agent <strong>{property.provider?.name}</strong> for review. The provider has 48 hours to confirm your reservation. (No online payment required at this stage).
                 </p>
               </div>
 
@@ -721,7 +721,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
                   Reservation Request Submitted!
                 </h3>
                 <p className="text-xs text-slate-500 max-w-sm mx-auto">
-                  Your space has been held. We have notified the landlord for confirmation.
+                  Your space has been held. We have notified the agent for confirmation.
                 </p>
               </div>
 
@@ -742,7 +742,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
                 <div className="flex justify-between items-center pb-2 border-b border-slate-200">
                   <span className="text-slate-500 font-bold">Status</span>
                   <span className="px-2 py-0.5 rounded bg-amber-100 text-amber-900 font-black text-[10px]">
-                    PENDING LANDLORD CONFIRMATION
+                    PENDING AGENT CONFIRMATION
                   </span>
                 </div>
 
@@ -753,7 +753,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
 
                 {(isProvider || isAdmin) && (
                   <div className="flex justify-between items-center text-[11px] pt-2 border-t border-slate-200 text-slate-600">
-                    <span className="font-medium">5% Commission Agreement (Landlord View)</span>
+                    <span className="font-medium">5% Commission Agreement (Agent View)</span>
                     <span className="font-bold text-emerald-800">5% Platform Fee ({formatNaira(createdBooking.totalCost * 0.05)})</span>
                   </div>
                 )}
@@ -766,8 +766,8 @@ export const BookingModal: React.FC<BookingModalProps> = ({
                   Next Steps:
                 </h4>
                 <ul className="space-y-1.5 text-emerald-900 text-[11px] list-disc list-inside">
-                  <li>Landlord automatically notified with your reservation details.</li>
-                  <li>The landlord has <strong>48 hours</strong> to review and confirm.</li>
+                  <li>Agent automatically notified with your reservation details.</li>
+                  <li>The agent has <strong>48 hours</strong> to review and confirm.</li>
                   <li>You will receive an in-app notification immediately once confirmed.</li>
                   <li>You can track the status in your <strong>"My Bookings"</strong> dashboard.</li>
                 </ul>
@@ -783,13 +783,13 @@ export const BookingModal: React.FC<BookingModalProps> = ({
                     if (cleanPhone.startsWith('0')) {
                       cleanPhone = '234' + cleanPhone.substring(1);
                     }
-                    const msg = encodeURIComponent(`Hello ${property.provider?.name || 'Landlord'}, I have just placed a space reservation for "${property.title}" (Ref: ${createdBooking?.bookingReference || 'HE-BK'}) on Hostel Ease. Looking forward to your confirmation!`);
+                    const msg = encodeURIComponent(`Hello ${property.provider?.name || 'Agent'}, I have just placed a space reservation for "${property.title}" (Ref: ${createdBooking?.bookingReference || 'HE-BK'}) on Hostel Ease. Looking forward to your confirmation!`);
                     window.open(`https://wa.me/${cleanPhone}?text=${msg}`, '_blank');
                   }}
                   className="w-full sm:w-auto px-5 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
                 >
                   <MessageCircle className="w-4 h-4" />
-                  <span>WhatsApp Landlord</span>
+                  <span>WhatsApp Agent</span>
                 </button>
 
                 {onOpenConversation && (

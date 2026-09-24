@@ -121,6 +121,9 @@ export type LandlordAuthorizationType =
   | 'HOSTEL_CARETAKER'
   | 'UNCONFIRMED';
 
+export type AgentVerificationStatus = LandlordVerificationStatus;
+export type AgentAuthorizationType = LandlordAuthorizationType;
+
 export type AvailabilityStatus =
   | 'AVAILABLE'
   | 'LIMITED'
@@ -446,6 +449,7 @@ export type PropertyReportReason =
   | 'Misleading photos'
   | 'Misleading video'
   | 'Suspicious landlord/agent'
+  | 'Suspicious agent behavior'
   | 'Duplicate listing'
   | 'Hidden fees'
   | 'Unsafe condition'
@@ -500,6 +504,9 @@ export type LandlordReport = {
   createdAt: string;
   updatedAt?: string;
 };
+
+export type AgentReportReason = LandlordReportReason;
+export type AgentReport = LandlordReport;
 
 // Phase 4: Admin Audit Log
 export type AuditLogEntry = {
@@ -567,6 +574,8 @@ export type LandlordNotification = {
   isRead: boolean;
 };
 
+export type AgentNotification = LandlordNotification;
+
 export type ReviewStatus = 'PUBLISHED' | 'HIDDEN' | 'FLAGGED_SUSPICIOUS' | 'UNDER_MODERATION';
 
 export type ReviewVerificationSignal = 
@@ -583,6 +592,8 @@ export type LandlordReviewResponse = {
   createdAt: string;
   updatedAt?: string;
 };
+
+export type AgentReviewResponse = LandlordReviewResponse;
 
 export type ReviewEditHistoryEntry = {
   id: string;
@@ -706,7 +717,7 @@ export type InspectionBooking = {
   createdAt: string;
 };
 
-export type UserRole = 'student' | 'landlord' | 'admin';
+export type UserRole = 'student' | 'agent' | 'landlord' | 'admin';
 
 export type UserProfile = {
   id: string;
@@ -777,11 +788,11 @@ export type BookingTimelineStep = {
   completed?: boolean;
   isCompleted?: boolean;
   isCurrent?: boolean;
-  actor?: 'STUDENT' | 'LANDLORD' | 'ADMIN' | 'SYSTEM';
+  actor?: 'STUDENT' | 'AGENT' | 'LANDLORD' | 'ADMIN' | 'SYSTEM';
 };
 
 export type BookingCancellation = {
-  cancelledBy: 'STUDENT' | 'LANDLORD' | 'ADMIN' | 'student' | 'landlord' | 'admin';
+  cancelledBy: 'STUDENT' | 'AGENT' | 'LANDLORD' | 'ADMIN' | 'student' | 'agent' | 'landlord' | 'admin';
   cancellerName?: string;
   reason: string;
   timestamp?: string;
@@ -804,6 +815,10 @@ export type Booking = {
   landlordName: string;
   landlordPhone: string;
   landlordWhatsapp?: string;
+  agentId?: string;
+  agentName?: string;
+  agentPhone?: string;
+  agentWhatsapp?: string;
 
   // Student Info
   studentId: string;
@@ -852,6 +867,7 @@ export type Booking = {
 
 export type BookingDisputeReason =
   | 'Property unavailable after booking'
+  | 'Agent not responding'
   | 'Landlord not responding'
   | 'Incorrect property information'
   | 'Fee discrepancy'
@@ -1201,7 +1217,7 @@ export type SupportTicketCategory =
 
 export type SupportTicketMessage = {
   id: string;
-  senderRole: 'STUDENT' | 'LANDLORD' | 'ADMIN' | 'SUPPORT_AGENT';
+  senderRole: 'STUDENT' | 'AGENT' | 'LANDLORD' | 'ADMIN' | 'SUPPORT_AGENT';
   senderName: string;
   message: string;
   timestamp: string;
@@ -1211,7 +1227,7 @@ export type SupportTicketMessage = {
 export type SupportTicket = {
   id: string;
   ticketNumber: string; // e.g. TKT-CN-2026-0042
-  userRole: 'student' | 'landlord';
+  userRole: 'student' | 'agent' | 'landlord';
   userId: string;
   userName: string;
   userEmail: string;

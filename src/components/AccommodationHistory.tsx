@@ -145,7 +145,7 @@ export const AccommodationHistory: React.FC<AccommodationHistoryProps> = ({
                   <span className="font-bold text-gray-800">{stay.moveInDate}</span>
                 </div>
                 <div>
-                  <span className="text-gray-400 block text-[11px]">Host / Landlord:</span>
+                  <span className="text-gray-400 block text-[11px]">Host / Agent:</span>
                   <span className="font-bold text-gray-800">{stay.providerName}</span>
                 </div>
               </div>

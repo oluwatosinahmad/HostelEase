@@ -361,7 +361,7 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
       setShowNewChatSelector(false);
       setActiveConversationId(res.conversationId);
       loadConversations(res.conversationId);
-      onShowToast('Direct chat opened with verified landlord', 'success');
+      onShowToast('Direct chat opened with verified agent', 'success');
     } catch (err: any) {
       onShowToast(err.message || 'Failed to start conversation', 'error');
     }
@@ -687,7 +687,7 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
       });
 
       const pin = `PASS-${Math.floor(1000 + Math.random() * 9000)}-LAUTECH`;
-      const messageText = `📅 Inspection Tour Appointment Confirmed!\n• Visit Type: ${tourType === 'PHYSICAL' ? '🚶 Physical Walkthrough' : '📹 Live Video Tour'}\n• Scheduled: ${tourDate} at ${tourTime}\n• Gate Passcode: ${pin}\n• Location: ${prop.title} (${prop.areaName})\n• Landlord: ${activeDetail.conversation.provider.name}`;
+      const messageText = `📅 Inspection Tour Appointment Confirmed!\n• Visit Type: ${tourType === 'PHYSICAL' ? '🚶 Physical Walkthrough' : '📹 Live Video Tour'}\n• Scheduled: ${tourDate} at ${tourTime}\n• Gate Passcode: ${pin}\n• Location: ${prop.title} (${prop.areaName})\n• Agent: ${activeDetail.conversation.provider.name}`;
 
       // Send verification pass directly into active conversation
       const chatRes = await api.messages.sendMessage(activeConversationId, messageText, 'SNAP_PASSCODE', {
@@ -754,10 +754,10 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
                   type="button"
                   onClick={() => window.dispatchEvent(new CustomEvent('hostel_ease_open_ai'))}
                   className="px-2.5 py-1.5 bg-gradient-to-r from-emerald-600 via-teal-700 to-teal-800 hover:from-emerald-500 hover:to-teal-600 text-white rounded-xl text-xs font-black shadow-md transition-all flex items-center gap-1.5 cursor-pointer border border-emerald-500/30 group"
-                  title={isStudent ? "Open Student AI Assistant Bot" : "Open Landlord AI Assistant Bot"}
+                  title={isStudent ? "Open Student AI Assistant Bot" : "Open Agent AI Assistant Bot"}
                 >
                   <Sparkles className="w-3.5 h-3.5 text-amber-300 animate-spin-slow group-hover:rotate-12 transition-transform" />
-                  <span className="hidden sm:inline">{isStudent ? 'AI Bot' : 'Landlord Bot'}</span>
+                  <span className="hidden sm:inline">{isStudent ? 'AI Bot' : 'Agent Bot'}</span>
                   <span className="sm:hidden">Bot</span>
                 </button>
 
@@ -778,7 +778,7 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
               <Search className="w-4 h-4 text-slate-400 mr-2 shrink-0" />
               <input
                 type="text"
-                placeholder="Search landlord, student, or hostel..."
+                placeholder="Search agent, student, or hostel..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full bg-transparent outline-none text-white placeholder:text-slate-500 text-xs font-medium"
@@ -830,7 +830,7 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
                 <h4 className="text-xs font-black text-slate-300">No Conversations Found</h4>
                 <p className="text-[11px] text-slate-500 max-w-xs mx-auto">
                   {isStudent
-                    ? 'Tap the + button to select any verified hostel and message the landlord directly.'
+                    ? 'Tap the + button to select any verified hostel and message the agent directly.'
                     : 'Incoming messages from interested students will appear here.'}
                 </p>
               </div>
@@ -928,7 +928,7 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
               <div className="space-y-1">
                 <h3 className="font-black text-base text-white">Select an Accommodation Thread</h3>
                 <p className="text-xs text-slate-400 max-w-sm">
-                  Chat directly with verified landlords to ask about water, electricity, caution fees, and send room photo snaps.
+                  Chat directly with verified agents to ask about water, electricity, caution fees, and send room photo snaps.
                 </p>
               </div>
               {isStudent && (
@@ -1247,9 +1247,9 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
                     }
 
                     const senderLabel = isMe
-                      ? `You (${isStudent ? 'Student' : 'Landlord'})`
+                      ? `You (${isStudent ? 'Student' : 'Agent'})`
                       : msg.senderRole === 'PROVIDER'
-                      ? `🏡 Landlord: ${activeDetail.conversation.provider.name}`
+                      ? `🏡 Agent: ${activeDetail.conversation.provider.name}`
                       : `🎓 Student: ${activeDetail.conversation.student.name}`;
 
                     const isSwipingThis = swipingMessageId === msg.id;
@@ -1274,7 +1274,7 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
                         onTouchEnd={() => {
                           if (swipeOffset > 35) {
                             setReplyingToMessage(msg);
-                            onShowToast(`Replying to ${msg.senderRole === 'PROVIDER' ? 'Landlord' : 'Student'}`, 'info');
+                            onShowToast(`Replying to ${msg.senderRole === 'PROVIDER' ? 'Agent' : 'Student'}`, 'info');
                             inputRef.current?.focus();
                           }
                           setTouchStartX(null);
@@ -1376,7 +1376,7 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
                               <div className="p-2.5 rounded-2xl bg-black/35 border-l-2 border-emerald-400 text-[11px] mb-1.5 space-y-0.5">
                                 <span className="font-black text-[10px] text-emerald-300 flex items-center gap-1 uppercase tracking-wider">
                                   <span>↩ Quoting</span>
-                                  <span>{msg.metadata.replyToSender === 'PROVIDER' ? 'Landlord' : 'Student'}</span>
+                                  <span>{msg.metadata.replyToSender === 'PROVIDER' ? 'Agent' : 'Student'}</span>
                                 </span>
                                 <p className="truncate opacity-90 text-[11px] italic font-normal">
                                   "{msg.metadata.replyToText}"
@@ -1621,7 +1621,7 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
                   });
                 })()}
 
-                {/* Live "Landlord is typing..." indicator */}
+                {/* Live "Agent is typing..." indicator */}
                 {isTyping && (
                   <div className="flex items-center gap-2 text-slate-400 text-xs animate-in fade-in">
                     <div className="w-7 h-7 rounded-xl bg-emerald-600 text-white font-black text-xs flex items-center justify-center shadow-md">
@@ -1715,7 +1715,7 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
                       <div className="flex items-center justify-between px-3.5 py-2 bg-slate-800/95 border-l-4 border-emerald-500 rounded-2xl mb-2.5 text-xs shadow-md animate-in slide-in-from-bottom-2">
                         <div className="min-w-0 pr-2">
                           <span className="font-black text-[10px] text-emerald-400 uppercase tracking-wider block">
-                            ↩ Replying to {replyingToMessage.senderRole === 'PROVIDER' ? 'Landlord' : 'Student'}
+                            ↩ Replying to {replyingToMessage.senderRole === 'PROVIDER' ? 'Agent' : 'Student'}
                           </span>
                           <p className="text-slate-300 text-xs truncate max-w-lg mt-0.5 italic font-normal">
                             "{replyingToMessage.content}"
@@ -1776,7 +1776,7 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
                       type="button"
                       onClick={() => window.dispatchEvent(new CustomEvent('hostel_ease_open_ai'))}
                       className="hidden sm:flex p-2.5 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-500 hover:to-teal-600 text-white rounded-2xl shadow-md transition-colors cursor-pointer shrink-0 border border-emerald-400/30"
-                      title={isStudent ? "Ask Student Accommodation AI Bot" : "Ask Landlord AI Bot"}
+                      title={isStudent ? "Ask Student Accommodation AI Bot" : "Ask Agent AI Bot"}
                     >
                       <Sparkles className="w-4 h-4 text-amber-300 animate-pulse" />
                     </button>
@@ -1947,7 +1947,7 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
                     📍 {activeDetail.conversation.property.areaName} ({formatDistance(activeDetail.conversation.property.distanceFromCampusKm)} to campus)
                   </p>
                   <p className="text-emerald-400 font-black text-xs pt-0.5">
-                    {formatNaira(activeDetail.conversation.property.rentAmount)}/yr • Verified Landlord: {activeDetail.conversation.provider.name}
+                    {formatNaira(activeDetail.conversation.property.rentAmount)}/yr • Verified Agent: {activeDetail.conversation.provider.name}
                   </p>
                 </div>
               </div>
@@ -2017,7 +2017,7 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
                     <span>Zero Agent Commission</span>
                   </div>
                   <p className="text-[11px] text-slate-300">
-                    100% direct from verified landlord. Fully protected by Hostel Ease Escrow Shield.
+                    100% direct from verified agent. Fully protected by Hostel Ease Escrow Shield.
                   </p>
                 </div>
               </div>
@@ -2033,7 +2033,7 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
                 📍 Location: {activeDetail.conversation.property.areaName}, near LAUTECH Campus, Ogbomoso.
               </p>
               <p className="text-slate-400 text-[11px]">
-                When visiting, meet the landlord or resident caretaker at the main gate. Present your digital Inspection Passcode.
+                When visiting, meet the agent or resident caretaker at the main gate. Present your digital Inspection Passcode.
               </p>
             </div>
 
@@ -2174,7 +2174,7 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
 
               {/* Student Phone */}
               <div className="space-y-1">
-                <label className="font-black text-slate-300 uppercase tracking-wider text-[10px]">Your Phone Number (For Landlord Contact)</label>
+                <label className="font-black text-slate-300 uppercase tracking-wider text-[10px]">Your Phone Number (For Agent Contact)</label>
                 <input
                   type="tel"
                   value={studentPhoneInput}

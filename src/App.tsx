@@ -56,7 +56,7 @@ import { HostelListSkeleton, DashboardSkeleton } from './components/SkeletonLoad
 import { formatNaira, formatDistance } from './utils/formatters';
 import { HostelDetailModal } from './components/HostelDetailModal';
 import { AIAccommodationAssistantModal } from './components/AIAccommodationAssistantModal';
-import { AILandlordAssistantModal } from './components/AILandlordAssistantModal';
+import { AIAgentAssistantModal } from './components/AILandlordAssistantModal';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { MorePageView } from './components/MorePageView';
 
@@ -413,8 +413,8 @@ function MainApp() {
   // Role-based route guard - soft notification without jarring forced jumps
   useEffect(() => {
     if (isAuthenticated && user) {
-      if (currentView === 'provider-portal' && user.role !== 'PROVIDER') {
-        showToast('Landlord Management Center requires a Landlord account.', 'info');
+      if (currentView === 'provider-portal' && user.role !== 'PROVIDER' && (user.role as string) !== 'AGENT') {
+        showToast('Agent Management Center requires an Agent account.', 'info');
       }
     }
   }, [currentView, isAuthenticated, user]);
@@ -1214,7 +1214,7 @@ function MainApp() {
                     Never Pay Before Inspecting
                   </h2>
                   <p className="text-xs sm:text-sm text-slate-300">
-                    Hostel Ease protects students against fraud. Always verify the lodge condition and confirm with the verified landlord.
+                    Hostel Ease protects students against fraud. Always verify the lodge condition and confirm with the verified agent.
                   </p>
                 </div>
 
@@ -1580,9 +1580,9 @@ function MainApp() {
               <div className="w-16 h-16 rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto border border-emerald-200 dark:border-emerald-800 shadow-inner">
                 <Building2 className="w-8 h-8" />
               </div>
-              <h2 className="text-xl font-black text-slate-900 dark:text-white">Landlord Account Detected</h2>
+              <h2 className="text-xl font-black text-slate-900 dark:text-white">Agent Account Detected</h2>
               <p className="text-xs text-slate-600 dark:text-slate-300">
-                You are logged in as a Landlord. Please visit your Landlord Management Portal to manage your hostels, bookings, and inspections.
+                You are logged in as an Agent. Please visit your Agent Management Portal to manage your hostels, bookings, and inspections.
               </p>
               <button
                 onClick={() => {
@@ -1591,7 +1591,7 @@ function MainApp() {
                 }}
                 className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow transition-colors"
               >
-                Go to Landlord Portal
+                Go to Agent Portal
               </button>
             </div>
           ) : (
@@ -1678,7 +1678,7 @@ function MainApp() {
           />
         )}
 
-        {/* VIEW 7: PROVIDER / LANDLORD PORTAL */}
+        {/* VIEW 7: PROVIDER / AGENT PORTAL */}
         {currentView === 'provider-portal' && (
           isProvider ? (
             <ErrorBoundary>
@@ -1699,7 +1699,7 @@ function MainApp() {
               </div>
               <h2 className="text-xl font-black text-slate-900 dark:text-white">🔒 Access Restricted</h2>
               <p className="text-xs text-slate-600 dark:text-slate-300">
-                This account is not authorized to access the Landlord Management Center. Please log in with a verified Landlord account.
+                This account is not authorized to access the Agent Management Center. Please log in with a verified Agent account.
               </p>
               <button
                 onClick={() => {
@@ -2040,7 +2040,7 @@ function MainApp() {
       <Suspense fallback={null}>
         {aiModalOpen && (
           isProvider ? (
-            <AILandlordAssistantModal
+            <AIAgentAssistantModal
               isOpen={aiModalOpen}
               onClose={() => {
                 setAiModalOpen(false);
@@ -2182,7 +2182,7 @@ function MainApp() {
       >
         <Sparkles className="w-5 h-5 text-amber-300 animate-spin-slow group-hover:rotate-12 transition-transform" />
         <span className="text-xs font-black tracking-wide">
-          {isProvider ? 'Ask Landlord AI' : 'Hostel Ease AI'}
+          {isProvider ? 'Ask Agent AI' : 'Hostel Ease AI'}
         </span>
       </button>
 
@@ -2191,7 +2191,7 @@ function MainApp() {
         onClick={() => handleOpenAI()}
         aria-label="Open AI Assistant"
         className="sm:hidden fixed bottom-20 right-4 z-30 w-12 h-12 rounded-full bg-gradient-to-tr from-emerald-600 via-emerald-700 to-teal-800 active:scale-95 text-white shadow-xl shadow-emerald-950/40 flex items-center justify-center border border-emerald-400/40 transition-all cursor-pointer group"
-        title={isProvider ? 'Ask Landlord AI' : 'Hostel Ease AI Assistant'}
+        title={isProvider ? 'Ask Agent AI' : 'Hostel Ease AI Assistant'}
       >
         <Sparkles className="w-5 h-5 text-amber-300 animate-pulse group-active:rotate-12 transition-transform" />
       </button>

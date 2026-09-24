@@ -138,9 +138,9 @@ export const MoveInCenter: React.FC<MoveInCenterProps> = ({
           },
           provider: m.provider || {
             id: 'usr-prov-1',
-            name: 'Hostel Landlord',
+            name: 'Hostel Agent',
             phone: '08039876543',
-            email: 'landlord@hostelease.ng',
+            email: 'agent@hostelease.ng',
             businessName: 'Hostel Management'
           },
           payment: m.payment || {
@@ -210,7 +210,7 @@ export const MoveInCenter: React.FC<MoveInCenterProps> = ({
     if (!data) return;
     try {
       await api.moveIn.confirmArrival(data.bookingId);
-      onShowToast('Arrival confirmed! Landlord has been notified.', 'success');
+      onShowToast('Arrival confirmed! Agent has been notified.', 'success');
       fetchMoveInData();
     } catch (err: any) {
       onShowToast(err.message || 'Failed to confirm arrival', 'error');
@@ -288,7 +288,7 @@ export const MoveInCenter: React.FC<MoveInCenterProps> = ({
         title: issueTitle.trim(),
         description: issueDescription.trim()
       });
-      onShowToast('Move-in issue reported directly to landlord', 'success');
+      onShowToast('Move-in issue reported directly to agent', 'success');
       setIssueModalOpen(false);
       setIssueTitle('');
       setIssueDescription('');
@@ -334,7 +334,7 @@ export const MoveInCenter: React.FC<MoveInCenterProps> = ({
         moveOutDate,
         checklist: { keysReturned: true, roomCleaned: true, electricityHandedOver: true }
       });
-      onShowToast('Move-out confirmed! Landlord has been notified for key & caution deposit settlement.', 'success');
+      onShowToast('Move-out confirmed! Agent has been notified for key & caution deposit settlement.', 'success');
       setMoveOutModalOpen(false);
       fetchMoveInData();
     } catch (err: any) {
@@ -514,10 +514,10 @@ export const MoveInCenter: React.FC<MoveInCenterProps> = ({
           </div>
         </div>
 
-        {/* Card 2: Landlord & Caretaker Contact */}
+        {/* Card 2: Agent & Caretaker Contact */}
         <div className="bg-white rounded-3xl p-5 border border-gray-200 shadow-xs space-y-3">
           <div className="flex items-center justify-between">
-            <h3 className="text-xs font-black uppercase tracking-wider text-gray-400">Landlord / Caretaker</h3>
+            <h3 className="text-xs font-black uppercase tracking-wider text-gray-400">Agent / Caretaker</h3>
             <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-800">
               Verified Host
             </span>
@@ -528,7 +528,7 @@ export const MoveInCenter: React.FC<MoveInCenterProps> = ({
               {data.provider?.name?.[0] || 'L'}
             </div>
             <div>
-              <h4 className="font-extrabold text-sm text-gray-900">{data.provider?.name || 'Hostel Landlord'}</h4>
+              <h4 className="font-extrabold text-sm text-gray-900">{data.provider?.name || 'Hostel Agent'}</h4>
               <p className="text-xs text-gray-500">{data.provider?.businessName || 'Hostel Management'}</p>
             </div>
           </div>
@@ -859,7 +859,7 @@ export const MoveInCenter: React.FC<MoveInCenterProps> = ({
             <div>
               <h3 className="text-base font-black text-gray-900">Move-In Problem & Maintenance Tracker</h3>
               <p className="text-xs text-gray-500 mt-0.5">
-                Report defects immediately upon arrival. Landlord must acknowledge and resolve within agreed timeframe.
+                Report defects immediately upon arrival. Agent must acknowledge and resolve within agreed timeframe.
               </p>
             </div>
             <button
@@ -906,7 +906,7 @@ export const MoveInCenter: React.FC<MoveInCenterProps> = ({
 
                   {issue.providerResponse && (
                     <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-950">
-                      <p className="font-bold mb-0.5">Landlord Response:</p>
+                      <p className="font-bold mb-0.5">Agent Response:</p>
                       <p>{issue.providerResponse}</p>
                     </div>
                   )}
@@ -1166,7 +1166,7 @@ export const MoveInCenter: React.FC<MoveInCenterProps> = ({
               Report Move-In Problem
             </h3>
             <p className="text-xs text-gray-500 mb-4">
-              Your report will be sent directly to the landlord and recorded in Hostel Ease Trust records.
+              Your report will be sent directly to the agent and recorded in Hostel Ease Trust records.
             </p>
 
             <form onSubmit={handleSubmitIssue} className="space-y-4">
@@ -1305,7 +1305,7 @@ export const MoveInCenter: React.FC<MoveInCenterProps> = ({
 
               <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-900">
                 <p className="font-bold">Caution Deposit: {formatNaira(data.payment?.cautionDeposit || 20000)}</p>
-                <p className="text-[11px] mt-0.5">The landlord will inspect the room and release the deposit accordingly.</p>
+                <p className="text-[11px] mt-0.5">The agent will inspect the room and release the deposit accordingly.</p>
               </div>
 
               <div className="flex items-center justify-end gap-2 pt-2">

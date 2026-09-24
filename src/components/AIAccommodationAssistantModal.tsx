@@ -64,7 +64,7 @@ const PIDGIN_QUICK_SUGGESTIONS = [
   'Show me correct lodge wey get constant light near Under G',
   'Hostel wey cheap pass under ₦180k dey?',
   'Wetin I suppose check before I pay for room?',
-  'Landlord say make I pay urgent before inspection, e legit?',
+  'Agent say make I pay urgent before inspection, e legit?',
   'Which area light steady pass between Under G and Stadium?'
 ];
 
@@ -242,7 +242,7 @@ export const AIAccommodationAssistantModal: React.FC<AIAccommodationAssistantMod
             conversation_id: 'default',
             sender: 'AI',
             content: `Hello! 👋 Welcome to **Hostel Ease** — your dedicated LAUTECH Student Accommodation & Housing Advisory Assistant.\n\n` +
-              `How can I assist you with your student accommodation today? We offer verified student houses & lodges across LAUTECH (Under G, Adenike, Stadium Road, CHS/College Road, General Area), 100% transparent fee breakdowns, solar inverter power intelligence, free landlord inspections, and secure Escrow protection.\n\n` +
+              `How can I assist you with your student accommodation today? We offer verified student houses & lodges across LAUTECH (Under G, Adenike, Stadium Road, CHS/College Road, General Area), 100% transparent fee breakdowns, solar inverter power intelligence, free agent inspections, and secure Escrow protection.\n\n` +
               `What type of accommodation or location are you interested in exploring?`,
             structuredData: {
               type: 'CLARIFYING_QUESTION',
@@ -454,8 +454,8 @@ export const AIAccommodationAssistantModal: React.FC<AIAccommodationAssistantMod
         id: `pidgin-switch-${Date.now()}`,
         conversation_id: conversationId || 'default',
         sender: 'AI',
-        content: `Bros/Sistur how far! 🇳🇬 You don activate **Pidgin Mode**! As your sharp LAUTECH campus plug, I dey here to make sure landlord or fake agent no run you street.\n\n` +
-          `Wetin you dey find? Verified self-contain for Under G? Lodge wey light steady pass for Stadium Road or Adenike? Or you wan know if the money landlord dey quote make sense? Oya, ask me anything!`,
+        content: `Bros/Sistur how far! 🇳🇬 You don activate **Pidgin Mode**! As your sharp LAUTECH campus plug, I dey here to make sure fake agent or scammer no run you street.\n\n` +
+          `Wetin you dey find? Verified self-contain for Under G? Lodge wey light steady pass for Stadium Road or Adenike? Or you wan know if the money agent dey quote make sense? Oya, ask me anything!`,
         structuredData: {
           type: 'CLARIFYING_QUESTION',
           suggestedQueries: PIDGIN_QUICK_SUGGESTIONS
@@ -553,7 +553,7 @@ export const AIAccommodationAssistantModal: React.FC<AIAccommodationAssistantMod
     const sampleQueriesPidgin = [
       'I dey find clean self-contain lodge near Under G gate with solar inverter and borehole water under 250k',
       'Which area for LAUTECH get steady light pass between Adenike and Under G?',
-      'Landlord say make I pay ₦200k before inspection, wetin I suppose do?',
+      'Agent say make I pay ₦200k before inspection, wetin I suppose do?',
       'Any female-only lodge wey get security and solar inverter for Adenike?'
     ];
     const sampleQueriesEn = [

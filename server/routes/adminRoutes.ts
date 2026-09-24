@@ -1366,7 +1366,7 @@ router.get(
                pm.caption, pm.is_verified as isVerified, pm.verification_notes as verificationNotes,
                pm.created_at as createdAt,
                p.title as propertyTitle, p.address as propertyAddress,
-               COALESCE(u.full_name, 'Verified Landlord') as providerName,
+               COALESCE(u.full_name, 'Verified Agent') as providerName,
                COALESCE(u.email, 'landlord@hostelease.ng') as providerEmail,
                COALESCE(u.phone, '08012345678') as providerPhone
         FROM property_media pm

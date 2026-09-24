@@ -1903,11 +1903,11 @@ Never pay rent before inspecting the property or completing a verified video wal
    - *Defense*: Only reserve space through Hostel Ease authorized booking channels where funds are held in escrow.
 
 2. **Double-Letting Rooms**:
-   - *Scam*: A departing student collects rent from a fresher pretending to be the landlord's agent.
-   - *Defense*: Verify landlord ownership and ensure the room is officially allocated on the platform.
+   - *Scam*: A departing student collects rent from a fresher pretending to be the property owner or agent.
+   - *Defense*: Verify agent authorization and ensure the room is officially allocated on the platform.
 
 3. **Hidden Surcharges**:
-   - *Scam*: Landlords demanding unmentioned extra fees after you move in.
+   - *Scam*: Agents demanding unmentioned extra fees after you move in.
    - *Defense*: Review the **True Cost Estimator** on Hostel Ease before making any payment.`,
         read_time_minutes: 4
       },
@@ -1924,7 +1924,7 @@ Your caution deposit is refundable upon move-out provided no unauthorized struct
    - Upload them to your **Phase 12 Move-In Hub** inspection log.
 
 2. **Written Confirmation**:
-   - Get the caretaker or landlord to acknowledge pre-existing issues on your move-in condition checklist.
+   - Get the caretaker or agent to acknowledge pre-existing issues on your move-in condition checklist.
    - This prevents deduction from your caution fee when vacating at the end of your session.`,
         read_time_minutes: 3
       }
@@ -2033,7 +2033,7 @@ Your caution deposit is refundable upon move-out provided no unauthorized struct
         id: 'cq-3',
         user_id: studentId,
         title: 'How do caution deposit refunds usually work when moving out at the end of the session?',
-        description: 'Does the landlord refund the full caution fee or are there common deductions students should know about?',
+        description: 'Does the agent refund the full caution fee or are there common deductions students should know about?',
         category: 'COSTS',
         is_anonymous: 1
       }
@@ -2194,7 +2194,7 @@ Your caution deposit is refundable upon move-out provided no unauthorized struct
       {
         id: 'opt-2',
         title: 'Review Move-In Checkin for Peace Haven Room 104',
-        description: 'Student marked minor faucet leakage during Move-in. Landlord promised plumbing fix within 24h.',
+        description: 'Student marked minor faucet leakage during Move-in. Agent promised plumbing fix within 24h.',
         category: 'MOVE_IN',
         priority: 'MEDIUM',
         status: 'IN_PROGRESS',
@@ -2337,14 +2337,14 @@ Your caution deposit is refundable upon move-out provided no unauthorized struct
     const defaultSettings = [
       { id: 'rev-1', key: 'booking_commission_rate', val: '7.5', cat: 'COMMISSIONS', desc: 'Platform fee percentage charged on total hostel booking amount' },
       { id: 'rev-2', key: 'student_service_fee', val: '2500', cat: 'STUDENT_FEES', desc: 'Flat service and verification escrow fee per student booking (₦)' },
-      { id: 'rev-3', key: 'pro_landlord_subscription_price', val: '15000', cat: 'SUBSCRIPTIONS', desc: 'Monthly Pro Landlord subscription for up to 10 active lodges (₦)' },
+      { id: 'rev-3', key: 'pro_landlord_subscription_price', val: '15000', cat: 'SUBSCRIPTIONS', desc: 'Monthly Pro Agent subscription for up to 10 active lodges (₦)' },
       { id: 'rev-4', key: 'enterprise_subscription_price', val: '45000', cat: 'SUBSCRIPTIONS', desc: 'Per-session Enterprise subscription for unlimited lodges and multi-caretaker management (₦)' },
       { id: 'rev-5', key: 'homepage_spotlight_price', val: '10000', cat: 'FEATURED_LISTINGS', desc: 'Monthly spotlight banner placement on Hostel Ease LAUTECH home feed (₦)' },
       { id: 'rev-6', key: 'top_of_search_price', val: '5000', cat: 'FEATURED_LISTINGS', desc: 'Monthly top-ranking boost in search filters for Under G, Adenike, Stadium (₦)' },
       { id: 'rev-7', key: 'photography_service_price', val: '12000', cat: 'DIGITAL_SERVICES', desc: 'On-site professional HD photography and verified watermark badge (₦)' },
       { id: 'rev-8', key: 'virtual_tour_price', val: '20000', cat: 'DIGITAL_SERVICES', desc: '360-degree interactive virtual room tour creation (₦)' },
-      { id: 'rev-9', key: 'min_provider_payout_threshold', val: '10000', cat: 'PAYOUTS', desc: 'Minimum account balance required before landlord can request withdrawal (₦)' },
-      { id: 'rev-10', key: 'payout_processing_fee', val: '0', cat: 'PAYOUTS', desc: 'Direct bank transfer fee charged to landlords for standard payouts (₦)' }
+      { id: 'rev-9', key: 'min_provider_payout_threshold', val: '10000', cat: 'PAYOUTS', desc: 'Minimum account balance required before agent can request withdrawal (₦)' },
+      { id: 'rev-10', key: 'payout_processing_fee', val: '0', cat: 'PAYOUTS', desc: 'Direct bank transfer fee charged to agents for standard payouts (₦)' }
     ];
 
     for (const s of defaultSettings) {
@@ -2446,7 +2446,7 @@ Your caution deposit is refundable upon move-out provided no unauthorized struct
           id, invoice_number, user_id, user_role, user_name, user_email, item_type, item_description, subtotal, tax_amount, total_amount, status, due_date, paid_at, created_at
         ) VALUES (
           'inv-seed-1', 'INV-2026-001', ?, 'PROVIDER', ?, ?, 'SUBSCRIPTION',
-          'Pro Landlord Monthly Plan (August 2026)', 15000, 0, 15000, 'PAID', '2026-08-01', datetime('now', '-20 days'), datetime('now', '-20 days')
+          'Pro Agent Monthly Plan (August 2026)', 15000, 0, 15000, 'PAID', '2026-08-01', datetime('now', '-20 days'), datetime('now', '-20 days')
         )
       `).run(providerUser.id, providerUser.full_name, providerUser.email);
 

@@ -155,7 +155,7 @@ export const StudentFeedbackModal: React.FC<StudentFeedbackModalProps> = ({
                 type="text"
                 value={whatWouldMakeEasier}
                 onChange={(e) => setWhatWouldMakeEasier(e.target.value)}
-                placeholder="e.g. Roommate pairing, live landlord chat, bike price estimates..."
+                placeholder="e.g. Roommate pairing, live agent chat, bike price estimates..."
                 className="w-full bg-slate-950 border border-slate-700/80 rounded-xl p-2.5 text-white text-xs focus:outline-none focus:border-brand-500"
               />
             </div>

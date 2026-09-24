@@ -63,7 +63,7 @@ export const ReportLandlordModal: React.FC<ReportLandlordModalProps> = ({
               <span className="text-[10px] font-extrabold uppercase tracking-wider text-rose-300 block">
                 Confidential Student Safety Desk
               </span>
-              <h3 className="text-lg font-extrabold text-white">Report Landlord / Agent</h3>
+              <h3 className="text-lg font-extrabold text-white">Report Agent</h3>
               <p className="text-xs text-slate-300 mt-0.5">
                 Reporting: <strong>{landlord.name}</strong>
               </p>
@@ -189,3 +189,5 @@ export const ReportLandlordModal: React.FC<ReportLandlordModalProps> = ({
     </div>
   );
 };
+
+export const ReportAgentModal = ReportLandlordModal;

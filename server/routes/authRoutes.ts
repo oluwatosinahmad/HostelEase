@@ -193,7 +193,7 @@ router.post('/login', (req, res: Response) => {
         return res.status(403).json({
           error: 'ACCESS_RESTRICTED',
           code: 'UNAUTHORIZED_PROVIDER_ACCESS',
-          message: 'This account is not authorized to access the Landlord Dashboard.'
+          message: 'This account is not authorized to access the Agent Dashboard.'
         });
       }
     } else if (requested === 'STUDENT') {

@@ -32,12 +32,12 @@ export const ReportListingModal: React.FC<ReportListingModalProps> = ({
   if (!isOpen) return null;
 
   const reasonsList: { key: ReportReason; label: string; desc: string }[] = [
-    { key: 'WRONG_PRICE', label: 'Inaccurate / Hidden Price', desc: 'Landlord demanded unlisted extra fees or higher rent amount' },
+    { key: 'WRONG_PRICE', label: 'Inaccurate / Hidden Price', desc: 'Agent demanded unlisted extra fees or higher rent amount' },
     { key: 'FAKE_HOSTEL', label: 'Fake Listing / Scam Alert', desc: 'Property does not exist or provider is impersonating the owner' },
     { key: 'WRONG_PHOTOS', label: 'Deceptive Photos or Videos', desc: 'Real room condition differs drastically from displayed photos' },
     { key: 'HOSTEL_UNAVAILABLE', label: 'Already Fully Occupied', desc: 'Lodge has no available rooms despite being marked Available' },
     { key: 'WRONG_LOCATION', label: 'Incorrect Location / Distance', desc: 'Lodge is further away from LAUTECH than stated' },
-    { key: 'SUSPICIOUS_PROVIDER', label: 'Suspicious / Hostile Landlord', desc: 'Refused inspection or requested unsafe payment transfers' },
+    { key: 'SUSPICIOUS_PROVIDER', label: 'Suspicious / Hostile Agent', desc: 'Refused inspection or requested unsafe payment transfers' },
     { key: 'MISLEADING_INFO', label: 'Missing / Broken Amenities', desc: 'Stated facilities like running water or generator are non-functional' },
     { key: 'OTHER', label: 'Other Concern', desc: 'Any other safety or integrity violation' }
   ];

@@ -31,7 +31,7 @@ let memoryUsers: any[] = [
     id: 'user-provider-default',
     email: 'landlord@hostelease.ng',
     password: 'Password123!',
-    fullName: 'Verified Landlord',
+    fullName: 'Verified Agent',
     phone: '08012345678',
     role: 'PROVIDER',
     businessName: 'LAUTECH Accommodation'
@@ -109,7 +109,7 @@ let memoryProperties: any[] = [
     coverImage: 'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&w=1000&q=80',
     area: { id: 'area-adenike', name: 'Adenike Area', slug: 'adenike', landmark: 'Adenike Junction' },
     priceSummary: { period: 'YEARLY', rentAmount: 240000, serviceCharge: 10000, agencyFee: 20000, cautionFee: 15000, otherMandatoryCharges: 10000, totalMandatoryCost: 295000, totalRefundableCost: 15000 },
-    provider: { id: 'user-provider-default', name: 'Verified Landlord', email: 'landlord@hostelease.ng', phone: '08012345678', businessName: 'LAUTECH Accommodation' },
+    provider: { id: 'user-provider-default', name: 'Verified Agent', email: 'landlord@hostelease.ng', phone: '08012345678', businessName: 'LAUTECH Accommodation' },
     providerEmail: 'landlord@hostelease.ng',
     providerId: 'user-provider-default',
     createdAt: '2026-08-21T10:00:00Z'
@@ -132,7 +132,7 @@ let memoryProperties: any[] = [
     coverImage: 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=1000&q=80',
     area: { id: 'area-abaa', name: 'Abaa Area', slug: 'abaa', landmark: 'Abaa Junction' },
     priceSummary: { period: 'YEARLY', rentAmount: 220000, serviceCharge: 8000, agencyFee: 15000, cautionFee: 15000, otherMandatoryCharges: 5000, totalMandatoryCost: 263000, totalRefundableCost: 15000 },
-    provider: { id: 'user-provider-default', name: 'Verified Landlord', email: 'landlord@hostelease.ng', phone: '08012345678', businessName: 'LAUTECH Accommodation' },
+    provider: { id: 'user-provider-default', name: 'Verified Agent', email: 'landlord@hostelease.ng', phone: '08012345678', businessName: 'LAUTECH Accommodation' },
     providerEmail: 'landlord@hostelease.ng',
     providerId: 'user-provider-default',
     createdAt: '2026-08-22T10:00:00Z'
@@ -756,7 +756,7 @@ export default async (req: Request): Promise<Response> => {
         id: userId,
         email,
         password: body.password,
-        fullName: body.fullName || (role === 'PROVIDER' ? 'Hostel Landlord' : 'Student User'),
+        fullName: body.fullName || (role === 'PROVIDER' ? 'Hostel Agent' : 'Student User'),
         phone: body.phone || '08012345678',
         role,
         avatarUrl: body.avatarUrl || (role === 'PROVIDER' ? 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=300&q=80' : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80'),
@@ -1103,7 +1103,7 @@ export default async (req: Request): Promise<Response> => {
         videoVerificationStatus: hasVideo ? 'PENDING_AUDIT' : 'NONE',
         provider: {
           id: currentUserId,
-          name: user?.fullName || 'Verified Landlord',
+          name: user?.fullName || 'Verified Agent',
           email: currentUserEmail,
           phone: user?.phone || '08012345678',
           businessName: user?.businessName || 'LAUTECH Accommodation'
@@ -1277,7 +1277,7 @@ export default async (req: Request): Promise<Response> => {
           createdAt: p.createdAt || new Date().toISOString(),
           propertyTitle: p.title,
           propertyAddress: p.address,
-          providerName: p.provider?.name || 'Landlord',
+          providerName: p.provider?.name || 'Agent',
           providerEmail: (p as any).providerEmail || 'landlord@hostelease.ng',
           providerPhone: p.provider?.phone || '08012345678'
         });
@@ -1430,7 +1430,7 @@ export default async (req: Request): Promise<Response> => {
       totalRooms: p.totalRooms || 10,
       availableRooms: p.totalRooms || 5,
       verificationStatus: p.verificationStatus || 'APPROVED',
-      providerName: p.provider?.name || 'Landlord',
+      providerName: p.provider?.name || 'Agent',
       providerEmail: (p as any).providerEmail || p.provider?.email || 'landlord@hostelease.ng',
       providerPhone: p.provider?.phone || '08012345678',
       coverImage: p.coverImage,
@@ -2032,7 +2032,7 @@ export default async (req: Request): Promise<Response> => {
       const sEmail = user.role === 'STUDENT' ? user.email : 'student@lautech.edu.ng';
 
       const pId = prop?.providerId || (prop?.provider as any)?.id || 'user-provider-default';
-      const pName = prop?.provider?.name || 'Verified Landlord';
+      const pName = prop?.provider?.name || 'Verified Agent';
       const pEmail = (prop as any)?.providerEmail || prop?.provider?.email || 'landlord@hostelease.ng';
 
       const convId = `conv_${sId}_${propertyId || 'general'}`;
@@ -2245,7 +2245,7 @@ export default async (req: Request): Promise<Response> => {
         studentName: user.fullName || 'Student',
         studentEmail: user.email,
         providerId: prop?.providerId || (prop?.provider as any)?.id || 'user-provider-default',
-        providerName: prop?.provider?.name || 'Verified Landlord',
+        providerName: prop?.provider?.name || 'Verified Agent',
         providerEmail: (prop as any)?.providerEmail || prop?.provider?.email || 'landlord@hostelease.ng',
         preferredDate: body.preferredDate || new Date().toISOString().split('T')[0],
         preferredTimeSlot: body.preferredTimeSlot || '11:00 AM',
@@ -2288,7 +2288,7 @@ export default async (req: Request): Promise<Response> => {
         userId: insp.studentId,
         userEmail: insp.studentEmail,
         title: 'Inspection Request Confirmed! ✅',
-        message: `Landlord accepted your inspection request for "${insp.propertyTitle}". Date: ${insp.preferredDate} at ${insp.preferredTimeSlot}.`,
+        message: `Agent accepted your inspection request for "${insp.propertyTitle}". Date: ${insp.preferredDate} at ${insp.preferredTimeSlot}.`,
         type: 'INSPECTION',
         isRead: false,
         linkUrl: '/student?tab=inspections',
@@ -2311,7 +2311,7 @@ export default async (req: Request): Promise<Response> => {
         userId: insp.studentId,
         userEmail: insp.studentEmail,
         title: 'Inspection Request Declined',
-        message: `Landlord was unable to accept your inspection for "${insp.propertyTitle}". Please select another date/time window.`,
+        message: `Agent was unable to accept your inspection for "${insp.propertyTitle}". Please select another date/time window.`,
         type: 'INSPECTION',
         isRead: false,
         linkUrl: '/student?tab=inspections',
@@ -2391,7 +2391,7 @@ export default async (req: Request): Promise<Response> => {
         userId: bk.studentId,
         userEmail: bk.studentEmail,
         title: 'Hostel Booking Confirmed! 🎉',
-        message: `Your booking for "${bk.propertyTitle}" has been confirmed by the landlord.`,
+        message: `Your booking for "${bk.propertyTitle}" has been confirmed by the agent.`,
         type: 'BOOKING',
         isRead: false,
         linkUrl: '/student?tab=bookings',
@@ -2414,7 +2414,7 @@ export default async (req: Request): Promise<Response> => {
         userId: bk.studentId,
         userEmail: bk.studentEmail,
         title: 'Booking Request Declined',
-        message: `Your booking request for "${bk.propertyTitle}" was declined by the landlord.`,
+        message: `Your booking request for "${bk.propertyTitle}" was declined by the agent.`,
         type: 'BOOKING',
         isRead: false,
         linkUrl: '/student?tab=bookings',
@@ -2437,7 +2437,7 @@ export default async (req: Request): Promise<Response> => {
     }), { status: 200, headers: CORS_HEADERS });
   }
 
-  // 12. Landlord AI Assistant
+  // 12. Agent AI Assistant
   if (pathname === '/api/provider/ai/assist' && req.method === 'POST') {
     try {
       const body = await req.json();
@@ -2494,7 +2494,7 @@ export default async (req: Request): Promise<Response> => {
 
         return {
           id: u.id,
-          fullName: u.fullName || (u.role === 'PROVIDER' ? 'Hostel Landlord' : 'Student User'),
+          fullName: u.fullName || (u.role === 'PROVIDER' ? 'Hostel Agent' : 'Student User'),
           email: u.email,
           phone: u.phone || '',
           role: u.role,
@@ -2594,7 +2594,7 @@ export default async (req: Request): Promise<Response> => {
     return new Response(JSON.stringify({
       summary: {
         userId: targetUser.id,
-        fullName: targetUser.fullName || (isProvider ? 'Landlord' : 'Student'),
+        fullName: targetUser.fullName || (isProvider ? 'Agent' : 'Student'),
         email: targetUser.email,
         phone: targetUser.phone,
         role: targetUser.role,
@@ -2823,7 +2823,7 @@ export default async (req: Request): Promise<Response> => {
 
     return new Response(JSON.stringify({
       success: true,
-      message: `${targetUser.role === 'PROVIDER' ? 'Landlord' : 'Student'} account and all associated records permanently deleted.`,
+      message: `${targetUser.role === 'PROVIDER' ? 'Agent' : 'Student'} account and all associated records permanently deleted.`,
       deletedUserId: tId,
       deletedRole: targetUser.role,
       deletedFullName: targetUser.fullName,

@@ -27,7 +27,7 @@ const defaultGuides = [
     content_markdown: `Student fraud in university environments happens when urgency overrides caution. Follow Hostel Ease safety protocols:
 
 • **Never Pay Before Viewing**: Always inspect the exact room you are renting, not a representative photo.
-• **Confirm Landlord Authorization**: Verify that the person showing you the hostel has authorized keys and documentation.
+• **Confirm Agent Authorization**: Verify that the person showing you the hostel has authorized keys and documentation.
 • **Use Escrow & Verified Channels**: Always book through Hostel Ease with a structured 48-hour confirmation and bank-backed receipt.
 • **Watch Out for "Urgent Pressure"**: Scammers claim "3 other students are bringing money right now". Take your time and verify.`
   },

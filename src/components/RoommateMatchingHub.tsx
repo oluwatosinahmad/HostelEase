@@ -821,7 +821,7 @@ export const RoommateMatchingHub: React.FC<RoommateMatchingHubProps> = ({
                 🤝 RoomieMatch™ 50/50 Split-Rent Escrow Contract
               </h2>
               <p className="text-xs sm:text-sm text-slate-300 max-w-2xl leading-relaxed">
-                Co-renting off-campus accommodation should not leave you stranded. Hostel Ease splits the rent evenly, generates dual Remita RRRs for each student, holds funds in neutral Escrow, and issues an ironclad digital co-tenancy contract protecting both of you from landlord disputes.
+                Co-renting off-campus accommodation should not leave you stranded. Hostel Ease splits the rent evenly, generates dual Remita RRRs for each student, holds funds in neutral Escrow, and issues an ironclad digital co-tenancy contract protecting both of you from agent disputes.
               </p>
             </div>
             <div className="absolute right-0 bottom-0 translate-x-8 translate-y-8 opacity-10 pointer-events-none">
@@ -1128,7 +1128,7 @@ export const RoommateMatchingHub: React.FC<RoommateMatchingHubProps> = ({
                 <button
                   type="button"
                   onClick={() => {
-                    const text = encodeURIComponent(`Hello Landlord, we have completed our 50/50 Escrow payment of ₦${(splitRentAmount + splitCautionAmount).toLocaleString()} for ${splitHostelTitle}. Our verified Hostel Ease Contract ID is CTR-LAUTECH-2026-9482.`);
+                    const text = encodeURIComponent(`Hello Agent, we have completed our 50/50 Escrow payment of ₦${(splitRentAmount + splitCautionAmount).toLocaleString()} for ${splitHostelTitle}. Our verified Hostel Ease Contract ID is CTR-LAUTECH-2026-9482.`);
                     window.open(`https://wa.me/?text=${text}`, '_blank');
                   }}
                   className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black flex items-center gap-1.5 shadow-md"

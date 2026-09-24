@@ -141,7 +141,7 @@ export const HostelDetailModal: React.FC<HostelDetailModalProps> = ({
   const handleSendDirectInquiry = async (customMessage?: string) => {
     if (!property) return;
     if (!isAuthenticated) {
-      onShowToast('Please create an account or sign in first to message the landlord.', 'error');
+      onShowToast('Please create an account or sign in first to message the agent.', 'error');
       if (onOpenAuth) {
         onClose();
         onOpenAuth('STUDENT');
@@ -157,7 +157,7 @@ export const HostelDetailModal: React.FC<HostelDetailModalProps> = ({
     try {
       if (onOpenConversation) {
         await api.messages.startConversation(property.id, textToSend);
-        onShowToast(`Enquiry sent directly to ${property.provider?.name || 'Landlord'}'s DM!`, 'success');
+        onShowToast(`Enquiry sent directly to ${property.provider?.name || 'Agent'}'s DM!`, 'success');
         onClose();
         onOpenConversation(property.id);
       }
@@ -175,7 +175,7 @@ export const HostelDetailModal: React.FC<HostelDetailModalProps> = ({
     if (cleanPhone.startsWith('0')) {
       cleanPhone = '234' + cleanPhone.substring(1);
     }
-    const message = encodeURIComponent(`Hello ${property.provider?.name || 'Landlord'}, I am inquiring about "${property.title}" listed on Hostel Ease. Is it currently available for inspection / rent?`);
+    const message = encodeURIComponent(`Hello ${property.provider?.name || 'Agent'}, I am inquiring about "${property.title}" listed on Hostel Ease. Is it currently available for inspection / rent?`);
     window.open(`https://wa.me/${cleanPhone}?text=${message}`, '_blank');
   };
 
@@ -727,7 +727,7 @@ export const HostelDetailModal: React.FC<HostelDetailModalProps> = ({
                     </div>
                   </div>
 
-                  {/* Provider / Landlord Information Card */}
+                  {/* Provider / Agent Information Card */}
                   {property.provider && (
                     <div className="space-y-3">
                       <div className="bg-emerald-50/60 dark:bg-emerald-950/40 rounded-2xl p-5 border border-emerald-200 dark:border-emerald-800 flex items-center justify-between gap-4 flex-wrap">
@@ -737,7 +737,7 @@ export const HostelDetailModal: React.FC<HostelDetailModalProps> = ({
                           </div>
                           <div>
                             <p className="text-[10px] font-bold text-emerald-800 dark:text-emerald-300 uppercase tracking-wider">
-                              Verified Hostel Landlord
+                              Verified Hostel Agent
                             </p>
                             <h4 className="font-bold text-sm text-slate-900 dark:text-white">
                               {property.provider.name}
@@ -759,12 +759,12 @@ export const HostelDetailModal: React.FC<HostelDetailModalProps> = ({
                           )}
                           <span className="px-2.5 py-1 bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 text-xs font-bold rounded-lg flex items-center gap-1">
                             <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                            Verified Landlord
+                            Verified Agent
                           </span>
                         </div>
                       </div>
 
-                      {/* Direct DM / Instant Inquiry Box to Landlord's Inbox */}
+                      {/* Direct DM / Instant Inquiry Box to Agent's Inbox */}
                       <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 sm:p-5 border border-slate-200 dark:border-slate-800 shadow-sm space-y-3">
                         <div className="flex items-center justify-between gap-2">
                           <div className="flex items-center gap-2">
@@ -776,7 +776,7 @@ export const HostelDetailModal: React.FC<HostelDetailModalProps> = ({
                                 Direct Inquiry to {property.provider.name.split(' ')[0]}'s DM
                               </h5>
                               <p className="text-[10px] text-slate-500 dark:text-slate-400">
-                                Goes directly to this landlord's personal inbox & alerts them on WhatsApp.
+                                Goes directly to this agent's personal inbox & alerts them on WhatsApp.
                               </p>
                             </div>
                           </div>
@@ -823,7 +823,7 @@ export const HostelDetailModal: React.FC<HostelDetailModalProps> = ({
                               className="px-3.5 py-2 bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 text-emerald-800 dark:text-emerald-300 text-xs font-bold rounded-xl border border-emerald-300 dark:border-emerald-800 flex items-center gap-1.5 transition-colors"
                             >
                               <MessageCircle className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                              WhatsApp Landlord
+                              WhatsApp Agent
                             </button>
 
                             <button
@@ -979,7 +979,7 @@ export const HostelDetailModal: React.FC<HostelDetailModalProps> = ({
                           <button
                             onClick={() => {
                               if (!isAuthenticated) {
-                                onShowToast('Please create an account or sign in first to message the landlord.', 'error');
+                                onShowToast('Please create an account or sign in first to message the agent.', 'error');
                                 if (onOpenAuth) {
                                   onClose();
                                   onOpenAuth('STUDENT');

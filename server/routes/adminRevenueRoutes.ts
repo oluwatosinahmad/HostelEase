@@ -304,7 +304,7 @@ router.get('/subscriptions', (req: AuthenticatedRequest, res: Response) => {
     const plans = [
       {
         id: 'STARTER',
-        name: 'Starter Landlord',
+        name: 'Starter Agent',
         price: 0,
         billingCycle: 'FREE',
         maxListings: 2,
@@ -312,7 +312,7 @@ router.get('/subscriptions', (req: AuthenticatedRequest, res: Response) => {
       },
       {
         id: 'PRO_LANDLORD',
-        name: 'Pro Landlord',
+        name: 'Pro Agent',
         price: 15000,
         billingCycle: 'MONTHLY',
         maxListings: 10,
@@ -439,7 +439,7 @@ router.patch('/provider-services/:id', (req: AuthenticatedRequest, res: Response
 });
 
 // =============================================================================
-// 7. GET & POST /api/admin/revenue/payouts — Landlord Disbursements
+// 7. GET & POST /api/admin/revenue/payouts — Agent Disbursements
 // =============================================================================
 router.get('/payouts', (req: AuthenticatedRequest, res: Response) => {
   try {

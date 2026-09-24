@@ -276,7 +276,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 )}
                 {isProvider && (
                   <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100/90 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60 whitespace-nowrap">
-                    🏡 Landlord
+                    🏡 Agent
                   </span>
                 )}
                 {isAdmin && (
@@ -396,7 +396,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               <button
                 onClick={onOpenAI}
                 className="ml-1 px-3 py-1.5 rounded-xl text-xs font-black transition-all bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white shadow-xs flex items-center gap-1.5 group hover:scale-[1.02]"
-                title={isProvider ? "Ask Landlord AI Assistant" : "Ask Hostel Ease AI Accommodation Assistant"}
+                title={isProvider ? "Ask Agent AI Assistant" : "Ask Hostel Ease AI Accommodation Assistant"}
               >
                 <Sparkles className="w-3.5 h-3.5 text-amber-300 fill-amber-300 animate-pulse" />
                 <span>Ask AI</span>
@@ -503,14 +503,14 @@ export const Navbar: React.FC<NavbarProps> = ({
                   )}
                 </div>
 
-                {/* Landlord Portal Quick Button (Only for Landlord account) */}
+                {/* Agent Portal Quick Button (Only for Agent account) */}
                 {isProvider && (
                   <button
                     onClick={() => onNavigate('provider-portal')}
                     className="text-xs font-bold px-3 py-1.5 rounded-xl bg-emerald-100 text-emerald-800 hover:bg-emerald-200 transition-colors flex items-center gap-1"
                   >
                     <PlusCircle className="w-3.5 h-3.5" />
-                    <span>Landlord Portal</span>
+                    <span>Agent Portal</span>
                   </button>
                 )}
 
@@ -537,7 +537,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                         {user?.fullName?.split(' ')[0]}
                       </p>
                       <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
-                        {isStudent ? 'LAUTECH Student' : isProvider ? 'Hostel Landlord' : 'Admin'}
+                        {isStudent ? 'LAUTECH Student' : isProvider ? 'Hostel Agent' : 'Admin'}
                       </p>
                     </div>
                     <ChevronDown className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-200 transition-transform" />
@@ -552,7 +552,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                           <p className="text-xs font-bold text-slate-900 dark:text-white truncate">{user?.fullName}</p>
                           <p className="text-[11px] text-slate-400 truncate">{user?.email}</p>
                           <span className="inline-block mt-0.5 text-[9px] font-black uppercase px-2 py-0.5 rounded bg-emerald-50 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
-                            {isStudent ? '🎓 Student' : isProvider ? '🏡 Landlord' : '🛡️ Admin'}
+                            {isStudent ? '🎓 Student' : isProvider ? '🏡 Agent' : '🛡️ Admin'}
                           </span>
                         </div>
                       </div>
@@ -665,7 +665,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                             className="w-full text-left px-4 py-2 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2.5"
                           >
                             <LayoutDashboard className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                            <span>Landlord Management Center</span>
+                            <span>Agent Management Center</span>
                           </button>
                         )}
 

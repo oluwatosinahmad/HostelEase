@@ -657,7 +657,7 @@ export const userDeletionService = {
       securityAuditService.log({
         actorId: adminId,
         actorRole: 'ADMIN',
-        action: isProvider ? 'PERMANENT_DELETE_LANDLORD_ACCOUNT' : 'PERMANENT_DELETE_STUDENT_ACCOUNT',
+        action: isProvider ? 'PERMANENT_DELETE_AGENT_ACCOUNT' : 'PERMANENT_DELETE_STUDENT_ACCOUNT',
         targetType: 'USER',
         targetId: userId,
         severity: 'CRITICAL',
@@ -679,7 +679,7 @@ export const userDeletionService = {
 
     return {
       success: true,
-      message: `${targetUser.role === 'PROVIDER' ? 'Landlord' : 'Student'} account and all associated records permanently deleted.`,
+      message: `${targetUser.role === 'PROVIDER' ? 'Agent' : 'Student'} account and all associated records permanently deleted.`,
       deletedUserId: targetUser.id,
       deletedRole: targetUser.role,
       deletedFullName: targetUser.full_name,

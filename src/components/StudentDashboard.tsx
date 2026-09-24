@@ -732,7 +732,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
           </div>
           <div>
             <span className="text-xs font-bold text-slate-900 block leading-tight">Messages</span>
-            <span className="text-[10px] text-slate-400">{(summary?.unreadMessagesCount ?? 0) > 0 ? `${summary.unreadMessagesCount} unread` : 'Landlords'}</span>
+            <span className="text-[10px] text-slate-400">{(summary?.unreadMessagesCount ?? 0) > 0 ? `${summary.unreadMessagesCount} unread` : 'Agents'}</span>
           </div>
         </button>
 
@@ -786,7 +786,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
             <Calendar className="w-4 h-4" />
           </div>
           <div className="text-2xl font-black text-slate-900">{summary?.pendingInspectionsCount ?? 0}</div>
-          <span className="text-[10px] text-slate-400 font-medium">Pending landlord reply</span>
+          <span className="text-[10px] text-slate-400 font-medium">Pending agent reply</span>
         </button>
 
         <button
@@ -1527,7 +1527,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                     Hostel Messages & Chat
                   </h4>
                   <p className="text-xs text-slate-500 leading-relaxed">
-                    Direct in-app chat with verified LAUTECH hostel landlords, caretakers, and admins.
+                    Direct in-app chat with verified LAUTECH hostel agents, caretakers, and admins.
                   </p>
                 </div>
                 <div className="flex items-center text-xs font-bold text-emerald-600 group-hover:translate-x-1 transition-transform">
@@ -1781,7 +1781,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
 
               <div className="flex items-center justify-between flex-wrap gap-3 pt-2">
                 <div className="text-xs text-slate-300 flex items-center gap-2">
-                  <span>Landlord: <strong>{activeBooking.provider.name}</strong></span>
+                  <span>Agent: <strong>{activeBooking.provider.name}</strong></span>
                   {activeBooking.provider.phone && <span>• 📞 {activeBooking.provider.phone}</span>}
                 </div>
 
@@ -1817,7 +1817,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                       className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-emerald-300 font-bold text-xs rounded-xl transition-all flex items-center gap-1.5"
                     >
                       <MessageSquare className="w-3.5 h-3.5" />
-                      Chat Landlord
+                      Chat Agent
                     </button>
                   )}
                 </div>
@@ -1901,7 +1901,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                           <button
                             onClick={() => onOpenConversation(hostel.id)}
                             className="px-3 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 font-bold text-xs rounded-xl transition-colors flex items-center gap-1"
-                            title="Chat with Landlord"
+                            title="Chat with Agent"
                           >
                             <MessageSquare className="w-3.5 h-3.5 text-emerald-600" />
                             <span>Chat</span>
@@ -1963,7 +1963,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                     {hostel.priceChanged && (
                       <div className="p-2 bg-amber-50 rounded-xl border border-amber-200 text-[10px] text-amber-900 font-bold flex items-center gap-1.5">
                         <TrendingUp className="w-3.5 h-3.5 text-amber-600 flex-shrink-0" />
-                        <span>{hostel.priceChangeDetails || 'Price updated by landlord'}</span>
+                        <span>{hostel.priceChangeDetails || 'Price updated by agent'}</span>
                       </div>
                     )}
 
@@ -1985,7 +1985,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                         <button
                           onClick={() => onOpenConversation(hostel.id)}
                           className="px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 font-bold text-xs rounded-xl transition-colors flex items-center gap-1"
-                          title="Chat with Landlord"
+                          title="Chat with Agent"
                         >
                           <MessageSquare className="w-3.5 h-3.5 text-emerald-600" />
                           <span>Chat</span>
@@ -2065,7 +2065,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                 <span>Payment Required for {pendingPayments.length} Confirmed Reservation{pendingPayments.length > 1 ? 's' : ''}</span>
               </div>
               <p className="text-[11px] text-rose-800">
-                The property landlord has accepted your reservation. Complete payment to generate your official signed receipt and lock the bedspace.
+                The property agent has accepted your reservation. Complete payment to generate your official signed receipt and lock the bedspace.
               </p>
             </div>
           )}
@@ -2182,7 +2182,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-lg font-black text-slate-900">Your Inspection Appointments</h2>
-              <p className="text-xs text-slate-500">Physical visits and virtual video walkthrough tours scheduled with landlords.</p>
+              <p className="text-xs text-slate-500">Physical visits and virtual video walkthrough tours scheduled with agents.</p>
             </div>
           </div>
 
@@ -2244,7 +2244,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                         onClick={() => onOpenConversation(ins.propertyId)}
                         className="px-3.5 py-1.5 bg-slate-900 text-white text-xs font-bold rounded-xl"
                       >
-                        Chat Landlord
+                        Chat Agent
                       </button>
                     )}
                   </div>
@@ -2320,7 +2320,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                         <button
                           onClick={() => onOpenConversation(hostel.id)}
                           className="px-3 py-2 bg-emerald-100 hover:bg-emerald-200 text-emerald-900 font-bold text-xs rounded-xl transition-colors flex items-center gap-1"
-                          title="Chat with Landlord"
+                          title="Chat with Agent"
                         >
                           <MessageSquare className="w-3.5 h-3.5 text-emerald-700" />
                           <span>Chat</span>
@@ -2458,7 +2458,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                   Student Profile Picture / Photo
                 </label>
                 <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-md">
-                  Visible to Verified Landlords
+                  Visible to Verified Agents
                 </span>
               </div>
               

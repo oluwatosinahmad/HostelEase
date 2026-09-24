@@ -41,16 +41,16 @@ export const SupportFaqModal: React.FC<SupportFaqModalProps> = ({
       question: 'What is the 10-Point Physical Verification Standard?',
       category: 'SAFETY',
       answer:
-        'Before a property receives the "Verified Student Shield", a Hostel Ease field officer visits the premises in Ogbomoso. We verify GPS coordinates, test running borehole water, confirm prepaid meters, record continuous interior video, and inspect landlord/agent legal tenancy authorization.',
+        'Before a property receives the "Verified Student Shield", a Hostel Ease field officer visits the premises in Ogbomoso. We verify GPS coordinates, test running borehole water, confirm prepaid meters, record continuous interior video, and inspect agent legal tenancy authorization.',
     },
     {
       question: 'How does the 48-Hour Escrow Protection work?',
       category: 'PAYMENTS',
       answer:
-        'When you pay online through Hostel Ease via Paystack or Flutterwave, your rent and caution deposit are held in secure escrow. The funds are NOT disbursed to the landlord until you arrive, inspect the room keys, and confirm your move-in condition.',
+        'When you pay online through Hostel Ease via Paystack or Flutterwave, your rent and caution deposit are held in secure escrow. The funds are NOT disbursed to the agent until you arrive, inspect the room keys, and confirm your move-in condition.',
     },
     {
-      question: 'Can a landlord demand extra inspection fees or hidden charges?',
+      question: 'Can an agent demand extra inspection fees or hidden charges?',
       category: 'FEES',
       answer:
         'No. All verified listings operate under our Transparent Pricing Guarantee. The total amount displayed at checkout (Rent + Caution + Service/Agreement) is the complete payment. If any host asks for offline side-fees, report them immediately.',
@@ -59,13 +59,13 @@ export const SupportFaqModal: React.FC<SupportFaqModalProps> = ({
       question: 'How do Virtual Video Walkthroughs work?',
       category: 'VIEWINGS',
       answer:
-        'Students can request scheduled live WhatsApp video walkthroughs directly with the landlord or caretaker to see the current state of the room, water flow, and compound before committing.',
+        'Students can request scheduled live WhatsApp video walkthroughs directly with the agent or caretaker to see the current state of the room, water flow, and compound before committing.',
     },
     {
       question: 'What happens if a property is not available after payment?',
       category: 'REFUNDS',
       answer:
-        'Under the Hostel Ease Escrow Guarantee, if a landlord cannot deliver access on the agreed move-in date or if the room condition contradicts verified media, you are entitled to an immediate 100% full refund.',
+        'Under the Hostel Ease Escrow Guarantee, if an agent cannot deliver access on the agreed move-in date or if the room condition contradicts verified media, you are entitled to an immediate 100% full refund.',
     },
   ];
 

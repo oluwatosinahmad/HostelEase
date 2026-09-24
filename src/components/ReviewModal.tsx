@@ -272,10 +272,10 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({
               </div>
             </div>
 
-            {/* Landlord/Agent Experience */}
+            {/* Agent Experience */}
             <div className="bg-white p-2.5 rounded-xl border border-slate-200 flex items-center justify-between">
               <div>
-                <span className="text-xs font-bold text-slate-800 block">Landlord / Host Experience</span>
+                <span className="text-xs font-bold text-slate-800 block">Agent / Host Experience</span>
                 <span className="text-[10px] text-slate-400">Communication, responsiveness & fairness</span>
               </div>
               {renderStarInput(landlordExperience, setLandlordExperience)}
@@ -339,7 +339,7 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({
               rows={4}
               value={comment}
               onChange={(e) => setComment(e.target.value)}
-              placeholder="Tell other students about your experience. How is the electricity, water pressure, road condition, security, and landlord responsiveness? Genuine positive and negative feedback is encouraged."
+              placeholder="Tell other students about your experience. How is the electricity, water pressure, road condition, security, and agent responsiveness? Genuine positive and negative feedback is encouraged."
               className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-3 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-500"
             />
           </div>
@@ -392,7 +392,7 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({
                 type="text"
                 value={editReason}
                 onChange={(e) => setEditReason(e.target.value)}
-                placeholder="e.g. Landlord fixed water pump, updated rating accordingly"
+                placeholder="e.g. Agent fixed water pump, updated rating accordingly"
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800"
               />
             </div>

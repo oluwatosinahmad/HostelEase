@@ -31,12 +31,13 @@ const PRESET_STUDENT_AVATARS = [
   { id: 'av-6', url: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=300&q=80', label: 'Male 3' }
 ];
 
-const PRESET_LANDLORD_AVATARS = [
-  { id: 'l-1', url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=300&q=80', label: 'Landlord 1' },
-  { id: 'l-2', url: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=300&q=80', label: 'Landlord 2' },
-  { id: 'l-3', url: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=300&q=80', label: 'Landlord 3' },
-  { id: 'l-4', url: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=300&q=80', label: 'Landlady 1' }
+const PRESET_AGENT_AVATARS = [
+  { id: 'l-1', url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=300&q=80', label: 'Agent 1' },
+  { id: 'l-2', url: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=300&q=80', label: 'Agent 2' },
+  { id: 'l-3', url: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=300&q=80', label: 'Agent 3' },
+  { id: 'l-4', url: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=300&q=80', label: 'Agent 4' }
 ];
+const PRESET_LANDLORD_AVATARS = PRESET_AGENT_AVATARS;
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -160,7 +161,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         if (targetRole === 'STUDENT') return `${trimmed}@lautech.edu.ng`;
         if (targetRole === 'PROVIDER') return `${trimmed}@hostelease.ng`;
       } else {
-        if (targetRole === 'PROVIDER' || trimmed.includes('landlord') || trimmed.includes('provider')) return `${trimmed}@hostelease.ng`;
+        if (targetRole === 'PROVIDER' || trimmed.includes('agent') || trimmed.includes('landlord') || trimmed.includes('provider')) return `${trimmed}@hostelease.ng`;
         return `${trimmed}@lautech.edu.ng`;
       }
     }
@@ -270,7 +271,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             </div>
           </div>
 
-          {/* Role selector pills (Student | Landlord | Admin) */}
+          {/* Role selector pills (Student | Agent | Admin) */}
           <div className="grid grid-cols-3 gap-1.5 bg-white/10 p-1 rounded-xl mt-4 text-xs">
             <button
               type="button"
@@ -288,7 +289,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 role === 'PROVIDER' ? 'bg-emerald-600 text-white shadow' : 'text-slate-300 hover:text-white'
               }`}
             >
-              🏠 Landlord
+              🏠 Agent
             </button>
             <button
               type="button"
@@ -390,7 +391,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 <div>
                   <div className="flex items-center justify-between mb-1">
                     <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase">
-                      Full Name {role === 'PROVIDER' ? '(Landlord)' : '(Student)'}
+                      Full Name {role === 'PROVIDER' ? '(Agent)' : '(Student)'}
                     </label>
                     <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">
                       ✨ Auto-generates email
@@ -471,7 +472,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                         type="button"
                         onClick={() => {
                           const clean = getCleanUsernamePrefix(email);
-                          setEmail(`${clean || 'landlord'}@hostelease.ng`);
+                          setEmail(`${clean || 'agent'}@hostelease.ng`);
                           setError(null);
                         }}
                         className="px-2 py-0.5 bg-emerald-100 hover:bg-emerald-200 dark:bg-emerald-950/60 dark:hover:bg-emerald-900/80 text-emerald-800 dark:text-emerald-200 text-[10px] font-bold rounded-lg transition-colors flex items-center gap-1 border border-emerald-300 dark:border-emerald-700"
@@ -587,13 +588,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 </div>
               )}
 
-              {/* Profile Picture Upload for Both Students and Landlords */}
+              {/* Profile Picture Upload for Both Students and Agents */}
               {mode === 'register' && role !== 'ADMIN' && (
                 <div className="space-y-3 bg-slate-50 dark:bg-slate-800/70 p-3.5 rounded-2xl border border-slate-200 dark:border-slate-700">
                   <div className="flex items-center justify-between">
                     <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase flex items-center gap-1.5">
                       <Camera className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                      <span>{role === 'PROVIDER' ? 'Landlord Display Picture' : 'Student Profile Photo'}</span>
+                      <span>{role === 'PROVIDER' ? 'Agent Display Picture' : 'Student Profile Photo'}</span>
                     </label>
                     <button
                       type="button"
@@ -714,8 +715,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 {submitting 
                   ? 'Authenticating...' 
                   : mode === 'login' 
-                  ? (role === 'PROVIDER' ? 'Log in as Landlord' : role === 'ADMIN' ? 'Log In' : 'Log in as Student') 
-                  : `Create ${role === 'PROVIDER' ? 'Landlord' : 'Student'} Account`}
+                  ? (role === 'PROVIDER' ? 'Log in as Agent' : role === 'ADMIN' ? 'Log In' : 'Log in as Student') 
+                  : `Create ${role === 'PROVIDER' ? 'Agent' : 'Student'} Account`}
               </button>
             </form>
           </div>

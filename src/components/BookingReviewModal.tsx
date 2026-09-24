@@ -164,7 +164,7 @@ export const BookingReviewModal: React.FC<BookingReviewModalProps> = ({
                   <div className="flex justify-between items-center text-gray-700">
                     <div>
                       <p className="font-medium text-gray-900">Room Base Rent</p>
-                      <p className="text-xs text-gray-500">Annual accommodation fee payable to landlord</p>
+                      <p className="text-xs text-gray-500">Annual accommodation fee payable to agent</p>
                     </div>
                     <span className="font-bold text-gray-900">₦{data.priceBreakdown.baseRent.toLocaleString()}</span>
                   </div>

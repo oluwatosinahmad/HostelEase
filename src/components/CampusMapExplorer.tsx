@@ -1155,7 +1155,7 @@ export const CampusMapExplorer: React.FC<CampusMapExplorerProps> = ({
                 <button
                   onClick={() => onOpenConversation(selectedMarker.id)}
                   className="px-3 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl shadow transition-colors flex items-center gap-1 cursor-pointer"
-                  title="Message Landlord"
+                  title="Message Agent"
                 >
                   <MessageSquare className="w-3.5 h-3.5 text-emerald-400" />
                   Chat

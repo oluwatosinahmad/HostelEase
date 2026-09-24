@@ -81,7 +81,7 @@ export const LandlordReviewResponseModal: React.FC<LandlordReviewResponseModalPr
             </span>
           </div>
 
-          {/* Landlord Response Text Area */}
+          {/* Agent Response Text Area */}
           <div>
             <label className="block text-xs font-bold text-slate-800 mb-1 flex items-center justify-between">
               <span>Your Official Public Response</span>
@@ -101,7 +101,7 @@ export const LandlordReviewResponseModal: React.FC<LandlordReviewResponseModalPr
           <div className="p-3 bg-blue-50 rounded-xl border border-blue-200 text-[11px] text-blue-950 space-y-1">
             <strong className="block font-bold">Tips for professional responses:</strong>
             <p className="text-blue-900/80">
-              Acknowledge constructive feedback politely. Explain any upgrades, maintenance, or fixes that have taken place. Prospective students appreciate communicative and transparent landlords!
+              Acknowledge constructive feedback politely. Explain any upgrades, maintenance, or fixes that have taken place. Prospective students appreciate communicative and transparent agents!
             </p>
           </div>
 
@@ -127,3 +127,5 @@ export const LandlordReviewResponseModal: React.FC<LandlordReviewResponseModalPr
     </div>
   );
 };
+
+export const AgentReviewResponseModal = LandlordReviewResponseModal;

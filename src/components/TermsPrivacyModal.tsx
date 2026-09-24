@@ -16,7 +16,7 @@ import {
 
 interface TermsPrivacyModalProps {
   isOpen: boolean;
-  initialTab?: 'terms' | 'privacy' | 'escrow' | 'landlord' | 'community';
+  initialTab?: 'terms' | 'privacy' | 'escrow' | 'landlord' | 'agent' | 'community';
   onClose: () => void;
 }
 
@@ -25,7 +25,7 @@ export const TermsPrivacyModal: React.FC<TermsPrivacyModalProps> = ({
   initialTab = 'terms',
   onClose,
 }) => {
-  const [activeTab, setActiveTab] = useState<'terms' | 'privacy' | 'escrow' | 'landlord' | 'community'>(initialTab);
+  const [activeTab, setActiveTab] = useState<'terms' | 'privacy' | 'escrow' | 'landlord' | 'agent' | 'community'>(initialTab);
 
   if (!isOpen) return null;
 
@@ -92,9 +92,9 @@ export const TermsPrivacyModal: React.FC<TermsPrivacyModalProps> = ({
             Escrow & Refund Rules
           </button>
           <button
-            onClick={() => setActiveTab('landlord')}
+            onClick={() => setActiveTab('agent')}
             className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer ${
-              activeTab === 'landlord' ? 'bg-brand-600 text-white shadow-md' : 'text-slate-400 hover:text-white hover:bg-slate-800'
+              activeTab === 'landlord' || activeTab === 'agent' ? 'bg-brand-600 text-white shadow-md' : 'text-slate-400 hover:text-white hover:bg-slate-800'
             }`}
           >
             Host Tenancy Terms
@@ -131,7 +131,7 @@ export const TermsPrivacyModal: React.FC<TermsPrivacyModalProps> = ({
                   By registering with Hostel Ease, student users warrant that they provide accurate academic institution credentials (matriculation number, full name, phone number). Students agree not to engage in impersonation, malicious reporting, false reviews, or fraudulent payment attempts.
                 </p>
 
-                <h4 className="font-bold text-white uppercase tracking-wider text-[11px]">1.3 Landlord & Agent Obligations</h4>
+                <h4 className="font-bold text-white uppercase tracking-wider text-[11px]">1.3 Agent & Host Obligations</h4>
                 <p>
                   Property hosts warrant that all listings published under their account represent genuine physical structures, accurate pricing schedules without concealed add-on fees, and valid authorization to lease. Submitting fraudulent listings or demanding unauthorized offline side-payments constitutes immediate platform suspension and referral to law enforcement authorities.
                 </p>
@@ -150,7 +150,7 @@ export const TermsPrivacyModal: React.FC<TermsPrivacyModalProps> = ({
               <div className="space-y-3">
                 <h4 className="font-bold text-white uppercase tracking-wider text-[11px]">2.1 Information We Collect</h4>
                 <p>
-                  We collect strictly necessary data required to facilitate safe accommodation matching: Student Name, Academic Email, Phone Number, University/Campus, Department, Saved Nests, and Booking Records. For Landlords, we verify National Identity (NIN/Driver&apos;s License), Property Ownership Documents, and NUBAN bank accounts for settlement payouts.
+                  We collect strictly necessary data required to facilitate safe accommodation matching: Student Name, Academic Email, Phone Number, University/Campus, Department, Saved Nests, and Booking Records. For Agents, we verify National Identity (NIN/Driver&apos;s License), Property Ownership Documents, and NUBAN bank accounts for settlement payouts.
                 </p>
 
                 <h4 className="font-bold text-white uppercase tracking-wider text-[11px]">2.2 Protection of Financial Information</h4>
@@ -186,20 +186,20 @@ export const TermsPrivacyModal: React.FC<TermsPrivacyModalProps> = ({
                 </p>
                 <ul className="list-disc pl-5 space-y-1 text-slate-300">
                   <li>The physical property condition diverges significantly from verified media (e.g. missing water, collapsed ceiling, uninhabitable state).</li>
-                  <li>The landlord fails to provide access keys on the agreed move-in date.</li>
+                  <li>The agent fails to provide access keys on the agreed move-in date.</li>
                   <li>The listing is discovered to be double-booked or unavailable upon arrival.</li>
                 </ul>
 
                 <h4 className="font-bold text-white uppercase tracking-wider text-[11px]">3.3 Cancellation Timeline</h4>
                 <p>
-                  Student reservations waiting for landlord acceptance can be cancelled instantly without penalty. Once accepted, students have a 48-hour exclusive reservation payment window before the property is automatically released back to public discovery.
+                  Student reservations waiting for agent acceptance can be cancelled instantly without penalty. Once accepted, students have a 48-hour exclusive reservation payment window before the property is automatically released back to public discovery.
                 </p>
               </div>
             </div>
           )}
 
-          {/* TAB 4: LANDLORD TENANCY TERMS */}
-          {activeTab === 'landlord' && (
+          {/* TAB 4: AGENT TENANCY TERMS */}
+          {(activeTab === 'landlord' || activeTab === 'agent') && (
             <div className="space-y-4 animate-fadeIn">
               <div className="border-b border-slate-800 pb-3">
                 <h3 className="text-base font-black text-white">4. Host Tenancy & Accreditation Agreement</h3>
@@ -236,7 +236,7 @@ export const TermsPrivacyModal: React.FC<TermsPrivacyModalProps> = ({
               <div className="space-y-3">
                 <h4 className="font-bold text-white uppercase tracking-wider text-[11px]">5.1 Authentic Tenancy Reviews</h4>
                 <p>
-                  Reviews can only be submitted by students who have interacted with the property (completed viewing, verified inquiry, or confirmed booking). Negative reviews regarding genuine water shortages, noise, or electrical issues cannot be deleted by landlords simply because they are critical.
+                  Reviews can only be submitted by students who have interacted with the property (completed viewing, verified inquiry, or confirmed booking). Negative reviews regarding genuine water shortages, noise, or electrical issues cannot be deleted by agents simply because they are critical.
                 </p>
 
                 <h4 className="font-bold text-white uppercase tracking-wider text-[11px]">5.2 Prohibited Content</h4>

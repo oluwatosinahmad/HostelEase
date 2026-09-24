@@ -131,7 +131,7 @@ export const PaymentReceiptModal: React.FC<PaymentReceiptModalProps> = ({
                 </div>
               </div>
 
-              {/* Student & Landlord Details */}
+              {/* Student & Agent Details */}
               <div className="grid grid-cols-2 gap-6 bg-slate-50 rounded-xl p-4 border border-slate-200/80 text-xs">
                 <div className="space-y-1">
                   <span className="text-[10px] uppercase font-bold text-slate-400">Tenant (Student)</span>

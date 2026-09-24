@@ -402,7 +402,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
       level: u.level
     };
     impersonateUser(targetUser as any);
-    onShowToast(`👑 Super Admin Mode: Now controlling ${u.fullName}'s account (${u.role === 'PROVIDER' ? '🏢 Landlord' : '🎓 Student'})`, 'success');
+    onShowToast(`👑 Super Admin Mode: Now controlling ${u.fullName}'s account (${u.role === 'PROVIDER' ? '🏢 Agent' : '🎓 Student'})`, 'success');
     if (onNavigateView) {
       if (u.role === 'PROVIDER') {
         onNavigateView('provider-portal');
@@ -949,7 +949,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                 onClick={() => loginDemo('PROVIDER')}
                 className="p-2 text-center rounded-xl bg-blue-950/60 hover:bg-blue-900/80 border border-blue-800 text-blue-300 text-[11px] font-black transition-colors"
               >
-                🏡 Landlord
+                🏡 Agent
               </button>
             </div>
           </div>
@@ -1028,7 +1028,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                     <p className="text-xl font-black text-cyan-400">
                       {formatNaira(revenueOverview?.dashboardSummary?.providerRevenue ?? 0)}
                     </p>
-                    <p className="text-[10px] text-slate-500">Landlord payouts</p>
+                    <p className="text-[10px] text-slate-500">Agent payouts</p>
                   </div>
 
                   <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-3.5 space-y-1">
@@ -1099,7 +1099,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                 </div>
 
                 <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-1">
-                  <p className="text-[10px] font-bold text-slate-400 uppercase">Providers / Landlords</p>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase">Providers / Agents</p>
                   <p className="text-2xl font-black text-cyan-400">{dashboardData?.stats?.totalProviders ?? 8}</p>
                   <p className="text-[10px] text-slate-500">Active hostel operators</p>
                 </div>
@@ -1187,7 +1187,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                       👑 Super Admin Oversight
                     </span>
                   </div>
-                  <p className="text-xs text-slate-400">Directly inspect, manage, and access all student and landlord accounts</p>
+                  <p className="text-xs text-slate-400">Directly inspect, manage, and access all student and agent accounts</p>
                 </div>
                 
                 <div className="flex flex-wrap items-center gap-2">
@@ -1209,7 +1209,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                   >
                     <option value="all">All Roles ({usersList.length})</option>
                     <option value="STUDENT">🎓 Students ({usersList.filter(u => u.role === 'STUDENT').length})</option>
-                    <option value="PROVIDER">🏢 Landlords ({usersList.filter(u => u.role === 'PROVIDER').length})</option>
+                    <option value="PROVIDER">🏢 Agents ({usersList.filter(u => u.role === 'PROVIDER').length})</option>
                     <option value="ADMIN">👑 Admins ({usersList.filter(u => u.role === 'ADMIN').length})</option>
                   </select>
 
@@ -1298,7 +1298,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                                 u.role === 'PROVIDER' ? 'bg-cyan-950 text-cyan-300 border border-cyan-800' :
                                 'bg-emerald-950 text-emerald-300 border border-emerald-800'
                               }`}>
-                                <span>{u.role === 'PROVIDER' ? '🏢 Landlord' : u.role === 'ADMIN' ? '👑 Platform Owner' : '🎓 Student'}</span>
+                                <span>{u.role === 'PROVIDER' ? '🏢 Agent' : u.role === 'ADMIN' ? '👑 Platform Owner' : '🎓 Student'}</span>
                               </span>
                             </td>
 
@@ -1397,7 +1397,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                                   <button
                                     onClick={() => handleInitiateUserDeletion(u)}
                                     className="p-1 text-slate-400 hover:text-rose-400 hover:bg-rose-950/40 rounded transition-colors cursor-pointer"
-                                    title={u.role === 'PROVIDER' ? 'Permanently Delete Landlord & Purge Hostels' : 'Permanently Delete Student Account'}
+                                    title={u.role === 'PROVIDER' ? 'Permanently Delete Agent & Purge Hostels' : 'Permanently Delete Student Account'}
                                   >
                                     <Trash2 className="w-3.5 h-3.5" />
                                   </button>
@@ -1420,12 +1420,12 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-950 p-4 rounded-xl border border-slate-800">
                 <div>
                   <div className="flex items-center gap-2">
-                    <h2 className="text-lg font-bold text-white">Landlord & Housing Provider Hub</h2>
+                    <h2 className="text-lg font-bold text-white">Agent & Housing Provider Hub</h2>
                     <span className="text-[10px] bg-cyan-950 text-cyan-300 font-bold px-2 py-0.5 rounded border border-cyan-800">
                       Verified Hostels Oversight
                     </span>
                   </div>
-                  <p className="text-xs text-slate-400">Directly control, monitor, and access registered landlord management dashboards</p>
+                  <p className="text-xs text-slate-400">Directly control, monitor, and access registered agent management dashboards</p>
                 </div>
                 
                 <div className="flex items-center gap-2">
@@ -1434,7 +1434,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                     onChange={(e) => setProviderFilter(e.target.value)}
                     className="bg-slate-900 border border-slate-700 text-xs text-slate-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-emerald-500 font-medium"
                   >
-                    <option value="all">All Landlords ({providersList.length})</option>
+                    <option value="all">All Agents ({providersList.length})</option>
                     <option value="VERIFIED">Verified Badged Only</option>
                     <option value="PENDING">Pending Review</option>
                   </select>
@@ -1505,7 +1505,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                         className="flex-1 py-2 bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs rounded-xl transition-colors flex items-center justify-center gap-1.5 shadow-md cursor-pointer"
                       >
                         <Building2 className="w-3.5 h-3.5" />
-                        <span>👑 Access Landlord Portal</span>
+                        <span>👑 Access Agent Portal</span>
                       </button>
 
                       <button
@@ -1535,7 +1535,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                           handleInitiateUserDeletion(matchedUser as any);
                         }}
                         className="px-2.5 py-2 bg-rose-950/40 hover:bg-rose-900/60 border border-rose-800/60 text-rose-400 hover:text-rose-300 text-xs font-semibold rounded-xl transition-colors cursor-pointer"
-                        title="Delete Landlord Account & Purge Hostels"
+                        title="Delete Agent Account & Purge Hostels"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
@@ -1640,7 +1640,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
 
                           <div className="text-[10px] text-slate-400 pt-2 border-t border-slate-900 space-y-0.5">
                             <p className="truncate">
-                              Landlord: <span className="text-white font-semibold">{h.provider?.name || (h.provider as any)?.businessName || 'Verified Landlord'}</span>
+                              Agent: <span className="text-white font-semibold">{h.provider?.name || (h.provider as any)?.businessName || 'Verified Agent'}</span>
                             </p>
                             <p className="font-mono text-slate-500">{h.provider?.phone || '+234 800 000 0000'}</p>
                           </div>
@@ -1660,8 +1660,8 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                           onClick={() => {
                             const provUser: AdminUserItem = {
                               id: (h.provider as any)?.id || `prov-${h.id}`,
-                              fullName: h.provider?.name || 'Hostel Landlord',
-                              email: h.provider?.email || 'landlord@hostelease.ng',
+                              fullName: h.provider?.name || 'Hostel Agent',
+                              email: h.provider?.email || 'agent@hostelease.ng',
                               phone: h.provider?.phone || '',
                               role: 'PROVIDER',
                               isActive: true,
@@ -1672,7 +1672,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                             handleImpersonateUser(provUser);
                           }}
                           className="px-3 py-2 bg-slate-900 hover:bg-slate-800 border border-slate-700 text-cyan-300 text-xs font-bold rounded-xl transition-colors cursor-pointer"
-                          title="Control Landlord Account"
+                          title="Control Agent Account"
                         >
                           <Building2 className="w-3.5 h-3.5" />
                         </button>
@@ -1755,7 +1755,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                             {formatNaira(Number((h as any).rentAmount ?? (h as any).priceSummary?.rentAmount ?? 200000))} / year
                           </p>
                           <div className="text-[10px] text-slate-400 pt-2 border-t border-slate-900">
-                            Provider: <span className="text-white font-semibold">{h.provider?.name || (h.provider as any)?.businessName || 'Verified Landlord'}</span> ({h.provider?.phone || 'No phone'})
+                            Provider: <span className="text-white font-semibold">{h.provider?.name || (h.provider as any)?.businessName || 'Verified Agent'}</span> ({h.provider?.phone || 'No phone'})
                           </div>
                         </div>
                       </div>
@@ -1789,7 +1789,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                     </span>
                   </div>
                   <p className="text-xs text-slate-400">
-                    Review and verify authentic uncut video tours uploaded by landlords before they are published to students.
+                    Review and verify authentic uncut video tours uploaded by agents before they are published to students.
                   </p>
                 </div>
 
@@ -1834,7 +1834,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                       <h3 className="text-sm font-bold text-white">No Videos Found</h3>
                       <p className="text-xs text-slate-400 max-w-sm mx-auto">
                         {videoFilter === 'PENDING'
-                          ? 'All landlord property videos have been audited and verified.'
+                          ? 'All agent property videos have been audited and verified.'
                           : 'No video tours match the selected filter criteria.'}
                       </p>
                     </div>
@@ -1881,7 +1881,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
 
                               <div className="text-[11px] text-slate-400 pt-2 border-t border-slate-900 space-y-1">
                                 <div className="flex items-center justify-between">
-                                  <span>Landlord:</span>
+                                  <span>Agent:</span>
                                   <span className="text-white font-semibold">{v.providerName}</span>
                                 </div>
                                 {v.providerPhone && (
@@ -2007,7 +2007,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                           <th className="p-3.5">Booking Ref</th>
                           <th className="p-3.5">Hostel & Unit</th>
                           <th className="p-3.5">Student</th>
-                          <th className="p-3.5">Landlord</th>
+                          <th className="p-3.5">Agent</th>
                           <th className="p-3.5">Financials</th>
                           <th className="p-3.5">Escrow State</th>
                           <th className="p-3.5">Date</th>
@@ -2029,7 +2029,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                               <p className="text-[10px] text-slate-400">{b.studentEmail || 'student@lautech.edu.ng'}</p>
                             </td>
                             <td className="p-3.5">
-                              <p className="font-bold text-slate-200">{b.providerName || 'Landlord'}</p>
+                              <p className="font-bold text-slate-200">{b.providerName || 'Agent'}</p>
                               <p className="text-[10px] font-mono text-slate-400">{b.providerPhone || '+234 800 000 0000'}</p>
                             </td>
                             <td className="p-3.5">
@@ -2423,7 +2423,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
             <div className="space-y-4">
               <div className="bg-slate-950 p-4 rounded-xl border border-slate-800">
                 <h2 className="text-lg font-bold text-white">AI Assistant Telemetry & Insights</h2>
-                <p className="text-xs text-slate-400">Monitoring natural language accommodation searches, landlord advice, and matchmaking</p>
+                <p className="text-xs text-slate-400">Monitoring natural language accommodation searches, agent advice, and matchmaking</p>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -2533,7 +2533,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
             {/* 8-Point Criteria */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
               {[
-                { key: 'identityVerified', label: '1. Landlord Identity & Ownership Verified' },
+                { key: 'identityVerified', label: '1. Agent Identity & Ownership Verified' },
                 { key: 'locationConfirmed', label: '2. LAUTECH Area & Coordinates Confirmed' },
                 { key: 'genuinePhotos', label: '3. Genuine Room & Building Photos Verified' },
                 { key: 'transparentPricing', label: '4. Transparent Fee Breakdown (Zero Hidden Fees)' },
@@ -2598,7 +2598,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                         onClick={async () => {
                           await api.admin.approveVideoWalkthrough(selectedHostelForReview.id);
                           (selectedHostelForReview as any).videoVerificationStatus = 'APPROVED';
-                          onShowToast('✓ 4K Video Walkthrough verified & landlord notified!', 'success');
+                          onShowToast('✓ 4K Video Walkthrough verified & agent notified!', 'success');
                         }}
                         className="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold rounded-lg transition-colors cursor-pointer shadow-sm"
                       >
@@ -2611,7 +2611,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                           if (reason !== null) {
                             await api.admin.rejectVideoWalkthrough(selectedHostelForReview.id, reason);
                             (selectedHostelForReview as any).videoVerificationStatus = 'REJECTED';
-                            onShowToast('Video rejected with adjustment instructions sent to landlord.', 'info');
+                            onShowToast('Video rejected with adjustment instructions sent to agent.', 'info');
                           }
                         }}
                         className="px-2.5 py-1 bg-rose-950/80 hover:bg-rose-900 text-rose-300 border border-rose-800 text-[11px] font-bold rounded-lg transition-colors cursor-pointer"
@@ -2647,7 +2647,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
             </div>
 
             <div className="space-y-1">
-              <label className="text-xs font-bold text-slate-300">Admin Notes / Landlord Feedback</label>
+              <label className="text-xs font-bold text-slate-300">Admin Notes / Agent Feedback</label>
               <textarea
                 value={verificationNotes}
                 onChange={(e) => setVerificationNotes(e.target.value)}
@@ -2737,7 +2737,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
             {/* Notes / Feedback */}
             <div className="space-y-1.5">
               <label className="text-xs font-bold text-slate-300">
-                Landlord Feedback / Rejection Reason (sent directly to provider notification bell)
+                Agent Feedback / Rejection Reason (sent directly to provider notification bell)
               </label>
               <textarea
                 value={videoReviewNotes}
@@ -3023,7 +3023,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                   <option value="FULL_REFUND">Full 100% Student Refund</option>
                   <option value="PARTIAL_REFUND">Partial Student Refund</option>
                   <option value="NO_ACTION">No Action (Claim Disallowed)</option>
-                  <option value="PROVIDER_WARNING">Official Landlord Warning Issued</option>
+                  <option value="PROVIDER_WARNING">Official Agent Warning Issued</option>
                   <option value="LISTING_SUSPENDED">Hostel Listing Suspended for Policy Breach</option>
                   <option value="OTHER">Other Resolution</option>
                 </select>
@@ -3093,7 +3093,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                       selectedUserForDetails.role === 'PROVIDER' ? 'bg-cyan-950 text-cyan-300 border border-cyan-800' :
                       'bg-emerald-950 text-emerald-300 border border-emerald-800'
                     }`}>
-                      {selectedUserForDetails.role === 'PROVIDER' ? '🏢 Landlord' : selectedUserForDetails.role === 'ADMIN' ? '👑 Admin' : '🎓 Student'}
+                      {selectedUserForDetails.role === 'PROVIDER' ? '🏢 Agent' : selectedUserForDetails.role === 'ADMIN' ? '👑 Admin' : '🎓 Student'}
                     </span>
                   </div>
                   <p className="text-xs text-slate-400 font-mono mt-0.5">{selectedUserForDetails.email}</p>
@@ -3155,7 +3155,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
 
                   <div className="bg-slate-900/70 p-3 rounded-xl border border-slate-800 space-y-1">
                     <span className="text-[10px] font-bold text-slate-400 uppercase">Verification Status</span>
-                    <p className="font-bold text-emerald-400">Verified Landlord NIN/CAC</p>
+                    <p className="font-bold text-emerald-400">Verified Agent NIN/CAC</p>
                   </div>
                 </>
               )}
@@ -3230,13 +3230,13 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                 <div>
                   <div className="flex items-center gap-2">
                     <h3 className="font-bold text-white text-base tracking-tight">
-                      {userToDelete.role === 'PROVIDER' ? 'PERMANENTLY DELETE LANDLORD?' : 'PERMANENTLY DELETE STUDENT?'}
+                      {userToDelete.role === 'PROVIDER' ? 'PERMANENTLY DELETE AGENT?' : 'PERMANENTLY DELETE STUDENT?'}
                     </h3>
                     <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${
                       userToDelete.role === 'PROVIDER' ? 'bg-cyan-950 text-cyan-300 border border-cyan-800' :
                       'bg-emerald-950 text-emerald-300 border border-emerald-800'
                     }`}>
-                      {userToDelete.role === 'PROVIDER' ? 'Landlord' : 'Student'}
+                      {userToDelete.role === 'PROVIDER' ? 'Agent' : 'Student'}
                     </span>
                   </div>
                   <p className="text-xs text-rose-400/90 font-medium mt-0.5">
@@ -3288,10 +3288,10 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
               <div className="bg-rose-950/30 border border-rose-900/80 rounded-xl p-3.5 space-y-1.5">
                 <div className="flex items-center gap-2 text-rose-400 font-bold text-xs uppercase tracking-wider">
                   <AlertTriangle className="w-4 h-4 shrink-0" />
-                  <span>PERMANENTLY DELETE LANDLORD?</span>
+                  <span>PERMANENTLY DELETE AGENT?</span>
                 </div>
                 <p className="text-[11px] text-rose-300 leading-relaxed font-medium">
-                  "This will permanently delete the landlord account and ALL landlord-owned properties, rooms, bedspaces, photos, videos, documents, and associated data. This action cannot be undone."
+                  "This will permanently delete the Agent account and all properties, rooms, bedspaces, photos, videos, documents, and other Agent-owned data. This action cannot be undone."
                 </p>
               </div>
             ) : (
@@ -3301,7 +3301,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                   <span>PERMANENTLY DELETE STUDENT?</span>
                 </div>
                 <p className="text-[11px] text-amber-300 leading-relaxed font-medium">
-                  "This will permanently delete this student's account and student-owned data. Any occupied bedspaces will be released and made available again. Landlord properties and their media will NOT be deleted."
+                  "This will permanently delete this student's account and student-owned data. Any occupied bedspaces will be released and made available again. Agent properties and their media will NOT be deleted."
                 </p>
               </div>
             )}
@@ -3368,7 +3368,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                         <span className="text-base font-black text-amber-400">{deletionSummary.conversationsCount}</span>
                       </div>
                       <div className="bg-slate-900/70 p-2.5 rounded-lg border border-slate-800 text-center col-span-3">
-                        <span className="text-[10px] text-emerald-400 font-bold block">✓ 0 Landlord Hostels Affected</span>
+                        <span className="text-[10px] text-emerald-400 font-bold block">✓ 0 Agent Hostels Affected</span>
                         <span className="text-[10px] text-slate-400">All student records will be cleared without affecting platform properties.</span>
                       </div>
                     </>
@@ -3405,12 +3405,12 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
               <div className="space-y-0.5">
                 <span className="text-xs text-white font-bold block">
                   {userToDelete.role === 'PROVIDER'
-                    ? 'Explicit Confirmation: Permanent Landlord & Property Purge'
+                    ? 'Explicit Confirmation: Permanent Agent & Property Purge'
                     : 'Explicit Confirmation: Permanent Student Deletion & Bedspace Release'}
                 </span>
                 <span className="text-[11px] text-slate-400 block leading-tight">
                   {userToDelete.role === 'PROVIDER'
-                    ? 'I explicitly confirm permanent removal of this landlord and ALL properties, rooms, bedspaces, photos, videos, documents, and records.'
+                    ? 'I explicitly confirm permanent removal of this agent and ALL properties, rooms, bedspaces, photos, videos, documents, and records.'
                     : 'I explicitly confirm permanent deletion of this student account. Any occupied bedspaces will be released and capacity restored.'}
                 </span>
               </div>
@@ -3447,7 +3447,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                     <Trash2 className="w-3.5 h-3.5" />
                     <span>
                       {userToDelete.role === 'PROVIDER'
-                        ? 'Permanently Delete Landlord Account'
+                        ? 'Permanently Delete Agent Account'
                         : 'Permanently Delete Student Account'}
                     </span>
                   </>

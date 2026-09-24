@@ -239,7 +239,7 @@ const DEFAULT_CHECKLIST: VerificationChecklist = {
   electricityMeterInspected: true,
   structuralIntegrityInspected: true,
   reportHistoryCleared: true,
-  adminNotes: 'Field inspection completed. Water borehole pressure tested, prepaid meter verified, and landlord identity confirmed.',
+  adminNotes: 'Field inspection completed. Water borehole pressure tested, prepaid meter verified, and agent identity confirmed.',
 };
 
 // 4. REAL INITIAL DEMO PROPERTIES (LAUTECH, OGBOMOSO)
@@ -1138,7 +1138,7 @@ export const INITIAL_AUDIT_LOGS: AuditLogEntry[] = [
     entityType: 'property',
     entityId: 'nest-101',
     entityTitle: 'Emerald Heights Luxury Self-Contain',
-    details: 'Completed physical verification checklist: water pressure tested, prepaid meter checked, landlord NIN verified.',
+    details: 'Completed physical verification checklist: water pressure tested, prepaid meter checked, agent NIN verified.',
     timestamp: '2026-08-18T11:20:00Z',
   },
   {
@@ -1158,7 +1158,7 @@ export const INITIAL_AUDIT_LOGS: AuditLogEntry[] = [
     entityType: 'property',
     entityId: 'nest-105',
     entityTitle: 'Sunrise Villa Brand New 1-Bedroom',
-    details: 'Requested clearer photos of the ensuite bathroom and landlord phone verification before approval.',
+    details: 'Requested clearer photos of the ensuite bathroom and agent phone verification before approval.',
     timestamp: '2026-08-23T08:00:00Z',
   },
 ];
@@ -1279,7 +1279,7 @@ export const INITIAL_BOOKINGS: Booking[] = [
       {
         id: 'tl-2',
         stage: 'ACCEPTED',
-        title: 'Landlord Accepted Request',
+        title: 'Agent Accepted Request',
         description: 'Alhaji Oladimeji accepted the booking request. Property availability locked for 48 hours.',
         timestamp: '2026-08-22T09:15:00Z',
         completed: true,
@@ -1405,7 +1405,7 @@ export const INITIAL_BOOKINGS: Booking[] = [
       {
         id: 'tl-103-2',
         stage: 'ACCEPTED',
-        title: 'Landlord Accepted',
+        title: 'Agent Accepted',
         description: 'Host approved request.',
         timestamp: '2026-08-16T11:00:00Z',
         completed: true,
@@ -1415,7 +1415,7 @@ export const INITIAL_BOOKINGS: Booking[] = [
         id: 'tl-103-3',
         stage: 'PAID',
         title: 'Payment Recorded',
-        description: 'Bank payment verified by landlord.',
+        description: 'Bank payment verified by agent.',
         timestamp: '2026-08-17T15:30:00Z',
         completed: true,
         actor: 'LANDLORD',
@@ -1748,7 +1748,7 @@ export const INITIAL_REFUND_RECORDS: RefundRecord[] = [
     propertyTitle: 'Adenike Royal Villas',
     amount: 140000,
     currency: 'NGN',
-    reason: 'Property plumbing defect identified on pre-move-in inspection; landlord agreed to release tenant.',
+    reason: 'Property plumbing defect identified on pre-move-in inspection; agent agreed to release tenant.',
     requestedBy: 'student',
     status: 'REFUNDED',
     adminNotes: 'Verified with host. Processed full refund via Paystack Gateway refund channel.',
@@ -1899,7 +1899,7 @@ export const INITIAL_ADMIN_USERS: AdminUser[] = [
     name: 'Kemi Alabi',
     email: 'support@hostelease.ng',
     role: 'SUPPORT_ADMIN',
-    department: 'Student & Landlord Helpdesk',
+    department: 'Student & Agent Helpdesk',
     is2FAEnabled: false,
     status: 'ACTIVE',
     lastLoginAt: '2026-08-23T04:15:00Z',
@@ -2131,7 +2131,7 @@ export const INITIAL_SUPPORT_TICKETS: SupportTicket[] = [
         id: 'msg-1',
         senderRole: 'STUDENT',
         senderName: 'Fatimah Yusuf',
-        message: 'Hello Hostel Ease support, I completed my booking payment online. Can you confirm when the landlord gets paid and how I confirm my move-in inspection?',
+        message: 'Hello Hostel Ease support, I completed my booking payment online. Can you confirm when the agent gets paid and how I confirm my move-in inspection?',
         timestamp: '2026-08-22T10:00:00Z',
       },
       {
@@ -2186,7 +2186,7 @@ export const INITIAL_SUPPORT_TICKETS: SupportTicket[] = [
     priority: 'LOW',
     status: 'RESOLVED',
     assignedAdminName: 'Kemi Alabi',
-    internalNotes: 'Confirmed landlord has industrial solar backup for borehole pumping.',
+    internalNotes: 'Confirmed agent has industrial solar backup for borehole pumping.',
     messages: [
       {
         id: 'msg-1',
@@ -2244,7 +2244,7 @@ export const INITIAL_NOTIFICATION_TEMPLATES: NotificationTemplateItem[] = [
   {
     id: 'tmpl-4',
     code: 'PAYOUT_DISPATCHED',
-    title: 'Landlord Settlement Payout Dispatched',
+    title: 'Agent Settlement Payout Dispatched',
     subject: 'Payout Sent: {{amount}} transferred to {{bank_name}}',
     bodyTemplate: 'Host settlement payout {{payout_ref}} of {{amount}} for {{property_title}} has been dispatched to your bank account ({{bank_account}}).',
     targetAudience: 'LANDLORD',
@@ -2455,7 +2455,7 @@ export const INITIAL_MARKETING_CAMPAIGNS: MarketingCampaign[] = [
   {
     id: 'cmp-02',
     code: 'UNDERG-HOSTS-26',
-    name: 'Under-G Landlords & Agents Drive',
+    name: 'Under-G Agents Drive',
     targetAudience: 'LANDLORD',
     channel: 'ON_CAMPUS',
     headline: 'List Your Lodge to 35,000+ LAUTECH Students with Zero Agent Loss',

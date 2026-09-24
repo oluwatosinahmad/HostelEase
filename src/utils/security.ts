@@ -246,7 +246,7 @@ export interface FeeCalculationInput {
   feeModel: 'PERCENTAGE' | 'FIXED';
   percentageRate?: number;
   fixedAmount?: number;
-  payer: 'STUDENT' | 'LANDLORD' | 'SPLIT';
+  payer: 'STUDENT' | 'LANDLORD' | 'AGENT' | 'SPLIT';
   isActive: boolean;
 }
 
@@ -256,6 +256,7 @@ export interface VerifiedFeeBreakdown {
   platformFee: number;
   studentTotalAmount: number;
   landlordPayoutAmount: number;
+  agentPayoutAmount?: number;
   isTampered: boolean;
 }
 
@@ -284,7 +285,7 @@ export function recalculateVerifiedFees(
 
   if (input.payer === 'STUDENT') {
     studentFee = rawFee;
-  } else if (input.payer === 'LANDLORD') {
+  } else if (input.payer === 'LANDLORD' || (input.payer as string) === 'AGENT') {
     landlordFee = rawFee;
   } else if (input.payer === 'SPLIT') {
     studentFee = Math.round(rawFee / 2);
@@ -302,6 +303,7 @@ export function recalculateVerifiedFees(
     platformFee: rawFee,
     studentTotalAmount: studentTotal,
     landlordPayoutAmount: landlordPayout,
+    agentPayoutAmount: landlordPayout,
     isTampered,
   };
 }
@@ -321,7 +323,7 @@ export function maskNubanAccount(accountNumber: string): string {
 }
 
 /**
- * Masks student/landlord email addresses (e.g. "oluwaseun@gmail.com" -> "o••••••n@gmail.com")
+ * Masks student/agent email addresses (e.g. "oluwaseun@gmail.com" -> "o••••••n@gmail.com")
  */
 export function maskEmailAddress(email: string): string {
   const parts = email.split('@');

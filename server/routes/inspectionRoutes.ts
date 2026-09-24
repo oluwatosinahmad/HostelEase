@@ -149,7 +149,7 @@ router.post('/properties/:propertyId', authenticate, (req: AuthenticatedRequest,
     sendNotification(
       req.user.id,
       'Inspection Request Submitted',
-      `Your ${inspectionType.toLowerCase()} inspection request for ${property.title} on ${preferredDate} at ${preferredTime} was submitted to the landlord.`,
+      `Your ${inspectionType.toLowerCase()} inspection request for ${property.title} on ${preferredDate} at ${preferredTime} was submitted to the agent.`,
       'INSPECTION_SUBMITTED',
       `/student/inspections`
     );
@@ -329,7 +329,7 @@ router.patch('/:id/accept', authenticate, (req: AuthenticatedRequest, res: Respo
           provider_response = COALESCE(?, provider_response),
           updated_at = datetime('now')
       WHERE id = ?
-    `).run(virtualUrl, message || 'Inspection slot confirmed by landlord', id);
+    `).run(virtualUrl, message || 'Inspection slot confirmed by agent', id);
 
     logStatusTransition(id, req.user.id, req.user.role, inspection.status, 'CONFIRMED', message || 'Accepted');
 

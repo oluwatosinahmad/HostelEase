@@ -59,7 +59,7 @@ import { ProviderFinancialDashboard } from './ProviderFinancialDashboard';
 import { ProviderOnboardingModal } from './ProviderOnboardingModal';
 import { ProviderMoveInManager } from './ProviderMoveInManager';
 import { ListingQualityCard } from './ListingQualityCard';
-import { AILandlordAssistantModal } from './AILandlordAssistantModal';
+import { AIAgentAssistantModal } from './AILandlordAssistantModal';
 import { formatNaira, formatDistance, getAvailabilityBadgeInfo, getPropertyTypeLabel } from '../utils/formatters';
 
 interface ProviderPortalProps {
@@ -76,9 +76,10 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
   const { user, loginDemo } = useAuth();
   const docInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const landlordPhotoInputRef = useRef<HTMLInputElement>(null);
+  const agentPhotoInputRef = useRef<HTMLInputElement>(null);
+  const landlordPhotoInputRef = agentPhotoInputRef;
 
-  const handleLandlordPhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAgentPhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -88,7 +89,7 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
     }
 
     try {
-      onShowToast('Uploading landlord profile picture...', 'info');
+      onShowToast('Uploading agent profile picture...', 'info');
       const uploadRes = await api.upload.single(file);
       const rawUrl = uploadRes?.file?.url;
       if (!rawUrl) {
@@ -114,10 +115,10 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
 
         window.dispatchEvent(new CustomEvent('hostel_ease_user_updated', { detail: updatedUser }));
         window.dispatchEvent(new CustomEvent('hostel_ease_user_profile_updated', { detail: updatedUser }));
-        onShowToast('Landlord profile photo updated & synchronized! 📸', 'success');
+        onShowToast('Agent profile photo updated & synchronized! 📸', 'success');
       }
     } catch (err: any) {
-      console.error('Landlord photo upload failed:', err);
+      console.error('Agent photo upload failed:', err);
       onShowToast(err.message || 'Failed to upload photo', 'error');
     }
   };
@@ -232,7 +233,7 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
   const [aiDrawerOpen, setAiDrawerOpen] = useState(false);
   const [aiPrompt, setAiPrompt] = useState('');
   const [aiMessages, setAiMessages] = useState<Array<{ sender: 'USER' | 'AI'; text: string; structuredData?: any }>>([
-    { sender: 'AI', text: 'Hello! I am your Hostel Ease Landlord Assistant. Ask me about your room availability, pending bookings, upcoming inspections, or ask me to optimize your hostel descriptions.' }
+    { sender: 'AI', text: 'Hello! I am your Hostel Ease Agent Assistant. Ask me about your room availability, pending bookings, upcoming inspections, or ask me to optimize your hostel descriptions.' }
   ]);
   const [aiLoading, setAiLoading] = useState(false);
 
@@ -707,7 +708,7 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
               </div>
               <div className="min-w-0">
                 <div className="flex items-center gap-1.5">
-                  <span className="text-xs font-black text-gray-900 dark:text-white leading-none truncate">Landlord Workspace</span>
+                  <span className="text-xs font-black text-gray-900 dark:text-white leading-none truncate">Agent Workspace</span>
                   <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border shrink-0 ${
                     stats?.verificationStatus === 'APPROVED' 
                       ? 'bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300' 
@@ -762,7 +763,7 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
               <button
                 onClick={() => setAiDrawerOpen(true)}
                 className="p-1.5 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white rounded-xl shadow-xs transition-all cursor-pointer"
-                title="Ask Landlord AI"
+                title="Ask Agent AI"
               >
                 <Sparkles className="w-4 h-4 text-amber-300 animate-spin-slow" />
               </button>
@@ -801,10 +802,10 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
                   Hostel <span className="text-emerald-700">Ease</span>
                 </span>
                 <span className="text-[10px] sm:text-[11px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200 shrink-0">
-                  Landlord Portal
+                  Agent Portal
                 </span>
                 <span className="text-[10px] sm:text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 shrink-0">
-                  {stats?.verificationStatus === 'APPROVED' ? 'Verified Landlord' : 'Verification Pending'}
+                  {stats?.verificationStatus === 'APPROVED' ? 'Verified Agent' : 'Verification Pending'}
                 </span>
               </div>
 
@@ -835,7 +836,7 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
               <button
                 onClick={() => setNotifDropdownOpen(!notifDropdownOpen)}
                 className="relative p-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl transition-colors cursor-pointer flex items-center justify-center"
-                title="Landlord In-App Notifications"
+                title="Agent In-App Notifications"
               >
                 <Bell className="w-4 h-4 text-gray-700" />
                 {unreadNotifsCount > 0 && (
@@ -1025,7 +1026,7 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
         </div>
       </header>
 
-      {/* MOBILE LANDLORD HORIZONTAL SUB-NAV BAR (Instant access to all 13 features on phones) */}
+      {/* MOBILE AGENT HORIZONTAL SUB-NAV BAR (Instant access to all 13 features on phones) */}
       <div className="lg:hidden bg-white/95 dark:bg-slate-900/95 backdrop-blur border-b border-gray-200 dark:border-slate-800 px-3 py-2 overflow-x-auto scrollbar-none shadow-xs flex items-center gap-1.5">
         {[
           { id: 'dashboard', label: 'Overview', icon: Building2 },
@@ -1089,7 +1090,7 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
             >
               <div className="flex items-center gap-2.5">
                 <Sparkles className="w-4 h-4 text-emerald-600 group-hover:scale-110 transition-transform" />
-                <span>Ask Landlord AI</span>
+                <span>Ask Agent AI</span>
               </div>
               <span className="text-[10px] bg-emerald-600 text-white px-1.5 py-0.2 rounded-full font-black">
                 PRO
@@ -1453,7 +1454,7 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
                 <div className="text-center py-8 space-y-2">
                   <MessageSquare className="w-8 h-8 text-gray-300 mx-auto" />
                   <p className="text-xs font-semibold text-gray-500">No student messages received yet.</p>
-                  <p className="text-[11px] text-gray-400 max-w-sm mx-auto">When students click "Chat Landlord" on your verified hostel listings, inquiries will instantly appear here with live notifications.</p>
+                  <p className="text-[11px] text-gray-400 max-w-sm mx-auto">When students click "Chat Agent" on your verified hostel listings, inquiries will instantly appear here with live notifications.</p>
                 </div>
               ) : (
                 <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -1543,7 +1544,7 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
             <div className="bg-gradient-to-r from-emerald-50 via-teal-50 to-blue-50 border border-emerald-200 p-4 rounded-2xl flex items-start gap-3 shadow-xs">
               <ShieldCheck className="w-5 h-5 text-emerald-700 shrink-0 mt-0.5" />
               <div className="text-xs space-y-1">
-                <h4 className="font-bold text-emerald-950">Hostel Ease Verification Standard for LAUTECH Landlords</h4>
+                <h4 className="font-bold text-emerald-950">Hostel Ease Verification Standard for LAUTECH Agents</h4>
                 <p className="text-gray-600 leading-relaxed">
                   Every new hostel submission is audited by the Hostel Ease admin team to verify borehole water, electricity sub-meters, gate security, and genuine room photos before going live on public student search.
                 </p>
@@ -2189,7 +2190,7 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
                             >
                               <div className="flex items-center gap-1.5 mb-1 px-1">
                                 <span className="text-[10px] font-bold text-gray-500">
-                                  {isMe ? 'You (Landlord)' : activeDetail.conversation.student?.name || 'Student'}
+                                  {isMe ? 'You (Agent)' : activeDetail.conversation.student?.name || 'Student'}
                                 </span>
                                 <span className="text-[9px] text-gray-400">
                                   {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -2329,43 +2330,43 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
               {/* Business Profile & Documents */}
               <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-xs space-y-5">
                 <div>
-                  <h3 className="text-base font-bold text-gray-900">Landlord Profile & Verification</h3>
+                  <h3 className="text-base font-bold text-gray-900">Agent Profile & Verification</h3>
                   <p className="text-xs text-gray-500">Upload official identity documents and profile photo for your verified badge</p>
                 </div>
 
-                {/* Landlord Profile Photo Box */}
+                {/* Agent Profile Photo Box */}
                 <div className="flex items-center gap-4 p-4 bg-emerald-50/60 rounded-xl border border-emerald-100">
                   <div className="relative flex-shrink-0">
                     <img
                       src={user?.avatarUrl || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=300&q=80'}
-                      alt="Landlord Profile"
+                      alt="Agent Profile"
                       className="w-14 h-14 rounded-full object-cover ring-2 ring-emerald-600 shadow-md"
                     />
                     <button
                       type="button"
-                      onClick={() => landlordPhotoInputRef.current?.click()}
+                      onClick={() => agentPhotoInputRef.current?.click()}
                       className="absolute -bottom-1 -right-1 p-1 bg-emerald-700 hover:bg-emerald-800 text-white rounded-full shadow-md transition-transform hover:scale-110 cursor-pointer"
-                      title="Upload Landlord Photo"
+                      title="Upload Agent Photo"
                     >
                       <Camera className="w-3 h-3" />
                     </button>
                   </div>
 
                   <div className="space-y-1 flex-1 min-w-0">
-                    <h4 className="text-xs font-bold text-gray-900">Landlord Display Picture</h4>
+                    <h4 className="text-xs font-bold text-gray-900">Agent Display Picture</h4>
                     <p className="text-[11px] text-gray-500">Visible to students across hostel cards, direct chats & vouchers</p>
                     
                     <input
-                      ref={landlordPhotoInputRef}
+                      ref={agentPhotoInputRef}
                       type="file"
                       accept="image/*"
-                      onChange={handleLandlordPhotoUpload}
+                      onChange={handleAgentPhotoUpload}
                       className="hidden"
                     />
 
                     <button
                       type="button"
-                      onClick={() => landlordPhotoInputRef.current?.click()}
+                      onClick={() => agentPhotoInputRef.current?.click()}
                       className="px-3 py-1.5 bg-emerald-800 hover:bg-emerald-900 text-white text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 cursor-pointer hover:scale-105"
                     >
                       <Upload className="w-3 h-3" />
@@ -2376,7 +2377,7 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
 
                 <div className="p-4 bg-gray-50 rounded-xl space-y-2 text-xs">
                   <div className="flex justify-between">
-                    <span className="text-gray-500">Landlord Name:</span>
+                    <span className="text-gray-500">Agent Name:</span>
                     <span className="font-bold text-gray-900">{user?.fullName}</span>
                   </div>
                   <div className="flex justify-between">
@@ -2634,8 +2635,8 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
         </div>
       )}
 
-      {/* 4. AI LANDLORD ASSISTANT MODAL (Full parity with Student AI modal) */}
-      <AILandlordAssistantModal
+      {/* 4. AI AGENT ASSISTANT MODAL (Full parity with Student AI modal) */}
+      <AIAgentAssistantModal
         isOpen={aiDrawerOpen}
         onClose={() => setAiDrawerOpen(false)}
         selectedPropertyId={selectedPropertyId}

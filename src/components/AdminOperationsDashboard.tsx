@@ -222,7 +222,7 @@ export const AdminOperationsDashboard: React.FC<AdminOperationsDashboardProps> =
             <Calendar className="w-4 h-4 text-emerald-600" />
           </div>
           <p className="text-2xl font-black text-slate-900">{data?.todayBookingsCount || 3}</p>
-          <span className="text-[10px] text-amber-600 font-semibold">{data?.pendingBookingsCount || 2} awaiting landlord confirm</span>
+          <span className="text-[10px] text-amber-600 font-semibold">{data?.pendingBookingsCount || 2} awaiting agent confirm</span>
         </div>
 
         <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-1">
@@ -624,7 +624,7 @@ export const AdminOperationsDashboard: React.FC<AdminOperationsDashboardProps> =
             <table className="w-full text-left text-xs">
               <thead>
                 <tr className="border-b border-slate-200 text-slate-400 font-semibold">
-                  <th className="pb-2.5">Provider / Landlord</th>
+                  <th className="pb-2.5">Provider / Agent</th>
                   <th className="pb-2.5">Hostel & Room</th>
                   <th className="pb-2.5">Gross Rent</th>
                   <th className="pb-2.5">Platform Fee</th>
@@ -784,7 +784,7 @@ export const AdminOperationsDashboard: React.FC<AdminOperationsDashboardProps> =
                     <span>⚡ Power Issues: <strong>{cp.electricityIssues}</strong></span>
                     <span>💧 Water Issues: <strong>{cp.waterIssues}</strong></span>
                     <span>🛡️ Security Issues: <strong>{cp.securityIssues}</strong></span>
-                    <span>Landlord: <strong className="text-slate-900">{cp.providerName}</strong></span>
+                    <span>Agent: <strong className="text-slate-900">{cp.providerName}</strong></span>
                   </div>
                 </div>
 
@@ -889,7 +889,7 @@ export const AdminOperationsDashboard: React.FC<AdminOperationsDashboardProps> =
                 id: 'nl-3',
                 channel: 'WHATSAPP',
                 eventType: 'MOVE_IN_CHECKLIST',
-                recipient: '+2348034567890 (Landlord)',
+                recipient: '+2348034567890 (Agent)',
                 message: 'Student completed digital move-in audit checklist.',
                 status: 'DELIVERED',
                 time: '2 hours ago'

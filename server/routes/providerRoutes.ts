@@ -227,8 +227,8 @@ router.get(
     if (profile.verification_status !== 'APPROVED') {
       actionRequired.push({
         type: 'VERIFICATION_REQUIRED',
-        title: 'Landlord Identity Verification Pending',
-        description: 'Upload valid ID (NIN / Driver License) to earn the Verified Landlord badge and boost student trust.',
+        title: 'Agent Identity Verification Pending',
+        description: 'Upload valid ID (NIN / Driver License) to earn the Verified Agent badge and boost student trust.',
         ctaLabel: 'Submit Verification',
         ctaTab: 'verification'
       });
@@ -615,7 +615,7 @@ router.post(
       const existingUser = db.prepare('SELECT id FROM users WHERE id = ?').get(providerId);
       if (!existingUser) {
         const userEmail = req.user?.email || `provider-${providerId}@hostelease.ng`;
-        const userFullName = req.user?.fullName || 'Verified Landlord';
+        const userFullName = req.user?.fullName || 'Verified Agent';
         db.prepare(`
           INSERT OR IGNORE INTO users (id, email, password_hash, full_name, role, phone, is_active)
           VALUES (?, ?, 'HASH_PLACEHOLDER', ?, 'PROVIDER', '08012345678', 1)
@@ -1757,7 +1757,7 @@ router.post(
       const totalCap = rooms.reduce((sum, r) => sum + r.quantity_total, 0);
 
       if (isPidgin) {
-        reply = `Oga Landlord, you get **${totalAvail} bedspace wey still dey free** out of **${totalCap} total space** for your lodges around LAUTECH.\n\n`;
+        reply = `Oga Agent, you get **${totalAvail} bedspace wey still dey free** out of **${totalCap} total space** for your lodges around LAUTECH.\n\n`;
         rooms.forEach(r => {
           reply += `• **${r.property_title}** (${r.room_name}): ${r.quantity_available} free / ${r.quantity_total} total\n`;
         });
@@ -1883,7 +1883,7 @@ router.post(
         zoneStats.forEach(z => {
           reply += `• **${z.area_name}**: Average ₦${Math.round(z.avg_rent || 0).toLocaleString()} / yr (Range: ₦${Math.round(z.min_rent || 0).toLocaleString()} – ₦${Math.round(z.max_rent || 0).toLocaleString()})\n`;
         });
-        reply += `\n**Advice for Landlord:** If your lodge get constant water and solar/generator, students dey willing pay between ₦200k – ₦250k for Under G and Adenike!`;
+        reply += `\n**Advice for Agent:** If your lodge get constant water and solar/generator, students dey willing pay between ₦200k – ₦250k for Under G and Adenike!`;
       } else {
         reply = `Here is the current live rental benchmark across prime LAUTECH campus zones:\n\n`;
         zoneStats.forEach(z => {
@@ -1942,8 +1942,8 @@ router.post(
     // Default Fallback
     else {
       reply = isPidgin
-        ? `Hello Oga Landlord! 👋 I be your **Hostel Ease Landlord AI Assistant**.\n\nI fit help you check free bedspaces, manage student booking requests, view your inspection tours, compare hostel prices for Under G / Adenike, or rewrite your hostel description.\n\nWetin you go like make I check for you today?`
-        : `Hello! 👋 Welcome to **Hostel Ease Landlord AI Assistant** — your 24/7 LAUTECH property manager and occupancy advisor.\n\nI can help you monitor real-time bedspace availability, respond to pending student bookings, manage inspection appointments, compare LAUTECH rent benchmarks, and craft high-converting listing descriptions.\n\nHow can I assist your accommodation management today?`;
+        ? `Hello Oga Agent! 👋 I be your **Hostel Ease Agent AI Assistant**.\n\nI fit help you check free bedspaces, manage student booking requests, view your inspection tours, compare hostel prices for Under G / Adenike, or rewrite your hostel description.\n\nWetin you go like make I check for you today?`
+        : `Hello! 👋 Welcome to **Hostel Ease Agent AI Assistant** — your 24/7 LAUTECH property manager and occupancy advisor.\n\nI can help you monitor real-time bedspace availability, respond to pending student bookings, manage inspection appointments, compare LAUTECH rent benchmarks, and craft high-converting listing descriptions.\n\nHow can I assist your accommodation management today?`;
 
       structuredData = {
         type: 'CLARIFYING_QUESTION',

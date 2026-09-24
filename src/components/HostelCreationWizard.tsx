@@ -873,7 +873,7 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
               )}
             </div>
 
-            {/* Dedicated Landlord Quick Distance Component */}
+            {/* Dedicated Agent Quick Distance Component */}
             <div className="bg-slate-50 dark:bg-slate-800/80 p-4 sm:p-5 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-3">
               <div className="flex items-center justify-between">
                 <label className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase flex items-center gap-1.5">

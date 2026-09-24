@@ -312,7 +312,7 @@ export class AIAssistantService {
           icon: 'Droplets',
           checks: [
             'Turn on bathroom and kitchen taps to verify water pressure and cleanliness.',
-            'Ask the landlord/caretaker: Is water pumped via electric borehole, well, or tanker?',
+            'Ask the agent/caretaker: Is water pumped via electric borehole, well, or tanker?',
             'Confirm the water pumping schedule and whether there is an overhead reservoir storage tank.',
             'Inspect bathroom drainage to confirm water drains freely without pooling.'
           ]
@@ -411,7 +411,7 @@ export class AIAssistantService {
       return { 
         success: true, 
         inspectionId, 
-        message: `Inspection request submitted for ${prop.title} on ${preferredDate} at ${preferredTime}. The landlord has been notified.` 
+        message: `Inspection request submitted for ${prop.title} on ${preferredDate} at ${preferredTime}. The agent has been notified.` 
       };
     }
 
@@ -451,7 +451,7 @@ export class AIAssistantService {
           `• **⚡ Reliable Power & Solar Inverter Lodges:** 24/7 lighting and laptop charging for serious scholars during tests and exams.\n\n` +
           `• **💧 Guaranteed Water Supply:** Deep motorized boreholes with dual backup overhead storage tanks.\n\n` +
           `• **💰 100% Upfront Pricing:** Transparent breakdown of Rent, Caution Deposits, and Service Charges with **zero hidden agent fees**.\n\n` +
-          `• **📅 Free Landlord Inspections & Escrow Protection:** Schedule free walkthroughs and pay securely through Escrow until keys are received in hand.\n\n` +
+          `• **📅 Free Agent Inspections & Escrow Protection:** Schedule free walkthroughs and pay securely through Escrow until keys are received in hand.\n\n` +
           `What type of accommodation or location around LAUTECH are you looking for?`,
         structuredData: {
           type: 'HOSTEL_LIST',
@@ -662,8 +662,8 @@ export class AIAssistantService {
       return {
         message: `### 🏠 How to Secure Your LAUTECH Accommodation in 4 Easy Steps\n\n` +
           `1. **Explore & Shortlist:** Browse 100% verified lodges with genuine photos, exact distances from campus gates, and total upfront prices.\n` +
-          `2. **Book a Free Inspection:** Schedule a physical walkthrough or live video tour directly with the verified landlord.\n` +
-          `3. **Chat & Confirm Bedspace:** Message the landlord directly to ask questions or reserve your preferred room.\n` +
+          `2. **Book a Free Inspection:** Schedule a physical walkthrough or live video tour directly with the verified agent.\n` +
+          `3. **Chat & Confirm Bedspace:** Message the agent directly to ask questions or reserve your preferred room.\n` +
           `4. **Pay via Escrow:** Complete payment securely through Hostel Ease Escrow. Funds are only disbursed once you confirm satisfactory key handover.`,
         structuredData: {
           type: 'HOSTEL_LIST',
@@ -727,7 +727,7 @@ export class AIAssistantService {
             actionPrompt: {
               actionType: 'REQUEST_INSPECTION',
               title: `Schedule Inspection for ${details.title}`,
-              description: `Would you like to book a free physical or virtual tour with the landlord?`,
+              description: `Would you like to book a free physical or virtual tour with the agent?`,
               payload: {
                 propertyId: details.id,
                 inspectionType: 'PHYSICAL',

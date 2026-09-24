@@ -14,7 +14,7 @@ interface ReportReviewModalProps {
     reviewSnippet: string;
     reporterName: string;
     reporterEmail: string;
-    reporterRole: 'student' | 'landlord' | 'admin';
+    reporterRole: 'student' | 'landlord' | 'agent' | 'admin';
     reason: ReviewReportReason;
     description: string;
   }) => void;

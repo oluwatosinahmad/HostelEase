@@ -11,7 +11,7 @@ interface BookingDisputeModalProps {
     bookingReference: string;
     propertyId: string;
     propertyTitle: string;
-    reporterRole: 'student' | 'landlord';
+    reporterRole: 'student' | 'landlord' | 'agent';
     reporterName: string;
     reporterEmail: string;
     reporterPhone?: string;
@@ -35,7 +35,7 @@ export const BookingDisputeModal: React.FC<BookingDisputeModalProps> = ({
 
   const disputeReasons: BookingDisputeReason[] = [
     'Property unavailable after booking',
-    'Landlord not responding',
+    'Agent not responding',
     'Incorrect property information',
     'Fee discrepancy',
     'Safety / condition concern',
@@ -49,14 +49,14 @@ export const BookingDisputeModal: React.FC<BookingDisputeModalProps> = ({
     const ref = `CN-DISP-${Math.floor(1000 + Math.random() * 9000)}`;
     setSubmittedRef(ref);
 
-    const isLandlord = currentUser?.role === 'landlord' || currentUser?.id === booking.landlordId;
+    const isAgent = currentUser?.role === 'landlord' || (currentUser?.role as string) === 'agent' || (currentUser?.role as string) === 'PROVIDER' || currentUser?.id === booking.landlordId;
 
     onSubmitDispute({
       bookingId: booking.id,
       bookingReference: booking.referenceNumber,
       propertyId: booking.propertyId,
       propertyTitle: booking.propertyTitle,
-      reporterRole: isLandlord ? 'landlord' : 'student',
+      reporterRole: isAgent ? 'agent' : 'student',
       reporterName: reporterName.trim() || 'Reporter',
       reporterEmail: reporterEmail.trim() || 'contact@lautech.edu.ng',
       reporterPhone: reporterPhone.trim() || undefined,
@@ -133,7 +133,7 @@ export const BookingDisputeModal: React.FC<BookingDisputeModalProps> = ({
               <span className="font-mono text-[10px] font-black text-brand-600">{booking.referenceNumber}</span>
             </div>
             <p className="font-extrabold text-slate-900">{booking.propertyTitle}</p>
-            <span className="text-[11px] text-slate-500 block">Host: {booking.landlordName}</span>
+            <span className="text-[11px] text-slate-500 block">Agent: {(booking as any).agentName || booking.landlordName}</span>
           </div>
 
           {/* Dispute Reason */}

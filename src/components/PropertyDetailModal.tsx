@@ -45,7 +45,7 @@ interface PropertyDetailModalProps {
   property: Property | null;
   reviews?: StudentReview[];
   currentUser?: UserProfile | null;
-  currentUserRole?: 'student' | 'landlord' | 'admin';
+  currentUserRole?: 'student' | 'landlord' | 'agent' | 'admin';
   currentUserId?: string;
   isSaved: boolean;
   isCompared: boolean;
@@ -54,7 +54,9 @@ interface PropertyDetailModalProps {
   onToggleCompare: (property: Property) => void;
   onOpenReportModal: (property: Property) => void;
   onOpenLandlordReportModal?: (landlord: Property['landlord']) => void;
+  onOpenAgentReportModal?: (agent: Property['landlord']) => void;
   onOpenLandlordProfile: (landlord: Property['landlord']) => void;
+  onOpenAgentProfile?: (agent: Property['landlord']) => void;
   onBookInspection: (property: Property) => void;
   onSendInquiry: (property: Property) => void;
   onOpenSafetyGuide?: () => void;
@@ -376,7 +378,7 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
             )}
           </div>
 
-          {/* Landlord Profile Card Trigger */}
+          {/* Agent Profile Card Trigger */}
           <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div 
               onClick={() => onOpenLandlordProfile(property.landlord)}
@@ -393,7 +395,11 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
                   </span>
                 </div>
                 <p className="text-xs text-slate-500 capitalize">
-                  {property.authorizationType ? property.authorizationType.replace('_', ' ') : property.landlord.type.replace('_', ' ')} • Active Listings: {property.landlord.activeListings}
+                  {property.authorizationType
+                    ? property.authorizationType.replace(/_/g, ' ')
+                    : (property.landlord.type === 'verified_landlord' || property.landlord.type === 'verified_agent')
+                    ? 'Verified Agent'
+                    : property.landlord.type.replace(/_/g, ' ')} • Active Listings: {property.landlord.activeListings}
                 </p>
               </div>
             </div>
@@ -862,13 +868,13 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
                         </div>
                       )}
 
-                      {/* Landlord Response Callout */}
+                      {/* Agent Response Callout */}
                       {rev.landlordResponse && (
                         <div className="mt-3 p-3.5 bg-slate-50 border-l-4 border-brand-600 rounded-r-2xl space-y-1 text-xs">
                           <div className="flex items-center justify-between text-slate-900">
                             <span className="font-bold flex items-center gap-1.5 text-brand-900">
                               <Building2 className="w-3.5 h-3.5 text-brand-600" />
-                              <span>Landlord Response ({rev.landlordResponse.landlordName})</span>
+                              <span>Agent Response ({rev.landlordResponse.landlordName})</span>
                             </span>
                             <span className="text-[10px] text-slate-400">
                               {new Date(rev.landlordResponse.createdAt).toLocaleDateString('en-GB', {

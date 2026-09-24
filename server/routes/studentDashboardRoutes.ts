@@ -367,7 +367,7 @@ router.get('/dashboard', authenticate, (req: AuthenticatedRequest, res: Response
         message: `Your visit to ${upcomingInspectionDb.property_title} is set for ${upcomingInspectionDb.preferred_time} (${upcomingInspectionDb.inspection_type} tour).`,
         inspectionId: upcomingInspectionDb.id,
         propertyId: upcomingInspectionDb.property_id,
-        actionLabel: 'View Details & Landlord Contact',
+        actionLabel: 'View Details & Agent Contact',
         actionType: 'VIEW_INSPECTION'
       };
       actionQueue.push(urgentAction);
@@ -377,7 +377,7 @@ router.get('/dashboard', authenticate, (req: AuthenticatedRequest, res: Response
         priority: 3,
         badge: 'AWAITING CONFIRMATION',
         badgeColor: 'bg-amber-500 text-slate-950',
-        title: 'Reservation Sent to Landlord',
+        title: 'Reservation Sent to Agent',
         message: `Your booking for ${pendingBookings[0].property_title} is being reviewed by the property owner.`,
         bookingId: pendingBookings[0].id,
         actionLabel: 'Check Booking Status',
@@ -391,7 +391,7 @@ router.get('/dashboard', authenticate, (req: AuthenticatedRequest, res: Response
         badge: 'INSPECTION REQUESTED',
         badgeColor: 'bg-indigo-500 text-white',
         title: 'Inspection Awaiting Confirmation',
-        message: 'You have a pending physical/virtual tour request with the landlord.',
+        message: 'You have a pending physical/virtual tour request with the agent.',
         actionLabel: 'View Inspection Center',
         actionType: 'VIEW_INSPECTIONS'
       };
@@ -403,7 +403,7 @@ router.get('/dashboard', authenticate, (req: AuthenticatedRequest, res: Response
         badge: 'NEW MESSAGES',
         badgeColor: 'bg-teal-500 text-white',
         title: `${unreadMessagesCount} Unread Accommodation Message${unreadMessagesCount > 1 ? 's' : ''}`,
-        message: 'A landlord replied to your inquiry about lodge availability.',
+        message: 'An agent replied to your inquiry about lodge availability.',
         actionLabel: 'Open Messages',
         actionType: 'VIEW_MESSAGES'
       };

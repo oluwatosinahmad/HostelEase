@@ -231,10 +231,10 @@ async function runTests() {
     // Verify Audit Log was recorded
     const auditLog = db.prepare(`
       SELECT * FROM audit_logs 
-      WHERE actor_id = ? AND action = 'PERMANENT_DELETE_LANDLORD_ACCOUNT' AND entity_id = ?
+      WHERE actor_id = ? AND (action = 'PERMANENT_DELETE_AGENT_ACCOUNT' OR action = 'PERMANENT_DELETE_LANDLORD_ACCOUNT') AND entity_id = ?
       ORDER BY created_at DESC LIMIT 1
     `).get(ADMIN_ID, LANDLORD_ID) as any;
-    assert(auditLog !== undefined, 'Critical security audit log entry written for Landlord deletion');
+    assert(auditLog !== undefined, 'Critical security audit log entry written for Agent deletion');
 
     // Clean up temporary student
     db.prepare('DELETE FROM users WHERE id = ?').run(tempStudentId);

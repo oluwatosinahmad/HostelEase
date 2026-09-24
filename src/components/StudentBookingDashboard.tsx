@@ -172,7 +172,7 @@ export const StudentBookingDashboard: React.FC<StudentBookingDashboardProps> = (
             My Hostel Reservations
           </h1>
           <p className="text-xs sm:text-sm text-slate-300 max-w-xl">
-            Track your reserved rooms, check confirmation status from landlords, and manage move-in dates around LAUTECH.
+            Track your reserved rooms, check confirmation status from agents, and manage move-in dates around LAUTECH.
           </p>
         </div>
 
@@ -299,10 +299,10 @@ export const StudentBookingDashboard: React.FC<StudentBookingDashboardProps> = (
                 </div>
               </div>
 
-              {/* Landlord Contact & Actions */}
+              {/* Agent Contact & Actions */}
               <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
                 <div className="min-w-0 text-xs">
-                  <span className="text-[10px] text-slate-400 font-bold">Landlord</span>
+                  <span className="text-[10px] text-slate-400 font-bold">Agent</span>
                   <p className="font-bold text-slate-800 truncate">🏡 {b.providerName}</p>
                 </div>
 
@@ -311,7 +311,7 @@ export const StudentBookingDashboard: React.FC<StudentBookingDashboardProps> = (
                     <button
                       onClick={() => onOpenConversation(b.propertyId)}
                       className="p-2 text-slate-600 hover:text-emerald-700 bg-slate-100 hover:bg-emerald-50 rounded-xl transition-colors"
-                      title="Chat with Landlord"
+                      title="Chat with Agent"
                     >
                       <MessageSquare className="w-4 h-4" />
                     </button>

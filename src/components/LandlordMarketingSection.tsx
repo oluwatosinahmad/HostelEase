@@ -72,7 +72,7 @@ export const LandlordMarketingSection: React.FC<LandlordMarketingSectionProps> =
           <div className="max-w-3xl space-y-4 relative z-10">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-500/20 border border-brand-400/30 text-brand-300 text-xs font-bold">
               <Building2 className="w-3.5 h-3.5" />
-              <span>Ogbomoso Landlords & Property Owners Portal</span>
+              <span>Ogbomoso Agents & Property Owners Portal</span>
             </div>
 
             <h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-white leading-tight">
@@ -163,3 +163,5 @@ export const LandlordMarketingSection: React.FC<LandlordMarketingSectionProps> =
     </div>
   );
 };
+
+export const AgentMarketingSection = LandlordMarketingSection;

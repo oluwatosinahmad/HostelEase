@@ -301,7 +301,7 @@ export const AdminRevenueModule: React.FC<AdminRevenueModuleProps> = ({
             </div>
             <h1 className="text-xl sm:text-2xl font-black tracking-tight">💰 Finance & Revenue Management</h1>
             <p className="text-xs text-slate-400 mt-0.5">
-              Live multi-stream income tracking, landlord subscriptions, commissions, and automated disbursements for LAUTECH.
+              Live multi-stream income tracking, agent subscriptions, commissions, and automated disbursements for LAUTECH.
             </p>
           </div>
 
@@ -457,7 +457,7 @@ export const AdminRevenueModule: React.FC<AdminRevenueModuleProps> = ({
             <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-1">
               <p className="text-[10px] font-bold text-slate-400 uppercase">Provider Revenue</p>
               <p className="text-xl font-black text-cyan-400">{formatNaira(overviewData?.dashboardSummary?.providerRevenue ?? 0)}</p>
-              <p className="text-[10px] text-slate-500">Net landlord payouts</p>
+              <p className="text-[10px] text-slate-500">Net agent payouts</p>
             </div>
 
             <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-1">
@@ -665,7 +665,7 @@ export const AdminRevenueModule: React.FC<AdminRevenueModuleProps> = ({
                   <tr>
                     <th className="p-3">Booking Ref</th>
                     <th className="p-3">Hostel & Area</th>
-                    <th className="p-3">Landlord</th>
+                    <th className="p-3">Agent</th>
                     <th className="p-3">Student</th>
                     <th className="p-3">Total Rent</th>
                     <th className="p-3">Commission Earned</th>
@@ -705,7 +705,7 @@ export const AdminRevenueModule: React.FC<AdminRevenueModuleProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {subscriptionPlans.map((plan) => (
               <div key={plan.id} className="bg-slate-950 border border-slate-800 rounded-2xl p-5 space-y-3 relative">
-                {plan.id === 'PRO_LANDLORD' && (
+                {(plan.id === 'PRO_LANDLORD' || plan.id === 'PRO_AGENT') && (
                   <span className="absolute top-4 right-4 text-[9px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-2 py-0.5 rounded-full">
                     Most Popular
                   </span>
@@ -741,7 +741,7 @@ export const AdminRevenueModule: React.FC<AdminRevenueModuleProps> = ({
               <table className="w-full text-left text-xs text-slate-300">
                 <thead className="bg-slate-900/60 text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-800">
                   <tr>
-                    <th className="p-3">Landlord / Provider</th>
+                    <th className="p-3">Agent / Provider</th>
                     <th className="p-3">Business Name</th>
                     <th className="p-3">Active Plan</th>
                     <th className="p-3">Fee Paid</th>
@@ -757,7 +757,7 @@ export const AdminRevenueModule: React.FC<AdminRevenueModuleProps> = ({
                         <p className="font-bold text-white">{s.providerName}</p>
                         <p className="text-[10px] text-slate-400">{s.providerEmail}</p>
                       </td>
-                      <td className="p-3 text-slate-300">{s.businessName || 'Independent Landlord'}</td>
+                      <td className="p-3 text-slate-300">{s.businessName || 'Independent Agent'}</td>
                       <td className="p-3">
                         <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-950 text-blue-300 border border-blue-800">
                           {s.plan_name}
@@ -847,7 +847,7 @@ export const AdminRevenueModule: React.FC<AdminRevenueModuleProps> = ({
             <div className="p-4 bg-slate-900 border-b border-slate-800 flex justify-between items-center">
               <div>
                 <h3 className="font-bold text-white text-sm">Add-On Digital & Verification Services</h3>
-                <p className="text-xs text-slate-400">Professional photography, 3D tours, and verification inspections ordered by landlords</p>
+                <p className="text-xs text-slate-400">Professional photography, 3D tours, and verification inspections ordered by agents</p>
               </div>
               <span className="text-xs text-purple-400 font-bold">{providerServices.length} orders</span>
             </div>
@@ -856,7 +856,7 @@ export const AdminRevenueModule: React.FC<AdminRevenueModuleProps> = ({
                 <thead className="bg-slate-900/60 text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-800">
                   <tr>
                     <th className="p-3">Service Name</th>
-                    <th className="p-3">Landlord</th>
+                    <th className="p-3">Agent</th>
                     <th className="p-3">Hostel</th>
                     <th className="p-3">Fee Paid</th>
                     <th className="p-3">Assigned Verification Officer</th>
@@ -901,7 +901,7 @@ export const AdminRevenueModule: React.FC<AdminRevenueModuleProps> = ({
           <div className="bg-slate-950 border border-slate-800 rounded-xl overflow-hidden">
             <div className="p-4 bg-slate-900 border-b border-slate-800 flex justify-between items-center">
               <div>
-                <h3 className="font-bold text-white text-sm">Landlord Payout Requests & Disbursements</h3>
+                <h3 className="font-bold text-white text-sm">Agent Payout Requests & Disbursements</h3>
                 <p className="text-xs text-slate-400">Review verified student move-ins and disburse funds to Nigerian bank accounts</p>
               </div>
               <span className="text-xs text-amber-400 font-bold">
@@ -913,7 +913,7 @@ export const AdminRevenueModule: React.FC<AdminRevenueModuleProps> = ({
                 <thead className="bg-slate-900/60 text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-800">
                   <tr>
                     <th className="p-3">Payout Ref</th>
-                    <th className="p-3">Landlord</th>
+                    <th className="p-3">Agent</th>
                     <th className="p-3">Bank Destination</th>
                     <th className="p-3">Amount</th>
                     <th className="p-3">Status</th>
@@ -1034,7 +1034,7 @@ export const AdminRevenueModule: React.FC<AdminRevenueModuleProps> = ({
             <div className="p-4 bg-slate-900 border-b border-slate-800 flex justify-between items-center">
               <div>
                 <h3 className="font-bold text-white text-sm">Official Platform Invoices & Receipts</h3>
-                <p className="text-xs text-slate-400">Generated tax-compliant invoices for student fees and landlord services</p>
+                <p className="text-xs text-slate-400">Generated tax-compliant invoices for student fees and agent services</p>
               </div>
               <span className="text-xs text-emerald-400 font-bold">{invoices.length} invoices</span>
             </div>
@@ -1209,7 +1209,7 @@ export const AdminRevenueModule: React.FC<AdminRevenueModuleProps> = ({
             <div>
               <h3 className="text-lg font-bold text-white">Platform Revenue & Pricing Configuration</h3>
               <p className="text-xs text-slate-400 mt-0.5">
-                Configure commission rates, landlord subscription tiers, featured promotion prices, and payout thresholds.
+                Configure commission rates, agent subscription tiers, featured promotion prices, and payout thresholds.
               </p>
             </div>
 
@@ -1333,9 +1333,9 @@ export const AdminRevenueModule: React.FC<AdminRevenueModuleProps> = ({
       {showPayoutActionModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
           <div className="bg-slate-950 border border-slate-800 rounded-2xl w-full max-w-md p-6 space-y-4 text-white shadow-2xl">
-            <h3 className="text-lg font-bold">Review Landlord Payout</h3>
+            <h3 className="text-lg font-bold">Review Agent Payout</h3>
             <div className="bg-slate-900 border border-slate-800 rounded-xl p-3.5 space-y-1.5 text-xs">
-              <p><span className="text-slate-400">Landlord:</span> <strong className="text-white">{showPayoutActionModal.providerName}</strong></p>
+              <p><span className="text-slate-400">Agent:</span> <strong className="text-white">{showPayoutActionModal.providerName}</strong></p>
               <p><span className="text-slate-400">Bank Destination:</span> <strong className="text-white">{showPayoutActionModal.bank_name} ({showPayoutActionModal.account_number})</strong></p>
               <p><span className="text-slate-400">Account Name:</span> <strong className="text-emerald-400">{showPayoutActionModal.account_name}</strong></p>
               <p className="text-base font-black text-white pt-1">Amount: {formatNaira(showPayoutActionModal.amount)}</p>

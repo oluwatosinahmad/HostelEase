@@ -42,7 +42,7 @@ export const ProviderPublicProfileModal: React.FC<ProviderPublicProfileModalProp
           setLoading(false);
         })
         .catch(err => {
-          setError(err.message || 'Failed to load landlord profile');
+          setError(err.message || 'Failed to load agent profile');
           setLoading(false);
         });
     }
@@ -63,7 +63,7 @@ export const ProviderPublicProfileModal: React.FC<ProviderPublicProfileModalProp
           </button>
 
           {loading ? (
-            <div className="py-8 text-center text-xs text-slate-400">Loading landlord profile...</div>
+            <div className="py-8 text-center text-xs text-slate-400">Loading agent profile...</div>
           ) : profile ? (
             <div className="flex items-start gap-4">
               <img
@@ -97,7 +97,7 @@ export const ProviderPublicProfileModal: React.FC<ProviderPublicProfileModalProp
           <div className="p-6 space-y-6">
             {/* Bio */}
             <div className="space-y-1.5">
-              <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider">About This Landlord</h3>
+              <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider">About This Agent</h3>
               <p className="text-xs text-slate-600 leading-relaxed bg-slate-50 p-3.5 rounded-2xl border border-slate-100">
                 {profile.bio}
               </p>

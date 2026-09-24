@@ -98,7 +98,7 @@ export const ViewingFeedbackModal: React.FC<ViewingFeedbackModalProps> = ({
             <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 text-xs">
               <span className="font-bold text-slate-900 block">{viewing.propertyTitle}</span>
               <span className="text-slate-500 text-[11px]">
-                Host: {viewing.landlordName} • {viewing.platform}
+                Agent: {(viewing as any).agentName || viewing.landlordName} • {viewing.platform}
               </span>
             </div>
 

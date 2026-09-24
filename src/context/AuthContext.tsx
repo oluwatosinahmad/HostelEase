@@ -18,6 +18,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isStudent: boolean;
   isProvider: boolean;
+  isAgent: boolean;
   isAdmin: boolean;
 }
 
@@ -140,7 +141,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const loginDemo = async (role: UserRole): Promise<User> => {
     if (role === 'STUDENT') {
       return await login('student@lautech.edu.ng', 'Student123!', 'STUDENT');
-    } else if (role === 'PROVIDER') {
+    } else if (role === 'PROVIDER' || (role as string) === 'AGENT' || (role as string) === 'LANDLORD') {
       return await login('landlord@hostelease.ng', 'Provider123!', 'PROVIDER');
     } else {
       throw new Error('Administrator access requires manual authentication with username and password.');
@@ -173,6 +174,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setImpersonatorAdmin(null);
   };
 
+  const isAgentOrProvider = user?.role === 'PROVIDER' || (user as any)?.role === 'LANDLORD' || (user as any)?.role === 'AGENT' || (user as any)?.role === 'agent';
+
   const value: AuthContextType = {
     user,
     token,
@@ -188,7 +191,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     impersonatorAdmin,
     isAuthenticated: Boolean(user),
     isStudent: user?.role === 'STUDENT',
-    isProvider: user?.role === 'PROVIDER' || (user as any)?.role === 'LANDLORD',
+    isProvider: isAgentOrProvider,
+    isAgent: isAgentOrProvider,
     isAdmin: user?.role === 'ADMIN' || (user as any)?.role === 'SUPER_ADMIN' || (user as any)?.role === 'OWNER' || (user as any)?.isSuperAdmin === true
   };
 

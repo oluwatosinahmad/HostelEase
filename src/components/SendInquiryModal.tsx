@@ -173,7 +173,7 @@ export const SendInquiryModal: React.FC<SendInquiryModalProps> = ({
                 className="w-full py-3 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white rounded-xl font-bold text-xs sm:text-sm shadow-md transition-all flex items-center justify-center space-x-2"
               >
                 <Send className="w-4 h-4" />
-                <span>Send Inquiry to Landlord</span>
+                <span>Send Inquiry to Agent</span>
               </button>
             </div>
           </form>

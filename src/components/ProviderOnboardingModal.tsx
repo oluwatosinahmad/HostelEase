@@ -114,10 +114,10 @@ export const ProviderOnboardingModal: React.FC<ProviderOnboardingModalProps> = (
             </div>
             <div>
               <span className="text-xs font-semibold uppercase tracking-wider text-emerald-200 bg-emerald-900/40 px-2.5 py-0.5 rounded-full">
-                Landlord & Manager Setup
+                Agent & Manager Setup
               </span>
               <h2 className="text-xl font-bold text-white mt-1">
-                {step === 1 && '1. Landlord & Business Profile'}
+                {step === 1 && '1. Agent & Business Profile'}
                 {step === 2 && '2. Location & Contact Details'}
                 {step === 3 && '3. Identity Verification Details'}
               </h2>
@@ -201,7 +201,7 @@ export const ProviderOnboardingModal: React.FC<ProviderOnboardingModalProps> = (
                 </label>
                 <div className="grid grid-cols-2 gap-2">
                   {[
-                    { id: 'DIRECT_OWNER', label: 'Hostel Owner (Landlord)' },
+                    { id: 'DIRECT_OWNER', label: 'Hostel Owner (Agent)' },
                     { id: 'CARETAKER', label: 'Resident Caretaker' }
                   ].map(item => (
                     <button
@@ -274,7 +274,7 @@ export const ProviderOnboardingModal: React.FC<ProviderOnboardingModalProps> = (
           {step === 3 && (
             <div className="space-y-4">
               <p className="text-sm text-gray-600">
-                Choose the official government identity document you will use for your verified landlord badge.
+                Choose the official government identity document you will use for your verified agent badge.
               </p>
 
               <div>

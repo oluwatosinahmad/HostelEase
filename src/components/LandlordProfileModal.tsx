@@ -37,7 +37,7 @@ export const LandlordProfileModal: React.FC<LandlordProfileModalProps> = ({
                 <h3 className="font-extrabold text-base text-white">{landlord.name}</h3>
               </div>
               <p className="text-xs text-slate-300 capitalize mt-0.5">
-                {landlord.type.replace('_', ' ')}
+                {(landlord.type === 'verified_landlord' || landlord.type === 'verified_agent') ? 'Verified Agent' : landlord.type.replace(/_/g, ' ')}
               </p>
               {landlord.isIdVerified && (
                 <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-400 bg-emerald-950/80 border border-emerald-500/30 px-2 py-0.5 rounded-full mt-1.5">
@@ -101,7 +101,7 @@ export const LandlordProfileModal: React.FC<LandlordProfileModalProps> = ({
               className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold rounded-xl text-xs flex items-center justify-center gap-2 transition-colors"
             >
               <Phone className="w-4 h-4 text-slate-600" />
-              <span>Call Landlord ({landlord.phone})</span>
+              <span>Call Agent ({landlord.phone})</span>
             </a>
           </div>
         </div>
@@ -110,3 +110,5 @@ export const LandlordProfileModal: React.FC<LandlordProfileModalProps> = ({
     </div>
   );
 };
+
+export const AgentProfileModal = LandlordProfileModal;

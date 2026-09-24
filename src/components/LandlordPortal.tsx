@@ -494,7 +494,7 @@ export const LandlordPortal: React.FC<LandlordPortalProps> = ({
           <div>
             <div className="flex items-center gap-2 mb-1">
               <span className="text-xs font-bold uppercase tracking-wider text-brand-700 bg-brand-50 px-2.5 py-0.5 rounded-full">
-                Verified Landlord Portal
+                Verified Agent Portal
               </span>
               <span className="text-xs text-slate-400">•</span>
               <span className="text-xs font-semibold text-slate-600">
@@ -1621,7 +1621,7 @@ export const LandlordPortal: React.FC<LandlordPortalProps> = ({
                   </div>
                   <h3 className="text-xl sm:text-2xl font-black">Student Feedback & Reviews</h3>
                   <p className="text-xs text-slate-300 mt-1 max-w-xl">
-                    View verified student ratings across your listings in Under-G, Adenike, and Stadium Road. Professional landlord replies build trust with prospective tenants!
+                    View verified student ratings across your listings in Under-G, Adenike, and Stadium Road. Professional agent replies build trust with prospective tenants!
                   </p>
                 </div>
 
@@ -1738,7 +1738,7 @@ export const LandlordPortal: React.FC<LandlordPortalProps> = ({
                           <span className="font-extrabold text-slate-800">★ {rev.valueForMoney || rev.rating}</span>
                         </div>
                         <div className="bg-slate-50 p-2 rounded-xl border border-slate-200 col-span-2 sm:col-span-1">
-                          <span className="text-[10px] text-slate-500 block font-semibold">Landlord</span>
+                          <span className="text-[10px] text-slate-500 block font-semibold">Agent</span>
                           <span className="font-extrabold text-slate-800">★ {rev.landlordExperience || rev.rating}</span>
                         </div>
                       </div>
@@ -2486,3 +2486,5 @@ export const LandlordPortal: React.FC<LandlordPortalProps> = ({
     </div>
   );
 };
+
+export const AgentPortal = LandlordPortal;

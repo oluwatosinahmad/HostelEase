@@ -68,7 +68,7 @@ export const InspectionModal: React.FC<InspectionModalProps> = ({
           <div className="space-y-1">
             <h3 className="font-black text-base sm:text-lg text-slate-900 dark:text-white">Account Required to Inspect</h3>
             <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-              You must create an account or sign in first before scheduling an in-person or live video tour with verified landlords.
+              You must create an account or sign in first before scheduling an in-person or live video tour with verified agents.
             </p>
           </div>
           <div className="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 rounded-2xl text-[11px] text-amber-800 dark:text-amber-300 font-medium text-left space-y-1">
@@ -78,7 +78,7 @@ export const InspectionModal: React.FC<InspectionModalProps> = ({
             </div>
             <ul className="list-disc pl-4 space-y-0.5 text-[10px]">
               <li>Confirms your LAUTECH student identity</li>
-              <li>Allows the landlord to send your gate passcode</li>
+              <li>Allows the agent to send your gate passcode</li>
               <li>Saves your scheduled inspection in your student hub</li>
             </ul>
           </div>
@@ -156,7 +156,7 @@ export const InspectionModal: React.FC<InspectionModalProps> = ({
     if (cleanPhone.startsWith('0')) {
       cleanPhone = '234' + cleanPhone.substring(1);
     }
-    const msg = encodeURIComponent(`Hello ${property.provider?.name || 'Landlord'}, I have scheduled a ${inspectionType.toLowerCase()} inspection for "${property.title}" on ${preferredDate} at ${preferredTime}. Looking forward to confirming!`);
+    const msg = encodeURIComponent(`Hello ${property.provider?.name || 'Agent'}, I have scheduled a ${inspectionType.toLowerCase()} inspection for "${property.title}" on ${preferredDate} at ${preferredTime}. Looking forward to confirming!`);
     window.open(`https://wa.me/${cleanPhone}?text=${msg}`, '_blank');
   };
 
@@ -192,7 +192,7 @@ export const InspectionModal: React.FC<InspectionModalProps> = ({
             <div className="space-y-1">
               <h4 className="font-black text-lg text-slate-900">Inspection Scheduled!</h4>
               <p className="text-xs text-slate-600 max-w-sm mx-auto">
-                {confirmedDetails?.message || 'Your inspection request has been submitted to the landlord.'}
+                {confirmedDetails?.message || 'Your inspection request has been submitted to the agent.'}
               </p>
             </div>
 
@@ -211,8 +211,8 @@ export const InspectionModal: React.FC<InspectionModalProps> = ({
                 <span className="font-bold text-slate-900">📅 {preferredDate} • {preferredTime}</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-slate-500 font-medium">Hostel Landlord:</span>
-                <span className="font-bold text-slate-900">{property.provider?.name || 'Verified Landlord'}</span>
+                <span className="text-slate-500 font-medium">Hostel Agent:</span>
+                <span className="font-bold text-slate-900">{property.provider?.name || 'Verified Agent'}</span>
               </div>
             </div>
 
@@ -224,7 +224,7 @@ export const InspectionModal: React.FC<InspectionModalProps> = ({
                 className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs rounded-xl shadow-lg shadow-emerald-600/25 flex items-center justify-center gap-2 transition-all cursor-pointer"
               >
                 <MessageCircle className="w-4 h-4" />
-                <span>Message Landlord on WhatsApp to Confirm</span>
+                <span>Message Agent on WhatsApp to Confirm</span>
               </button>
 
               {onOpenConversation && (
@@ -237,7 +237,7 @@ export const InspectionModal: React.FC<InspectionModalProps> = ({
                   className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                 >
                   <MessageSquare className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>Open In-App Direct Chat with Landlord</span>
+                  <span>Open In-App Direct Chat with Agent</span>
                 </button>
               )}
 
@@ -294,7 +294,7 @@ export const InspectionModal: React.FC<InspectionModalProps> = ({
                   <Video className="w-5 h-5 text-purple-600 mt-0.5 flex-shrink-0" />
                   <div>
                     <p className="text-xs font-black">Virtual Tour</p>
-                    <p className="text-[10px] text-slate-500 font-medium">Live video walkthrough with Landlord</p>
+                    <p className="text-[10px] text-slate-500 font-medium">Live video walkthrough with Agent</p>
                   </div>
                 </button>
               </div>
@@ -366,7 +366,7 @@ export const InspectionModal: React.FC<InspectionModalProps> = ({
                 required
               />
               <p className="text-[10px] text-slate-400 mt-1">
-                The landlord will reach out on this number to confirm inspection logistics.
+                The agent will reach out on this number to confirm inspection logistics.
               </p>
             </div>
 
@@ -388,7 +388,7 @@ export const InspectionModal: React.FC<InspectionModalProps> = ({
             <div className="p-3 bg-emerald-50 rounded-2xl border border-emerald-200 text-xs text-emerald-950 flex items-start gap-2">
               <ShieldCheck className="w-4 h-4 text-emerald-700 mt-0.5 flex-shrink-0" />
               <p className="text-[11px] leading-relaxed">
-                <strong>Anti-Scam Protection:</strong> Never transfer caution fee or rent before completing a verified inspection with the landlord.
+                <strong>Anti-Scam Protection:</strong> Never transfer caution fee or rent before completing a verified inspection with the agent.
               </p>
             </div>
 
