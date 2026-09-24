@@ -2707,10 +2707,49 @@ export default async (req: Request): Promise<Response> => {
 
     } else if (isStudent) {
       // STUDENT DELETION: Landlord properties remain completely untouched and safe!
-      // Remove student bookings
+      // 1. Identify student bookings and release any occupied bedspaces / restore capacity on landlord properties
       const bksToDelete = memoryBookings.filter(b => b.studentId === tId || (tEmail && b.studentEmail?.toLowerCase() === tEmail));
       deletedBookingsCount = bksToDelete.length;
       const bkIdSet = new Set(bksToDelete.map(b => b.id));
+
+      for (const bk of bksToDelete) {
+        if (!bk.propertyId) continue;
+        const prop = memoryProperties.find(p => p.id === bk.propertyId);
+        if (prop) {
+          let propModified = false;
+          if (Array.isArray(prop.rooms)) {
+            for (const rm of prop.rooms) {
+              if (bk.roomId && rm.id !== bk.roomId) continue;
+              if (Array.isArray(rm.bedspaces)) {
+                for (const bs of rm.bedspaces) {
+                  if (!bk.bedspaceId || bs.id === bk.bedspaceId) {
+                    if (bs.is_occupied || bs.isOccupied) {
+                      bs.is_occupied = 0;
+                      bs.isOccupied = false;
+                      bs.status = 'AVAILABLE';
+                      propModified = true;
+                    }
+                  }
+                }
+              }
+              if (rm.occupied_count !== undefined) rm.occupied_count = Math.max(0, rm.occupied_count - 1);
+              if (rm.occupiedCount !== undefined) rm.occupiedCount = Math.max(0, rm.occupiedCount - 1);
+              if (rm.quantity_available !== undefined) rm.quantity_available = Math.min(rm.quantity_total || 1, rm.quantity_available + 1);
+              if (rm.quantityAvailable !== undefined) rm.quantityAvailable = Math.min(rm.quantityTotal || 1, rm.quantityAvailable + 1);
+              rm.status = 'AVAILABLE';
+              propModified = true;
+            }
+          }
+          if (prop.availabilityStatus === 'FULL') {
+            prop.availabilityStatus = 'AVAILABLE';
+            propModified = true;
+          }
+          if (propModified && propStore) {
+            try { await propStore.setJSON(prop.id, prop); } catch {}
+          }
+        }
+      }
+
       memoryBookings = memoryBookings.filter(b => !bkIdSet.has(b.id));
       if (bookingStore) {
         for (const bid of bkIdSet) {

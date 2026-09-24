@@ -271,6 +271,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
   const [isLoadingDeletionSummary, setIsLoadingDeletionSummary] = useState<boolean>(false);
   const [isDeletingUser, setIsDeletingUser] = useState<boolean>(false);
   const [deletionReason, setDeletionReason] = useState<string>('');
+  const [confirmDeletionChecked, setConfirmDeletionChecked] = useState<boolean>(false);
 
   // Load Main Admin Data with Progressive Multi-Phase Streaming
   const fetchAllAdminData = async () => {
@@ -414,6 +415,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
   // Permanent User Account Deletion Handlers
   const handleInitiateUserDeletion = async (targetUser: AdminUserItem) => {
     setUserToDelete(targetUser);
+    setConfirmDeletionChecked(false);
     setDeletionReason('');
     setDeletionSummary(null);
     setIsLoadingDeletionSummary(true);
@@ -433,6 +435,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
   const handleConfirmUserDeletion = async () => {
     if (!userToDelete) return;
     const deletedId = userToDelete.id;
+    const deletedRole = userToDelete.role;
     const deletedEmail = (userToDelete.email || '').toLowerCase().trim();
     setIsDeletingUser(true);
     try {
@@ -442,8 +445,13 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
         setUserToDelete(null);
         setDeletionSummary(null);
         setSelectedUserForDetails(null);
+        setConfirmDeletionChecked(false);
         // Immediately remove user from usersList state for instant UI update
         setUsersList(prev => prev.filter(u => u.id !== deletedId && (!deletedEmail || u.email?.toLowerCase().trim() !== deletedEmail)));
+        if (deletedRole === 'PROVIDER') {
+          setHostelsList(prev => prev.filter(h => (h as any).providerId !== deletedId && (h as any).provider?.id !== deletedId));
+          setProvidersList(prev => prev.filter(p => p.id !== deletedId && (p as any).userId !== deletedId));
+        }
         await fetchAllAdminData();
       } else {
         onShowToast(res.message || 'Deletion failed', 'error');
@@ -3221,7 +3229,9 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <h3 className="font-bold text-white text-base">Permanently Delete Account</h3>
+                    <h3 className="font-bold text-white text-base tracking-tight">
+                      {userToDelete.role === 'PROVIDER' ? 'PERMANENTLY DELETE LANDLORD?' : 'PERMANENTLY DELETE STUDENT?'}
+                    </h3>
                     <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${
                       userToDelete.role === 'PROVIDER' ? 'bg-cyan-950 text-cyan-300 border border-cyan-800' :
                       'bg-emerald-950 text-emerald-300 border border-emerald-800'
@@ -3239,6 +3249,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                   if (!isDeletingUser) {
                     setUserToDelete(null);
                     setDeletionSummary(null);
+                    setConfirmDeletionChecked(false);
                   }
                 }}
                 disabled={isDeletingUser}
@@ -3275,22 +3286,22 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
             {/* Role-Specific Warning Banner */}
             {userToDelete.role === 'PROVIDER' ? (
               <div className="bg-rose-950/30 border border-rose-900/80 rounded-xl p-3.5 space-y-1.5">
-                <div className="flex items-center gap-2 text-rose-400 font-bold text-xs">
+                <div className="flex items-center gap-2 text-rose-400 font-bold text-xs uppercase tracking-wider">
                   <AlertTriangle className="w-4 h-4 shrink-0" />
-                  <span>CRITICAL LANDLORD PURGE NOTICE</span>
+                  <span>PERMANENTLY DELETE LANDLORD?</span>
                 </div>
-                <p className="text-[11px] text-rose-300 leading-relaxed">
-                  Deleting this landlord will permanently remove all hostels owned by this landlord, including all rooms, bedspaces, uploaded media (photos/videos), tenant bookings, and inspection requests. No orphaned listings will remain.
+                <p className="text-[11px] text-rose-300 leading-relaxed font-medium">
+                  "This will permanently delete the landlord account and ALL landlord-owned properties, rooms, bedspaces, photos, videos, documents, and associated data. This action cannot be undone."
                 </p>
               </div>
             ) : (
               <div className="bg-amber-950/30 border border-amber-900/80 rounded-xl p-3.5 space-y-1.5">
-                <div className="flex items-center gap-2 text-amber-400 font-bold text-xs">
+                <div className="flex items-center gap-2 text-amber-400 font-bold text-xs uppercase tracking-wider">
                   <AlertTriangle className="w-4 h-4 shrink-0" />
-                  <span>STUDENT DATA CLEANUP NOTICE</span>
+                  <span>PERMANENTLY DELETE STUDENT?</span>
                 </div>
-                <p className="text-[11px] text-amber-300 leading-relaxed">
-                  Deleting this student will erase their account, booking records, inspection requests, saved hostels, and private messages. Landlord hostel listings will NOT be deleted or corrupted.
+                <p className="text-[11px] text-amber-300 leading-relaxed font-medium">
+                  "This will permanently delete this student's account and student-owned data. Any occupied bedspaces will be released and made available again. Landlord properties and their media will NOT be deleted."
                 </p>
               </div>
             )}
@@ -3382,6 +3393,29 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
               />
             </div>
 
+            {/* Explicit Confirmation Guard Checkbox */}
+            <label className="flex items-start gap-3 p-3.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 transition-colors cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={confirmDeletionChecked}
+                onChange={(e) => setConfirmDeletionChecked(e.target.checked)}
+                className="mt-0.5 rounded border-slate-700 text-rose-600 focus:ring-rose-500 w-4 h-4 cursor-pointer"
+                disabled={isDeletingUser}
+              />
+              <div className="space-y-0.5">
+                <span className="text-xs text-white font-bold block">
+                  {userToDelete.role === 'PROVIDER'
+                    ? 'Explicit Confirmation: Permanent Landlord & Property Purge'
+                    : 'Explicit Confirmation: Permanent Student Deletion & Bedspace Release'}
+                </span>
+                <span className="text-[11px] text-slate-400 block leading-tight">
+                  {userToDelete.role === 'PROVIDER'
+                    ? 'I explicitly confirm permanent removal of this landlord and ALL properties, rooms, bedspaces, photos, videos, documents, and records.'
+                    : 'I explicitly confirm permanent deletion of this student account. Any occupied bedspaces will be released and capacity restored.'}
+                </span>
+              </div>
+            </label>
+
             {/* Action Buttons */}
             <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-900">
               <button
@@ -3389,6 +3423,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                 onClick={() => {
                   setUserToDelete(null);
                   setDeletionSummary(null);
+                  setConfirmDeletionChecked(false);
                 }}
                 disabled={isDeletingUser}
                 className="px-4 py-2 bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300 text-xs font-bold rounded-xl transition-colors disabled:opacity-50 cursor-pointer"
@@ -3399,8 +3434,8 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
               <button
                 type="button"
                 onClick={handleConfirmUserDeletion}
-                disabled={isDeletingUser || isLoadingDeletionSummary}
-                className="px-5 py-2.5 bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold rounded-xl transition-all flex items-center gap-2 shadow-lg shadow-rose-950/60 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                disabled={isDeletingUser || isLoadingDeletionSummary || !confirmDeletionChecked}
+                className="px-5 py-2.5 bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold rounded-xl transition-all flex items-center gap-2 shadow-lg shadow-rose-950/60 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
               >
                 {isDeletingUser ? (
                   <>
@@ -3410,7 +3445,11 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                 ) : (
                   <>
                     <Trash2 className="w-3.5 h-3.5" />
-                    <span>Permanently Delete Account</span>
+                    <span>
+                      {userToDelete.role === 'PROVIDER'
+                        ? 'Permanently Delete Landlord Account'
+                        : 'Permanently Delete Student Account'}
+                    </span>
                   </>
                 )}
               </button>

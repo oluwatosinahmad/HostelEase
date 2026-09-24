@@ -48,36 +48,46 @@ const UPLOADS_DIR = path.resolve(process.cwd(), 'uploads');
 
 /**
  * Safely removes a file from local storage if it resides inside uploads/
+ * Correctly supports subdirectories (e.g. verification_documents/) while preventing traversal.
  */
 function removeLocalFileIfPresent(fileUrlOrPath?: string | null): boolean {
   if (!fileUrlOrPath || typeof fileUrlOrPath !== 'string') return false;
   try {
-    let filename = fileUrlOrPath;
-    if (filename.startsWith('/uploads/')) {
-      filename = filename.replace('/uploads/', '');
-    } else if (filename.startsWith('uploads/')) {
-      filename = filename.replace('uploads/', '');
-    } else if (filename.includes('/uploads/')) {
-      filename = filename.substring(filename.indexOf('/uploads/') + 9);
-    } else if (filename.includes('\\uploads\\')) {
-      filename = filename.substring(filename.indexOf('\\uploads\\') + 9);
+    let rel = fileUrlOrPath.trim();
+    if (rel.startsWith('/uploads/')) {
+      rel = rel.substring(9);
+    } else if (rel.startsWith('uploads/')) {
+      rel = rel.substring(8);
+    } else if (rel.includes('/uploads/')) {
+      rel = rel.substring(rel.indexOf('/uploads/') + 9);
+    } else if (rel.includes('\\uploads\\')) {
+      rel = rel.substring(rel.indexOf('\\uploads\\') + 9);
     } else {
       // Not a local uploads file (could be unsplash or external CDN)
       return false;
     }
 
-    // Sanitize filename to prevent directory traversal
-    const safeName = path.basename(filename);
-    const fullPath = path.join(UPLOADS_DIR, safeName);
-    if (fs.existsSync(fullPath)) {
-      fs.unlinkSync(fullPath);
-      return true;
+    // Strip leading slashes
+    rel = rel.replace(/^[\\\/]+/, '');
+
+    // Prevent directory traversal attacks
+    const normalizedRel = path.normalize(rel).replace(/^(\.\.[\/\\])+/, '');
+    const fullPath = path.resolve(UPLOADS_DIR, normalizedRel);
+
+    // Verify the target path stays strictly inside UPLOADS_DIR
+    if (fullPath.startsWith(UPLOADS_DIR) && fs.existsSync(fullPath)) {
+      const stat = fs.lstatSync(fullPath);
+      if (stat.isFile()) {
+        fs.unlinkSync(fullPath);
+        return true;
+      }
     }
   } catch (err) {
     console.warn(`[UserDeletionService] Could not remove file ${fileUrlOrPath}:`, err);
   }
   return false;
 }
+
 
 export const userDeletionService = {
   /**
@@ -230,10 +240,13 @@ export const userDeletionService = {
     // 2. Perform Atomic Database Cascade Deletion
     db.transaction(() => {
       if (isProvider) {
-        // Collect Landlord properties
-        const properties: { id: string }[] = db.prepare('SELECT id FROM properties WHERE provider_id = ?').all(userId) as any[];
+        // Collect Landlord properties (including cover_image for disk cleanup)
+        const properties: { id: string; cover_image?: string }[] = db.prepare('SELECT id, cover_image FROM properties WHERE provider_id = ?').all(userId) as any[];
         deletedHostelsCount = properties.length;
         const propIds = properties.map(p => p.id);
+        properties.forEach(p => {
+          if (p.cover_image) filesToDelete.push(p.cover_image);
+        });
 
         // Collect all booking IDs for this landlord or these properties
         let bookingIds: string[] = [];
@@ -262,7 +275,11 @@ export const userDeletionService = {
           });
         }
 
-        const docRows: { file_url: string }[] = db.prepare('SELECT file_url FROM verification_documents WHERE provider_id = ?').all(userId) as any[];
+        const docRows: { file_url: string }[] = db.prepare(
+          propIds.length > 0
+            ? `SELECT file_url FROM verification_documents WHERE provider_id = ? OR property_id IN (${propIds.map(() => '?').join(',')})`
+            : 'SELECT file_url FROM verification_documents WHERE provider_id = ?'
+        ).all(...(propIds.length > 0 ? [userId, ...propIds] : [userId])) as any[];
         docRows.forEach(d => {
           if (d.file_url) filesToDelete.push(d.file_url);
         });
@@ -427,18 +444,62 @@ export const userDeletionService = {
         db.prepare('DELETE FROM provider_profiles WHERE user_id = ?').run(userId);
 
       } else if (isStudent) {
-        // Collect Student's bookings
-        const bRows: { id: string; room_id?: string; bedspace_id?: string }[] = db.prepare(
-          'SELECT id, room_id, bedspace_id FROM bookings WHERE student_id = ?'
+        // Collect Student's bookings and associated rooms/bedspaces/properties
+        const bRows: { id: string; room_id?: string; bedspace_id?: string; property_id?: string }[] = db.prepare(
+          'SELECT id, room_id, bedspace_id, property_id FROM bookings WHERE student_id = ?'
         ).all(userId) as any[];
         deletedBookingsCount = bRows.length;
         const bIds = bRows.map(b => b.id);
-        const bedspaceIds = bRows.map(b => b.bedspace_id).filter(Boolean);
+        const bedspaceIds = bRows.map(b => b.bedspace_id).filter(Boolean) as string[];
+        const roomIds = bRows.map(b => b.room_id).filter(Boolean) as string[];
+        const propertyIds = bRows.map(b => b.property_id).filter(Boolean) as string[];
 
-        // Safely free up occupied bedspaces on landlord properties without altering the room or hostel
+        // Collect student-uploaded move-in photos and verification docs for disk cleanup
+        const studentPhotos: { photo_url: string }[] = db.prepare(
+          'SELECT photo_url FROM move_in_photos WHERE uploader_id = ?'
+        ).all(userId) as any[];
+        studentPhotos.forEach(p => { if (p.photo_url) filesToDelete.push(p.photo_url); });
+
+        const studentDocs: { file_url: string }[] = db.prepare(
+          'SELECT file_url FROM verification_documents WHERE provider_id = ?'
+        ).all(userId) as any[];
+        studentDocs.forEach(d => { if (d.file_url) filesToDelete.push(d.file_url); });
+
+        // 1. Release occupied bedspaces (set is_occupied = 0, status = 'AVAILABLE')
         if (bedspaceIds.length > 0) {
           const bsPlaceholders = bedspaceIds.map(() => '?').join(',');
-          db.prepare(`UPDATE bedspaces SET is_occupied = 0, status = 'AVAILABLE' WHERE id IN (${bsPlaceholders})`).run(...bedspaceIds);
+          db.prepare(`
+            UPDATE bedspaces 
+            SET is_occupied = 0, status = 'AVAILABLE', updated_at = datetime('now') 
+            WHERE id IN (${bsPlaceholders})
+          `).run(...bedspaceIds);
+        }
+
+        // 2. Restore room capacity and availability status for all affected rooms
+        const uniqueRoomIds = Array.from(new Set(roomIds));
+        for (const rId of uniqueRoomIds) {
+          db.prepare(`
+            UPDATE rooms
+            SET occupied_count = (SELECT COUNT(*) FROM bedspaces WHERE room_id = ? AND is_occupied = 1),
+                quantity_available = MAX(0, quantity_total - (SELECT COUNT(*) FROM bedspaces WHERE room_id = ? AND is_occupied = 1)),
+                status = CASE 
+                  WHEN (quantity_total - (SELECT COUNT(*) FROM bedspaces WHERE room_id = ? AND is_occupied = 1)) > 0 
+                  THEN 'AVAILABLE' 
+                  ELSE 'FULL' 
+                END
+            WHERE id = ?
+          `).run(rId, rId, rId, rId);
+        }
+
+        // 3. Restore property availability_status to AVAILABLE if it was previously FULL
+        const uniquePropIds = Array.from(new Set(propertyIds));
+        if (uniquePropIds.length > 0) {
+          const pPlaceholders = uniquePropIds.map(() => '?').join(',');
+          db.prepare(`
+            UPDATE properties
+            SET availability_status = 'AVAILABLE', updated_at = datetime('now')
+            WHERE id IN (${pPlaceholders}) AND availability_status = 'FULL'
+          `).run(...uniquePropIds);
         }
 
         if (bIds.length > 0) {
@@ -608,8 +669,9 @@ export const userDeletionService = {
     })();
 
     // 7. Post-transaction physical file cleanup
+    const uniqueFiles = Array.from(new Set(filesToDelete.filter(Boolean) as string[]));
     let physicallyDeletedFiles = 0;
-    for (const f of filesToDelete) {
+    for (const f of uniqueFiles) {
       if (removeLocalFileIfPresent(f)) {
         physicallyDeletedFiles++;
       }
