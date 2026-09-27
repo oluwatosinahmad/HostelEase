@@ -116,4 +116,118 @@ router.post(
   }
 );
 
+// 3. Chunked / Resumable Video Upload Endpoint
+const CHUNKS_DIR = path.resolve(UPLOADS_DIR, 'temp_chunks');
+if (!fs.existsSync(CHUNKS_DIR)) {
+  fs.mkdirSync(CHUNKS_DIR, { recursive: true });
+}
+
+router.post(
+  '/chunk',
+  authenticate,
+  requireRole('PROVIDER', 'ADMIN'),
+  upload.single('chunk'),
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { uploadId, chunkIndex, totalChunks, fileName, fileType, thumbnailDataUrl } = req.body;
+
+      if (!uploadId || chunkIndex === undefined || totalChunks === undefined) {
+        return res.status(400).json({ error: 'Missing chunk metadata (uploadId, chunkIndex, totalChunks)' });
+      }
+
+      if (!req.file) {
+        return res.status(400).json({ error: 'No chunk file provided' });
+      }
+
+      const safeUploadId = uploadId.replace(/[^a-zA-Z0-9_-]/g, '');
+      const cIndex = parseInt(chunkIndex, 10);
+      const tChunks = parseInt(totalChunks, 10);
+
+      const sessionDir = path.join(CHUNKS_DIR, safeUploadId);
+      if (!fs.existsSync(sessionDir)) {
+        fs.mkdirSync(sessionDir, { recursive: true });
+      }
+
+      // Move uploaded chunk to sessionDir/chunk_<cIndex>
+      const chunkDest = path.join(sessionDir, `chunk_${cIndex}`);
+      fs.copyFileSync(req.file.path, chunkDest);
+      try {
+        fs.unlinkSync(req.file.path);
+      } catch {}
+
+      // Check how many chunks exist
+      const existingChunks = fs.readdirSync(sessionDir).filter(f => f.startsWith('chunk_'));
+
+      if (existingChunks.length >= tChunks) {
+        // All chunks received, assemble file
+        const ext = path.extname(fileName || 'video.mp4').toLowerCase() || '.mp4';
+        const finalFilename = `${crypto.randomUUID()}${ext}`;
+        const finalFilePath = path.join(UPLOADS_DIR, finalFilename);
+
+        const writeStream = fs.createWriteStream(finalFilePath);
+        for (let i = 0; i < tChunks; i++) {
+          const partPath = path.join(sessionDir, `chunk_${i}`);
+          if (fs.existsSync(partPath)) {
+            const data = fs.readFileSync(partPath);
+            writeStream.write(data);
+          }
+        }
+        writeStream.end();
+
+        await new Promise((resolve, reject) => {
+          writeStream.on('finish', resolve);
+          writeStream.on('error', reject);
+        });
+
+        const stats = fs.statSync(finalFilePath);
+
+        // Handle thumbnail if provided
+        let thumbnailUrl: string | null = null;
+        if (thumbnailDataUrl && typeof thumbnailDataUrl === 'string' && thumbnailDataUrl.includes('base64,')) {
+          try {
+            const base64Data = thumbnailDataUrl.split('base64,')[1];
+            const thumbFilename = `thumb_${finalFilename.replace(/\.[^/.]+$/, "")}.jpg`;
+            const thumbFilePath = path.join(UPLOADS_DIR, thumbFilename);
+            fs.writeFileSync(thumbFilePath, Buffer.from(base64Data, 'base64'));
+            thumbnailUrl = `/uploads/${thumbFilename}`;
+          } catch (e) {
+            console.warn('Failed to save thumbnail data:', e);
+          }
+        }
+
+        // Clean up temporary session directory
+        try {
+          fs.rmSync(sessionDir, { recursive: true, force: true });
+        } catch (e) {
+          console.warn('Failed to remove temp chunk session directory:', e);
+        }
+
+        return res.status(201).json({
+          completed: true,
+          file: {
+            url: `/uploads/${finalFilename}`,
+            filename: finalFilename,
+            originalName: fileName || finalFilename,
+            mimeType: fileType || 'video/mp4',
+            mediaType: 'VIDEO',
+            size: stats.size,
+            thumbnailUrl
+          }
+        });
+      }
+
+      // Incomplete upload, return progress
+      return res.status(200).json({
+        completed: false,
+        chunkIndex: cIndex,
+        receivedChunks: existingChunks.length,
+        totalChunks: tChunks
+      });
+    } catch (err: any) {
+      console.error('Error handling chunk upload:', err);
+      return res.status(500).json({ error: err.message || 'Chunk upload failed' });
+    }
+  }
+);
+
 export default router;

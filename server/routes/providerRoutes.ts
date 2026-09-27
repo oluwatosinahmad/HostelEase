@@ -93,6 +93,16 @@ router.get(
     const providerId = req.user!.id;
     const { propertyId } = req.query;
 
+    if (propertyId && propertyId !== 'all') {
+      const prop = db.prepare('SELECT provider_id FROM properties WHERE id = ?').get(propertyId) as any;
+      if (!prop) {
+        return res.status(404).json({ error: 'Hostel listing not found' });
+      }
+      if (req.user!.role !== 'ADMIN' && prop.provider_id !== providerId) {
+        return res.status(403).json({ error: 'Unauthorized to view dashboard for this hostel' });
+      }
+    }
+
     const propertyFilter = propertyId && propertyId !== 'all' ? 'AND p.id = ?' : '';
     const propertyParams = propertyId && propertyId !== 'all' ? [providerId, propertyId] : [providerId];
 
@@ -1032,6 +1042,69 @@ router.put(
 }
 );
 
+router.delete(
+  '/properties/:id',
+  authenticate,
+  requireRole('PROVIDER', 'ADMIN'),
+  (req: AuthenticatedRequest, res: Response) => {
+    const { id } = req.params;
+    const providerId = req.user!.id;
+
+    const prop = db.prepare('SELECT * FROM properties WHERE id = ?').get(id) as any;
+    if (!prop) {
+      return res.status(404).json({ error: 'Hostel listing not found' });
+    }
+
+    if (req.user!.role !== 'ADMIN' && prop.provider_id !== providerId) {
+      return res.status(403).json({ error: 'Unauthorized to delete this hostel' });
+    }
+
+    // Check if there are active or confirmed bookings
+    const activeBooking = db.prepare(`
+      SELECT id FROM bookings WHERE property_id = ? AND status IN ('PENDING', 'CONFIRMED')
+    `).get(id);
+
+    if (activeBooking) {
+      return res.status(400).json({ error: 'Cannot delete hostel listing with active or confirmed bookings.' });
+    }
+
+    try {
+      db.transaction(() => {
+        // Cascade delete child entities
+        db.prepare('DELETE FROM bedspaces WHERE room_id IN (SELECT id FROM rooms WHERE property_id = ?)').run(id);
+        db.prepare('DELETE FROM rooms WHERE property_id = ?').run(id);
+        db.prepare('DELETE FROM property_media WHERE property_id = ?').run(id);
+        db.prepare('DELETE FROM property_amenities WHERE property_id = ?').run(id);
+        db.prepare('DELETE FROM property_rules WHERE property_id = ?').run(id);
+        db.prepare('DELETE FROM prices WHERE property_id = ?').run(id);
+        db.prepare('DELETE FROM price_history WHERE property_id = ?').run(id);
+        db.prepare('DELETE FROM saved_properties WHERE property_id = ?').run(id);
+        db.prepare('DELETE FROM inspection_requests WHERE property_id = ?').run(id);
+        db.prepare('DELETE FROM reviews WHERE property_id = ?').run(id);
+        db.prepare('DELETE FROM provider_team_roles WHERE property_id = ?').run(id);
+        db.prepare('DELETE FROM recently_viewed_hostels WHERE property_id = ?').run(id);
+        db.prepare('DELETE FROM properties WHERE id = ?').run(id);
+
+        // Audit Log
+        db.prepare(`
+          INSERT INTO audit_logs (id, actor_id, actor_role, action, entity_type, entity_id, details)
+          VALUES (?, ?, 'PROVIDER', 'DELETE_HOSTEL', 'PROPERTY', ?, ?)
+        `).run(
+          crypto.randomUUID(),
+          providerId,
+          id,
+          JSON.stringify({ title: prop.title })
+        );
+      })();
+
+      return res.json({ message: 'Hostel listing deleted successfully' });
+    } catch (err: any) {
+      console.error('Failed to delete property listing:', err);
+      return res.status(500).json({ error: 'Failed to delete hostel listing' });
+    }
+  }
+);
+
 // GET /api/provider/properties/:id/price-history
 router.get(
   '/properties/:id/price-history',
@@ -1113,6 +1186,17 @@ router.get(
   requireRole('PROVIDER', 'ADMIN'),
   (req: AuthenticatedRequest, res: Response) => {
     const { id } = req.params;
+    const providerId = req.user!.id;
+
+    const prop = db.prepare('SELECT * FROM properties WHERE id = ?').get(id) as any;
+    if (!prop) {
+      return res.status(404).json({ error: 'Hostel listing not found' });
+    }
+
+    if (req.user!.role !== 'ADMIN' && prop.provider_id !== providerId) {
+      return res.status(403).json({ error: 'Unauthorized to view rooms for this hostel' });
+    }
+
     const rooms = db.prepare('SELECT * FROM rooms WHERE property_id = ?').all(id) as any[];
 
     const roomsWithBedspaces = rooms.map(room => {
@@ -1368,6 +1452,16 @@ router.get(
   (req: AuthenticatedRequest, res: Response) => {
     const providerId = req.user!.id;
     const { propertyId } = req.query;
+
+    if (propertyId && propertyId !== 'all') {
+      const prop = db.prepare('SELECT provider_id FROM properties WHERE id = ?').get(propertyId) as any;
+      if (!prop) {
+        return res.status(404).json({ error: 'Hostel listing not found' });
+      }
+      if (req.user!.role !== 'ADMIN' && prop.provider_id !== providerId) {
+        return res.status(403).json({ error: 'Unauthorized to view calendar for this hostel' });
+      }
+    }
 
     const propFilter = propertyId && propertyId !== 'all' ? 'AND p.id = ?' : '';
     const propParams = propertyId && propertyId !== 'all' ? [providerId, propertyId] : [providerId];

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Building2 } from 'lucide-react';
+import { getMediaUrl } from '../services/api';
 
 interface OptimizedImageProps extends React.ImgHTMLAttributes<HTMLImageElement> {
   src: string;
@@ -20,7 +21,7 @@ export const OptimizedImage: React.FC<OptimizedImageProps> = ({
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState(false);
 
-  // Format Unsplash images with optimal sizing and compression
+  // Format Unsplash images and local uploaded images with optimal sizing and compression
   const getOptimizedUrl = (url: string) => {
     if (!url) return '';
     if (url.includes('images.unsplash.com')) {
@@ -29,7 +30,7 @@ export const OptimizedImage: React.FC<OptimizedImageProps> = ({
       const quality = thumbnail ? 65 : 75;
       return `${baseUrl}?auto=format&fit=crop&w=${width}&q=${quality}`;
     }
-    return url;
+    return getMediaUrl(url);
   };
 
   const optimizedSrc = getOptimizedUrl(src);

@@ -218,7 +218,6 @@ export function getLocalProperties(providerId?: string, providerEmail?: string):
   if (!providerId || providerId === 'all') return all;
 
   const cleanEmail = (providerEmail || '').toLowerCase().trim();
-  const isDefaultProvider = providerId === 'usr-provider-default' || cleanEmail === 'landlord@hostelease.ng' || cleanEmail === 'provider@hostelease.ng';
 
   const matches = all.filter(p => {
     const pEmail = ((p as any).providerEmail || (p.provider as any)?.email || '').toLowerCase().trim();
@@ -227,33 +226,12 @@ export function getLocalProperties(providerId?: string, providerEmail?: string):
     // Match by email if provided
     if (cleanEmail && pEmail && pEmail === cleanEmail) return true;
     // Match by provider ID
-    if (pId && pId === providerId) return true;
-    // Match default demo landlord
-    if (isDefaultProvider && (p.isDemo || !pId || pId === 'usr-provider-default')) return true;
+    if (providerId && pId && pId === providerId) return true;
 
     return false;
   });
 
-  if (matches.length > 0) return matches;
-
-  // Only the official demo landlord gets demo hostels fallback
-  if (isDefaultProvider) {
-    return all.slice(0, 4).map(p => ({
-      ...p,
-      providerId: 'usr-provider-default',
-      providerEmail: 'landlord@hostelease.ng',
-      provider: {
-        id: 'usr-provider-default',
-        name: 'Verified Agent',
-        email: 'landlord@hostelease.ng',
-        phone: '08012345678',
-        role: 'PROVIDER'
-      }
-    }));
-  }
-
-  // Real landlords start with empty list []
-  return [];
+  return matches;
 }
 
 export function saveLocalProperty(prop: Property) {
@@ -3234,7 +3212,7 @@ export const api = {
         }
       }
 
-      return { properties: combined.length > 0 ? combined : DEFAULT_PROPERTIES.slice(0, 4) };
+      return { properties: combined };
     },
 
     async checkDuplicate(title: string, areaId: string, address?: string): Promise<{ isDuplicate: boolean; message?: string }> {
@@ -5074,6 +5052,105 @@ export const api = {
       return {
         message: 'Files uploaded successfully',
         files: localFiles
+      };
+    },
+
+    async chunkedVideo(
+      file: File,
+      onProgress?: (percent: number) => void,
+      thumbnailDataUrl?: string
+    ): Promise<{
+      url: string;
+      filename: string;
+      originalName: string;
+      mimeType: string;
+      mediaType: 'VIDEO';
+      size: number;
+      thumbnailUrl?: string | null;
+    }> {
+      const CHUNK_SIZE = 2 * 1024 * 1024; // 2MB chunk size
+      const totalChunks = Math.max(1, Math.ceil(file.size / CHUNK_SIZE));
+      const uploadId = `upload_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+      const token = localStorage.getItem('hostel_ease_token');
+
+      try {
+        let lastResult: any = null;
+
+        for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
+          const start = chunkIndex * CHUNK_SIZE;
+          const end = Math.min(file.size, start + CHUNK_SIZE);
+          const chunkBlob = file.slice(start, end);
+
+          const formData = new FormData();
+          formData.append('chunk', chunkBlob, `part_${chunkIndex}`);
+          formData.append('uploadId', uploadId);
+          formData.append('chunkIndex', chunkIndex.toString());
+          formData.append('totalChunks', totalChunks.toString());
+          formData.append('fileName', file.name);
+          formData.append('fileType', file.type || 'video/mp4');
+          if (thumbnailDataUrl && chunkIndex === totalChunks - 1) {
+            formData.append('thumbnailDataUrl', thumbnailDataUrl);
+          }
+
+          // Retry up to 3 times per chunk
+          let res: Response | null = null;
+          let attempts = 0;
+          while (attempts < 3) {
+            try {
+              res = await fetch(`${API_BASE}/upload/chunk`, {
+                method: 'POST',
+                headers: token ? { Authorization: `Bearer ${token}` } : {},
+                body: formData
+              });
+              if (res.ok) break;
+            } catch (netErr) {
+              console.warn(`Chunk ${chunkIndex + 1}/${totalChunks} upload attempt ${attempts + 1} failed:`, netErr);
+            }
+            attempts++;
+            if (attempts < 3) {
+              await new Promise(r => setTimeout(r, 600 * attempts));
+            }
+          }
+
+          if (res && res.ok) {
+            const data = await res.json();
+            lastResult = data;
+            const progress = Math.round(((chunkIndex + 1) / totalChunks) * 100);
+            if (onProgress) onProgress(progress);
+          } else {
+            throw new Error(`Failed to upload chunk ${chunkIndex + 1}/${totalChunks}`);
+          }
+        }
+
+        if (lastResult && lastResult.file) {
+          return lastResult.file;
+        }
+      } catch (err) {
+        console.warn('Chunked video upload encountered error, falling back to standard upload:', err);
+      }
+
+      // Fallback: standard upload
+      try {
+        const fallbackRes = await this.single(file);
+        if (fallbackRes && fallbackRes.file) {
+          if (onProgress) onProgress(100);
+          return {
+            ...fallbackRes.file,
+            mediaType: 'VIDEO',
+            thumbnailUrl: thumbnailDataUrl || null
+          };
+        }
+      } catch {}
+
+      if (onProgress) onProgress(100);
+      return {
+        url: URL.createObjectURL(file),
+        filename: file.name,
+        originalName: file.name,
+        mimeType: file.type || 'video/mp4',
+        mediaType: 'VIDEO',
+        size: file.size,
+        thumbnailUrl: thumbnailDataUrl || null
       };
     }
   },

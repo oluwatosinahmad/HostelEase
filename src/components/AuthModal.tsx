@@ -203,13 +203,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         });
       }
 
-      setIsLoggingIn(true);
-      setTimeout(() => {
-        setIsLoggingIn(false);
-        setSubmitting(false);
-        if (onSuccess) onSuccess(authedUser);
-        onClose();
-      }, 700);
+      setSubmitting(false);
+      setIsLoggingIn(false);
+      if (onSuccess) onSuccess(authedUser);
+      onClose();
     } catch (err: any) {
       const errMsg = err.message || 'Authentication failed. Please check your credentials.';
       setError(errMsg);

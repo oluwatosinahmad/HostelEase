@@ -2528,6 +2528,16 @@ Your caution deposit is refundable upon move-out provided no unauthorized struct
         VALUES ('usr-admin-master', 'master.admin@hostelease.ng', '$2a$10$w6QjV7nN8d0Q1xN2q5mZ9uY3kP0xL4vM7nR9sT1wU2vW3xY4z5A6B', 'Platform Administrator', '+2348000000000', 'ADMIN', 1)
       `).run();
     } catch {}
+
+    // High-Performance Query & Agent Data Isolation Indexes
+    db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_properties_provider_created ON properties(provider_id, created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_bookings_provider_status ON bookings(provider_id, status);
+      CREATE INDEX IF NOT EXISTS idx_inspections_prop_status ON inspection_requests(property_id, status);
+      CREATE INDEX IF NOT EXISTS idx_prop_media_cover ON property_media(property_id, is_cover);
+      CREATE INDEX IF NOT EXISTS idx_conversations_provider_updated ON conversations(provider_id, updated_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_payments_provider ON payments(provider_id, status);
+    `);
   })();
 
   db.pragma('foreign_keys = ON');

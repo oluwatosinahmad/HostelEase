@@ -130,6 +130,7 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
   
   // Property Switcher: 'all' or propertyId
   const [selectedPropertyId, setSelectedPropertyId] = useState<string>('all');
+  const loadedTabs = useRef<Set<string>>(new Set());
 
   const DEFAULT_PROVIDER_DASHBOARD = {
     stats: {
@@ -311,7 +312,6 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
     if (!dashboardData || dashboardData.stats.totalHostels === 0) {
       setLoading(true);
     }
-    const isDemoLandlord = user?.email === 'landlord@hostelease.ng' || user?.email === 'provider@hostelease.ng' || user?.id === 'user-provider-default' || user?.id === 'usr-provider-default';
 
     // PRIMARY PHASE (High Priority): Load dashboard overview stats & listings first
     Promise.all([
@@ -321,18 +321,13 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
       }),
       api.provider.getMyListings().catch(err => {
         console.warn('api.provider.getMyListings fallback:', err);
-        return { properties: isDemoLandlord ? DEFAULT_PROPERTIES.slice(0, 4) : [] };
+        return { properties: [] };
       })
     ]).then(([dashRes, propsRes]) => {
-      let fetchedProps: Property[] = [];
-      if (propsRes && Array.isArray(propsRes.properties)) {
-        fetchedProps = propsRes.properties;
-      } else if (isDemoLandlord) {
-        fetchedProps = DEFAULT_PROPERTIES.slice(0, 4);
-      }
+      const fetchedProps: Property[] = (propsRes && Array.isArray(propsRes.properties)) ? propsRes.properties : [];
 
       const resolvedDashboard = dashRes ? { ...dashRes } : { ...DEFAULT_PROVIDER_DASHBOARD };
-      if (!isDemoLandlord && fetchedProps.length === 0) {
+      if (fetchedProps.length === 0) {
         resolvedDashboard.stats = {
           ...resolvedDashboard.stats,
           totalHostels: 0,
@@ -361,58 +356,64 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
       setLoading(false);
 
       // Check if onboarding needs to be shown for new providers
-      if (resolvedDashboard?.onboarding && !resolvedDashboard.onboarding.completed && (!propsRes?.properties || propsRes.properties.length === 0)) {
+      if (resolvedDashboard?.onboarding && !resolvedDashboard.onboarding.completed && fetchedProps.length === 0) {
         setOnboardingOpen(true);
       }
 
-      // SECONDARY PHASE (Background Progressive): Load remaining modules non-blockingly
-      Promise.allSettled([
-        api.notifications.getAll().then(res => {
-          setNotifications(res?.notifications || []);
-          setUnreadNotifsCount(res?.unreadCount || 0);
-        }),
-        api.messages.getConversations().then(res => {
-          const convList = res?.conversations || [];
-          setConversations(convList);
-          if (convList.length > 0 && !activeConversationId) {
-            setActiveConversationId(convList[0].id);
-            loadConversationDetail(convList[0].id);
-          }
-        }),
-        api.provider.getPerformance(propId).then(res => {
-          setPerformanceData(res || DEFAULT_PROVIDER_PERFORMANCE);
-        }),
-        api.provider.getCalendar(propId).then(res => {
-          setCalendarEvents(res?.events || []);
-        }),
-        api.provider.getInspectionSchedules().then(res => {
-          setInspectionSchedules(res?.schedules || []);
-        }),
-        api.provider.getQuickReplies().then(res => {
-          setQuickReplies(res?.quickReplies || []);
-        }),
-        api.provider.getTeam().then(res => {
-          setTeamMembers(res?.team || []);
-        }),
-        api.provider.getAuditLogs().then(res => {
-          setAuditLogs(res?.logs || []);
-        }),
-        api.verification.getMyDocuments().then(res => {
-          setDocuments(res?.documents || []);
-        })
-      ]).catch(() => {});
+      // Fast non-blocking load of notifications badge only
+      api.notifications.getAll().then(res => {
+        setNotifications(res?.notifications || []);
+        setUnreadNotifsCount(res?.unreadCount || 0);
+      }).catch(() => {});
     }).catch(err => {
       console.error('Error loading primary provider data', err);
       setDashboardData(DEFAULT_PROVIDER_DASHBOARD);
-      setProperties(isDemoLandlord ? DEFAULT_PROPERTIES.slice(0, 4) : []);
+      setProperties([]);
       setPerformanceData(DEFAULT_PROVIDER_PERFORMANCE);
       setLoading(false);
     });
   };
 
   useEffect(() => {
+    loadedTabs.current.clear();
     fetchAllProviderData(selectedPropertyId);
   }, [selectedPropertyId, user?.id, user?.email]);
+
+  // Progressive On-Demand Lazy Tab Loading: Only fetch data for active tab when opened
+  useEffect(() => {
+    if (activeTab === 'performance' && !loadedTabs.current.has(`perf_${selectedPropertyId}`)) {
+      loadedTabs.current.add(`perf_${selectedPropertyId}`);
+      api.provider.getPerformance(selectedPropertyId).then(res => {
+        setPerformanceData(res || DEFAULT_PROVIDER_PERFORMANCE);
+      }).catch(() => {});
+    } else if (activeTab === 'availability' && !loadedTabs.current.has(`avail_${selectedPropertyId}`)) {
+      loadedTabs.current.add(`avail_${selectedPropertyId}`);
+      api.provider.getCalendar(selectedPropertyId).then(res => {
+        setCalendarEvents(res?.events || []);
+      }).catch(() => {});
+      api.provider.getInspectionSchedules().then(res => {
+        setInspectionSchedules(res?.schedules || []);
+      }).catch(() => {});
+    } else if (activeTab === 'messages' && !loadedTabs.current.has('messages')) {
+      loadedTabs.current.add('messages');
+      api.messages.getConversations().then(res => {
+        const convList = res?.conversations || [];
+        setConversations(convList);
+        if (convList.length > 0 && !activeConversationId) {
+          setActiveConversationId(convList[0].id);
+          loadConversationDetail(convList[0].id);
+        }
+      }).catch(() => {});
+    } else if (activeTab === 'profile_team' && !loadedTabs.current.has('profile_team')) {
+      loadedTabs.current.add('profile_team');
+      Promise.allSettled([
+        api.provider.getTeam().then(res => setTeamMembers(res?.team || [])),
+        api.provider.getAuditLogs().then(res => setAuditLogs(res?.logs || [])),
+        api.provider.getQuickReplies().then(res => setQuickReplies(res?.quickReplies || [])),
+        api.verification.getMyDocuments().then(res => setDocuments(res?.documents || []))
+      ]);
+    }
+  }, [activeTab, selectedPropertyId]);
 
   // Real-time listener for incoming student messages, bookings, inspections & notifications
   useEffect(() => {

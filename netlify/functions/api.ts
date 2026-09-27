@@ -1015,17 +1015,17 @@ export default async (req: Request): Promise<Response> => {
   // 5. Provider Properties (Get my hostels)
   if (pathname === '/api/provider/properties' && req.method === 'GET') {
     const user = parseAuth(req);
+    if (!user) {
+      return new Response(JSON.stringify({ error: 'Authentication required' }), { status: 401, headers: CORS_HEADERS });
+    }
     const userEmail = (user?.email || '').toLowerCase().trim();
     const userId = user?.id || '';
-
-    const isDemoLandlord = userEmail === 'landlord@hostelease.ng' || userEmail === 'provider@hostelease.ng' || userId === 'user-provider-default' || userId === 'user-provider-1';
 
     const myHostels = memoryProperties.filter(p => {
       const pEmail = ((p as any).providerEmail || p.provider?.email || '').toLowerCase().trim();
       const pId = (p as any).providerId || p.provider?.id;
       if (userEmail && pEmail && pEmail === userEmail) return true;
       if (userId && pId && pId === userId) return true;
-      if (isDemoLandlord && p.isDemo) return true;
       return false;
     });
 
@@ -1575,6 +1575,13 @@ export default async (req: Request): Promise<Response> => {
         };
       }
 
+      if (pathname.includes('/chunk')) {
+        return new Response(JSON.stringify({
+          completed: true,
+          file: fileObj
+        }), { status: 200, headers: CORS_HEADERS });
+      }
+
       return new Response(JSON.stringify({
         message: 'File uploaded successfully',
         file: fileObj,
@@ -1796,17 +1803,17 @@ export default async (req: Request): Promise<Response> => {
   // 12. Provider Dashboard (Strict Data Isolation & Dynamic Metrics)
   if (pathname === '/api/provider/dashboard' && req.method === 'GET') {
     const user = parseAuth(req);
+    if (!user) {
+      return new Response(JSON.stringify({ error: 'Authentication required' }), { status: 401, headers: CORS_HEADERS });
+    }
     const userEmail = (user?.email || '').toLowerCase().trim();
     const userId = user?.id || '';
-
-    const isDemoLandlord = userEmail === 'landlord@hostelease.ng' || userEmail === 'provider@hostelease.ng' || userId === 'user-provider-default' || userId === 'user-provider-1';
 
     const myProps = memoryProperties.filter(p => {
       const pEmail = ((p as any).providerEmail || p.provider?.email || '').toLowerCase().trim();
       const pId = (p as any).providerId || p.provider?.id;
       if (userEmail && pEmail && pEmail === userEmail) return true;
       if (userId && pId && pId === userId) return true;
-      if (isDemoLandlord && p.isDemo) return true;
       return false;
     });
 
@@ -1828,7 +1835,7 @@ export default async (req: Request): Promise<Response> => {
         confirmedBookings: 0,
         upcomingInspections: 0,
         pendingInspections: 0,
-        totalRevenue: isDemoLandlord ? 3500000 : 0,
+        totalRevenue: 0,
         verificationStatus: myProps.length > 0 ? (activeHostels > 0 ? 'APPROVED' : 'PENDING') : 'PENDING',
         unreadMessages: 0
       },
