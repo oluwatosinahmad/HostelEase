@@ -23,6 +23,7 @@ import {
 import { InspectionRequest, InspectionStatus } from '../types/hostelEase';
 import { api } from '../services/api';
 import { formatNaira, formatDistance } from '../utils/formatters';
+import { LiveVirtualTourModal } from './LiveVirtualTourModal';
 
 interface StudentInspectionCenterProps {
   onOpenConversation: (propertyId: string) => void;
@@ -55,6 +56,7 @@ export const StudentInspectionCenter: React.FC<StudentInspectionCenterProps> = (
   const [cancelReason, setCancelReason] = useState<string>('');
 
   const [virtualLinkModal, setVirtualLinkModal] = useState<{ isOpen: boolean; url: string; title: string } | null>(null);
+  const [activeLiveTourId, setActiveLiveTourId] = useState<string | null>(null);
 
   const fetchInspections = () => {
     setLoading(true);
@@ -130,20 +132,8 @@ export const StudentInspectionCenter: React.FC<StudentInspectionCenterProps> = (
   };
 
   const handleJoinVirtual = async (inspection: InspectionRequest) => {
-    try {
-      const res = await api.inspections.getVirtualLink(inspection.id);
-      if (res.virtualMeetingUrl) {
-        setVirtualLinkModal({
-          isOpen: true,
-          url: res.virtualMeetingUrl,
-          title: inspection.propertyTitle
-        });
-      } else {
-        onShowToast('Virtual meeting room will be ready shortly before your scheduled slot', 'info');
-      }
-    } catch (err: any) {
-      onShowToast(err.message || 'Could not access virtual meeting link', 'error');
-    }
+    setActiveLiveTourId(inspection.id);
+    window.dispatchEvent(new CustomEvent('hostel_ease_open_live_tour', { detail: { inspectionId: inspection.id } }));
   };
 
   const tabs = [
@@ -618,6 +608,17 @@ export const StudentInspectionCenter: React.FC<StudentInspectionCenterProps> = (
             </div>
           </div>
         </div>
+      )}
+
+      {/* Live Interactive Virtual Walkthrough Modal */}
+      {activeLiveTourId && (
+        <LiveVirtualTourModal
+          inspectionId={activeLiveTourId}
+          isOpen={Boolean(activeLiveTourId)}
+          onClose={() => setActiveLiveTourId(null)}
+          onReserveProperty={onReserveHostel}
+          onShowToast={onShowToast}
+        />
       )}
     </div>
   );

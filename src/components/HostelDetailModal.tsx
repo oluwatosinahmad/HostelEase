@@ -38,7 +38,7 @@ import {
   Sparkles,
   Navigation
 } from 'lucide-react';
-import { Property, MediaCategory, UserRole } from '../types/hostelEase';
+import { Property, MediaCategory, UserRole, InspectionType } from '../types/hostelEase';
 import { api, getMediaUrl } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { formatNaira, formatDistance, getAvailabilityBadgeInfo, getPropertyTypeLabel } from '../utils/formatters';
@@ -56,7 +56,7 @@ interface HostelDetailModalProps {
   onToggleCompare?: (propertyId: string) => void;
   onOpenConversation?: (propertyId: string) => void;
   onOpenBookingModal?: (property: Property) => void;
-  onRequestInspection?: (property: Property) => void;
+  onRequestInspection?: (property: Property, type?: InspectionType, roomId?: string) => void;
   onOpenAuth?: (role: UserRole) => void;
   onOpenAI?: (property: Property) => void;
   isCompared?: boolean;
@@ -92,6 +92,8 @@ export const HostelDetailModal: React.FC<HostelDetailModalProps> = ({
 
   // Modals state
   const [inspectionModalOpen, setInspectionModalOpen] = useState<boolean>(false);
+  const [inspectionType, setInspectionType] = useState<InspectionType>('PHYSICAL');
+  const [inspectionRoomId, setInspectionRoomId] = useState<string | undefined>(undefined);
   const [reportModalOpen, setReportModalOpen] = useState<boolean>(false);
   const [providerProfileModalOpen, setProviderProfileModalOpen] = useState<boolean>(false);
   const [isSaved, setIsSaved] = useState<boolean>(false);
@@ -100,7 +102,7 @@ export const HostelDetailModal: React.FC<HostelDetailModalProps> = ({
   const [inquiryText, setInquiryText] = useState<string>('');
   const [sendingInquiry, setSendingInquiry] = useState<boolean>(false);
 
-  const handleInspectClick = () => {
+  const handleInspectClick = (type: InspectionType = 'PHYSICAL', roomId?: string) => {
     if (!isAuthenticated) {
       onShowToast('Please create an account or sign in first to schedule an inspection.', 'error');
       if (onOpenAuth) {
@@ -114,13 +116,20 @@ export const HostelDetailModal: React.FC<HostelDetailModalProps> = ({
     }
     if (onRequestInspection && property) {
       onClose();
-      onRequestInspection(property);
+      onRequestInspection(property, type, roomId);
     } else {
+      setInspectionType(type);
+      setInspectionRoomId(roomId);
       setInspectionModalOpen(true);
     }
   };
 
   const handleBookClick = () => {
+    const isAlreadyBooked = Boolean(property?.isBooked || property?.availabilityStatus === 'BOOKED' || (property?.activeBookingCount !== undefined && property.activeBookingCount > 0));
+    if (isAlreadyBooked) {
+      onShowToast('Sorry, this hostel is already booked.', 'error');
+      return;
+    }
     if (!isAuthenticated) {
       onShowToast('Please create an account or sign in first to book a hostel.', 'error');
       if (onOpenAuth) {
@@ -257,6 +266,8 @@ export const HostelDetailModal: React.FC<HostelDetailModalProps> = ({
     return m.category === activeMediaCategory;
   }) || [];
 
+  const isBooked = Boolean(property?.isBooked || property?.availabilityStatus === 'BOOKED' || (property?.activeBookingCount !== undefined && property.activeBookingCount > 0));
+
   const currentMedia = filteredMedia[activeMediaIndex] || filteredMedia[0] || {
     url: property?.coverImage || 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=1200&q=80',
     mediaType: 'IMAGE',
@@ -388,10 +399,18 @@ export const HostelDetailModal: React.FC<HostelDetailModalProps> = ({
               {/* Title & Quick Metadata */}
               <div className="space-y-2">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className={`px-2.5 py-0.5 rounded-md text-xs font-bold border ${getAvailabilityBadgeInfo(property.availabilityStatus).bg}`}>
-                    {getAvailabilityBadgeInfo(property.availabilityStatus).label}
-                  </span>
-                  <span className="px-2.5 py-0.5 rounded-md text-xs font-semibold bg-slate-100 text-slate-700">
+                  {isBooked ? (
+                    <span className="px-2.5 py-0.5 rounded-md text-xs font-bold border bg-red-600 text-white border-red-700 flex items-center gap-1 shadow-xs">
+                      <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                      Booked
+                    </span>
+                  ) : (
+                    <span className="px-2.5 py-0.5 rounded-md text-xs font-bold border bg-emerald-600 text-white border-emerald-700 flex items-center gap-1 shadow-xs">
+                      <span className="w-1.5 h-1.5 rounded-full bg-white" />
+                      Available
+                    </span>
+                  )}
+                  <span className="px-2.5 py-0.5 rounded-md text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200">
                     {getPropertyTypeLabel(property.propertyType)}
                   </span>
                   <span className="px-2.5 py-0.5 rounded-md text-xs font-semibold bg-emerald-50 text-emerald-800 flex items-center gap-1">
@@ -597,6 +616,15 @@ export const HostelDetailModal: React.FC<HostelDetailModalProps> = ({
                               <p>• Ensuite bathroom: {room.isEnsuite ? 'Yes (Private)' : 'Shared'}</p>
                               <p>• Furnishing: {room.isFurnished ? 'Furnished (Bed & Desk)' : 'Unfurnished'}</p>
                             </div>
+
+                            <button
+                              type="button"
+                              onClick={() => handleInspectClick('VIRTUAL', room.id)}
+                              className="w-full mt-2 py-1.5 px-3 bg-purple-50 dark:bg-purple-950/40 hover:bg-purple-100 dark:hover:bg-purple-900/50 text-purple-700 dark:text-purple-300 font-bold text-xs rounded-xl border border-purple-200 dark:border-purple-800 flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                            >
+                              <Video className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
+                              <span>Virtual Tour this room</span>
+                            </button>
                           </div>
                         ))}
                       </div>
@@ -944,13 +972,29 @@ export const HostelDetailModal: React.FC<HostelDetailModalProps> = ({
                       <div className="space-y-2 pt-2">
                         {onOpenBookingModal && (
                           <div className="space-y-2">
-                            <button
-                              onClick={handleBookClick}
-                              className="w-full py-3.5 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white font-black text-sm rounded-2xl shadow-lg shadow-emerald-600/30 transition-all flex items-center justify-center gap-2 cursor-pointer"
-                            >
-                              <Receipt className="w-4 h-4" />
-                              Book Directly (Self-Reservation)
-                            </button>
+                            {isBooked ? (
+                              <div className="space-y-1.5">
+                                <button
+                                  type="button"
+                                  disabled
+                                  className="w-full py-3.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-400 dark:text-slate-500 font-black text-sm rounded-2xl cursor-not-allowed flex items-center justify-center gap-2 opacity-80"
+                                >
+                                  <Receipt className="w-4 h-4" />
+                                  Hostel Already Booked
+                                </button>
+                                <p className="text-[11px] text-center text-red-500 dark:text-red-400 font-medium">
+                                  This hostel currently has an active reservation and cannot be booked.
+                                </p>
+                              </div>
+                            ) : (
+                              <button
+                                onClick={handleBookClick}
+                                className="w-full py-3.5 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white font-black text-sm rounded-2xl shadow-lg shadow-emerald-600/30 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                              >
+                                <Receipt className="w-4 h-4" />
+                                Book Directly (Self-Reservation)
+                              </button>
+                            )}
                           </div>
                         )}
 
@@ -968,11 +1012,19 @@ export const HostelDetailModal: React.FC<HostelDetailModalProps> = ({
                         )}
 
                         <button
-                          onClick={handleInspectClick}
+                          onClick={() => handleInspectClick('VIRTUAL')}
+                          className="w-full py-2.5 bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-950/40 dark:to-indigo-950/40 border border-purple-200 dark:border-purple-800 hover:bg-purple-100 dark:hover:bg-purple-900/40 text-purple-900 dark:text-purple-200 font-bold text-xs rounded-2xl transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+                        >
+                          <Video className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                          <span>Schedule Live Virtual Tour</span>
+                        </button>
+
+                        <button
+                          onClick={() => handleInspectClick('PHYSICAL')}
                           className="w-full py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold text-xs rounded-2xl transition-all flex items-center justify-center gap-1.5 cursor-pointer"
                         >
                           <Calendar className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                          Request Hostel Inspection
+                          <span>Schedule In-Person Inspection</span>
                         </button>
 
                         {onOpenConversation && (
@@ -995,6 +1047,7 @@ export const HostelDetailModal: React.FC<HostelDetailModalProps> = ({
                             className="w-full py-2.5 bg-slate-900 dark:bg-slate-800 hover:bg-slate-800 dark:hover:bg-slate-700 text-white rounded-2xl font-bold text-xs shadow transition-all flex items-center justify-center gap-1.5 border border-transparent dark:border-slate-700 cursor-pointer"
                           >
                             <MessageSquare className="w-3.5 h-3.5 text-emerald-400" />
+                            <span>Chat with Hostel Agent</span>
                           </button>
                         )}
 
@@ -1038,7 +1091,12 @@ export const HostelDetailModal: React.FC<HostelDetailModalProps> = ({
         <InspectionModal
           property={property}
           isOpen={inspectionModalOpen}
-          onClose={() => setInspectionModalOpen(false)}
+          initialType={inspectionType}
+          selectedRoomId={inspectionRoomId}
+          onClose={() => {
+            setInspectionModalOpen(false);
+            setInspectionRoomId(undefined);
+          }}
           onSuccess={(msg) => onShowToast(msg, 'success')}
           onOpenConversation={onOpenConversation ? (propId) => {
             onClose();

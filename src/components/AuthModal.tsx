@@ -86,11 +86,48 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
     const reader = new FileReader();
     reader.onload = () => {
-      const result = reader.result as string;
-      if (result) {
-        setAvatarUrl(result);
+      const dataUri = reader.result as string;
+      if (!dataUri) return;
+      const img = new Image();
+      img.onload = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          const maxDim = 150;
+          let width = img.width;
+          let height = img.height;
+          if (width > height) {
+            if (width > maxDim) {
+              height = Math.round((height * maxDim) / width);
+              width = maxDim;
+            }
+          } else {
+            if (height > maxDim) {
+              width = Math.round((width * maxDim) / height);
+              height = maxDim;
+            }
+          }
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, width, height);
+            const compressed = canvas.toDataURL('image/jpeg', 0.8);
+            setAvatarUrl(compressed);
+            setError(null);
+          } else {
+            setAvatarUrl(dataUri);
+            setError(null);
+          }
+        } catch {
+          setAvatarUrl(dataUri);
+          setError(null);
+        }
+      };
+      img.onerror = () => {
+        setAvatarUrl(dataUri);
         setError(null);
-      }
+      };
+      img.src = dataUri;
     };
     reader.readAsDataURL(file);
   };
@@ -170,6 +207,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submitting || isLoggingIn) return;
     setError(null);
     setAccessRestricted(false);
     setSubmitting(true);
@@ -208,7 +246,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       if (onSuccess) onSuccess(authedUser);
       onClose();
     } catch (err: any) {
-      const errMsg = err.message || 'Authentication failed. Please check your credentials.';
+      let errMsg = err.message || 'Authentication failed. Please check your credentials.';
+      if (/quota/i.test(errMsg)) {
+        errMsg = 'Storage quota reached. Cache has been freed. Please try again.';
+      }
       setError(errMsg);
       setSubmitting(false);
       setIsLoggingIn(false);

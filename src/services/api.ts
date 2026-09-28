@@ -81,6 +81,7 @@ import {
   DEFAULT_ADMIN_DISPUTES,
   DEFAULT_ADMIN_AUDIT_LOGS
 } from './offlineFallback';
+import { safeStorage } from '../utils/safeStorage';
 
 const RAW_API_URL = (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_API_URL || '').replace(/\/+$/, '');
 const API_BASE = RAW_API_URL ? `${RAW_API_URL}/api` : '/api';
@@ -1493,23 +1494,16 @@ export function addDeletedUserId(id: string, email?: string) {
 }
 
 function getLocalRegisteredUsers(): any[] {
-  try {
-    const raw = localStorage.getItem('hostel_ease_registered_users');
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) {
-        const deleted = getDeletedUserIds();
-        return parsed.filter(u => !deleted.has(u.id?.toLowerCase()) && !deleted.has((u.email || '').toLowerCase().trim()));
-      }
-    }
-  } catch {}
+  const users = safeStorage.getJSON<any[]>('hostel_ease_registered_users', []);
+  if (Array.isArray(users)) {
+    const deleted = getDeletedUserIds();
+    return users.filter(u => !deleted.has(u.id?.toLowerCase()) && !deleted.has((u.email || '').toLowerCase().trim()));
+  }
   return [];
 }
 
 function saveLocalRegisteredUsers(users: any[]) {
-  try {
-    localStorage.setItem('hostel_ease_registered_users', JSON.stringify(users));
-  } catch {}
+  safeStorage.setJSON('hostel_ease_registered_users', users);
 }
 
 function handleClientSideFallbackLogin(payload: { email?: string; username?: string; password?: string; requestedRole?: string; role?: string }) {
@@ -1532,8 +1526,9 @@ function handleClientSideFallbackLogin(payload: { email?: string; username?: str
 
   if (matchedUser) {
     const mockToken = `he_token_${Date.now()}`;
-    localStorage.setItem('hostel_ease_token', mockToken);
-    localStorage.setItem('hostel_ease_user', JSON.stringify(matchedUser));
+    safeStorage.setItem('hostel_ease_token', mockToken, true);
+    safeStorage.setJSON('hostel_ease_user', matchedUser, true);
+    console.log(`[AUTH_SUCCESS] Fallback login for registered user: ${matchedUser.email} (${matchedUser.role})`);
     return { message: 'Login successful', token: mockToken, user: matchedUser };
   }
 
@@ -1556,8 +1551,9 @@ function handleClientSideFallbackLogin(payload: { email?: string; username?: str
       accountStatus: 'ACTIVE'
     };
     const mockToken = `he_admin_token_${Date.now()}`;
-    localStorage.setItem('hostel_ease_token', mockToken);
-    localStorage.setItem('hostel_ease_user', JSON.stringify(adminUser));
+    safeStorage.setItem('hostel_ease_token', mockToken, true);
+    safeStorage.setJSON('hostel_ease_user', adminUser, true);
+    console.log(`[AUTH_SUCCESS] Fallback login for admin`);
     return { message: 'Login successful', token: mockToken, user: adminUser };
   }
 
@@ -1576,8 +1572,9 @@ function handleClientSideFallbackLogin(payload: { email?: string; username?: str
     };
     const mockToken = `he_prov_token_${Date.now()}`;
     saveLocalRegisteredUsers([...registeredUsers, providerUser]);
-    localStorage.setItem('hostel_ease_token', mockToken);
-    localStorage.setItem('hostel_ease_user', JSON.stringify(providerUser));
+    safeStorage.setItem('hostel_ease_token', mockToken, true);
+    safeStorage.setJSON('hostel_ease_user', providerUser, true);
+    console.log(`[AUTH_SUCCESS] Fallback login for demo provider`);
     return { message: 'Login successful', token: mockToken, user: providerUser };
   }
 
@@ -1601,8 +1598,9 @@ function handleClientSideFallbackLogin(payload: { email?: string; username?: str
     };
     const mockToken = `he_stud_token_${Date.now()}`;
     saveLocalRegisteredUsers([...registeredUsers, studentUser]);
-    localStorage.setItem('hostel_ease_token', mockToken);
-    localStorage.setItem('hostel_ease_user', JSON.stringify(studentUser));
+    safeStorage.setItem('hostel_ease_token', mockToken, true);
+    safeStorage.setJSON('hostel_ease_user', studentUser, true);
+    console.log(`[AUTH_SUCCESS] Fallback login for demo student`);
     return { message: 'Login successful', token: mockToken, user: studentUser };
   }
 
@@ -1936,6 +1934,10 @@ export const api = {
             requestedRole: emailOrData.requestedRole || emailOrData.role || selectedRole
           };
 
+      const identifier = payload.username || payload.email || 'user';
+      console.log(`[LOGIN_START] Initiating authentication for: ${identifier} (requested role: ${payload.requestedRole || 'default'})`);
+      console.log(`[AUTH_REQUEST_SENT] POST ${API_BASE}/auth/login (identifier: ${identifier})`);
+
       try {
         const res = await fetch(`${API_BASE}/auth/login`, {
           method: 'POST',
@@ -1945,8 +1947,9 @@ export const api = {
 
         if (res.ok) {
           const json = await res.json();
-          localStorage.setItem('hostel_ease_token', json.token);
-          localStorage.setItem('hostel_ease_user', JSON.stringify(json.user));
+          console.log(`[AUTH_SUCCESS] Authenticated ${json.user?.email} (${json.user?.role})`);
+          safeStorage.setItem('hostel_ease_token', json.token, true);
+          safeStorage.setJSON('hostel_ease_user', json.user, true);
           syncCloudProperties().catch(() => {});
           return json;
         }
@@ -2623,6 +2626,74 @@ export const api = {
         headers: { ...getAuthHeader() }
       });
       return handleResponse(res);
+    },
+
+    async getAvailableSlots(propertyId: string, date: string): Promise<{ date: string; allSlots: string[]; bookedSlots: string[]; availableSlots: string[] }> {
+      const defaultSlots = ['09:00 AM', '10:00 AM', '11:00 AM', '12:00 PM', '01:00 PM', '02:00 PM', '03:00 PM', '04:00 PM', '05:00 PM'];
+      try {
+        const res = await fetch(`${API_BASE}/inspections/properties/${propertyId}/available-slots?date=${encodeURIComponent(date)}`, {
+          headers: { ...getAuthHeader() }
+        });
+        if (res.ok) {
+          const json = await res.json();
+          if (json && Array.isArray(json.availableSlots)) {
+            return json;
+          }
+        }
+      } catch (err) {}
+
+      // Resilient local fallback calculation
+      const local = getLocalInspections();
+      const booked = local
+        .filter(i => (i.propertyId === propertyId || (i as any).property_id === propertyId) && i.preferredDate === date && (i.status === 'CONFIRMED' || i.status === 'PENDING'))
+        .map(i => i.preferredTime);
+      const bookedSet = new Set(booked.map(s => (s || '').trim().toUpperCase()));
+      const available = defaultSlots.filter(s => !bookedSet.has(s.trim().toUpperCase()));
+      return {
+        date,
+        allSlots: defaultSlots,
+        bookedSlots: booked,
+        availableSlots: available
+      };
+    },
+
+    async getSession(id: string): Promise<{ session: any }> {
+      try {
+        const res = await fetch(`${API_BASE}/inspections/${id}/session`, {
+          headers: { ...getAuthHeader() }
+        });
+        if (res.ok) {
+          return await res.json();
+        }
+      } catch (err) {}
+
+      const local = getLocalInspections();
+      const insp = local.find(i => i.id === id);
+      const user = getCurrentUser();
+      const isProvider = user?.role === 'PROVIDER' || user?.id === insp?.providerId;
+      const isStudent = user?.role === 'STUDENT' || user?.id === insp?.studentId;
+
+      return {
+        session: {
+          id: insp?.id || id,
+          propertyId: insp?.propertyId || 'prop-default',
+          propertyTitle: insp?.propertyTitle || 'Hostel Accommodation',
+          propertyAddress: insp?.propertyAddress || 'Under-G, Ogbomoso',
+          coverImage: insp?.coverImage || 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=1000&q=80',
+          roomName: (insp as any)?.roomName || 'Executive Suite',
+          preferredDate: insp?.preferredDate || new Date().toISOString().split('T')[0],
+          preferredTime: insp?.preferredTime || '10:00 AM',
+          inspectionType: insp?.inspectionType || 'VIRTUAL',
+          status: insp?.status || 'CONFIRMED',
+          studentName: insp?.studentName || user?.fullName || 'Student',
+          providerName: insp?.providerName || 'Hostel Agent',
+          studentPhone: insp?.studentPhone || user?.phone || '08031234567',
+          notes: insp?.notes || '',
+          virtualMeetingUrl: (insp as any)?.virtualMeetingUrl || `https://meet.hostelease.ng/room/he-${id}`,
+          isHost: isProvider,
+          participantRole: isProvider ? 'AGENT' : isStudent ? 'STUDENT' : 'ADMIN'
+        }
+      };
     }
   },
 
@@ -5336,13 +5407,21 @@ export const api = {
           localItem.id = json.bookingId || localItem.id;
           localItem.bookingReference = json.bookingReference || localItem.bookingReference;
           saveLocalBooking(localItem);
+          window.dispatchEvent(new CustomEvent('hostel_ease_properties_updated'));
           return json;
+        } else {
+          const errJson = await res.json().catch(() => ({}));
+          throw new Error(errJson.error || errJson.message || 'Failed to submit booking reservation');
         }
-      } catch (e) {
+      } catch (e: any) {
+        if (e.message && e.message !== 'Failed to fetch') {
+          throw e;
+        }
         console.warn('Backend booking reservation offline, saving locally');
       }
 
       saveLocalBooking(localItem);
+      window.dispatchEvent(new CustomEvent('hostel_ease_properties_updated'));
 
       // 1. Send direct message (DM) to Landlord with 5% commission agreement breakdown
       const bookingMsg = `📋 NEW BOOKING RESERVATION (${bookingReference})
@@ -5544,8 +5623,13 @@ Hello Agent, a student has booked your accommodation under our standard 5% commi
           method: 'PATCH',
           headers: { ...getAuthHeader() }
         });
-        if (res.ok) return await res.json();
+        if (res.ok) {
+          const json = await res.json();
+          window.dispatchEvent(new CustomEvent('hostel_ease_properties_updated'));
+          return json;
+        }
       } catch (err) {}
+      window.dispatchEvent(new CustomEvent('hostel_ease_properties_updated'));
       return { message: 'Reservation confirmed successfully', status: 'CONFIRMED' };
     },
 
@@ -5557,8 +5641,13 @@ Hello Agent, a student has booked your accommodation under our standard 5% commi
           headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
           body: JSON.stringify({ reason })
         });
-        if (res.ok) return await res.json();
+        if (res.ok) {
+          const json = await res.json();
+          window.dispatchEvent(new CustomEvent('hostel_ease_properties_updated'));
+          return json;
+        }
       } catch (err) {}
+      window.dispatchEvent(new CustomEvent('hostel_ease_properties_updated'));
       return { message: 'Reservation declined', status: 'DECLINED' };
     },
 
@@ -5570,8 +5659,13 @@ Hello Agent, a student has booked your accommodation under our standard 5% commi
           headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
           body: JSON.stringify({ reason })
         });
-        if (res.ok) return await res.json();
+        if (res.ok) {
+          const json = await res.json();
+          window.dispatchEvent(new CustomEvent('hostel_ease_properties_updated'));
+          return json;
+        }
       } catch (err) {}
+      window.dispatchEvent(new CustomEvent('hostel_ease_properties_updated'));
       return { message: 'Reservation cancelled successfully', status: 'CANCELLED_BY_STUDENT' };
     },
 

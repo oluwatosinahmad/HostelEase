@@ -17,10 +17,13 @@ import {
   Plus,
   Phone,
   Mail,
-  ChevronRight
+  ChevronRight,
+  BedDouble,
+  HelpCircle
 } from 'lucide-react';
 import { InspectionRequest, ProviderCalendarData } from '../types/hostelEase';
 import { api } from '../services/api';
+import { LiveVirtualTourModal } from './LiveVirtualTourModal';
 
 interface ProviderInspectionDashboardProps {
   onOpenConversation: (propertyId: string, studentId?: string) => void;
@@ -48,6 +51,7 @@ export const ProviderInspectionDashboard: React.FC<ProviderInspectionDashboardPr
   const [altDate, setAltDate] = useState<string>('');
   const [altTime, setAltTime] = useState<string>('10:00 AM');
   const [rescheduleNote, setRescheduleNote] = useState<string>('');
+  const [activeLiveTourId, setActiveLiveTourId] = useState<string | null>(null);
 
   const [actionLoading, setActionLoading] = useState<boolean>(false);
 
@@ -327,12 +331,21 @@ export const ProviderInspectionDashboard: React.FC<ProviderInspectionDashboardPr
                           className="w-14 h-14 rounded-2xl object-cover bg-slate-100 flex-shrink-0"
                         />
                         <div>
-                          <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase ${
-                            insp.inspectionType === 'VIRTUAL' ? 'bg-purple-100 text-purple-900' : 'bg-blue-100 text-blue-900'
-                          }`}>
-                            {insp.inspectionType}
-                          </span>
-                          <h4 className="font-black text-sm text-slate-900 line-clamp-1">{insp.propertyTitle}</h4>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase flex items-center gap-1 ${
+                              insp.inspectionType === 'VIRTUAL' ? 'bg-purple-100 text-purple-900 border border-purple-200' : 'bg-blue-100 text-blue-900 border border-blue-200'
+                            }`}>
+                              {insp.inspectionType === 'VIRTUAL' ? <Video className="w-2.5 h-2.5" /> : <Footprints className="w-2.5 h-2.5" />}
+                              <span>{insp.inspectionType === 'VIRTUAL' ? 'Virtual Tour' : 'Physical Visit'}</span>
+                            </span>
+                            {insp.roomName && (
+                              <span className="px-2 py-0.5 rounded text-[9px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 flex items-center gap-1">
+                                <BedDouble className="w-2.5 h-2.5" />
+                                <span>Room: {insp.roomName}</span>
+                              </span>
+                            )}
+                          </div>
+                          <h4 className="font-black text-sm text-slate-900 line-clamp-1 mt-1">{insp.propertyTitle}</h4>
                           <p className="text-xs text-slate-500">Student: <strong>{insp.studentName}</strong></p>
                         </div>
                       </div>
@@ -360,15 +373,28 @@ export const ProviderInspectionDashboard: React.FC<ProviderInspectionDashboardPr
 
                       <div>
                         <span className="text-[10px] text-slate-400 font-bold uppercase">Student Contact</span>
-                        <p className="font-medium text-slate-700 mt-0.5 flex items-center gap-1">
-                          <Phone className="w-3 h-3 text-slate-400" />
-                          {insp.studentPhone || 'Via In-App Chat'}
-                        </p>
+                        <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                          <p className="font-medium text-slate-700 flex items-center gap-1">
+                            <Phone className="w-3 h-3 text-slate-400" />
+                            {insp.studentPhone || 'Via In-App Chat'}
+                          </p>
+                          {insp.studentPhone && (
+                            <a
+                              href={`https://wa.me/${insp.studentPhone.replace(/[^0-9]/g, '')}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="px-1.5 py-0.5 rounded bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-[10px] font-bold border border-emerald-200 cursor-pointer"
+                              title="Message student on WhatsApp"
+                            >
+                              WhatsApp
+                            </a>
+                          )}
+                        </div>
                       </div>
 
                       <div>
-                        <span className="text-[10px] text-slate-400 font-bold uppercase">Student Note</span>
-                        <p className="text-slate-600 italic mt-0.5 line-clamp-1">
+                        <span className="text-[10px] text-slate-400 font-bold uppercase">Student Inquiries & Notes</span>
+                        <p className="text-slate-600 italic mt-0.5 line-clamp-2">
                           {insp.notes ? `"${insp.notes}"` : 'No special note'}
                         </p>
                       </div>
@@ -397,13 +423,13 @@ export const ProviderInspectionDashboard: React.FC<ProviderInspectionDashboardPr
                               setRescheduleModalId(insp.id);
                               setAltDate(insp.preferredDate);
                             }}
-                            className="px-3 py-1.5 bg-purple-50 text-purple-900 hover:bg-purple-100 border border-purple-200 font-bold text-xs rounded-xl flex items-center gap-1"
+                            className="px-3.5 py-1.5 bg-purple-50 text-purple-900 hover:bg-purple-100 border border-purple-200 font-bold text-xs rounded-xl flex items-center gap-1"
                           >
                             <RotateCcw className="w-3.5 h-3.5" /> Reschedule
                           </button>
                           <button
                             onClick={() => setDeclineModalId(insp.id)}
-                            className="px-3 py-1.5 bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200 font-bold text-xs rounded-xl"
+                            className="px-3.5 py-1.5 bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200 font-bold text-xs rounded-xl"
                           >
                             Decline
                           </button>
@@ -412,6 +438,19 @@ export const ProviderInspectionDashboard: React.FC<ProviderInspectionDashboardPr
 
                       {isConfirmed && (
                         <div className="flex items-center gap-2 flex-wrap">
+                          {insp.inspectionType === 'VIRTUAL' && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setActiveLiveTourId(insp.id);
+                                window.dispatchEvent(new CustomEvent('hostel_ease_open_live_tour', { detail: { inspectionId: insp.id } }));
+                              }}
+                              className="px-3.5 py-1.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold text-xs rounded-xl shadow-md shadow-purple-600/30 flex items-center gap-1.5 cursor-pointer animate-pulse"
+                            >
+                              <Video className="w-3.5 h-3.5" />
+                              <span>Start Virtual Tour</span>
+                            </button>
+                          )}
                           <button
                             onClick={() => handleComplete(insp.id)}
                             className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-sm"
@@ -576,6 +615,16 @@ export const ProviderInspectionDashboard: React.FC<ProviderInspectionDashboardPr
             </div>
           </div>
         </div>
+      )}
+
+      {/* Live Interactive Virtual Walkthrough Modal */}
+      {activeLiveTourId && (
+        <LiveVirtualTourModal
+          inspectionId={activeLiveTourId}
+          isOpen={Boolean(activeLiveTourId)}
+          onClose={() => setActiveLiveTourId(null)}
+          onShowToast={onShowToast}
+        />
       )}
     </div>
   );

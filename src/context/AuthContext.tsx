@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { User, UserRole } from '../types/hostelEase';
 import { api } from '../services/api';
+import { safeStorage } from '../utils/safeStorage';
 
 interface AuthContextType {
   user: User | null;
@@ -26,42 +27,34 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(() => {
-    try {
-      const stored = localStorage.getItem('hostel_ease_user');
-      return stored ? JSON.parse(stored) : null;
-    } catch {
-      return null;
-    }
+    return safeStorage.getJSON<User | null>('hostel_ease_user', null);
   });
-  const [token, setToken] = useState<string | null>(() => localStorage.getItem('hostel_ease_token'));
+  const [token, setToken] = useState<string | null>(() => safeStorage.getItem('hostel_ease_token'));
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [impersonatorAdmin, setImpersonatorAdmin] = useState<User | null>(() => {
-    try {
-      const stored = localStorage.getItem('hostel_ease_impersonator_admin');
-      return stored ? JSON.parse(stored) : null;
-    } catch {
-      return null;
-    }
+    return safeStorage.getJSON<User | null>('hostel_ease_impersonator_admin', null);
   });
 
   useEffect(() => {
     async function loadUser() {
-      const savedToken = localStorage.getItem('hostel_ease_token');
+      const savedToken = safeStorage.getItem('hostel_ease_token');
       if (!savedToken) {
         setIsLoading(false);
         return;
       }
       try {
+        console.log(`[PROFILE_REQUEST] Fetching current session user profile...`);
         const { user: userData } = await api.auth.getMe();
         if (userData) {
+          console.log(`[PROFILE_SUCCESS] Profile loaded for: ${userData.email} (${userData.role})`);
           setUser(userData);
-          localStorage.setItem('hostel_ease_user', JSON.stringify(userData));
+          safeStorage.setJSON('hostel_ease_user', userData, true);
         }
       } catch (err) {
         console.warn('Session check warning:', err);
-        const stored = localStorage.getItem('hostel_ease_user');
+        const stored = safeStorage.getItem('hostel_ease_user');
         if (!stored) {
-          localStorage.removeItem('hostel_ease_token');
+          safeStorage.removeItem('hostel_ease_token');
           setToken(null);
           setUser(null);
         }
@@ -72,16 +65,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     loadUser();
 
     const handleUserUpdate = (e: any) => {
-      const savedToken = localStorage.getItem('hostel_ease_token');
+      const savedToken = safeStorage.getItem('hostel_ease_token');
       if (savedToken) setToken(savedToken);
       if (e.detail) {
         setUser(e.detail);
       } else {
-        const stored = localStorage.getItem('hostel_ease_user');
+        const stored = safeStorage.getJSON<User | null>('hostel_ease_user', null);
         if (stored) {
-          try {
-            setUser(JSON.parse(stored));
-          } catch {}
+          setUser(stored);
         }
       }
     };
@@ -93,10 +84,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setIsLoading(true);
     try {
       const res = await api.auth.login({ username: usernameOrEmail, email: usernameOrEmail, password, role });
-      localStorage.setItem('hostel_ease_token', res.token);
-      localStorage.setItem('hostel_ease_user', JSON.stringify(res.user));
+      safeStorage.setItem('hostel_ease_token', res.token, true);
+      safeStorage.setJSON('hostel_ease_user', res.user, true);
       setToken(res.token);
       setUser(res.user);
+      console.log(`[AUTH_SUCCESS] Logged in successfully: ${res.user.email} (${res.user.role})`);
       return res.user;
     } finally {
       setIsLoading(false);
@@ -107,10 +99,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setIsLoading(true);
     try {
       const res = await api.auth.register(data);
-      localStorage.setItem('hostel_ease_token', res.token);
-      localStorage.setItem('hostel_ease_user', JSON.stringify(res.user));
+      safeStorage.setItem('hostel_ease_token', res.token, true);
+      safeStorage.setJSON('hostel_ease_user', res.user, true);
       setToken(res.token);
       setUser(res.user);
+      console.log(`[AUTH_SUCCESS] Registered and logged in: ${res.user.email} (${res.user.role})`);
       return res.user;
     } finally {
       setIsLoading(false);
@@ -118,8 +111,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const logout = () => {
-    localStorage.removeItem('hostel_ease_token');
-    localStorage.removeItem('hostel_ease_user');
+    safeStorage.removeItem('hostel_ease_token');
+    safeStorage.removeItem('hostel_ease_user');
     setToken(null);
     setUser(null);
     window.dispatchEvent(new CustomEvent('hostel_ease_user_logged_out'));
@@ -151,25 +144,22 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const impersonateUser = (targetUser: User) => {
     if (user && (user.role === 'ADMIN' || (user as any)?.role === 'SUPER_ADMIN') && !impersonatorAdmin) {
       setImpersonatorAdmin(user);
-      localStorage.setItem('hostel_ease_impersonator_admin', JSON.stringify(user));
+      safeStorage.setJSON('hostel_ease_impersonator_admin', user, true);
     }
     setUser(targetUser);
-    localStorage.setItem('hostel_ease_user', JSON.stringify(targetUser));
+    safeStorage.setJSON('hostel_ease_user', targetUser, true);
     window.dispatchEvent(new CustomEvent('hostel_ease_impersonation_started', { detail: targetUser }));
   };
 
   const exitImpersonation = () => {
-    const adminRaw = localStorage.getItem('hostel_ease_impersonator_admin');
-    if (adminRaw) {
-      try {
-        const realAdmin = JSON.parse(adminRaw);
-        setUser(realAdmin);
-        localStorage.setItem('hostel_ease_user', JSON.stringify(realAdmin));
-        localStorage.removeItem('hostel_ease_impersonator_admin');
-        setImpersonatorAdmin(null);
-        window.dispatchEvent(new CustomEvent('hostel_ease_impersonation_ended'));
-        return;
-      } catch {}
+    const realAdmin = safeStorage.getJSON<User | null>('hostel_ease_impersonator_admin', null);
+    if (realAdmin) {
+      setUser(realAdmin);
+      safeStorage.setJSON('hostel_ease_user', realAdmin, true);
+      safeStorage.removeItem('hostel_ease_impersonator_admin');
+      setImpersonatorAdmin(null);
+      window.dispatchEvent(new CustomEvent('hostel_ease_impersonation_ended'));
+      return;
     }
     setImpersonatorAdmin(null);
   };

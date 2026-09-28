@@ -121,6 +121,7 @@ export const HostelCard: React.FC<HostelCardProps> = ({
   };
 
   const availInfo = getAvailabilityBadgeInfo(property.availabilityStatus);
+  const isBooked = Boolean(property.isBooked || property.availabilityStatus === 'BOOKED' || (property.activeBookingCount !== undefined && property.activeBookingCount > 0));
 
   // Map icon names to components
   const renderAmenityIcon = (iconName: string) => {
@@ -288,9 +289,17 @@ export const HostelCard: React.FC<HostelCardProps> = ({
 
         {/* Availability Badge Overlay */}
         <div className="absolute bottom-3 left-3 z-10">
-          <span className={`px-2.5 py-1 rounded-xl text-[11px] font-black border ${availInfo.bg} shadow-md backdrop-blur-md bg-opacity-95`}>
-            {availInfo.label}
-          </span>
+          {isBooked ? (
+            <span className="px-2.5 py-1 rounded-xl text-[11px] font-black border bg-red-600 text-white border-red-700 shadow-md backdrop-blur-md bg-opacity-95 flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
+              Booked
+            </span>
+          ) : (
+            <span className="px-2.5 py-1 rounded-xl text-[11px] font-black border bg-emerald-600 text-white border-emerald-700 shadow-md backdrop-blur-md bg-opacity-95 flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-white" />
+              Available
+            </span>
+          )}
         </div>
 
         {/* Property Type Badge & Photo Counter */}
@@ -434,18 +443,31 @@ export const HostelCard: React.FC<HostelCardProps> = ({
             )}
 
             {onOpenBookingModal ? (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onOpenBookingModal(property);
-                }}
-                className="px-3.5 py-2 text-xs font-black text-white bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 rounded-xl shadow-md shadow-emerald-600/25 transition-all flex items-center gap-1 cursor-pointer"
-                title="Book / Reserve This Hostel Space"
-              >
-                <Receipt className="w-3.5 h-3.5" />
-                <span>Book</span>
-              </button>
+              isBooked ? (
+                <button
+                  type="button"
+                  disabled
+                  onClick={(e) => e.stopPropagation()}
+                  className="px-3.5 py-2 text-xs font-black text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl transition-all flex items-center gap-1 cursor-not-allowed opacity-80"
+                  title="This hostel is already booked"
+                >
+                  <Receipt className="w-3.5 h-3.5" />
+                  <span>Booked</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onOpenBookingModal(property);
+                  }}
+                  className="px-3.5 py-2 text-xs font-black text-white bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 rounded-xl shadow-md shadow-emerald-600/25 transition-all flex items-center gap-1 cursor-pointer"
+                  title="Book / Reserve This Hostel Space"
+                >
+                  <Receipt className="w-3.5 h-3.5" />
+                  <span>Book</span>
+                </button>
+              )
             ) : (
               <button
                 type="button"

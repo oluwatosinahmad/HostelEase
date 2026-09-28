@@ -4,7 +4,7 @@ export type AppView = 'home' | 'search' | 'saved' | 'community' | 'student-dashb
 export type PropertyType = 'SELF_CONTAIN' | 'SINGLE_ROOM' | 'FLAT' | 'SHARED_BEDSPACE';
 export type GenderPreference = 'ANY' | 'MALE_ONLY' | 'FEMALE_ONLY';
 export type VerificationStatus = 'DRAFT' | 'PENDING_REVIEW' | 'PENDING' | 'UNDER_REVIEW' | 'APPROVED' | 'VERIFIED' | 'REJECTED' | 'SUSPENDED';
-export type AvailabilityStatus = 'AVAILABLE' | 'LIMITED' | 'FULL' | 'FULLY_OCCUPIED' | 'UNAVAILABLE';
+export type AvailabilityStatus = 'AVAILABLE' | 'LIMITED' | 'FULL' | 'FULLY_OCCUPIED' | 'UNAVAILABLE' | 'BOOKED';
 export type MediaCategory = 'EXTERIOR' | 'BEDROOM' | 'BATHROOM' | 'KITCHEN' | 'COMPOUND' | 'FACILITY' | 'FACILITIES' | 'OTHER' | 'VIDEO_WALKTHROUGH';
 export type InspectionType = 'PHYSICAL' | 'VIRTUAL';
 export type InspectionStatus = 'PENDING' | 'CONFIRMED' | 'RESCHEDULE_REQUESTED' | 'COMPLETED' | 'CANCELLED' | 'NO_SHOW';
@@ -223,6 +223,9 @@ export interface Property {
   totalRooms: number;
   verificationStatus: VerificationStatus;
   availabilityStatus: AvailabilityStatus;
+  isBooked?: boolean;
+  bookingStatus?: 'AVAILABLE' | 'BOOKED';
+  activeBookingCount?: number;
   isDemo: boolean;
   isFeatured: boolean;
   has4KVideo?: boolean;

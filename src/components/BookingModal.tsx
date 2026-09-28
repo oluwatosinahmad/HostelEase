@@ -19,7 +19,7 @@ import {
   HelpCircle,
   MessageCircle
 } from 'lucide-react';
-import { Property, RoomAvailability, BedspaceAvailability, PropertyAvailabilityResponse } from '../types/hostelEase';
+import { Property, RoomAvailability, PropertyAvailabilityResponse } from '../types/hostelEase';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { formatNaira, formatDistance } from '../utils/formatters';
@@ -48,7 +48,6 @@ export const BookingModal: React.FC<BookingModalProps> = ({
 
   // Form State
   const [selectedRoomId, setSelectedRoomId] = useState<string>('');
-  const [selectedBedspaceId, setSelectedBedspaceId] = useState<string>('');
   const [moveInDate, setMoveInDate] = useState<string>('');
   const [academicSession, setAcademicSession] = useState<string>('2026/2027');
   const [durationMonths, setDurationMonths] = useState<number>(12);
@@ -70,7 +69,6 @@ export const BookingModal: React.FC<BookingModalProps> = ({
     if (isOpen && property.id) {
       setLoadingAvailability(true);
       setStep('SELECT');
-      setSelectedBedspaceId('');
       setSpecialRequests('');
       setCreatedBooking(null);
 
@@ -186,24 +184,19 @@ export const BookingModal: React.FC<BookingModalProps> = ({
   if (!isOpen) return null;
 
   const currentRoom = availability?.rooms.find(r => r.id === selectedRoomId);
-  const currentBedspace = currentRoom?.bedspaces.find(b => b.id === selectedBedspaceId);
 
   const handleRoomSelect = (roomId: string) => {
     setSelectedRoomId(roomId);
-    setSelectedBedspaceId(''); // Reset bedspace when room changes
   };
 
-  const handleBedspaceSelect = (bedspace: BedspaceAvailability) => {
-    if (bedspace.isOccupied) return;
-    if (selectedBedspaceId === bedspace.id) {
-      setSelectedBedspaceId(''); // toggle off
-    } else {
-      setSelectedBedspaceId(bedspace.id);
-    }
-  };
+  const isBooked = Boolean(property.isBooked || property.availabilityStatus === 'BOOKED' || (property.activeBookingCount !== undefined && property.activeBookingCount > 0));
 
   const handleProceedToReview = (e: React.FormEvent) => {
     e.preventDefault();
+    if (isBooked) {
+      onShowToast('Sorry, this hostel is already booked.', 'error');
+      return;
+    }
     if (!selectedRoomId) {
       onShowToast('Please select a room type', 'error');
       return;
@@ -216,6 +209,10 @@ export const BookingModal: React.FC<BookingModalProps> = ({
   };
 
   const handleConfirmReservation = async () => {
+    if (isBooked) {
+      onShowToast('Sorry, this hostel is already booked.', 'error');
+      return;
+    }
     if (!currentRoom) return;
 
     setSubmitting(true);
@@ -223,7 +220,6 @@ export const BookingModal: React.FC<BookingModalProps> = ({
       const res = await api.bookings.reserve({
         propertyId: property.id,
         roomId: selectedRoomId,
-        bedspaceId: selectedBedspaceId || undefined,
         moveInDate,
         academicSession,
         durationMonths,
@@ -248,6 +244,35 @@ export const BookingModal: React.FC<BookingModalProps> = ({
   };
 
   if (!isOpen) return null;
+
+  if (isBooked) {
+    return (
+      <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
+        <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 max-w-md w-full border border-slate-200 dark:border-slate-800 text-center space-y-4 shadow-2xl">
+          <div className="w-14 h-14 bg-red-100 dark:bg-red-950/60 text-red-600 dark:text-red-400 rounded-2xl flex items-center justify-center mx-auto shadow-inner">
+            <AlertCircle className="w-7 h-7" />
+          </div>
+          <div className="space-y-1">
+            <h3 className="font-black text-base sm:text-lg text-slate-900 dark:text-white">Hostel Already Booked</h3>
+            <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+              <strong className="text-slate-900 dark:text-white">{property.title}</strong> currently has an active reservation in the central database and is no longer available for booking.
+            </p>
+          </div>
+          <div className="p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800/60 rounded-2xl text-[11px] text-red-800 dark:text-red-300 font-medium text-left">
+            <span>If the current reservation is cancelled or expires, this hostel will automatically become available again.</span>
+          </div>
+          <div className="pt-2">
+            <button
+              onClick={onClose}
+              className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 text-white font-black text-xs rounded-xl shadow-md transition-colors cursor-pointer"
+            >
+              Browse Other Available Hostels
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (!isAuthenticated) {
     return (
@@ -327,7 +352,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
 
         {/* Modal Body */}
         <div className="p-5 sm:p-6 overflow-y-auto space-y-5 flex-1">
-          {/* STEP 1: SELECT ROOM & BEDSPACE */}
+          {/* STEP 1: SELECT ROOM TYPE */}
           {step === 'SELECT' && (
             <form onSubmit={handleProceedToReview} className="space-y-5">
               {/* Hostel Context Bar */}
@@ -417,55 +442,6 @@ export const BookingModal: React.FC<BookingModalProps> = ({
                   </div>
                 )}
               </div>
-
-              {/* Bedspace Level Selection (Where Supported) */}
-              {currentRoom && currentRoom.bedspaces && currentRoom.bedspaces.length > 0 && (
-                <div className="space-y-2 pt-2 border-t border-slate-100">
-                  <div className="flex items-center justify-between">
-                    <label className="block text-xs font-black text-slate-900 uppercase tracking-wider">
-                      2. Choose Specific Bedspace (Optional)
-                    </label>
-                    <span className="text-[10px] text-slate-400">
-                      Pick your preferred space in {currentRoom.name}
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-                    {currentRoom.bedspaces.map(bed => {
-                      const isSelected = bed.id === selectedBedspaceId;
-                      const isOccupied = bed.isOccupied;
-
-                      return (
-                        <button
-                          key={bed.id}
-                          type="button"
-                          disabled={isOccupied}
-                          onClick={() => handleBedspaceSelect(bed)}
-                          className={`p-2.5 rounded-xl border text-center transition-all flex flex-col items-center justify-center gap-1 ${
-                            isOccupied
-                              ? 'bg-slate-100 border-slate-200 text-slate-400 opacity-60 cursor-not-allowed'
-                              : isSelected
-                              ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
-                              : 'bg-white text-slate-800 border-slate-200 hover:border-emerald-400 hover:bg-emerald-50/50'
-                          }`}
-                        >
-                          <span className="text-sm">🛏️</span>
-                          <span className="text-xs font-black">{bed.bedspaceNumber}</span>
-                          <span className={`text-[9px] font-bold ${
-                            isOccupied
-                              ? 'text-rose-500'
-                              : isSelected
-                              ? 'text-emerald-100'
-                              : 'text-emerald-700'
-                          }`}>
-                            {isOccupied ? 'Occupied' : isSelected ? 'Selected' : 'Available'}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
 
               {/* Move-in Date & Academic Session */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-slate-100">
@@ -567,9 +543,9 @@ export const BookingModal: React.FC<BookingModalProps> = ({
                 </div>
 
                 <div className="flex justify-between items-center pb-2 border-b border-slate-100 text-xs">
-                  <span className="text-slate-500 font-bold">Room & Space</span>
+                  <span className="text-slate-500 font-bold">Room Type</span>
                   <span className="font-black text-emerald-800">
-                    {currentRoom.name} {currentBedspace ? `(${currentBedspace.bedspaceNumber})` : ''}
+                    {currentRoom.name}
                   </span>
                 </div>
 

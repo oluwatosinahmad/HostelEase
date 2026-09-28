@@ -75,6 +75,57 @@ function postSystemMessage(propertyId: string, studentId: string, providerId: st
 }
 
 // ----------------------------------------------------
+// 0. AVAILABLE TIME SLOTS (Backend Availability Engine)
+// ----------------------------------------------------
+router.get('/properties/:propertyId/available-slots', (req, res: Response) => {
+  const { propertyId } = req.params;
+  const date = (req.query.date as string) || new Date().toISOString().split('T')[0];
+
+  const defaultSlots = [
+    '09:00 AM',
+    '10:00 AM',
+    '11:00 AM',
+    '12:00 PM',
+    '01:00 PM',
+    '02:00 PM',
+    '03:00 PM',
+    '04:00 PM',
+    '05:00 PM'
+  ];
+
+  try {
+    const prop = db.prepare('SELECT id, provider_id FROM properties WHERE id = ?').get(propertyId) as any;
+    if (!prop) {
+      return res.status(404).json({ error: 'Property not found' });
+    }
+
+    // Find all booked slots for this Agent across their properties on this date
+    const bookedRows = db.prepare(`
+      SELECT preferred_time
+      FROM inspection_requests ir
+      JOIN properties p ON ir.property_id = p.id
+      WHERE (p.provider_id = ? OR ir.property_id = ?)
+        AND ir.preferred_date = ?
+        AND ir.status IN ('PENDING', 'CONFIRMED', 'RESCHEDULE_REQUESTED')
+    `).all(prop.provider_id, propertyId, date) as any[];
+
+    const bookedSlots = bookedRows.map((r: any) => r.preferred_time);
+    const bookedSet = new Set(bookedSlots.map((s: string) => (s || '').trim().toUpperCase()));
+    const availableSlots = defaultSlots.filter(s => !bookedSet.has(s.trim().toUpperCase()));
+
+    return res.json({
+      date,
+      allSlots: defaultSlots,
+      bookedSlots,
+      availableSlots
+    });
+  } catch (err: any) {
+    console.error('Error fetching available slots:', err);
+    return res.status(500).json({ error: 'Failed to fetch available time slots' });
+  }
+});
+
+// ----------------------------------------------------
 // 1. REQUEST AN INSPECTION (from Hostel Details page)
 // ----------------------------------------------------
 router.post('/properties/:propertyId', authenticate, (req: AuthenticatedRequest, res: Response) => {
@@ -136,11 +187,15 @@ router.post('/properties/:propertyId', authenticate, (req: AuthenticatedRequest,
     // Status log
     logStatusTransition(inspectionId, req.user.id, req.user.role, 'NONE', 'PENDING', 'Inspection requested by student');
 
-    // Notify provider
+    // Fetch room name if specified
+    const roomInfo = roomId ? (db.prepare('SELECT room_name FROM rooms WHERE id = ?').get(roomId) as any)?.room_name : null;
+    const studentContact = studentPhone || req.user.phone || 'Phone upon confirmation';
+
+    // Notify provider with complete details
     sendNotification(
       property.provider_id,
-      'New Inspection Request',
-      `A student requested a ${inspectionType.toLowerCase()} inspection for ${property.title} on ${preferredDate} at ${preferredTime}.`,
+      `New ${inspectionType === 'VIRTUAL' ? 'Virtual Tour' : 'Inspection'} Request`,
+      `Student: ${req.user.fullName || 'Student'} (${studentContact}) • Property: ${property.title}${roomInfo ? ` • Room: ${roomInfo}` : ''} • Date: ${preferredDate} at ${preferredTime} • Mode: ${inspectionType === 'VIRTUAL' ? 'Virtual Tour' : 'Physical Visit'}${notes ? ` • Questions: "${notes}"` : ''}`,
       'INSPECTION_REQUEST',
       `/provider/inspections`
     );
@@ -351,7 +406,11 @@ router.patch('/:id/accept', authenticate, (req: AuthenticatedRequest, res: Respo
       { inspectionId: id, status: 'CONFIRMED', virtualMeetingUrl: virtualUrl }
     );
 
-    return res.json({ message: 'Inspection accepted and confirmed successfully', virtualMeetingUrl: virtualUrl });
+    return res.json({ 
+      message: 'Inspection accepted and confirmed successfully', 
+      virtualMeetingUrl: virtualUrl,
+      status: 'CONFIRMED'
+    });
   } catch (err: any) {
     console.error('Accept inspection error:', err);
     return res.status(500).json({ error: err.message || 'Failed to accept inspection' });
@@ -839,6 +898,84 @@ router.get('/:id/virtual-link', authenticate, (req: AuthenticatedRequest, res: R
   } catch (err: any) {
     console.error('Virtual link access error:', err);
     return res.status(500).json({ error: err.message || 'Failed to retrieve virtual meeting link' });
+  }
+});
+
+// ----------------------------------------------------
+// 12b. SECURE LIVE WALKTHROUGH SESSION METADATA
+// ----------------------------------------------------
+router.get('/:id/session', authenticate, (req: AuthenticatedRequest, res: Response) => {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+  const { id } = req.params;
+
+  try {
+    const inspection = db.prepare(`
+      SELECT ir.*, p.title as property_title, p.address as property_address,
+             p.provider_id, u_s.full_name as student_name, u_s.email as student_email,
+             u_p.full_name as provider_name, u_p.phone as provider_phone,
+             (SELECT url FROM property_media WHERE property_id = p.id AND is_cover = 1 LIMIT 1) as cover_image,
+             r.room_name
+      FROM inspection_requests ir
+      JOIN properties p ON ir.property_id = p.id
+      JOIN users u_s ON ir.student_id = u_s.id
+      JOIN users u_p ON p.provider_id = u_p.id
+      LEFT JOIN rooms r ON ir.room_id = r.id
+      WHERE ir.id = ?
+    `).get(id) as any;
+
+    if (!inspection) return res.status(404).json({ error: 'Inspection request not found' });
+
+    const isStudent = req.user.role === 'STUDENT' && inspection.student_id === req.user.id;
+    const isProvider = req.user.role === 'PROVIDER' && inspection.provider_id === req.user.id;
+    const isAdmin = req.user.role === 'ADMIN';
+
+    if (!isStudent && !isProvider && !isAdmin) {
+      return res.status(403).json({ error: 'Forbidden: You are not authorized to join this inspection walkthrough' });
+    }
+
+    return res.json({
+      session: {
+        id: inspection.id,
+        propertyId: inspection.property_id,
+        propertyTitle: inspection.property_title,
+        propertyAddress: inspection.property_address,
+        coverImage: inspection.cover_image,
+        roomName: inspection.room_name || 'Standard Unit',
+        preferredDate: inspection.preferred_date,
+        preferredTime: inspection.preferred_time,
+        inspectionType: inspection.inspection_type,
+        status: inspection.status,
+        studentName: inspection.student_name,
+        providerName: inspection.provider_name,
+        studentPhone: inspection.student_phone,
+        notes: inspection.notes,
+        virtualMeetingUrl: inspection.virtual_meeting_url,
+        isHost: isProvider || isAdmin,
+        participantRole: isProvider ? 'AGENT' : isStudent ? 'STUDENT' : 'ADMIN',
+        userRoleInSession: isProvider ? 'AGENT' : isStudent ? 'STUDENT' : 'ADMIN',
+        property: {
+          id: inspection.property_id,
+          title: inspection.property_title,
+          address: inspection.property_address,
+          coverImage: inspection.cover_image
+        },
+        room: {
+          name: inspection.room_name || 'Standard Unit'
+        },
+        student: {
+          name: inspection.student_name,
+          email: inspection.student_email,
+          phone: inspection.student_phone
+        },
+        agent: {
+          name: inspection.provider_name,
+          phone: inspection.provider_phone
+        }
+      }
+    });
+  } catch (err: any) {
+    console.error('Session access error:', err);
+    return res.status(500).json({ error: 'Failed to access inspection walkthrough session' });
   }
 });
 

@@ -1205,7 +1205,19 @@ export default async (req: Request): Promise<Response> => {
       publicProps = publicProps.filter(p => (p.priceSummary?.rentAmount || 0) <= maxRent);
     }
 
-    return new Response(JSON.stringify({ properties: publicProps }), { status: 200, headers: CORS_HEADERS });
+    const mappedProps = publicProps.map(p => {
+      const activeBooking = memoryBookings.find(b => b.propertyId === p.id && ['PENDING', 'CONFIRMED'].includes(b.status));
+      const isBooked = Boolean(activeBooking) || p.availabilityStatus === 'BOOKED' || p.availabilityStatus === 'FULL';
+      return {
+        ...p,
+        isBooked,
+        bookingStatus: isBooked ? 'BOOKED' : 'AVAILABLE',
+        availabilityStatus: isBooked ? 'BOOKED' : 'AVAILABLE',
+        activeBookingCount: activeBooking ? 1 : 0
+      };
+    });
+
+    return new Response(JSON.stringify({ properties: mappedProps }), { status: 200, headers: CORS_HEADERS });
   }
 
   // 6b. Single Property Details
@@ -1224,7 +1236,17 @@ export default async (req: Request): Promise<Response> => {
       return new Response(JSON.stringify({ error: 'Property not found or pending review' }), { status: 404, headers: CORS_HEADERS });
     }
 
-    return new Response(JSON.stringify({ property: found }), { status: 200, headers: CORS_HEADERS });
+    const activeBooking = memoryBookings.find(b => b.propertyId === found.id && ['PENDING', 'CONFIRMED'].includes(b.status));
+    const isBooked = Boolean(activeBooking) || found.availabilityStatus === 'BOOKED' || found.availabilityStatus === 'FULL';
+    const formattedProperty = {
+      ...found,
+      isBooked,
+      bookingStatus: isBooked ? 'BOOKED' : 'AVAILABLE',
+      availabilityStatus: isBooked ? 'BOOKED' : 'AVAILABLE',
+      activeBookingCount: activeBooking ? 1 : 0
+    };
+
+    return new Response(JSON.stringify({ property: formattedProperty }), { status: 200, headers: CORS_HEADERS });
   }
 
   // 6c. Admin 8-Point Physical Inspection Verification Review
@@ -2222,6 +2244,79 @@ export default async (req: Request): Promise<Response> => {
   }
 
   // 17. Inspections Endpoints
+  if (pathname.includes('/api/inspections/properties/') && pathname.endsWith('/available-slots') && req.method === 'GET') {
+    const propertyId = pathname.replace('/api/inspections/properties/', '').replace('/available-slots', '');
+    const urlObj = new URL(req.url);
+    const date = urlObj.searchParams.get('date') || new Date().toISOString().split('T')[0];
+
+    const defaultSlots = [
+      '09:00 AM',
+      '10:00 AM',
+      '11:00 AM',
+      '12:00 PM',
+      '01:00 PM',
+      '02:00 PM',
+      '03:00 PM',
+      '04:00 PM',
+      '05:00 PM'
+    ];
+
+    const prop = memoryProperties.find(p => p.id === propertyId);
+    const providerId = prop?.providerId || (prop?.provider as any)?.id;
+
+    const bookedSlots = memoryInspections
+      .filter(i => (i.propertyId === propertyId || (providerId && i.providerId === providerId)) && i.preferredDate === date && (i.status === 'CONFIRMED' || i.status === 'ACCEPTED' || i.status === 'PENDING'))
+      .map(i => i.preferredTime || i.preferredTimeSlot);
+
+    const bookedSet = new Set(bookedSlots.map((s: string) => (s || '').trim().toUpperCase()));
+    const availableSlots = defaultSlots.filter(s => !bookedSet.has(s.trim().toUpperCase()));
+
+    return new Response(JSON.stringify({
+      date,
+      allSlots: defaultSlots,
+      bookedSlots,
+      availableSlots
+    }), { status: 200, headers: CORS_HEADERS });
+  }
+
+  if (pathname.startsWith('/api/inspections/') && pathname.endsWith('/session') && req.method === 'GET') {
+    const inspId = pathname.replace('/api/inspections/', '').replace('/session', '');
+    const insp = memoryInspections.find(i => i.id === inspId);
+    if (!insp) {
+      return new Response(JSON.stringify({ error: 'Inspection session not found' }), { status: 404, headers: CORS_HEADERS });
+    }
+    const user = parseAuth(req);
+    const isStudent = user && (user.id === insp.studentId || user.email === insp.studentEmail);
+    const isProvider = user && (user.id === insp.providerId || user.email === insp.providerEmail);
+    const isAdmin = user && user.role === 'ADMIN';
+
+    if (!isStudent && !isProvider && !isAdmin) {
+      return new Response(JSON.stringify({ error: 'Forbidden: You are not authorized to join this walkthrough session' }), { status: 403, headers: CORS_HEADERS });
+    }
+
+    return new Response(JSON.stringify({
+      session: {
+        id: insp.id,
+        propertyId: insp.propertyId,
+        propertyTitle: insp.propertyTitle,
+        propertyAddress: insp.propertyAddress,
+        coverImage: insp.coverImage || 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=1200&q=80',
+        roomName: insp.roomName || 'Executive Suite',
+        preferredDate: insp.preferredDate,
+        preferredTime: insp.preferredTime || insp.preferredTimeSlot || '10:00 AM',
+        inspectionType: insp.inspectionType || 'VIRTUAL',
+        status: insp.status || 'CONFIRMED',
+        studentName: insp.studentName || 'Student',
+        providerName: insp.providerName || 'Hostel Agent',
+        studentPhone: insp.studentPhone || 'Not provided',
+        notes: insp.notes || '',
+        virtualMeetingUrl: insp.virtualMeetingUrl || `https://meet.hostelease.ng/room/he-${insp.id}`,
+        isHost: isProvider || isAdmin,
+        participantRole: isProvider ? 'AGENT' : isStudent ? 'STUDENT' : 'ADMIN'
+      }
+    }), { status: 200, headers: CORS_HEADERS });
+  }
+
   if (pathname === '/api/inspections' && req.method === 'GET') {
     const user = parseAuth(req);
     const userId = user?.id || '';
@@ -2236,26 +2331,71 @@ export default async (req: Request): Promise<Response> => {
     return new Response(JSON.stringify({ inspections: insps }), { status: 200, headers: CORS_HEADERS });
   }
 
-  if (pathname === '/api/inspections' && req.method === 'POST') {
+  // 17b. Available Inspection Time Slots
+  if (pathname.includes('/api/inspections/properties/') && pathname.endsWith('/available-slots') && req.method === 'GET') {
+    const propertyId = pathname.replace('/api/inspections/properties/', '').replace('/available-slots', '');
+    const urlObj = new URL(req.url);
+    const date = urlObj.searchParams.get('date') || new Date().toISOString().split('T')[0];
+
+    const defaultSlots = [
+      '09:00 AM', '10:00 AM', '11:00 AM', '12:00 PM',
+      '01:00 PM', '02:00 PM', '03:00 PM', '04:00 PM', '05:00 PM'
+    ];
+
+    const prop = memoryProperties.find(p => p.id === propertyId);
+    const pId = prop?.providerId || (prop?.provider as any)?.id;
+
+    const bookedInsps = memoryInspections.filter(i => 
+      ((pId && i.providerId === pId) || i.propertyId === propertyId) &&
+      i.preferredDate === date &&
+      ['PENDING', 'CONFIRMED', 'RESCHEDULE_REQUESTED'].includes(i.status)
+    );
+
+    const bookedSlots = bookedInsps.map(i => i.preferredTime || i.preferredTimeSlot).filter(Boolean);
+    const bookedSet = new Set(bookedSlots.map((s: string) => s.trim().toUpperCase()));
+    const availableSlots = defaultSlots.filter(s => !bookedSet.has(s.trim().toUpperCase()));
+
+    return new Response(JSON.stringify({
+      date,
+      allSlots: defaultSlots,
+      bookedSlots,
+      availableSlots
+    }), { status: 200, headers: CORS_HEADERS });
+  }
+
+  // 17c. Request Inspection (POST /api/inspections/properties/:propertyId)
+  if (pathname.startsWith('/api/inspections/properties/') && req.method === 'POST') {
     try {
       const user = parseAuth(req);
       if (!user) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: CORS_HEADERS });
+      const propertyId = pathname.replace('/api/inspections/properties/', '');
       const body = await req.json();
-      const prop = memoryProperties.find(p => p.id === body.propertyId);
+      const prop = memoryProperties.find(p => p.id === propertyId);
+      if (!prop) return new Response(JSON.stringify({ error: 'Property not found' }), { status: 404, headers: CORS_HEADERS });
 
+      const inspType = body.inspectionType || 'PHYSICAL';
+      const prefDate = body.preferredDate;
+      const prefTime = body.preferredTime || body.preferredTimeSlot || '10:00 AM';
+
+      const inspId = `insp-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
       const insp = {
-        id: `insp-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-        propertyId: body.propertyId,
-        propertyTitle: prop?.title || 'Hostel Accommodation',
-        propertyAddress: prop?.address || 'LAUTECH Area',
+        id: inspId,
+        propertyId,
+        propertyTitle: prop.title,
+        propertyAddress: prop.address || 'LAUTECH Area',
         studentId: user.id,
         studentName: user.fullName || 'Student',
         studentEmail: user.email,
-        providerId: prop?.providerId || (prop?.provider as any)?.id || 'user-provider-default',
-        providerName: prop?.provider?.name || 'Verified Agent',
-        providerEmail: (prop as any)?.providerEmail || prop?.provider?.email || 'landlord@hostelease.ng',
-        preferredDate: body.preferredDate || new Date().toISOString().split('T')[0],
-        preferredTimeSlot: body.preferredTimeSlot || '11:00 AM',
+        studentPhone: body.studentPhone || user.phone,
+        roomId: body.roomId || null,
+        roomName: body.roomId ? prop.rooms?.find((r: any) => r.id === body.roomId)?.name || null : null,
+        providerId: prop.providerId || (prop.provider as any)?.id || 'user-provider-default',
+        providerName: prop.provider?.name || 'Verified Agent',
+        providerEmail: (prop as any).providerEmail || prop.provider?.email || 'landlord@hostelease.ng',
+        inspectionType: inspType,
+        preferredDate: prefDate,
+        preferredTime: prefTime,
+        preferredTimeSlot: prefTime,
         status: 'PENDING',
         notes: body.notes || '',
         createdAt: new Date().toISOString()
@@ -2263,30 +2403,137 @@ export default async (req: Request): Promise<Response> => {
 
       await saveCloudInspection(insp);
 
-      // Notify Landlord
+      // Notify Provider
       await saveCloudNotification({
         id: `notif-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
         userId: insp.providerId,
         userEmail: insp.providerEmail,
-        title: 'New Physical Inspection Request 📅',
-        message: `${insp.studentName} requested an inspection for "${insp.propertyTitle}" on ${insp.preferredDate} at ${insp.preferredTimeSlot}.`,
-        type: 'INSPECTION',
+        title: `New ${inspType === 'VIRTUAL' ? 'Virtual Tour' : 'Inspection'} Request`,
+        message: `${insp.studentName} requested a ${inspType === 'VIRTUAL' ? 'Virtual Tour' : 'Physical Visit'} for "${insp.propertyTitle}" on ${prefDate} at ${prefTime}.`,
+        type: 'INSPECTION_REQUEST',
         isRead: false,
         linkUrl: '/provider?tab=inspections',
         createdAt: new Date().toISOString()
       });
 
-      return new Response(JSON.stringify({ success: true, inspection: insp }), { status: 201, headers: CORS_HEADERS });
+      return new Response(JSON.stringify({ 
+        message: `Inspection request submitted for ${prop.title}`, 
+        inspectionId: inspId,
+        inspection: insp 
+      }), { status: 201, headers: CORS_HEADERS });
     } catch (err: any) {
       return new Response(JSON.stringify({ error: err.message }), { status: 400, headers: CORS_HEADERS });
     }
+  }
+
+  // Legacy POST /api/inspections fallback
+  if (pathname === '/api/inspections' && req.method === 'POST') {
+    try {
+      const user = parseAuth(req);
+      if (!user) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: CORS_HEADERS });
+      const body = await req.json();
+      const prop = memoryProperties.find(p => p.id === body.propertyId);
+
+      const inspId = `insp-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+      const insp = {
+        id: inspId,
+        propertyId: body.propertyId,
+        propertyTitle: prop?.title || 'Hostel Accommodation',
+        propertyAddress: prop?.address || 'LAUTECH Area',
+        studentId: user.id,
+        studentName: user.fullName || 'Student',
+        studentEmail: user.email,
+        studentPhone: body.studentPhone || user.phone,
+        roomId: body.roomId || null,
+        providerId: prop?.providerId || (prop?.provider as any)?.id || 'user-provider-default',
+        providerName: prop?.provider?.name || 'Verified Agent',
+        providerEmail: (prop as any)?.providerEmail || prop?.provider?.email || 'landlord@hostelease.ng',
+        inspectionType: body.inspectionType || 'PHYSICAL',
+        preferredDate: body.preferredDate || new Date().toISOString().split('T')[0],
+        preferredTime: body.preferredTime || body.preferredTimeSlot || '11:00 AM',
+        preferredTimeSlot: body.preferredTime || body.preferredTimeSlot || '11:00 AM',
+        status: 'PENDING',
+        notes: body.notes || '',
+        createdAt: new Date().toISOString()
+      };
+
+      await saveCloudInspection(insp);
+
+      return new Response(JSON.stringify({ success: true, inspectionId: inspId, inspection: insp }), { status: 201, headers: CORS_HEADERS });
+    } catch (err: any) {
+      return new Response(JSON.stringify({ error: err.message }), { status: 400, headers: CORS_HEADERS });
+    }
+  }
+
+  // 17d. Secure Walkthrough Session Metadata
+  if (pathname.startsWith('/api/inspections/') && pathname.endsWith('/session') && req.method === 'GET') {
+    const user = parseAuth(req);
+    if (!user) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: CORS_HEADERS });
+
+    const inspId = pathname.replace('/api/inspections/', '').replace('/session', '');
+    const insp = memoryInspections.find(i => i.id === inspId);
+    if (!insp) return new Response(JSON.stringify({ error: 'Inspection request not found' }), { status: 404, headers: CORS_HEADERS });
+
+    const isStudent = user.role === 'STUDENT' && (insp.studentId === user.id || (user.email && insp.studentEmail?.toLowerCase() === user.email.toLowerCase()));
+    const isProvider = user.role === 'PROVIDER' && (insp.providerId === user.id || (user.email && insp.providerEmail?.toLowerCase() === user.email.toLowerCase()));
+    const isAdmin = user.role === 'ADMIN';
+
+    if (!isStudent && !isProvider && !isAdmin) {
+      return new Response(JSON.stringify({ error: 'Forbidden: You are not authorized to join this inspection walkthrough' }), { status: 403, headers: CORS_HEADERS });
+    }
+
+    const prop = memoryProperties.find(p => p.id === insp.propertyId);
+
+    return new Response(JSON.stringify({
+      session: {
+        id: insp.id,
+        propertyId: insp.propertyId,
+        propertyTitle: insp.propertyTitle,
+        propertyAddress: insp.propertyAddress,
+        coverImage: prop?.coverImage || 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=600&q=80',
+        roomName: insp.roomName || 'Executive Suite',
+        preferredDate: insp.preferredDate,
+        preferredTime: insp.preferredTime || insp.preferredTimeSlot,
+        inspectionType: insp.inspectionType || 'VIRTUAL',
+        status: insp.status,
+        studentName: insp.studentName,
+        providerName: insp.providerName,
+        studentPhone: insp.studentPhone,
+        notes: insp.notes,
+        virtualMeetingUrl: insp.virtualMeetingUrl,
+        isHost: isProvider || isAdmin,
+        participantRole: isProvider ? 'AGENT' : isStudent ? 'STUDENT' : 'ADMIN',
+        userRoleInSession: isProvider ? 'AGENT' : isStudent ? 'STUDENT' : 'ADMIN',
+        property: {
+          id: insp.propertyId,
+          title: insp.propertyTitle,
+          address: insp.propertyAddress,
+          coverImage: prop?.coverImage
+        },
+        room: {
+          name: insp.roomName || 'Executive Suite'
+        },
+        student: {
+          name: insp.studentName,
+          email: insp.studentEmail,
+          phone: insp.studentPhone
+        },
+        agent: {
+          name: insp.providerName,
+          phone: insp.providerPhone
+        }
+      }
+    }), { status: 200, headers: CORS_HEADERS });
   }
 
   if (pathname.startsWith('/api/inspections/') && pathname.endsWith('/accept') && req.method === 'PATCH') {
     const inspId = pathname.replace('/api/inspections/', '').replace('/accept', '');
     const insp = memoryInspections.find(i => i.id === inspId);
     if (insp) {
-      insp.status = 'ACCEPTED';
+      insp.status = 'CONFIRMED';
+      if (!insp.virtualMeetingUrl && (insp.inspectionType === 'VIRTUAL' || insp.inspectionType === undefined)) {
+        insp.virtualMeetingUrl = `https://meet.hostelease.ng/room/he-${Date.now().toString(36)}`;
+      }
       await saveCloudInspection(insp);
 
       // Notify Student
@@ -2294,13 +2541,19 @@ export default async (req: Request): Promise<Response> => {
         id: `notif-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
         userId: insp.studentId,
         userEmail: insp.studentEmail,
-        title: 'Inspection Request Confirmed! ✅',
-        message: `Agent accepted your inspection request for "${insp.propertyTitle}". Date: ${insp.preferredDate} at ${insp.preferredTimeSlot}.`,
-        type: 'INSPECTION',
+        title: 'Inspection Request Confirmed! 🎉',
+        message: `Agent accepted your ${insp.inspectionType === 'VIRTUAL' ? 'Virtual Tour' : 'Inspection'} for "${insp.propertyTitle}".`,
+        type: 'INSPECTION_CONFIRMED',
         isRead: false,
         linkUrl: '/student?tab=inspections',
         createdAt: new Date().toISOString()
       });
+      return new Response(JSON.stringify({ 
+        success: true, 
+        message: 'Inspection accepted and confirmed successfully',
+        status: 'CONFIRMED',
+        virtualMeetingUrl: insp.virtualMeetingUrl 
+      }), { status: 200, headers: CORS_HEADERS });
     }
     return new Response(JSON.stringify({ success: true }), { status: 200, headers: CORS_HEADERS });
   }
@@ -2350,6 +2603,12 @@ export default async (req: Request): Promise<Response> => {
       const body = await req.json();
       const prop = memoryProperties.find(p => p.id === body.propertyId);
 
+      // Check if already booked
+      const activeBooking = memoryBookings.find(b => b.propertyId === body.propertyId && ['PENDING', 'CONFIRMED'].includes(b.status));
+      if (activeBooking || prop?.availabilityStatus === 'BOOKED' || prop?.availabilityStatus === 'FULL') {
+        return new Response(JSON.stringify({ error: 'Sorry, this hostel is already booked.' }), { status: 409, headers: CORS_HEADERS });
+      }
+
       const bk = {
         id: `bk-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
         propertyId: body.propertyId,
@@ -2366,6 +2625,13 @@ export default async (req: Request): Promise<Response> => {
       };
 
       await saveCloudBooking(bk);
+
+      if (prop) {
+        prop.availabilityStatus = 'BOOKED';
+        prop.isBooked = true;
+        prop.bookingStatus = 'BOOKED';
+        await saveCloudProperty(prop);
+      }
 
       // Notify Landlord
       await saveCloudNotification({
@@ -2415,6 +2681,17 @@ export default async (req: Request): Promise<Response> => {
       bk.status = 'DECLINED';
       await saveCloudBooking(bk);
 
+      const remainingActive = memoryBookings.filter(b => b.propertyId === bk.propertyId && b.id !== bk.id && ['PENDING', 'CONFIRMED'].includes(b.status));
+      if (remainingActive.length === 0) {
+        const prop = memoryProperties.find(p => p.id === bk.propertyId);
+        if (prop) {
+          prop.availabilityStatus = 'AVAILABLE';
+          prop.isBooked = false;
+          prop.bookingStatus = 'AVAILABLE';
+          await saveCloudProperty(prop);
+        }
+      }
+
       // Notify Student
       await saveCloudNotification({
         id: `notif-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
@@ -2425,6 +2702,38 @@ export default async (req: Request): Promise<Response> => {
         type: 'BOOKING',
         isRead: false,
         linkUrl: '/student?tab=bookings',
+        createdAt: new Date().toISOString()
+      });
+    }
+    return new Response(JSON.stringify({ success: true }), { status: 200, headers: CORS_HEADERS });
+  }
+
+  if (pathname.startsWith('/api/bookings/') && pathname.endsWith('/cancel') && req.method === 'PATCH') {
+    const bkId = pathname.replace('/api/bookings/', '').replace('/cancel', '');
+    const bk = memoryBookings.find(b => b.id === bkId);
+    if (bk) {
+      bk.status = 'CANCELLED_BY_STUDENT';
+      await saveCloudBooking(bk);
+
+      const remainingActive = memoryBookings.filter(b => b.propertyId === bk.propertyId && b.id !== bk.id && ['PENDING', 'CONFIRMED'].includes(b.status));
+      if (remainingActive.length === 0) {
+        const prop = memoryProperties.find(p => p.id === bk.propertyId);
+        if (prop) {
+          prop.availabilityStatus = 'AVAILABLE';
+          prop.isBooked = false;
+          prop.bookingStatus = 'AVAILABLE';
+          await saveCloudProperty(prop);
+        }
+      }
+
+      await saveCloudNotification({
+        id: `notif-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+        userId: bk.providerId,
+        title: 'Booking Cancelled',
+        message: `Booking for "${bk.propertyTitle}" was cancelled.`,
+        type: 'BOOKING',
+        isRead: false,
+        linkUrl: '/provider?tab=bookings',
         createdAt: new Date().toISOString()
       });
     }

@@ -24,6 +24,11 @@ const getKeyAmenitiesStmt = db.prepare(`
 const getSavedPropStmt = db.prepare(`
   SELECT property_id FROM saved_properties WHERE user_id = ?
 `);
+const getActiveBookingCountStmt = db.prepare(`
+  SELECT COUNT(*) as count 
+  FROM bookings 
+  WHERE property_id = ? AND status IN ('PENDING', 'CONFIRMED')
+`);
 
 // Pre-compiled statements for Single Property Details
 const getPropertyByIdStmt = db.prepare(`
@@ -78,6 +83,11 @@ function formatPropertySummary(p: any, savedPropertyIds: Set<string> = new Set()
   const videoMedia = getVideoMediaStmt.get(p.id) as any;
   const keyAmenities = getKeyAmenitiesStmt.all(p.id);
 
+  const activeBookingRow = getActiveBookingCountStmt.get(p.id) as { count: number } | undefined;
+  const activeBookingCount = activeBookingRow ? activeBookingRow.count : 0;
+  const isBooked = activeBookingCount > 0 || p.availability_status === 'BOOKED' || p.availability_status === 'FULLY_OCCUPIED';
+  const effectiveAvailability = isBooked ? 'BOOKED' : 'AVAILABLE';
+
   const videoUrl = videoMedia ? videoMedia.url : (p.video_tour_url || null);
   const hasVideo = Boolean(videoUrl);
 
@@ -117,7 +127,10 @@ function formatPropertySummary(p: any, savedPropertyIds: Set<string> = new Set()
     genderPreference: p.gender_preference,
     totalRooms: p.total_rooms,
     verificationStatus: p.verification_status,
-    availabilityStatus: p.availability_status,
+    availabilityStatus: effectiveAvailability,
+    bookingStatus: isBooked ? 'BOOKED' : 'AVAILABLE',
+    isBooked: isBooked,
+    activeBookingCount: activeBookingCount,
     isDemo: Boolean(p.is_demo),
     isFeatured: Boolean(p.is_featured),
     has4KVideo: hasVideo,
@@ -402,6 +415,11 @@ router.get('/:id', optionalAuthenticate, (req: AuthenticatedRequest, res: Respon
     // Fetch legitimate reviews if any
     const reviews = getReviewsByPropIdStmt.all(property.id);
 
+    const activeBookingRow = getActiveBookingCountStmt.get(property.id) as { count: number } | undefined;
+    const activeBookingCount = activeBookingRow ? activeBookingRow.count : 0;
+    const isBooked = activeBookingCount > 0 || property.availability_status === 'BOOKED' || property.availability_status === 'FULLY_OCCUPIED';
+    const effectiveAvailability = isBooked ? 'BOOKED' : 'AVAILABLE';
+
     res.setHeader('Cache-Control', 'public, max-age=15, stale-while-revalidate=30');
 
     return res.json({
@@ -419,7 +437,10 @@ router.get('/:id', optionalAuthenticate, (req: AuthenticatedRequest, res: Respon
         genderPreference: property.gender_preference,
         totalRooms: property.total_rooms,
         verificationStatus: property.verification_status,
-        availabilityStatus: property.availability_status,
+        availabilityStatus: effectiveAvailability,
+        bookingStatus: isBooked ? 'BOOKED' : 'AVAILABLE',
+        isBooked: isBooked,
+        activeBookingCount: activeBookingCount,
         isDemo: Boolean(property.is_demo),
         isFeatured: Boolean(property.is_featured),
         has4KVideo: hasVideo,

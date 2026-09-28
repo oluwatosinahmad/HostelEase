@@ -22,15 +22,17 @@ export function formatDistance(distanceKm: number | string | null | undefined): 
 
 export function getAvailabilityBadgeInfo(status: string) {
   switch (status) {
-    case 'AVAILABLE':
-      return { label: 'Available', bg: 'bg-emerald-50 text-emerald-700 border-emerald-200' };
-    case 'LIMITED':
-      return { label: 'Few Rooms Left', bg: 'bg-amber-50 text-amber-700 border-amber-200' };
+    case 'BOOKED':
+    case 'FULL':
     case 'FULLY_OCCUPIED':
-      return { label: 'Fully Occupied', bg: 'bg-red-50 text-red-700 border-red-200' };
+      return { label: 'Booked', bg: 'bg-red-50 text-red-700 border-red-200 dark:bg-red-950/60 dark:text-red-400 dark:border-red-800' };
+    case 'LIMITED':
+      return { label: 'Few Rooms Left', bg: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/60 dark:text-amber-400 dark:border-amber-800' };
     case 'UNAVAILABLE':
+      return { label: 'Unavailable', bg: 'bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700' };
+    case 'AVAILABLE':
     default:
-      return { label: 'Unavailable', bg: 'bg-slate-100 text-slate-600 border-slate-200' };
+      return { label: 'Available', bg: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-400 dark:border-emerald-800' };
   }
 }
 

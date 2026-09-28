@@ -15,9 +15,10 @@ import {
   RotateCcw, 
   VideoOff, 
   AlertCircle,
-  ArrowLeft
+  ArrowLeft,
+  Video
 } from 'lucide-react';
-import { Property } from '../types/hostelEase';
+import { Property, InspectionType } from '../types/hostelEase';
 import { formatNaira, formatDistance } from '../utils/formatters';
 import { getMediaUrl } from '../services/api';
 
@@ -28,7 +29,7 @@ interface HostelVideoTourModalProps {
   onBack?: () => void;
   backButtonLabel?: string;
   onOpenBookingModal?: (property: Property) => void;
-  onOpenInspectionModal?: (property: Property) => void;
+  onOpenInspectionModal?: (property: Property, type?: InspectionType) => void;
   onOpenConversation?: (propertyId: string) => void;
 }
 
@@ -376,17 +377,31 @@ export const HostelVideoTourModal: React.FC<HostelVideoTourModalProps> = ({
             )}
 
             {onOpenInspectionModal && (
-              <button
-                type="button"
-                onClick={() => {
-                  handleBack();
-                  onOpenInspectionModal(property);
-                }}
-                className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold rounded-xl border border-slate-700 flex items-center gap-1.5 transition-colors cursor-pointer"
-              >
-                <Calendar className="w-3.5 h-3.5 text-emerald-400" />
-                <span>Schedule In-Person Tour</span>
-              </button>
+              <>
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleBack();
+                    onOpenInspectionModal(property, 'VIRTUAL');
+                  }}
+                  className="px-4 py-2.5 bg-gradient-to-r from-purple-900/60 to-indigo-900/60 hover:from-purple-800 hover:to-indigo-800 text-purple-200 text-xs font-bold rounded-xl border border-purple-500/40 flex items-center gap-1.5 transition-colors cursor-pointer shadow-md"
+                >
+                  <Video className="w-3.5 h-3.5 text-purple-300" />
+                  <span>Live Virtual Tour</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleBack();
+                    onOpenInspectionModal(property, 'PHYSICAL');
+                  }}
+                  className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold rounded-xl border border-slate-700 flex items-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <Calendar className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Schedule Physical Visit</span>
+                </button>
+              </>
             )}
 
             {onOpenBookingModal && (

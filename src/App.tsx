@@ -35,7 +35,7 @@ import {
   Users
 } from 'lucide-react';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import { Property, Area, SearchFilterState, UserRole, AppView } from './types/hostelEase';
+import { Property, Area, SearchFilterState, UserRole, AppView, InspectionType } from './types/hostelEase';
 import { api } from './services/api';
 import { Navbar } from './components/Navbar';
 import { HeroSection } from './components/HeroSection';
@@ -46,6 +46,7 @@ import { SavedHostelsView } from './components/SavedHostelsView';
 import { ComparisonDock } from './components/ComparisonDock';
 import { BookingModal } from './components/BookingModal';
 import { InspectionModal } from './components/InspectionModal';
+import { LiveVirtualTourModal } from './components/LiveVirtualTourModal';
 import { HostelVideoTourModal } from './components/HostelVideoTourModal';
 import { VirtualToursView } from './components/VirtualToursView';
 import { AuthModal } from './components/AuthModal';
@@ -159,6 +160,9 @@ function MainApp() {
   const [bookingTargetProperty, setBookingTargetProperty] = useState<Property | null>(null);
   const [standaloneInspectionModalOpen, setStandaloneInspectionModalOpen] = useState<boolean>(false);
   const [inspectionTargetProperty, setInspectionTargetProperty] = useState<Property | null>(null);
+  const [inspectionInitialType, setInspectionInitialType] = useState<InspectionType>('PHYSICAL');
+  const [inspectionInitialRoomId, setInspectionInitialRoomId] = useState<string | undefined>(undefined);
+  const [activeLiveTourInspectionId, setActiveLiveTourInspectionId] = useState<string | null>(null);
   const [selectedVideoTourProperty, setSelectedVideoTourProperty] = useState<Property | null>(null);
 
   // Synchronize browser history entry so browser back button navigates between views naturally
@@ -628,15 +632,32 @@ function MainApp() {
         setSelectedPropertyId(e.detail);
       }
     };
+    const handleLiveTourEvent = (e: any) => {
+      if (e.detail?.inspectionId) {
+        setActiveLiveTourInspectionId(e.detail.inspectionId);
+      }
+    };
+    const handleOpenConvEvent = (e: any) => {
+      const propId = e.detail?.propertyId;
+      if (propId) {
+        setMessagingTargetPropertyId(propId);
+        setCurrentView('messages');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    };
     window.addEventListener('hostel_ease_navigate', handleNavigateEvent);
     window.addEventListener('hostel_ease_open_hostel_details', handleOpenDetailsEvent);
     window.addEventListener('hostel_ease_open_auth', handleAuthEvent);
     window.addEventListener('hostel_ease_open_ai', handleAiEvent);
+    window.addEventListener('hostel_ease_open_live_tour', handleLiveTourEvent);
+    window.addEventListener('hostel_ease_open_conversation', handleOpenConvEvent);
     return () => {
       window.removeEventListener('hostel_ease_navigate', handleNavigateEvent);
       window.removeEventListener('hostel_ease_open_hostel_details', handleOpenDetailsEvent);
       window.removeEventListener('hostel_ease_open_auth', handleAuthEvent);
       window.removeEventListener('hostel_ease_open_ai', handleAiEvent);
+      window.removeEventListener('hostel_ease_open_live_tour', handleLiveTourEvent);
+      window.removeEventListener('hostel_ease_open_conversation', handleOpenConvEvent);
     };
   }, []);
 
@@ -650,13 +671,15 @@ function MainApp() {
     setBookingModalOpen(true);
   };
 
-  const handleOpenInspectionModal = (property: Property) => {
+  const handleOpenInspectionModal = (property: Property, initialType: InspectionType = 'PHYSICAL', roomId?: string) => {
     if (!isAuthenticated) {
       showToast('Please create an account or sign in first to schedule a hostel inspection.', 'error');
       handleOpenAuth('STUDENT');
       return;
     }
     setInspectionTargetProperty(property);
+    setInspectionInitialType(initialType);
+    setInspectionInitialRoomId(roomId);
     setStandaloneInspectionModalOpen(true);
   };
 
@@ -1947,7 +1970,7 @@ function MainApp() {
               window.scrollTo({ top: 0, behavior: 'smooth' });
             }}
             onOpenBookingModal={(prop) => handleOpenBookingModal(prop)}
-            onRequestInspection={(prop) => handleOpenInspectionModal(prop)}
+            onRequestInspection={(prop, type, roomId) => handleOpenInspectionModal(prop, type, roomId)}
             onOpenAuth={handleOpenAuth}
             onOpenAI={(prop) => handleOpenAI(prop)}
             isCompared={comparedPropertyIds.includes(selectedPropertyId)}
@@ -1979,6 +2002,8 @@ function MainApp() {
             showToast(`Reservation #${bookingRef} created successfully!`, 'success');
             setBookingModalOpen(false);
             setBookingTargetProperty(null);
+            loadInitialData();
+            window.dispatchEvent(new CustomEvent('hostel_ease_properties_updated'));
             setCurrentView('bookings');
             window.scrollTo({ top: 0, behavior: 'smooth' });
           }}
@@ -1996,18 +2021,33 @@ function MainApp() {
         <InspectionModal
           property={inspectionTargetProperty}
           isOpen={standaloneInspectionModalOpen}
+          initialType={inspectionInitialType}
+          selectedRoomId={inspectionInitialRoomId}
           onClose={() => {
             setStandaloneInspectionModalOpen(false);
             setInspectionTargetProperty(null);
+            setInspectionInitialRoomId(undefined);
           }}
           onSuccess={(msg) => showToast(msg, 'success')}
           onOpenConversation={(propId) => {
             setStandaloneInspectionModalOpen(false);
             setInspectionTargetProperty(null);
+            setInspectionInitialRoomId(undefined);
             setMessagingTargetPropertyId(propId);
             setCurrentView('messages');
             window.scrollTo({ top: 0, behavior: 'smooth' });
           }}
+        />
+      )}
+
+      {/* Interactive Live Virtual Walkthrough Modal */}
+      {activeLiveTourInspectionId && (
+        <LiveVirtualTourModal
+          inspectionId={activeLiveTourInspectionId}
+          isOpen={Boolean(activeLiveTourInspectionId)}
+          onClose={() => setActiveLiveTourInspectionId(null)}
+          onReserveProperty={handleReservePropertyById}
+          onShowToast={showToast}
         />
       )}
 
@@ -2023,9 +2063,9 @@ function MainApp() {
             handleCloseVideoTour();
             handleOpenBookingModal(prop);
           }}
-          onOpenInspectionModal={(prop) => {
+          onOpenInspectionModal={(prop, type) => {
             handleCloseVideoTour();
-            handleOpenInspectionModal(prop);
+            handleOpenInspectionModal(prop, type || 'VIRTUAL');
           }}
           onOpenConversation={(propId) => {
             handleCloseVideoTour();

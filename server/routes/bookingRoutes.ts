@@ -153,8 +153,17 @@ const createReservationHandler = (req: AuthenticatedRequest, res: Response) => {
         throw new Error('Hostel property not found');
       }
 
-      if (property.availability_status === 'FULL') {
-        throw new Error('This hostel is currently fully occupied');
+      // Check if property is already booked by an active or confirmed booking
+      const activePropertyBooking = db.prepare(`
+        SELECT id, booking_reference
+        FROM bookings
+        WHERE property_id = ? AND status IN ('PENDING', 'CONFIRMED')
+      `).get(propertyId) as any;
+
+      if (activePropertyBooking || property.availability_status === 'BOOKED' || property.availability_status === 'FULL') {
+        const err: any = new Error('Sorry, this hostel is already booked.');
+        err.statusCode = 409;
+        throw err;
       }
 
       // 2. Fetch Room
@@ -282,7 +291,14 @@ const createReservationHandler = (req: AuthenticatedRequest, res: Response) => {
         specialRequests || null
       );
 
-      // 9. Record Initial Status History
+      // 9. Update Property status to BOOKED
+      db.prepare(`
+        UPDATE properties
+        SET availability_status = 'BOOKED', updated_at = datetime('now')
+        WHERE id = ?
+      `).run(propertyId);
+
+      // 10. Record Initial Status History
       db.prepare(`
         INSERT INTO booking_status_history (id, booking_id, actor_id, actor_role, previous_status, new_status, reason, notes)
         VALUES (?, ?, ?, 'STUDENT', NULL, 'PENDING', NULL, 'Reservation created by student')
@@ -818,6 +834,14 @@ router.patch('/:id/decline', authenticate, (req: AuthenticatedRequest, res: Resp
         `).run(booking.bedspace_id);
       }
 
+      // Check if property still has any active/confirmed bookings; if not, revert availability_status to AVAILABLE
+      const remainingActive = db.prepare(`
+        SELECT COUNT(*) as count FROM bookings WHERE property_id = ? AND id != ? AND status IN ('PENDING', 'CONFIRMED')
+      `).get(booking.property_id, id) as { count: number };
+      if (!remainingActive || remainingActive.count === 0) {
+        db.prepare(`UPDATE properties SET availability_status = 'AVAILABLE', updated_at = datetime('now') WHERE id = ?`).run(booking.property_id);
+      }
+
       // 4. Record Status History
       db.prepare(`
         INSERT INTO booking_status_history (id, booking_id, actor_id, actor_role, previous_status, new_status, reason, notes)
@@ -920,6 +944,14 @@ router.patch('/:id/cancel', authenticate, (req: AuthenticatedRequest, res: Respo
         `).run(booking.bedspace_id);
       }
 
+      // Check if property still has any active/confirmed bookings; if not, revert availability_status to AVAILABLE
+      const remainingActive = db.prepare(`
+        SELECT COUNT(*) as count FROM bookings WHERE property_id = ? AND id != ? AND status IN ('PENDING', 'CONFIRMED')
+      `).get(booking.property_id, id) as { count: number };
+      if (!remainingActive || remainingActive.count === 0) {
+        db.prepare(`UPDATE properties SET availability_status = 'AVAILABLE', updated_at = datetime('now') WHERE id = ?`).run(booking.property_id);
+      }
+
       // 4. Status History
       db.prepare(`
         INSERT INTO booking_status_history (id, booking_id, actor_id, actor_role, previous_status, new_status, reason, notes)
@@ -1007,6 +1039,14 @@ router.post('/check-expirations', (req, res: Response) => {
             SET is_occupied = 0, status = 'AVAILABLE', updated_at = datetime('now')
             WHERE id = ?
           `).run(booking.bedspace_id);
+        }
+
+        // Check if property still has any active/confirmed bookings; if not, revert availability_status to AVAILABLE
+        const remainingActive = db.prepare(`
+          SELECT COUNT(*) as count FROM bookings WHERE property_id = ? AND id != ? AND status IN ('PENDING', 'CONFIRMED')
+        `).get(booking.property_id, booking.id) as { count: number };
+        if (!remainingActive || remainingActive.count === 0) {
+          db.prepare(`UPDATE properties SET availability_status = 'AVAILABLE', updated_at = datetime('now') WHERE id = ?`).run(booking.property_id);
         }
 
         db.prepare(`

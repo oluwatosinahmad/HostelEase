@@ -46,25 +46,16 @@ const STORAGE_KEYS = {
   SAVED_SEARCHES: 'campusnest_saved_searches_v1',
 };
 
+import { safeStorage } from '../utils/safeStorage';
+
 // Helper for safe JSON parse
 function safeGet<T>(key: string, fallback: T): T {
-  try {
-    const item = localStorage.getItem(key);
-    if (!item) return fallback;
-    return JSON.parse(item) as T;
-  } catch (error) {
-    console.error(`Error reading ${key} from storage:`, error);
-    return fallback;
-  }
+  return safeStorage.getJSON<T>(key, fallback);
 }
 
 // Helper for safe JSON stringify
 function safeSet<T>(key: string, data: T): void {
-  try {
-    localStorage.setItem(key, JSON.stringify(data));
-  } catch (error) {
-    console.error(`Error saving ${key} to storage:`, error);
-  }
+  safeStorage.setJSON(key, data, false);
 }
 
 // =========================================================================
