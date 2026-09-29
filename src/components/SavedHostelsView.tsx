@@ -26,6 +26,10 @@ interface SavedHostelsViewProps {
   onToggleCompare?: (propertyId: string) => void;
   comparedIds?: string[];
   onShowToast: (message: string, type?: 'success' | 'info' | 'error') => void;
+  savedHostels?: Property[];
+  loading?: boolean;
+  onRefreshSaved?: () => void;
+  onUnsave?: (propertyId: string) => void;
 }
 
 export const SavedHostelsView: React.FC<SavedHostelsViewProps> = ({
@@ -33,46 +37,73 @@ export const SavedHostelsView: React.FC<SavedHostelsViewProps> = ({
   onNavigateToSearch,
   onToggleCompare,
   comparedIds = [],
-  onShowToast
+  onShowToast,
+  savedHostels: propsSavedHostels,
+  loading: propsLoading,
+  onRefreshSaved,
+  onUnsave
 }) => {
-  const { isAuthenticated } = useAuth();
-  const [savedHostels, setSavedHostels] = useState<Property[]>([]);
+  const { isAuthenticated, user } = useAuth();
+  const [internalSavedHostels, setInternalSavedHostels] = useState<Property[]>([]);
   const [recentViews, setRecentViews] = useState<RecentlyViewedItem[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [internalLoading, setInternalLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchSavedAndRecent = () => {
-    setLoading(true);
-    setError(null);
-    Promise.all([
-      api.properties.getSaved(),
-      api.discovery.getRecentlyViewed()
-    ])
-      .then(([savedRes, recentRes]) => {
-        setSavedHostels(savedRes.savedProperties || []);
+  // If propsSavedHostels is provided by parent (App.tsx), use it as the source of truth
+  const isControlled = propsSavedHostels !== undefined;
+  const savedHostels = isControlled ? propsSavedHostels : internalSavedHostels;
+  const loading = isControlled ? (propsLoading ?? false) : internalLoading;
+
+  const fetchRecent = () => {
+    api.discovery.getRecentlyViewed()
+      .then(recentRes => {
         setRecentViews(recentRes.recentViews || []);
-        setLoading(false);
+      })
+      .catch(() => {
+        setRecentViews([]);
+      });
+  };
+
+  const fetchInternalSaved = () => {
+    setInternalLoading(true);
+    setError(null);
+    api.properties.getSaved()
+      .then(savedRes => {
+        setInternalSavedHostels(savedRes.savedProperties || []);
       })
       .catch(err => {
         setError(err.message || 'Failed to load saved hostels');
-        setLoading(false);
+      })
+      .finally(() => {
+        setInternalLoading(false);
       });
   };
 
   useEffect(() => {
     if (isAuthenticated) {
-      fetchSavedAndRecent();
+      fetchRecent();
+      if (!isControlled) {
+        fetchInternalSaved();
+      } else if (onRefreshSaved) {
+        onRefreshSaved();
+      }
     } else {
-      setLoading(false);
+      setInternalLoading(false);
+      setInternalSavedHostels([]);
+      setRecentViews([]);
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, user?.id, isControlled]);
 
   const handleUnsave = async (propertyId: string, e: React.MouseEvent) => {
     e.stopPropagation();
     try {
-      await api.properties.unsaveProperty(propertyId);
-      setSavedHostels(prev => prev.filter(p => p.id !== propertyId));
-      onShowToast('Hostel removed from saved shortlist', 'info');
+      if (onUnsave) {
+        await onUnsave(propertyId);
+      } else {
+        await api.properties.unsaveProperty(propertyId);
+        setInternalSavedHostels(prev => prev.filter(p => p.id !== propertyId));
+        onShowToast('Hostel removed from saved shortlist', 'info');
+      }
     } catch (err: any) {
       onShowToast(err.message || 'Failed to remove hostel', 'error');
     }

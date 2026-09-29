@@ -59,6 +59,10 @@ export const HostelCard: React.FC<HostelCardProps> = ({
   const [isSaved, setIsSaved] = useState<boolean>(Boolean(property.isSaved));
   const [saveLoading, setSaveLoading] = useState<boolean>(false);
 
+  useEffect(() => {
+    setIsSaved(Boolean(property.isSaved));
+  }, [property.isSaved]);
+
   // Extract all non-video media images with fallback to coverImage
   const images = (property.media && property.media.length > 0)
     ? property.media.filter(m => m.mediaType !== 'VIDEO').map(m => m.url)

@@ -2236,9 +2236,21 @@ export const api = {
         });
         const contentType = res.headers.get('content-type') || '';
         if (res.ok && contentType.includes('application/json')) {
-          return await res.json();
+          const data = await res.json();
+          const key = getUserScopedKey('hostel_ease_saved');
+          try {
+            const saved: string[] = JSON.parse(localStorage.getItem(key) || '[]');
+            if (!saved.includes(propertyId)) {
+              saved.push(propertyId);
+              localStorage.setItem(key, JSON.stringify(saved));
+            }
+          } catch {}
+          window.dispatchEvent(new CustomEvent('hostel_ease_saved_updated'));
+          return { isSaved: true, ...data };
         }
-      } catch (err) {}
+      } catch (err) {
+        console.warn('Backend save property unreachable, using offline fallback:', err);
+      }
 
       const key = getUserScopedKey('hostel_ease_saved');
       const saved: string[] = JSON.parse(localStorage.getItem(key) || '[]');
@@ -2258,9 +2270,19 @@ export const api = {
         });
         const contentType = res.headers.get('content-type') || '';
         if (res.ok && contentType.includes('application/json')) {
-          return await res.json();
+          const data = await res.json();
+          const key = getUserScopedKey('hostel_ease_saved');
+          try {
+            const saved: string[] = JSON.parse(localStorage.getItem(key) || '[]');
+            const updated = saved.filter(id => id !== propertyId);
+            localStorage.setItem(key, JSON.stringify(updated));
+          } catch {}
+          window.dispatchEvent(new CustomEvent('hostel_ease_saved_updated'));
+          return { isSaved: false, ...data };
         }
-      } catch (err) {}
+      } catch (err) {
+        console.warn('Backend unsave property unreachable, using offline fallback:', err);
+      }
 
       const key = getUserScopedKey('hostel_ease_saved');
       const saved: string[] = JSON.parse(localStorage.getItem(key) || '[]');
@@ -2271,6 +2293,14 @@ export const api = {
     },
 
     async getSaved(): Promise<{ savedProperties: Property[] }> {
+      const user = getCurrentUser();
+      const token = localStorage.getItem('hostel_ease_token');
+
+      // If not authenticated, return empty
+      if (!token && !user) {
+        return { savedProperties: [] };
+      }
+
       try {
         const res = await fetch(`${API_BASE}/saved-properties`, {
           headers: { ...getAuthHeader() }
@@ -2278,14 +2308,24 @@ export const api = {
         const contentType = res.headers.get('content-type') || '';
         if (res.ok && contentType.includes('application/json')) {
           const data = await res.json();
-          if (data && Array.isArray(data.savedProperties)) return data;
+          if (data && Array.isArray(data.savedProperties)) {
+            // Synchronize client cache with the backend database
+            const key = getUserScopedKey('hostel_ease_saved');
+            try {
+              localStorage.setItem(key, JSON.stringify(data.savedProperties.map((p: any) => p.id)));
+            } catch {}
+            return data;
+          }
         }
-      } catch (err) {}
+      } catch (err) {
+        console.warn('Backend getSaved unreachable, falling back to cached shortlist:', err);
+      }
 
+      // Offline cache fallback only when network fails
       const key = getUserScopedKey('hostel_ease_saved');
       const savedIds: string[] = JSON.parse(localStorage.getItem(key) || '[]');
       const allProps = [...getLocalProperties('all'), ...DEFAULT_PROPERTIES];
-      const savedProps = allProps.filter(p => savedIds.includes(p.id));
+      const savedProps = allProps.filter(p => savedIds.includes(p.id)).map(p => ({ ...p, isSaved: true }));
       return { savedProperties: savedProps };
     }
   },
@@ -5287,10 +5327,16 @@ export const api = {
     },
 
     async getRecentlyViewed(): Promise<{ recentViews: RecentlyViewedItem[] }> {
-      const res = await fetch(`${API_BASE}/discovery/recently-viewed`, {
-        headers: { ...getAuthHeader() }
-      });
-      return handleResponse(res);
+      try {
+        const res = await fetch(`${API_BASE}/discovery/recently-viewed`, {
+          headers: { ...getAuthHeader() }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data && Array.isArray(data.recentViews)) return data;
+        }
+      } catch (err) {}
+      return { recentViews: [] };
     },
 
     async trackRecentlyViewed(propertyId: string): Promise<{ message: string }> {

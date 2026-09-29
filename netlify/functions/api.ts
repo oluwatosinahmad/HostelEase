@@ -140,6 +140,7 @@ let memoryProperties: any[] = [
 ];
 let memoryVideos: any[] = [];
 let memorySavedProperties: any[] = [];
+let memoryRecentlyViewed: any[] = [];
 let memoryConversations: any[] = [];
 let memoryMessages: any[] = [];
 let memoryNotifications: any[] = [];
@@ -1644,8 +1645,11 @@ export default async (req: Request): Promise<Response> => {
   }
 
   // 10b. Saved Properties (Get, Add, Delete)
-  if (pathname === '/api/saved-properties' && req.method === 'GET') {
+  if ((pathname === '/api/saved-properties' || pathname === '/api/saved') && req.method === 'GET') {
     const user = parseAuth(req);
+    if (!user) {
+      return new Response(JSON.stringify({ savedProperties: [] }), { status: 200, headers: CORS_HEADERS });
+    }
     const userId = user?.id || '';
     const userEmail = (user?.email || '').toLowerCase().trim();
 
@@ -1659,8 +1663,24 @@ export default async (req: Request): Promise<Response> => {
       const prop = memoryProperties.find(p => p.id === sp.propertyId) || {
         id: sp.propertyId,
         title: 'Saved Hostel',
-        address: 'LAUTECH Area',
-        propertyType: 'SELF_CONTAIN'
+        slug: `saved-${sp.propertyId}`,
+        address: 'Under G, Ogbomoso',
+        propertyType: 'SELF_CONTAIN',
+        distanceFromCampusKm: 0.5,
+        verificationStatus: 'APPROVED',
+        availabilityStatus: 'AVAILABLE',
+        area: {
+          id: 'area-under-g',
+          name: 'Under G',
+          slug: 'under-g',
+          landmark: 'Main Gate'
+        },
+        priceSummary: {
+          period: 'YEARLY',
+          rentAmount: 180000,
+          totalMandatoryCost: 200000
+        },
+        coverImage: 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=1200&q=80'
       };
       return {
         ...prop,
@@ -1673,7 +1693,7 @@ export default async (req: Request): Promise<Response> => {
     return new Response(JSON.stringify({ savedProperties: savedProps }), { status: 200, headers: CORS_HEADERS });
   }
 
-  if ((pathname === '/api/saved-properties' || (pathname.startsWith('/api/properties/') && pathname.endsWith('/save'))) && req.method === 'POST') {
+  if ((pathname === '/api/saved-properties' || pathname === '/api/saved' || (pathname.startsWith('/api/properties/') && pathname.endsWith('/save'))) && req.method === 'POST') {
     try {
       const user = parseAuth(req);
       if (!user) {
@@ -1694,7 +1714,7 @@ export default async (req: Request): Promise<Response> => {
 
       const existing = memorySavedProperties.find(sp => sp.userId === user.id && sp.propertyId === propertyId);
       if (existing) {
-        return new Response(JSON.stringify({ success: true, savedId: existing.id, message: 'Property already saved' }), { status: 200, headers: CORS_HEADERS });
+        return new Response(JSON.stringify({ success: true, savedId: existing.id, isSaved: true, message: 'Property already saved' }), { status: 200, headers: CORS_HEADERS });
       }
 
       const savedItem = {
@@ -1707,13 +1727,13 @@ export default async (req: Request): Promise<Response> => {
 
       await saveCloudSavedProperty(savedItem);
 
-      return new Response(JSON.stringify({ success: true, savedId: savedItem.id, message: 'Hostel saved' }), { status: 201, headers: CORS_HEADERS });
+      return new Response(JSON.stringify({ success: true, savedId: savedItem.id, isSaved: true, message: 'Hostel saved' }), { status: 201, headers: CORS_HEADERS });
     } catch (err: any) {
       return new Response(JSON.stringify({ error: err.message || 'Failed to save property' }), { status: 400, headers: CORS_HEADERS });
     }
   }
 
-  if ((pathname.startsWith('/api/saved-properties/') || (pathname.startsWith('/api/properties/') && pathname.endsWith('/save'))) && req.method === 'DELETE') {
+  if ((pathname.startsWith('/api/saved-properties/') || pathname.startsWith('/api/saved/') || (pathname.startsWith('/api/properties/') && pathname.endsWith('/save'))) && req.method === 'DELETE') {
     try {
       const user = parseAuth(req);
       if (!user) {
@@ -1723,15 +1743,76 @@ export default async (req: Request): Promise<Response> => {
       let targetId = '';
       if (pathname.includes('/api/properties/') && pathname.endsWith('/save')) {
         targetId = pathname.replace('/api/properties/', '').replace('/save', '');
+      } else if (pathname.startsWith('/api/saved/')) {
+        targetId = pathname.replace('/api/saved/', '');
       } else {
         targetId = pathname.replace('/api/saved-properties/', '');
       }
 
       await deleteCloudSavedProperty(user.id, targetId);
 
-      return new Response(JSON.stringify({ success: true, message: 'Removed from saved' }), { status: 200, headers: CORS_HEADERS });
+      return new Response(JSON.stringify({ success: true, isSaved: false, message: 'Removed from saved' }), { status: 200, headers: CORS_HEADERS });
     } catch (err: any) {
       return new Response(JSON.stringify({ error: err.message || 'Failed to remove saved property' }), { status: 400, headers: CORS_HEADERS });
+    }
+  }
+
+  // 10c. Recently Viewed Discovery
+  if (pathname === '/api/discovery/recently-viewed' && req.method === 'GET') {
+    const user = parseAuth(req);
+    const userId = user?.id || '';
+    const userEmail = (user?.email || '').toLowerCase().trim();
+
+    const userRecent = memoryRecentlyViewed.filter(rv => {
+      if (userId && rv.userId === userId) return true;
+      if (userEmail && rv.userEmail && rv.userEmail.toLowerCase() === userEmail) return true;
+      return false;
+    });
+
+    const recentViews = userRecent.map(rv => {
+      const p = memoryProperties.find(item => item.id === rv.propertyId);
+      if (!p) return null;
+      return {
+        id: p.id,
+        title: p.title,
+        slug: p.slug,
+        areaName: p.area?.name || 'Under G',
+        distanceFromCampusKm: p.distanceFromCampusKm || 0.5,
+        propertyType: p.propertyType || 'SELF_CONTAIN',
+        rentAmount: p.priceSummary?.rentAmount || 180000,
+        totalMandatoryCost: p.priceSummary?.totalMandatoryCost || 200000,
+        availabilityStatus: p.availabilityStatus || 'AVAILABLE',
+        verificationStatus: p.verificationStatus || 'APPROVED',
+        coverImage: p.coverImage || 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=600&q=80',
+        viewedAt: rv.viewedAt || new Date().toISOString()
+      };
+    }).filter(Boolean);
+
+    return new Response(JSON.stringify({ recentViews }), { status: 200, headers: CORS_HEADERS });
+  }
+
+  if (pathname === '/api/discovery/recently-viewed' && req.method === 'POST') {
+    try {
+      const user = parseAuth(req);
+      const body = await req.json();
+      const { propertyId } = body;
+      if (user && propertyId) {
+        const existingIdx = memoryRecentlyViewed.findIndex(rv => rv.userId === user.id && rv.propertyId === propertyId);
+        if (existingIdx >= 0) {
+          memoryRecentlyViewed[existingIdx].viewedAt = new Date().toISOString();
+        } else {
+          memoryRecentlyViewed.unshift({
+            id: `rv-${Date.now()}`,
+            userId: user.id,
+            userEmail: user.email,
+            propertyId,
+            viewedAt: new Date().toISOString()
+          });
+        }
+      }
+      return new Response(JSON.stringify({ message: 'Tracked recently viewed' }), { status: 200, headers: CORS_HEADERS });
+    } catch {
+      return new Response(JSON.stringify({ message: 'Tracked recently viewed' }), { status: 200, headers: CORS_HEADERS });
     }
   }
 

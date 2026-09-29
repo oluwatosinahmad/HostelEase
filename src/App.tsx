@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, Suspense, lazy } from 'react';
+import React, { useState, useEffect, useRef, useCallback, Suspense, lazy } from 'react';
 import { 
   Building2, 
   Search, 
@@ -145,6 +145,7 @@ function MainApp() {
   const [featuredProperties, setFeaturedProperties] = useState<Property[]>([]);
   const [recentProperties, setRecentProperties] = useState<Property[]>([]);
   const [savedProperties, setSavedProperties] = useState<Property[]>([]);
+  const [loadingSaved, setLoadingSaved] = useState<boolean>(false);
   const [pagination, setPagination] = useState({ page: 1, limit: 12, total: 0, totalPages: 1 });
 
   // Track navigation origin and scroll position before entering 4K video viewer
@@ -403,16 +404,43 @@ function MainApp() {
     return () => window.removeEventListener('hostel_ease_properties_updated', handlePropsUpdate);
   }, []);
 
-  // Fetch Saved properties when authenticated
-  useEffect(() => {
-    if (isAuthenticated) {
-      api.properties.getSaved()
-        .then(res => setSavedProperties(res.savedProperties || []))
-        .catch(err => console.error('Failed to load saved:', err));
-    } else {
+  // Central function to fetch saved properties from backend
+  const fetchSavedProperties = useCallback(async () => {
+    if (!isAuthenticated) {
       setSavedProperties([]);
+      return;
+    }
+    setLoadingSaved(true);
+    try {
+      const res = await api.properties.getSaved();
+      const savedList = res.savedProperties || [];
+      setSavedProperties(savedList);
+
+      // Keep isSaved flags on loaded property cards in sync
+      const savedIds = new Set(savedList.map(p => p.id));
+      setProperties(prev => prev.map(p => ({ ...p, isSaved: savedIds.has(p.id) })));
+      setFeaturedProperties(prev => prev.map(p => ({ ...p, isSaved: savedIds.has(p.id) })));
+      setRecentProperties(prev => prev.map(p => ({ ...p, isSaved: savedIds.has(p.id) })));
+    } catch (err) {
+      console.error('Failed to load saved properties from backend:', err);
+    } finally {
+      setLoadingSaved(false);
     }
   }, [isAuthenticated]);
+
+  // Fetch Saved properties whenever auth status or logged-in user changes
+  useEffect(() => {
+    fetchSavedProperties();
+  }, [fetchSavedProperties, user?.id]);
+
+  // Listen to cross-component saved update events (from modals or cards)
+  useEffect(() => {
+    const handleSavedUpdated = () => {
+      fetchSavedProperties();
+    };
+    window.addEventListener('hostel_ease_saved_updated', handleSavedUpdated);
+    return () => window.removeEventListener('hostel_ease_saved_updated', handleSavedUpdated);
+  }, [fetchSavedProperties]);
 
   // Role-based route guard - soft notification without jarring forced jumps
   useEffect(() => {
@@ -526,6 +554,11 @@ function MainApp() {
     }
 
     try {
+      // Optimistically update card states for instant responsiveness
+      setProperties(prev => prev.map(p => p.id === propertyId ? { ...p, isSaved: willSave } : p));
+      setFeaturedProperties(prev => prev.map(p => p.id === propertyId ? { ...p, isSaved: willSave } : p));
+      setRecentProperties(prev => prev.map(p => p.id === propertyId ? { ...p, isSaved: willSave } : p));
+
       if (willSave) {
         await api.properties.saveProperty(propertyId);
         showToast('Hostel saved to your shortlist', 'success');
@@ -534,10 +567,10 @@ function MainApp() {
         showToast('Hostel removed from shortlist', 'info');
       }
 
-      // Refresh saved properties count
-      const res = await api.properties.getSaved();
-      setSavedProperties(res.savedProperties || []);
+      // Re-fetch backend single source of truth
+      await fetchSavedProperties();
     } catch (err: any) {
+      await fetchSavedProperties();
       showToast(err.message || 'Could not update saved hostel', 'error');
     }
   };
@@ -1494,6 +1527,10 @@ function MainApp() {
             onToggleCompare={handleToggleCompare}
             comparedIds={comparedPropertyIds}
             onShowToast={showToast}
+            savedHostels={savedProperties}
+            loading={loadingSaved}
+            onRefreshSaved={fetchSavedProperties}
+            onUnsave={(propertyId) => handleToggleSave(propertyId, false)}
           />
         )}
 
