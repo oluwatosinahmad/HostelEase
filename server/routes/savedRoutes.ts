@@ -116,11 +116,14 @@ const handleSave = (req: AuthenticatedRequest, res: Response) => {
 
   try {
     const propRow = db.prepare('SELECT id FROM properties WHERE id = ? OR slug = ?').get(rawId, rawId) as any;
-    const propertyId = propRow ? propRow.id : rawId;
+    if (!propRow) {
+      return res.status(404).json({ error: 'Property not found' });
+    }
+    const propertyId = propRow.id;
 
     const existing = db.prepare('SELECT id FROM saved_properties WHERE user_id = ? AND property_id = ?').get(req.user.id, propertyId) as any;
     if (existing) {
-      return res.status(200).json({ success: true, savedId: existing.id, isSaved: true, message: 'Property already saved' });
+      return res.status(200).json({ success: true, savedId: existing.id, isSaved: true, propertyId, message: 'Property already saved' });
     }
 
     const savedId = `saved-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
@@ -129,7 +132,7 @@ const handleSave = (req: AuthenticatedRequest, res: Response) => {
       VALUES (?, ?, ?, ?, datetime('now'))
     `).run(savedId, req.user.id, propertyId, notes);
 
-    return res.status(201).json({ success: true, savedId, isSaved: true, message: 'Hostel saved to shortlist' });
+    return res.status(201).json({ success: true, savedId, isSaved: true, propertyId, message: 'Hostel saved to shortlist' });
   } catch (err: any) {
     console.error('Save property error:', err);
     return res.status(500).json({ error: 'Failed to save hostel: ' + err.message });

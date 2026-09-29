@@ -2086,27 +2086,15 @@ export const api = {
         }, 6000);
         if (res.ok) {
           const data = await res.json();
-          if (data.properties && data.properties.length > 0) {
-            const localProps = getLocalProperties('all');
-            const merged = [...data.properties];
-            const existingIds = new Set(merged.map((p: any) => p.id));
-            for (const lp of localProps) {
-              if (!existingIds.has(lp.id) && lp.verificationStatus === 'APPROVED') {
-                merged.unshift(lp);
-                existingIds.add(lp.id);
-              }
-            }
-            const filteredResult = filterFallbackProperties(filters, merged);
+          if (data && data.properties && Array.isArray(data.properties)) {
             // Pre-seed individual property cache so opening any hostel details is instant (0ms!)
-            if (filteredResult.properties && Array.isArray(filteredResult.properties)) {
-              for (const p of filteredResult.properties) {
-                if (p && p.id && !apiCache.has(`property_${p.id}`)) {
-                  apiCache.set(`property_${p.id}`, { data: { property: p }, timestamp: Date.now() });
-                }
+            for (const p of data.properties) {
+              if (p && p.id && !apiCache.has(`property_${p.id}`)) {
+                apiCache.set(`property_${p.id}`, { data: { property: p }, timestamp: Date.now() });
               }
             }
-            apiCache.set(cacheKey, { data: filteredResult, timestamp: Date.now() });
-            return filteredResult;
+            apiCache.set(cacheKey, { data, timestamp: Date.now() });
+            return data;
           }
         }
       } catch (err) {
@@ -2227,9 +2215,11 @@ export const api = {
       return res;
     },
 
-    async saveProperty(propertyId: string, notes?: string): Promise<{ isSaved: boolean }> {
+    async saveProperty(propertyId: string, notes?: string): Promise<{ isSaved: boolean; propertyId?: string }> {
+      const cleanId = String(propertyId).trim();
+      let lastError: Error | null = null;
       try {
-        let res = await fetch(`${API_BASE}/properties/${propertyId}/save`, {
+        let res = await fetch(`${API_BASE}/properties/${cleanId}/save`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
           body: JSON.stringify({ notes })
@@ -2238,45 +2228,56 @@ export const api = {
           res = await fetch(`${API_BASE}/saved-properties`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
-            body: JSON.stringify({ propertyId, notes })
+            body: JSON.stringify({ propertyId: cleanId, notes })
           });
         }
         const contentType = res.headers.get('content-type') || '';
         if (res.ok && contentType.includes('application/json')) {
           const data = await res.json();
+          const targetSavedId = data.propertyId || cleanId;
           const key = getUserScopedKey('hostel_ease_saved');
           try {
             const saved: string[] = JSON.parse(localStorage.getItem(key) || '[]');
-            if (!saved.includes(propertyId)) {
-              saved.push(propertyId);
+            if (!saved.includes(targetSavedId)) {
+              saved.push(targetSavedId);
               localStorage.setItem(key, JSON.stringify(saved));
             }
           } catch {}
           window.dispatchEvent(new CustomEvent('hostel_ease_saved_updated'));
-          return { isSaved: true, ...data };
+          return { isSaved: true, propertyId: targetSavedId, ...data };
+        } else {
+          const errorData = await res.json().catch(() => ({}));
+          throw new Error(errorData.error || errorData.message || 'Failed to save property to database');
         }
-      } catch (err) {
-        console.warn('Backend save property unreachable, using offline fallback:', err);
+      } catch (err: any) {
+        lastError = err;
+        console.warn('Backend save property failed:', err);
       }
 
-      const key = getUserScopedKey('hostel_ease_saved');
-      const saved: string[] = JSON.parse(localStorage.getItem(key) || '[]');
-      if (!saved.includes(propertyId)) {
-        saved.push(propertyId);
-        localStorage.setItem(key, JSON.stringify(saved));
+      // Offline cache fallback only when network fails (not on 4xx/500 business errors)
+      if (lastError && !lastError.message?.includes('Failed to save property to database')) {
+        const key = getUserScopedKey('hostel_ease_saved');
+        const saved: string[] = JSON.parse(localStorage.getItem(key) || '[]');
+        if (!saved.includes(cleanId)) {
+          saved.push(cleanId);
+          localStorage.setItem(key, JSON.stringify(saved));
+        }
+        window.dispatchEvent(new CustomEvent('hostel_ease_saved_updated'));
+        return { isSaved: true, propertyId: cleanId };
       }
-      window.dispatchEvent(new CustomEvent('hostel_ease_saved_updated'));
-      return { isSaved: true };
+      throw lastError || new Error('Failed to save hostel to your shortlist');
     },
 
-    async unsaveProperty(propertyId: string): Promise<{ isSaved: boolean }> {
+    async unsaveProperty(propertyId: string): Promise<{ isSaved: boolean; propertyId?: string }> {
+      const cleanId = String(propertyId).trim();
+      let lastError: Error | null = null;
       try {
-        let res = await fetch(`${API_BASE}/properties/${propertyId}/save`, {
+        let res = await fetch(`${API_BASE}/properties/${cleanId}/save`, {
           method: 'DELETE',
           headers: { ...getAuthHeader() }
         });
         if (!res.ok) {
-          res = await fetch(`${API_BASE}/saved-properties/${propertyId}`, {
+          res = await fetch(`${API_BASE}/saved-properties/${cleanId}`, {
             method: 'DELETE',
             headers: { ...getAuthHeader() }
           });
@@ -2287,22 +2288,30 @@ export const api = {
           const key = getUserScopedKey('hostel_ease_saved');
           try {
             const saved: string[] = JSON.parse(localStorage.getItem(key) || '[]');
-            const updated = saved.filter(id => id !== propertyId);
+            const updated = saved.filter(id => id !== cleanId);
             localStorage.setItem(key, JSON.stringify(updated));
           } catch {}
           window.dispatchEvent(new CustomEvent('hostel_ease_saved_updated'));
-          return { isSaved: false, ...data };
+          return { isSaved: false, propertyId: cleanId, ...data };
+        } else {
+          const errorData = await res.json().catch(() => ({}));
+          throw new Error(errorData.error || errorData.message || 'Failed to remove property from database');
         }
-      } catch (err) {
-        console.warn('Backend unsave property unreachable, using offline fallback:', err);
+      } catch (err: any) {
+        lastError = err;
+        console.warn('Backend unsave property failed:', err);
       }
 
-      const key = getUserScopedKey('hostel_ease_saved');
-      const saved: string[] = JSON.parse(localStorage.getItem(key) || '[]');
-      const updated = saved.filter(id => id !== propertyId);
-      localStorage.setItem(key, JSON.stringify(updated));
-      window.dispatchEvent(new CustomEvent('hostel_ease_saved_updated'));
-      return { isSaved: false };
+      // Offline cache fallback only when network fails
+      if (lastError && !lastError.message?.includes('Failed to remove property from database')) {
+        const key = getUserScopedKey('hostel_ease_saved');
+        const saved: string[] = JSON.parse(localStorage.getItem(key) || '[]');
+        const updated = saved.filter(id => id !== cleanId);
+        localStorage.setItem(key, JSON.stringify(updated));
+        window.dispatchEvent(new CustomEvent('hostel_ease_saved_updated'));
+        return { isSaved: false, propertyId: cleanId };
+      }
+      throw lastError || new Error('Failed to remove hostel from your shortlist');
     },
 
     async getSaved(): Promise<{ savedProperties: Property[] }> {

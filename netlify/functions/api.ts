@@ -241,6 +241,10 @@ async function saveCloudSavedProperty(sp: any) {
 }
 
 async function deleteCloudSavedProperty(userId: string, propertyIdOrSavedId: string) {
+  const toDelete = memorySavedProperties.filter(sp => 
+    sp.userId === userId && (sp.propertyId === propertyIdOrSavedId || sp.id === propertyIdOrSavedId)
+  );
+
   memorySavedProperties = memorySavedProperties.filter(sp => {
     if (sp.userId === userId && (sp.propertyId === propertyIdOrSavedId || sp.id === propertyIdOrSavedId)) {
       return false;
@@ -251,6 +255,9 @@ async function deleteCloudSavedProperty(userId: string, propertyIdOrSavedId: str
   try {
     const store = getBlobsStore('saved_properties');
     if (store) {
+      for (const item of toDelete) {
+        await store.delete(item.id);
+      }
       await store.delete(propertyIdOrSavedId);
     }
   } catch {}
@@ -1660,35 +1667,15 @@ export default async (req: Request): Promise<Response> => {
     });
 
     const savedProps = userSaved.map(sp => {
-      const prop = memoryProperties.find(p => p.id === sp.propertyId) || {
-        id: sp.propertyId,
-        title: 'Saved Hostel',
-        slug: `saved-${sp.propertyId}`,
-        address: 'Under G, Ogbomoso',
-        propertyType: 'SELF_CONTAIN',
-        distanceFromCampusKm: 0.5,
-        verificationStatus: 'APPROVED',
-        availabilityStatus: 'AVAILABLE',
-        area: {
-          id: 'area-under-g',
-          name: 'Under G',
-          slug: 'under-g',
-          landmark: 'Main Gate'
-        },
-        priceSummary: {
-          period: 'YEARLY',
-          rentAmount: 180000,
-          totalMandatoryCost: 200000
-        },
-        coverImage: 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=1200&q=80'
-      };
+      const prop = memoryProperties.find(p => p.id === sp.propertyId || p.slug === sp.propertyId);
+      if (!prop) return null;
       return {
         ...prop,
         savedId: sp.id,
         savedAt: sp.createdAt,
         isSaved: true
       };
-    });
+    }).filter(Boolean);
 
     return new Response(JSON.stringify({ savedProperties: savedProps }), { status: 200, headers: CORS_HEADERS });
   }
@@ -1716,22 +1703,26 @@ export default async (req: Request): Promise<Response> => {
         return new Response(JSON.stringify({ error: 'Property ID required' }), { status: 400, headers: CORS_HEADERS });
       }
 
-      const existing = memorySavedProperties.find(sp => sp.userId === user.id && sp.propertyId === propertyId);
+      // Canonicalize property ID (check ID or slug)
+      const foundProp = memoryProperties.find(p => p.id === propertyId || p.slug === propertyId);
+      const canonicalId = foundProp ? foundProp.id : propertyId;
+
+      const existing = memorySavedProperties.find(sp => sp.userId === user.id && (sp.propertyId === canonicalId || sp.propertyId === propertyId));
       if (existing) {
-        return new Response(JSON.stringify({ success: true, savedId: existing.id, isSaved: true, message: 'Property already saved' }), { status: 200, headers: CORS_HEADERS });
+        return new Response(JSON.stringify({ success: true, savedId: existing.id, isSaved: true, propertyId: canonicalId, message: 'Property already saved' }), { status: 200, headers: CORS_HEADERS });
       }
 
       const savedItem = {
         id: `saved-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
         userId: user.id,
         userEmail: user.email?.toLowerCase().trim(),
-        propertyId,
+        propertyId: canonicalId,
         createdAt: new Date().toISOString()
       };
 
       await saveCloudSavedProperty(savedItem);
 
-      return new Response(JSON.stringify({ success: true, savedId: savedItem.id, isSaved: true, message: 'Hostel saved' }), { status: 201, headers: CORS_HEADERS });
+      return new Response(JSON.stringify({ success: true, savedId: savedItem.id, isSaved: true, propertyId: canonicalId, message: 'Hostel saved' }), { status: 201, headers: CORS_HEADERS });
     } catch (err: any) {
       return new Response(JSON.stringify({ error: err.message || 'Failed to save property' }), { status: 400, headers: CORS_HEADERS });
     }
@@ -1753,9 +1744,15 @@ export default async (req: Request): Promise<Response> => {
         targetId = pathname.replace('/api/saved-properties/', '');
       }
 
-      await deleteCloudSavedProperty(user.id, targetId);
+      const foundProp = memoryProperties.find(p => p.id === targetId || p.slug === targetId);
+      const canonicalId = foundProp ? foundProp.id : targetId;
 
-      return new Response(JSON.stringify({ success: true, isSaved: false, message: 'Removed from saved' }), { status: 200, headers: CORS_HEADERS });
+      await deleteCloudSavedProperty(user.id, canonicalId);
+      if (canonicalId !== targetId) {
+        await deleteCloudSavedProperty(user.id, targetId);
+      }
+
+      return new Response(JSON.stringify({ success: true, isSaved: false, propertyId: canonicalId, message: 'Removed from saved' }), { status: 200, headers: CORS_HEADERS });
     } catch (err: any) {
       return new Response(JSON.stringify({ error: err.message || 'Failed to remove saved property' }), { status: 400, headers: CORS_HEADERS });
     }
@@ -1834,18 +1831,15 @@ export default async (req: Request): Promise<Response> => {
     });
 
     const savedProps = userSaved.map(sp => {
-      const prop = memoryProperties.find(p => p.id === sp.propertyId) || {
-        id: sp.propertyId,
-        title: 'Saved Hostel',
-        address: 'LAUTECH Area'
-      };
+      const prop = memoryProperties.find(p => p.id === sp.propertyId || p.slug === sp.propertyId);
+      if (!prop) return null;
       return {
         ...prop,
         savedId: sp.id,
         savedAt: sp.createdAt,
         isSaved: true
       };
-    });
+    }).filter(Boolean);
 
     const userBookings = memoryBookings.filter(b => b.studentId === userId || (userEmail && b.studentEmail && b.studentEmail.toLowerCase() === userEmail));
     const userInspections = memoryInspections.filter(i => i.studentId === userId || (userEmail && i.studentEmail && i.studentEmail.toLowerCase() === userEmail));

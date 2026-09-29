@@ -546,15 +546,16 @@ router.post('/:id/save', authenticate, (req: AuthenticatedRequest, res: Response
   const { notes } = req.body;
 
   try {
-    const property = db.prepare('SELECT id FROM properties WHERE id = ?').get(id);
+    const property = db.prepare('SELECT id FROM properties WHERE id = ? OR slug = ?').get(id, id) as any;
     if (!property) return res.status(404).json({ error: 'Property not found' });
+    const canonicalId = property.id;
 
     db.prepare(`
       INSERT OR REPLACE INTO saved_properties (id, user_id, property_id, notes, created_at)
       VALUES (?, ?, ?, ?, datetime('now'))
-    `).run(`saved-${req.user.id}-${id}`, req.user.id, id, notes || null);
+    `).run(`saved-${req.user.id}-${canonicalId}`, req.user.id, canonicalId, notes || null);
 
-    return res.json({ message: 'Hostel saved to your shortlist', isSaved: true });
+    return res.json({ message: 'Hostel saved to your shortlist', isSaved: true, propertyId: canonicalId });
   } catch (err) {
     console.error('Save property error:', err);
     return res.status(500).json({ error: 'Failed to save hostel' });
@@ -567,8 +568,10 @@ router.delete('/:id/save', authenticate, (req: AuthenticatedRequest, res: Respon
   const { id } = req.params;
 
   try {
-    db.prepare('DELETE FROM saved_properties WHERE user_id = ? AND property_id = ?').run(req.user.id, id);
-    return res.json({ message: 'Hostel removed from your shortlist', isSaved: false });
+    const property = db.prepare('SELECT id FROM properties WHERE id = ? OR slug = ?').get(id, id) as any;
+    const targetId = property ? property.id : id;
+    db.prepare('DELETE FROM saved_properties WHERE user_id = ? AND (property_id = ? OR property_id = ?)').run(req.user.id, targetId, id);
+    return res.json({ message: 'Hostel removed from your shortlist', isSaved: false, propertyId: targetId });
   } catch (err) {
     console.error('Unsave property error:', err);
     return res.status(500).json({ error: 'Failed to unsave hostel' });
