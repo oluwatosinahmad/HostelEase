@@ -81,23 +81,46 @@ router.post('/conversations', authenticate, (req: AuthenticatedRequest, res: Res
 
       // If initial message provided, save it
       if (initialMessage && typeof initialMessage === 'string' && initialMessage.trim()) {
+        const cleanMsg = initialMessage.trim();
         db.prepare(`
           INSERT INTO messages (id, conversation_id, sender_id, sender_role, message_type, content, is_read)
           VALUES (?, ?, ?, ?, 'TEXT', ?, 0)
-        `).run(crypto.randomUUID(), convId, req.user.id, req.user.role, initialMessage.trim());
+        `).run(crypto.randomUUID(), convId, req.user.id, req.user.role, cleanMsg);
 
-        // Notify provider
-        db.prepare(`
-          INSERT INTO notifications (id, user_id, title, message, type, is_read, link_url)
-          VALUES (?, ?, ?, ?, 'NEW_MESSAGE', 0, ?)
-        `).run(
-          crypto.randomUUID(),
-          providerId,
+        // Notify recipient (provider if student sent, or student if provider sent)
+        const recipientId = req.user.id === studentId ? providerId : studentId;
+        const senderName = req.user.fullName || (req.user.role === 'STUDENT' ? 'Student' : 'Agent');
+        sendNotification(
+          recipientId,
           `New Message about ${property.title}`,
-          `${req.user.fullName || 'A student'}: "${initialMessage.trim().substring(0, 60)}"`,
-          `/messages?conversationId=${convId}`
+          `${senderName}: "${cleanMsg.substring(0, 60)}${cleanMsg.length > 60 ? '...' : ''}"`,
+          'NEW_MESSAGE',
+          `/messages?conversationId=${convId}&propertyId=${propertyId}`
         );
       }
+    } else if (initialMessage && typeof initialMessage === 'string' && initialMessage.trim()) {
+      // If conversation already existed, persist new message and notify recipient
+      const cleanMsg = initialMessage.trim();
+      db.prepare(`
+        INSERT INTO messages (id, conversation_id, sender_id, sender_role, message_type, content, is_read)
+        VALUES (?, ?, ?, ?, 'TEXT', ?, 0)
+      `).run(crypto.randomUUID(), conv.id, req.user.id, req.user.role, cleanMsg);
+
+      db.prepare(`
+        UPDATE conversations
+        SET last_message_text = ?, last_message_at = datetime('now'), updated_at = datetime('now')
+        WHERE id = ?
+      `).run(cleanMsg, conv.id);
+
+      const recipientId = req.user.id === conv.student_id ? conv.provider_id : conv.student_id;
+      const senderName = req.user.fullName || (req.user.role === 'STUDENT' ? 'Student' : 'Agent');
+      sendNotification(
+        recipientId,
+        `New Message about ${property.title}`,
+        `${senderName}: "${cleanMsg.substring(0, 60)}${cleanMsg.length > 60 ? '...' : ''}"`,
+        'NEW_MESSAGE',
+        `/messages?conversationId=${conv.id}&propertyId=${propertyId}`
+      );
     }
 
     return res.json({
@@ -355,12 +378,13 @@ router.post('/conversations/:id/messages', authenticate, (req: AuthenticatedRequ
     const recipientId = req.user.id === conv.student_id ? conv.provider_id : conv.student_id;
 
     // Send in-app notification
+    const senderName = req.user.fullName || (req.user.role === 'STUDENT' ? 'Student' : 'Agent');
     sendNotification(
       recipientId,
-      `New message from ${req.user.fullName || req.user.role}`,
+      `New message from ${senderName}`,
       `"${cleanContent.substring(0, 60)}${cleanContent.length > 60 ? '...' : ''}"`,
       'NEW_MESSAGE',
-      `/messages?conversationId=${id}`
+      `/messages?conversationId=${id}&propertyId=${conv.property_id}`
     );
 
     return res.status(201).json({

@@ -608,20 +608,30 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
     }
   }, [activeTab, selectedPropertyId]);
 
-  // Real-time listener for incoming student messages, bookings, inspections & notifications
+  // Real-time listener & cross-device polling for incoming student messages, bookings, inspections & notifications
   useEffect(() => {
     const handleNotificationUpdate = () => {
       api.notifications.getAll().then(res => {
-        setNotifications(res.notifications || []);
-        setUnreadNotifsCount(res.unreadCount || 0);
-      });
+        setNotifications(res?.notifications || []);
+        setUnreadNotifsCount(res?.unreadCount || 0);
+      }).catch(() => {});
+
       api.messages.getConversations().then(res => {
-        setConversations(res.conversations || []);
-      });
+        setConversations(res?.conversations || []);
+      }).catch(() => {});
+
       if (activeConversationId) {
         api.messages.getConversation(activeConversationId).then(res => {
-          setActiveDetail(res);
-        });
+          if (res) {
+            setActiveDetail(prev => {
+              // Only update if message count or last message changed to avoid unnecessary re-renders
+              if (!prev || prev.messages.length !== res.messages.length) {
+                return res;
+              }
+              return prev;
+            });
+          }
+        }).catch(() => {});
       }
     };
 
@@ -631,14 +641,25 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
 
     const handleTabChange = (e: any) => {
       if (e.detail) {
-        let tab = e.detail;
+        let tab = typeof e.detail === 'string' ? e.detail : e.detail.tab;
+        const convId = typeof e.detail === 'object' ? e.detail.conversationId : undefined;
         if (tab === 'movein') tab = 'move_ins';
         if (tab === 'finance') tab = 'financials';
         if (tab === 'documents') tab = 'profile_team';
         if (tab === 'wizard') setEditingProperty(null);
         setActiveTab(tab);
+        if (tab === 'messages') {
+          fetchConversations(convId);
+        }
       }
     };
+
+    // Cross-device synchronization interval (every 3 seconds when document is visible)
+    const pollTimer = setInterval(() => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        handleNotificationUpdate();
+      }
+    }, 3000);
 
     window.addEventListener('hostel_ease_notification_updated', handleNotificationUpdate);
     window.addEventListener('hostel_ease_conversations_updated', handleNotificationUpdate);
@@ -647,6 +668,7 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
     window.addEventListener('hostel_ease_properties_updated', handlePropsUpdate);
     window.addEventListener('hostel_ease_provider_tab', handleTabChange);
     return () => {
+      clearInterval(pollTimer);
       window.removeEventListener('hostel_ease_notification_updated', handleNotificationUpdate);
       window.removeEventListener('hostel_ease_conversations_updated', handleNotificationUpdate);
       window.removeEventListener('hostel_ease_bookings_updated', handlePropsUpdate);
@@ -1095,13 +1117,17 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
                                 key={n.id}
                                 onClick={() => {
                                   setNotifDropdownOpen(false);
+                                  const convMatch = n.linkUrl?.match(/conversationId=([^&]+)/);
+                                  const convId = convMatch ? convMatch[1] : undefined;
                                   if (n.type === 'NEW_MESSAGE' || n.linkUrl?.includes('messages')) {
                                     setActiveTab('messages');
-                                    fetchConversations();
+                                    fetchConversations(convId);
                                   } else {
                                     setActiveTab('bookings');
                                   }
                                   api.notifications.markRead(n.id);
+                                  setNotifications(prev => prev.map(item => item.id === n.id ? { ...item, isRead: true } : item));
+                                  setUnreadNotifsCount(prev => Math.max(0, prev - 1));
                                 }}
                                 className={`p-3 rounded-2xl border transition-all cursor-pointer ${
                                   !n.isRead ? 'bg-emerald-50/80 border-emerald-200 text-emerald-950 font-medium' : 'bg-gray-50 border-gray-200 text-gray-700'
@@ -1152,13 +1178,17 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
                             key={n.id}
                             onClick={() => {
                               setNotifDropdownOpen(false);
+                              const convMatch = n.linkUrl?.match(/conversationId=([^&]+)/);
+                              const convId = convMatch ? convMatch[1] : undefined;
                               if (n.type === 'NEW_MESSAGE' || n.linkUrl?.includes('messages')) {
                                 setActiveTab('messages');
-                                fetchConversations();
+                                fetchConversations(convId);
                               } else {
                                 setActiveTab('bookings');
                               }
                               api.notifications.markRead(n.id);
+                              setNotifications(prev => prev.map(item => item.id === n.id ? { ...item, isRead: true } : item));
+                              setUnreadNotifsCount(prev => Math.max(0, prev - 1));
                             }}
                             className={`p-3 rounded-xl border transition-all cursor-pointer ${
                               !n.isRead ? 'bg-emerald-50/80 border-emerald-200 text-emerald-950 font-medium' : 'bg-gray-50 border-gray-200 text-gray-700'

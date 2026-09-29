@@ -55,6 +55,7 @@ import { ReportUserModal } from './ReportUserModal';
 
 interface MessagingCenterProps {
   initialPropertyId?: string | null;
+  initialConversationId?: string | null;
   onSelectProperty?: (propertyId: string) => void;
   onRequestInspection?: (propertyId: string) => void;
   onShowToast: (message: string, type?: 'success' | 'info' | 'error') => void;
@@ -89,6 +90,7 @@ const TAPBACK_EMOJIS = ['❤️', '👍', '🔥', '😂', '⚡', '🤝', '📍']
 
 export const MessagingCenter: React.FC<MessagingCenterProps> = ({
   initialPropertyId,
+  initialConversationId,
   onSelectProperty,
   onRequestInspection,
   onShowToast,
@@ -303,9 +305,12 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
     }
   };
 
-  // If initialPropertyId is provided from a hostel card or inspection click, open that exact conversation
+  // If initialConversationId or initialPropertyId is provided from a hostel card or inspection click, open that exact conversation
   useEffect(() => {
-    if (initialPropertyId) {
+    if (initialConversationId) {
+      setActiveConversationId(initialConversationId);
+      loadConversations(initialConversationId);
+    } else if (initialPropertyId) {
       api.messages.startConversation(initialPropertyId)
         .then(res => {
           setActiveConversationId(res.conversationId);
@@ -318,7 +323,37 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
     } else {
       loadConversations();
     }
-  }, [initialPropertyId]);
+  }, [initialConversationId, initialPropertyId]);
+
+  // Active cross-device real-time sync (poll every 2.5 seconds when document is visible)
+  useEffect(() => {
+    const syncInterval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        // Silently update conversations list
+        api.messages.getConversations().then(res => {
+          if (res?.conversations) {
+            setConversations(res.conversations);
+          }
+        }).catch(() => {});
+
+        // If an active conversation is open, poll latest messages silently
+        if (activeConversationId) {
+          api.messages.getConversation(activeConversationId).then(res => {
+            if (res && res.messages) {
+              setActiveDetail(prev => {
+                if (!prev || prev.messages.length !== res.messages.length) {
+                  return res;
+                }
+                return prev;
+              });
+            }
+          }).catch(() => {});
+        }
+      }
+    }, 2500);
+
+    return () => clearInterval(syncInterval);
+  }, [activeConversationId]);
 
   // Load message detail whenever activeConversationId changes
   useEffect(() => {

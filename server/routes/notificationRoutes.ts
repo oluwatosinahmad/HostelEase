@@ -11,7 +11,7 @@ router.get('/', authenticate, (req: AuthenticatedRequest, res: Response) => {
   const notifications = db.prepare(`
     SELECT * FROM notifications
     WHERE user_id = ?
-    ORDER BY created_at DESC
+    ORDER BY created_at DESC, rowid DESC
     LIMIT 50
   `).all(userId) as any[];
 

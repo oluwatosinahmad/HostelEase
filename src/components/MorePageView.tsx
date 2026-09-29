@@ -142,12 +142,33 @@ export const MorePageView: React.FC<MorePageViewProps> = ({
 
     setNotifModalOpen(false);
 
-    if (notif.data?.propertyId) {
-      onNavigate('search');
-    } else if (notif.data?.bookingId) {
+    const link = notif.linkUrl || '';
+    if (notif.type?.includes('MESSAGE') || link.includes('messages')) {
+      const convMatch = link.match(/conversationId=([^&]+)/);
+      const convId = convMatch ? convMatch[1] : undefined;
+      const propMatch = link.match(/propertyId=([^&]+)/);
+      const propId = propMatch ? propMatch[1] : notif.data?.propertyId;
+      if (user?.role === 'PROVIDER') {
+        onNavigate('provider-portal');
+        setTimeout(() => {
+          window.dispatchEvent(new CustomEvent('hostel_ease_provider_tab', { 
+            detail: { tab: 'messages', conversationId: convId } 
+          }));
+        }, 100);
+      } else {
+        onNavigate('messages');
+        if (convId || propId) {
+          setTimeout(() => {
+            window.dispatchEvent(new CustomEvent('hostel_ease_open_conversation', { 
+              detail: { conversationId: convId, propertyId: propId } 
+            }));
+          }, 100);
+        }
+      }
+    } else if (notif.data?.bookingId || link.includes('bookings')) {
       onNavigate('bookings');
-    } else if (notif.type?.includes('MESSAGE')) {
-      onNavigate('messages');
+    } else if (notif.data?.propertyId) {
+      onNavigate('search');
     }
   };
 

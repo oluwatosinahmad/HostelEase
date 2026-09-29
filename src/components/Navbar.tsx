@@ -142,21 +142,21 @@ export const Navbar: React.FC<NavbarProps> = ({
       .catch(() => {});
   };
 
-  // Poll unread message & notification count when authenticated
+  // Poll unread message & notification count when authenticated across devices
   useEffect(() => {
     if (isAuthenticated) {
-      api.messages.getUnreadCount()
-        .then(res => setUnreadMsgCount(res.unreadCount || 0))
-        .catch(() => {});
-      
-      fetchNotifs();
-
-      const interval = setInterval(() => {
+      const poll = () => {
+        if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
         api.messages.getUnreadCount()
-          .then(res => setUnreadMsgCount(res.unreadCount || 0))
+          .then(res => setUnreadMsgCount(res?.unreadCount || 0))
           .catch(() => {});
         fetchNotifs();
-      }, 12000);
+      };
+
+      poll();
+
+      // Active 3.5s cross-device synchronization
+      const interval = setInterval(poll, 3500);
 
       const handleNotifEvent = () => fetchNotifs();
       window.addEventListener('hostel_ease_notification_updated', handleNotifEvent);
@@ -184,7 +184,28 @@ export const Navbar: React.FC<NavbarProps> = ({
 
     const link = n.linkUrl || '';
     if (link.includes('messages') || n.type === 'NEW_MESSAGE') {
-      onNavigate('messages');
+      const convMatch = link.match(/conversationId=([^&]+)/);
+      const convId = convMatch ? convMatch[1] : undefined;
+      const propMatch = link.match(/propertyId=([^&]+)/);
+      const propId = propMatch ? propMatch[1] : undefined;
+
+      if (isProvider) {
+        onNavigate('provider-portal');
+        setTimeout(() => {
+          window.dispatchEvent(new CustomEvent('hostel_ease_provider_tab', { 
+            detail: { tab: 'messages', conversationId: convId } 
+          }));
+        }, 100);
+      } else {
+        onNavigate('messages');
+        if (convId || propId) {
+          setTimeout(() => {
+            window.dispatchEvent(new CustomEvent('hostel_ease_open_conversation', { 
+              detail: { conversationId: convId, propertyId: propId } 
+            }));
+          }, 100);
+        }
+      }
     } else if (link.includes('inspections') || n.type.includes('INSPECTION')) {
       if (isProvider) {
         onNavigate('provider-portal');

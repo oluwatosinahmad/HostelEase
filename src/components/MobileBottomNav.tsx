@@ -80,7 +80,10 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
     };
 
     refreshCounts();
-    const interval = setInterval(refreshCounts, 12000);
+    const interval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+      refreshCounts();
+    }, 3500);
 
     const handleUpdate = () => refreshCounts();
     window.addEventListener('hostel_ease_notification_updated', handleUpdate);

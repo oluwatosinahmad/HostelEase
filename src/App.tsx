@@ -311,6 +311,7 @@ function MainApp() {
 
   const [searchViewMode, setSearchViewMode] = useState<'list' | 'map'>('list');
   const [messagingTargetPropertyId, setMessagingTargetPropertyId] = useState<string | null>(null);
+  const [messagingTargetConversationId, setMessagingTargetConversationId] = useState<string | null>(null);
   const [targetMapAddress, setTargetMapAddress] = useState<string>('');
 
   // Admin Direct Login State
@@ -671,9 +672,16 @@ function MainApp() {
       }
     };
     const handleOpenConvEvent = (e: any) => {
+      const convId = e.detail?.conversationId;
       const propId = e.detail?.propertyId;
-      if (propId) {
+      if (convId) {
+        setMessagingTargetConversationId(convId);
+        setMessagingTargetPropertyId(propId || null);
+        setCurrentView('messages');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      } else if (propId) {
         setMessagingTargetPropertyId(propId);
+        setMessagingTargetConversationId(null);
         setCurrentView('messages');
         window.scrollTo({ top: 0, behavior: 'smooth' });
       }
@@ -1566,6 +1574,7 @@ function MainApp() {
         {currentView === 'messages' && (
           <MessagingCenter
             initialPropertyId={messagingTargetPropertyId}
+            initialConversationId={messagingTargetConversationId}
             onSelectProperty={(id) => setSelectedPropertyId(id)}
             onRequestInspection={(id) => {
               setSelectedPropertyId(id);
@@ -1832,8 +1841,9 @@ function MainApp() {
                   setAdminLoginError(null);
                   setAdminLoginLoading(true);
                   try {
-                    await login(adminLoginUsername.trim(), adminLoginPassword, 'ADMIN');
-                    showToast('Authenticated as Platform Administrator!', 'success');
+                    const adminRes: any = await login(adminLoginUsername.trim(), adminLoginPassword, 'ADMIN');
+                    const adminName = adminRes?.fullName || adminRes?.name || 'Administrator';
+                    showToast(`Welcome to HostelEase, ${adminName}!`, 'success');
                   } catch (err: any) {
                     setAdminLoginError(err.message || 'Invalid Admin credentials.');
                   } finally {
@@ -2171,7 +2181,9 @@ function MainApp() {
         onClose={() => setAuthModalOpen(false)}
         defaultRole={authModalDefaultRole}
         onSuccess={(authedUser) => {
-          showToast('Authenticated successfully. Welcome to Hostel Ease!', 'success');
+          const userName = authedUser?.fullName || authedUser?.name || (authedUser?.email ? authedUser.email.split('@')[0] : '');
+          const welcomeMsg = userName ? `Welcome to HostelEase, ${userName}!` : 'Welcome to HostelEase!';
+          showToast(welcomeMsg, 'success');
           const targetRole = authedUser?.role || (localStorage.getItem('hostel_ease_user') ? JSON.parse(localStorage.getItem('hostel_ease_user') || '{}')?.role : 'STUDENT');
           if (targetRole === 'ADMIN') {
             setCurrentView('admin-portal');
