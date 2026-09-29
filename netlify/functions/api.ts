@@ -2527,7 +2527,7 @@ export default async (req: Request): Promise<Response> => {
       if (userId && n.userId === userId) return true;
       if (userEmail && n.userEmail && n.userEmail.toLowerCase() === userEmail) return true;
       return false;
-    });
+    }).sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
 
     const unreadCount = notifs.filter(n => !n.isRead).length;
     return new Response(JSON.stringify({ notifications: notifs, unreadCount }), { status: 200, headers: CORS_HEADERS });
@@ -2634,16 +2634,26 @@ export default async (req: Request): Promise<Response> => {
         };
         await saveCloudMessage(msg);
 
-        // Notify landlord
+        // Update conv preview & timestamp
+        conv.lastMessageText = initialMessage;
+        conv.lastMessageAt = new Date().toISOString();
+        await saveCloudConversation(conv);
+
+        // Determine recipient
+        const recipientId = user.id === conv.studentId ? conv.providerId : conv.studentId;
+        const recipientEmail = user.id === conv.studentId ? conv.providerEmail : conv.studentEmail;
+        const senderName = user.fullName || (user.role === 'STUDENT' ? 'Student' : 'Agent');
+
+        // Notify recipient
         await saveCloudNotification({
           id: `notif-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-          userId: pId,
-          userEmail: pEmail,
+          userId: recipientId,
+          userEmail: recipientEmail,
           title: `New Message about ${prop?.title || 'Hostel'}`,
-          message: `${sName}: "${initialMessage.substring(0, 60)}"`,
+          message: `${senderName}: "${initialMessage.substring(0, 60)}"`,
           type: 'NEW_MESSAGE',
           isRead: false,
-          linkUrl: `/messages?conversationId=${conv.id}`,
+          linkUrl: `/messages?conversationId=${conv.id}&propertyId=${prop?.id || ''}`,
           createdAt: new Date().toISOString()
         });
       }
@@ -2730,16 +2740,17 @@ export default async (req: Request): Promise<Response> => {
         // Notify recipient
         const recipientId = user.id === conv.studentId ? conv.providerId : conv.studentId;
         const recipientEmail = user.id === conv.studentId ? conv.providerEmail : conv.studentEmail;
+        const senderName = user.fullName || (user.role === 'STUDENT' ? 'Student' : 'Agent');
 
         await saveCloudNotification({
           id: `notif-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
           userId: recipientId,
           userEmail: recipientEmail,
-          title: `New Message from ${user.fullName || 'User'}`,
-          message: body.content.substring(0, 60),
+          title: `New message from ${senderName}`,
+          message: `${senderName}: "${body.content.substring(0, 60)}"`,
           type: 'NEW_MESSAGE',
           isRead: false,
-          linkUrl: `/messages?conversationId=${convId}`,
+          linkUrl: `/messages?conversationId=${convId}&propertyId=${conv.propertyId || ''}`,
           createdAt: new Date().toISOString()
         });
       }
