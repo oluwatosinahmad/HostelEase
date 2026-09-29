@@ -331,10 +331,12 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
     window.addEventListener('hostel_ease_user_logged_out', handleLogout);
     window.addEventListener('hostel_ease_bookings_updated', handleUpdates);
     window.addEventListener('hostel_ease_inspections_updated', handleUpdates);
+    window.addEventListener('hostel_ease_saved_updated', loadDashboard);
     return () => {
       window.removeEventListener('hostel_ease_user_logged_out', handleLogout);
       window.removeEventListener('hostel_ease_bookings_updated', handleUpdates);
       window.removeEventListener('hostel_ease_inspections_updated', handleUpdates);
+      window.removeEventListener('hostel_ease_saved_updated', loadDashboard);
     };
   }, []);
 

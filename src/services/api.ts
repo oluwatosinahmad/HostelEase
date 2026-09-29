@@ -2229,11 +2229,18 @@ export const api = {
 
     async saveProperty(propertyId: string, notes?: string): Promise<{ isSaved: boolean }> {
       try {
-        const res = await fetch(`${API_BASE}/properties/${propertyId}/save`, {
+        let res = await fetch(`${API_BASE}/properties/${propertyId}/save`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
           body: JSON.stringify({ notes })
         });
+        if (!res.ok) {
+          res = await fetch(`${API_BASE}/saved-properties`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+            body: JSON.stringify({ propertyId, notes })
+          });
+        }
         const contentType = res.headers.get('content-type') || '';
         if (res.ok && contentType.includes('application/json')) {
           const data = await res.json();
@@ -2264,10 +2271,16 @@ export const api = {
 
     async unsaveProperty(propertyId: string): Promise<{ isSaved: boolean }> {
       try {
-        const res = await fetch(`${API_BASE}/properties/${propertyId}/save`, {
+        let res = await fetch(`${API_BASE}/properties/${propertyId}/save`, {
           method: 'DELETE',
           headers: { ...getAuthHeader() }
         });
+        if (!res.ok) {
+          res = await fetch(`${API_BASE}/saved-properties/${propertyId}`, {
+            method: 'DELETE',
+            headers: { ...getAuthHeader() }
+          });
+        }
         const contentType = res.headers.get('content-type') || '';
         if (res.ok && contentType.includes('application/json')) {
           const data = await res.json();

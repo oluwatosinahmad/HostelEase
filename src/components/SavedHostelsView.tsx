@@ -236,7 +236,7 @@ export const SavedHostelsView: React.FC<SavedHostelsViewProps> = ({
                     <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
                       <span className="font-bold text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-lg flex items-center gap-1">
                         <MapPin className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
-                        {property.area.name}
+                        {property.area?.name || 'Under G'}
                       </span>
                       <span className="flex items-center gap-1 font-semibold text-slate-600 dark:text-slate-300">
                         <Footprints className="w-3.5 h-3.5 text-slate-400" />
@@ -244,9 +244,25 @@ export const SavedHostelsView: React.FC<SavedHostelsViewProps> = ({
                       </span>
                     </div>
 
-                    <h3 className="font-bold text-sm text-slate-900 dark:text-white line-clamp-1 group-hover:text-emerald-700 dark:group-hover:text-emerald-400 transition-colors">
-                      {property.title}
-                    </h3>
+                    <div className="space-y-1">
+                      <div className="flex items-start justify-between gap-2">
+                        <h3 className="font-bold text-sm text-slate-900 dark:text-white line-clamp-1 group-hover:text-emerald-700 dark:group-hover:text-emerald-400 transition-colors flex-1">
+                          {property.title}
+                        </h3>
+                        <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 font-bold border border-slate-200 dark:border-slate-700 whitespace-nowrap flex-shrink-0">
+                          ID: {property.id}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+                        <span>{getPropertyTypeLabel(property.propertyType)}</span>
+                        {property.genderPreference && property.genderPreference !== 'ANY' && (
+                          <>
+                            <span>•</span>
+                            <span className="uppercase text-[10px] font-bold text-emerald-700 dark:text-emerald-400">{property.genderPreference} ONLY</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
                   </div>
 
                   {/* Pricing & CTA Actions */}

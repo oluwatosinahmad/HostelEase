@@ -1703,8 +1703,12 @@ export default async (req: Request): Promise<Response> => {
       let propertyId = '';
       if (pathname.includes('/api/properties/') && pathname.endsWith('/save')) {
         propertyId = pathname.replace('/api/properties/', '').replace('/save', '');
+      } else if (pathname.startsWith('/api/saved-properties/') && pathname !== '/api/saved-properties') {
+        propertyId = pathname.replace('/api/saved-properties/', '');
+      } else if (pathname.startsWith('/api/saved/') && pathname !== '/api/saved') {
+        propertyId = pathname.replace('/api/saved/', '');
       } else {
-        const body = await req.json();
+        const body = await req.json().catch(() => ({}));
         propertyId = body.propertyId;
       }
 
