@@ -231,6 +231,37 @@ export const handleAdminGetVideos = (req: AuthenticatedRequest, res: Response) =
       ORDER BY v.created_at DESC
     `).all() as any[];
 
+    // Include legacy property_media videos if not already represented
+    const existingPropIds = new Set(allVideos.map(v => v.propertyId));
+    const legacyVideos = db.prepare(`
+      SELECT pm.id, pm.property_id as propertyId, pm.url, pm.url as videoUrl, pm.thumbnail_url as thumbnailUrl,
+             pm.caption, pm.is_verified as isVerified, pm.verification_notes as verificationNotes,
+             pm.created_at as createdAt,
+             CASE WHEN pm.is_verified = 1 THEN 'VERIFIED' 
+                  WHEN pm.verification_notes IS NOT NULL THEN 'REJECTED' 
+                  ELSE 'PENDING' END as status,
+             '3840x2160 (4K UHD)' as resolution,
+             3840 as width, 2160 as height,
+             15000000 as fileSize,
+             60 as duration,
+             p.title as propertyTitle, p.address as propertyAddress,
+             COALESCE(u.full_name, 'Verified Agent') as providerName,
+             COALESCE(u.email, 'agent@hostelease.ng') as providerEmail,
+             COALESCE(u.phone, '08012345678') as providerPhone
+      FROM property_media pm
+      JOIN properties p ON pm.property_id = p.id
+      LEFT JOIN users u ON p.provider_id = u.id
+      WHERE (pm.media_type = 'VIDEO' OR pm.category = 'VIDEO_WALKTHROUGH' OR LOWER(pm.url) LIKE '%.mp4%' OR LOWER(pm.url) LIKE '%.webm%')
+      ORDER BY pm.created_at DESC
+    `).all() as any[];
+
+    for (const leg of legacyVideos) {
+      if (!existingPropIds.has(leg.propertyId)) {
+        allVideos.push(leg);
+        existingPropIds.add(leg.propertyId);
+      }
+    }
+
     const counts = {
       total: allVideos.length,
       pending: allVideos.filter(v => v.status === 'PENDING').length,
@@ -256,7 +287,8 @@ export const handleAdminGetVideos = (req: AuthenticatedRequest, res: Response) =
 // =============================================================================
 export const handleAdminVerifyVideo = (req: AuthenticatedRequest, res: Response) => {
   const { id } = req.params;
-  const adminId = req.user?.id || 'usr-admin-default';
+  const adminUser = req.user?.id ? (db.prepare('SELECT id FROM users WHERE id = ?').get(req.user.id) as any) : null;
+  const verifiedBy = adminUser ? adminUser.id : null;
 
   try {
     const video = db.prepare(`
@@ -281,7 +313,7 @@ export const handleAdminVerifyVideo = (req: AuthenticatedRequest, res: Response)
 
       // Update property_media
       db.prepare(`UPDATE property_media SET is_verified = 1, verification_notes = NULL WHERE id = ?`).run(id);
-      db.prepare(`UPDATE properties SET has_4k_video = 1, video_verification_status = 'APPROVED' WHERE id = ?`).run(media.property_id);
+      db.prepare(`UPDATE properties SET has_4k_video = 1, video_tour_url = ?, video_verification_status = 'APPROVED' WHERE id = ?`).run(media.url, media.property_id);
 
       return res.json({ success: true, message: 'Video verified successfully', status: 'VERIFIED', isVerified: 1 });
     }
@@ -295,7 +327,7 @@ export const handleAdminVerifyVideo = (req: AuthenticatedRequest, res: Response)
           rejection_reason = NULL,
           updated_at = datetime('now')
       WHERE id = ?
-    `).run(adminId, id);
+    `).run(verifiedBy, id);
 
     // Update properties table
     db.prepare(`

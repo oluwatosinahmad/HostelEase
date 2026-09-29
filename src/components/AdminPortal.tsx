@@ -66,7 +66,7 @@ import {
   UserDeletionSummary,
   UserDeletionResult
 } from '../types/hostelEase';
-import { api } from '../services/api';
+import { api, getMediaUrl } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { AdminFinancialDashboard } from './AdminFinancialDashboard';
 import { AdminSupplyDemandDashboard } from './AdminSupplyDemandDashboard';
@@ -1922,7 +1922,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                             {/* Video Viewport */}
                             <div className="h-48 bg-black relative">
                               <video
-                                src={v.url}
+                                src={getMediaUrl(v.videoUrl || v.url || v.video_url)}
                                 controls
                                 preload="metadata"
                                 playsInline
@@ -2683,7 +2683,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
 
                   <div className="aspect-video max-h-48 rounded-lg overflow-hidden bg-black mx-auto">
                     <video
-                      src={videoItem.url}
+                      src={getMediaUrl(videoItem.url || videoItem.videoUrl)}
                       controls
                       playsInline
                       className="w-full h-full object-cover"
@@ -2783,14 +2783,29 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
           <div className="bg-slate-950 border border-slate-800 rounded-2xl w-full max-w-3xl overflow-hidden shadow-2xl space-y-4 p-6 max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <div>
-                <h3 className="font-bold text-white text-base flex items-center gap-2">
-                  <Video className="w-5 h-5 text-indigo-400" />
-                  <span>4K Video Tour Audit & Verification</span>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="font-bold text-white text-base flex items-center gap-2">
+                    <Video className="w-5 h-5 text-indigo-400" />
+                    <span>4K Video Tour Audit & Verification</span>
+                  </h3>
                   <span className="text-[10px] bg-indigo-950 text-indigo-300 font-extrabold px-2 py-0.5 rounded border border-indigo-800/80">
                     4K ULTRA HD
                   </span>
-                </h3>
-                <p className="text-xs text-slate-400 mt-0.5">{selectedVideoForReview.propertyTitle}</p>
+                  <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full ${
+                    selectedVideoForReview.status === 'VERIFIED' || selectedVideoForReview.isVerified === 1
+                      ? 'bg-emerald-600 text-white'
+                      : selectedVideoForReview.status === 'REJECTED'
+                      ? 'bg-rose-600 text-white'
+                      : 'bg-amber-500 text-black font-extrabold animate-pulse'
+                  }`}>
+                    {selectedVideoForReview.status === 'VERIFIED' || selectedVideoForReview.isVerified === 1
+                      ? '✓ VERIFIED & LIVE'
+                      : selectedVideoForReview.status === 'REJECTED'
+                      ? '✗ REJECTED'
+                      : '⏳ PENDING AUDIT'}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-400 mt-1">{selectedVideoForReview.propertyTitle}</p>
               </div>
               <button
                 onClick={() => {
@@ -2804,9 +2819,9 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
             </div>
 
             {/* Video Player */}
-            <div className="aspect-video max-h-80 rounded-xl overflow-hidden bg-black mx-auto border border-slate-800 shadow-inner">
+            <div className="aspect-video max-h-80 rounded-xl overflow-hidden bg-black mx-auto border border-slate-800 shadow-inner relative flex items-center justify-center">
               <video
-                src={selectedVideoForReview.url}
+                src={getMediaUrl(selectedVideoForReview.videoUrl || selectedVideoForReview.url || (selectedVideoForReview as any).video_url)}
                 controls
                 autoPlay
                 playsInline
@@ -2819,25 +2834,33 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
               <div>
                 <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">Resolution</span>
                 <span className="font-mono text-indigo-300 font-bold block truncate">
-                  {selectedVideoForReview.resolution || (selectedVideoForReview.width && selectedVideoForReview.height ? `${selectedVideoForReview.width}x${selectedVideoForReview.height} 4K` : '3840x2160 UHD')}
+                  {selectedVideoForReview.resolution || (selectedVideoForReview.width && selectedVideoForReview.height ? `${selectedVideoForReview.width}x${selectedVideoForReview.height} 4K UHD` : '3840x2160 UHD')}
                 </span>
               </div>
               <div>
                 <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">File Size</span>
                 <span className="font-mono text-slate-200 font-medium block">
-                  {selectedVideoForReview.fileSize || 'N/A'}
+                  {typeof selectedVideoForReview.fileSize === 'number'
+                    ? (selectedVideoForReview.fileSize > 1000000 
+                        ? `${(selectedVideoForReview.fileSize / (1024 * 1024)).toFixed(1)} MB` 
+                        : `${Math.round(selectedVideoForReview.fileSize / 1024)} KB`)
+                    : (selectedVideoForReview.fileSize || 'N/A')}
                 </span>
               </div>
               <div>
                 <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">Duration</span>
                 <span className="font-mono text-slate-200 font-medium block">
-                  {selectedVideoForReview.duration || 'N/A'}
+                  {typeof selectedVideoForReview.duration === 'number'
+                    ? `${Math.floor(selectedVideoForReview.duration / 60)}m ${Math.round(selectedVideoForReview.duration % 60)}s`
+                    : (selectedVideoForReview.duration || 'N/A')}
                 </span>
               </div>
               <div>
                 <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">Uploaded Date</span>
                 <span className="font-mono text-slate-200 font-medium block text-[11px]">
-                  {selectedVideoForReview.createdAt ? new Date(selectedVideoForReview.createdAt).toLocaleDateString() : 'N/A'}
+                  {selectedVideoForReview.uploadedAt || selectedVideoForReview.createdAt 
+                    ? new Date(selectedVideoForReview.uploadedAt || selectedVideoForReview.createdAt).toLocaleDateString() 
+                    : 'N/A'}
                 </span>
               </div>
             </div>

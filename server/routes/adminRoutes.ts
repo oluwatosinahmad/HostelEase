@@ -1445,7 +1445,8 @@ const verifyVideoHandler = (req: AuthenticatedRequest, res: Response) => {
   const { id } = req.params;
   const status = (req.body.status || 'APPROVED').toUpperCase();
   const notes = req.body.notes || req.body.rejectionReason || req.body.reason;
-  const adminId = req.user?.id || 'usr-admin-default';
+  const adminUser = req.user?.id ? (db.prepare('SELECT id FROM users WHERE id = ?').get(req.user.id) as any) : null;
+  const verifiedBy = adminUser ? adminUser.id : null;
 
   if (!['APPROVED', 'VERIFIED', 'REJECTED'].includes(status)) {
     return res.status(400).json({ error: 'Status must be APPROVED/VERIFIED or REJECTED' });
@@ -1475,7 +1476,7 @@ const verifyVideoHandler = (req: AuthenticatedRequest, res: Response) => {
       `).run(
         newStatus,
         isApproved ? new Date().toISOString() : null,
-        isApproved ? adminId : null,
+        isApproved ? verifiedBy : null,
         isApproved ? null : (notes || 'Requires revisions'),
         id
       );
@@ -1497,12 +1498,27 @@ const verifyVideoHandler = (req: AuthenticatedRequest, res: Response) => {
 
       // Mirror to property_media
       try {
-        db.prepare(`
-          UPDATE property_media
-          SET is_verified = ?, verification_notes = ?
+        const existingMedia = db.prepare(`
+          SELECT id FROM property_media 
           WHERE property_id = ? AND (media_type = 'VIDEO' OR category = 'VIDEO_WALKTHROUGH')
-        `).run(isApproved ? 1 : 0, notes || null, video.property_id);
-      } catch {}
+        `).get(video.property_id) as any;
+
+        if (existingMedia) {
+          db.prepare(`
+            UPDATE property_media
+            SET url = ?, thumbnail_url = COALESCE(?, thumbnail_url), is_verified = ?, verification_notes = ?
+            WHERE id = ?
+          `).run(video.video_url, video.thumbnail_url || null, isApproved ? 1 : 0, notes || null, existingMedia.id);
+        } else {
+          const mediaId = `media-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+          db.prepare(`
+            INSERT INTO property_media (id, property_id, media_type, category, url, thumbnail_url, caption, is_cover, is_verified, verification_notes)
+            VALUES (?, ?, 'VIDEO', 'VIDEO_WALKTHROUGH', ?, ?, 'Verified 4K Tour', 0, ?, ?)
+          `).run(mediaId, video.property_id, video.video_url, video.thumbnail_url || null, isApproved ? 1 : 0, notes || null);
+        }
+      } catch (e) {
+        console.warn('Failed to mirror verified video to property_media:', e);
+      }
 
       // Notify agent
       const notifId = `notif-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
@@ -1556,9 +1572,10 @@ const verifyVideoHandler = (req: AuthenticatedRequest, res: Response) => {
     db.prepare(`
       UPDATE properties
       SET has_4k_video = ?,
+          video_tour_url = ?,
           video_verification_status = ?
       WHERE id = ?
-    `).run(isVerified, isApproved ? 'APPROVED' : 'REJECTED', media.property_id);
+    `).run(isVerified, isApproved ? media.url : null, isApproved ? 'APPROVED' : 'REJECTED', media.property_id);
 
     // Notify landlord
     const notifId = `notif-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;

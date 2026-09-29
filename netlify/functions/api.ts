@@ -996,9 +996,9 @@ export default async (req: Request): Promise<Response> => {
     }
   }
 
-  // 4c. Media Serving (GET /api/media/:id with byte ranges and caching)
-  if (pathname.startsWith('/api/media/') && req.method === 'GET') {
-    const mediaId = pathname.replace('/api/media/', '').split('?')[0];
+  // 4c. Media Serving (GET /api/media/:id or GET /api/uploads/:id with byte ranges and caching)
+  if ((pathname.startsWith('/api/media/') || pathname.startsWith('/api/uploads/')) && req.method === 'GET') {
+    const mediaId = pathname.replace('/api/media/', '').replace('/api/uploads/', '').split('?')[0];
     const mediaItem = memoryMedia.get(mediaId);
     
     if (!mediaItem) {
@@ -1400,8 +1400,12 @@ export default async (req: Request): Promise<Response> => {
 
     const activeBooking = memoryBookings.find(b => b.propertyId === found.id && ['PENDING', 'CONFIRMED'].includes(b.status));
     const isBooked = Boolean(activeBooking) || found.availabilityStatus === 'BOOKED' || found.availabilityStatus === 'FULL';
+    const videoUrl = found.videoTourUrl || (found.media && (found.media as any[]).find((m: any) => m.mediaType === 'VIDEO' || m.type === 'VIDEO' || m.category === 'VIDEO_WALKTHROUGH')?.url) || null;
     const formattedProperty = {
       ...found,
+      has4KVideo: !!(found.has4KVideo || videoUrl),
+      videoTourUrl: videoUrl,
+      videoVerificationStatus: found.videoVerificationStatus || (videoUrl ? 'APPROVED' : 'NONE'),
       isBooked,
       bookingStatus: isBooked ? 'BOOKED' : 'AVAILABLE',
       availabilityStatus: isBooked ? 'BOOKED' : 'AVAILABLE',

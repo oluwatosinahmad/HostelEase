@@ -52,7 +52,7 @@ import {
 } from 'lucide-react';
 import { Area, Property, NotificationItem, VerificationDocument, PriceHistoryItem, ConversationItem, ConversationDetail, MessageItem } from '../types/hostelEase';
 import { DEFAULT_PROPERTIES } from '../services/offlineFallback';
-import { api } from '../services/api';
+import { api, getMediaUrl } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { HostelCreationWizard } from './HostelCreationWizard';
 import { ProviderInspectionDashboard } from './ProviderInspectionDashboard';
@@ -2409,7 +2409,7 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
                               />
                             ) : (
                               <video
-                                src={v.videoUrl}
+                                src={getMediaUrl(v.videoUrl || v.url)}
                                 preload="metadata"
                                 className="w-full h-full object-cover"
                               />
@@ -2417,7 +2417,7 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
 
                             {/* Play Overlay */}
                             <button
-                              onClick={() => setPlayingVideoUrl(v.videoUrl)}
+                              onClick={() => setPlayingVideoUrl(v.videoUrl || v.url)}
                               className="absolute inset-0 m-auto w-12 h-12 bg-black/60 hover:bg-black/80 text-white rounded-full flex items-center justify-center transition-transform hover:scale-110 cursor-pointer shadow-lg"
                               title="Play 4K Video Tour"
                             >
@@ -2519,7 +2519,7 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
                         <div className="p-4 pt-0 space-y-2 border-t border-gray-100 pt-3">
                           <div className="flex items-center gap-2">
                             <button
-                              onClick={() => setPlayingVideoUrl(v.videoUrl)}
+                              onClick={() => setPlayingVideoUrl(v.videoUrl || v.url)}
                               className="flex-1 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
                               title="Watch 4K Video Tour"
                             >
@@ -3927,7 +3927,7 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
             </div>
             <div className="aspect-video bg-black flex items-center justify-center">
               <video
-                src={playingVideoUrl}
+                src={getMediaUrl(playingVideoUrl)}
                 controls
                 autoPlay
                 playsInline

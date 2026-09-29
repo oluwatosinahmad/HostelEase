@@ -102,11 +102,11 @@ function formatPropertySummary(p: any, savedPropertyIds: Set<string> = new Set()
       isCover: true
     });
   }
-  if (videoMedia) {
+  if (videoUrl) {
     mediaList.push({
-      id: `media-${p.id}-video`,
-      url: videoMedia.url,
-      caption: videoMedia.caption || '4K Virtual Inspection Walkthrough',
+      id: videoMedia?.id || `media-${p.id}-video`,
+      url: videoUrl,
+      caption: videoMedia?.caption || '4K Virtual Inspection Walkthrough',
       mediaType: 'VIDEO',
       category: 'VIDEO_WALKTHROUGH',
       isCover: false
@@ -508,17 +508,33 @@ router.get('/:id', optionalAuthenticate, (req: AuthenticatedRequest, res: Respon
           totalRefundableCost: pr.total_refundable_cost,
           notes: pr.notes
         })),
-        media: media.map((m: any) => ({
-          id: m.id,
-          mediaType: m.media_type,
-          category: m.category,
-          url: m.url,
-          thumbnailUrl: m.thumbnail_url,
-          caption: m.caption,
-          displayOrder: m.display_order,
-          isCover: Boolean(m.is_cover),
-          isVerified: Boolean(m.is_verified)
-        })),
+        media: (() => {
+          const mapped = media.map((m: any) => ({
+            id: m.id,
+            mediaType: m.media_type,
+            category: m.category,
+            url: m.url,
+            thumbnailUrl: m.thumbnail_url,
+            caption: m.caption,
+            displayOrder: m.display_order,
+            isCover: Boolean(m.is_cover),
+            isVerified: Boolean(m.is_verified)
+          }));
+          if (videoUrl && !mapped.some((m: any) => m.mediaType === 'VIDEO' || m.category === 'VIDEO_WALKTHROUGH')) {
+            mapped.push({
+              id: videoItem?.id || `media-${property.id}-video`,
+              mediaType: 'VIDEO',
+              category: 'VIDEO_WALKTHROUGH',
+              url: videoUrl,
+              thumbnailUrl: videoItem?.thumbnail_url || null,
+              caption: videoItem?.caption || 'Verified 4K Tour',
+              displayOrder: 99,
+              isCover: false,
+              isVerified: true
+            });
+          }
+          return mapped;
+        })(),
         amenities: amenities.map((am: any) => ({
           id: am.id,
           key: am.key,

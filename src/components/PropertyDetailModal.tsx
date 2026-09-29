@@ -40,6 +40,7 @@ import {
 import { Property, StudentReview, UserProfile, ReviewSortOption } from '../types';
 import { HostelStudentInsights } from './HostelStudentInsights';
 import { formatNaira } from '../utils/formatters';
+import { getMediaUrl } from '../services/api';
 
 interface PropertyDetailModalProps {
   property: Property | null;
@@ -298,7 +299,7 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
               {isPlayingVideo && property.videoTourUrl ? (
                 <div className="relative w-full h-full">
                   <video
-                    src={property.videoTourUrl}
+                    src={getMediaUrl(property.videoTourUrl)}
                     controls
                     autoPlay
                     className="w-full h-full object-cover"

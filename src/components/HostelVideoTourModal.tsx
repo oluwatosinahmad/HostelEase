@@ -55,7 +55,8 @@ export const HostelVideoTourModal: React.FC<HostelVideoTourModalProps> = ({
 
   // Extract authentic property video only — no fake demo or Mixkit placeholders
   const rawVideoUrl = property?.videoTourUrl || 
-    property?.media?.find(m => m.mediaType === 'VIDEO' || m.category === 'VIDEO_WALKTHROUGH' || String(m.url || '').toLowerCase().includes('.mp4'))?.url;
+    (property as any)?.video_tour_url ||
+    property?.media?.find(m => m.mediaType === 'VIDEO' || m.category === 'VIDEO_WALKTHROUGH' || String(m.url || '').toLowerCase().includes('.mp4') || String(m.url || '').toLowerCase().includes('.webm'))?.url;
   const videoSrc = rawVideoUrl ? getMediaUrl(rawVideoUrl) : null;
   const posterUrl = property?.coverImage ? getMediaUrl(property.coverImage) : undefined;
 
@@ -305,6 +306,51 @@ export const HostelVideoTourModal: React.FC<HostelVideoTourModalProps> = ({
                 </div>
               </div>
             </>
+          ) : videoSrc && hasVideoError ? (
+            <div className="relative w-full h-full flex flex-col items-center justify-center text-center p-6 bg-slate-950">
+              {posterUrl && (
+                <img 
+                  src={posterUrl} 
+                  alt={property.title} 
+                  className="absolute inset-0 w-full h-full object-cover opacity-15 filter blur-xs"
+                />
+              )}
+              <div className="relative z-10 max-w-md space-y-3">
+                <div className="w-14 h-14 rounded-2xl bg-rose-950/70 border border-rose-800 mx-auto flex items-center justify-center text-rose-400 shadow-lg">
+                  <AlertCircle className="w-7 h-7" />
+                </div>
+                <div>
+                  <h4 className="text-base font-bold text-white">Video Stream Unavailable</h4>
+                  <p className="text-xs text-slate-400 mt-1">
+                    The uploaded 4K walkthrough video for <strong className="text-slate-200">{property.title}</strong> could not be streamed by your browser.
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setHasVideoError(false);
+                      if (videoRef.current) {
+                        videoRef.current.load();
+                        videoRef.current.play().catch(() => {});
+                      }
+                    }}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl transition cursor-pointer shadow-md"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    <span>Retry Playback</span>
+                  </button>
+                  <a
+                    href={videoSrc}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded-xl transition border border-slate-700 shadow-md"
+                  >
+                    <span>Direct Video Link</span>
+                  </a>
+                </div>
+              </div>
+            </div>
           ) : (
             <div className="relative w-full h-full flex flex-col items-center justify-center text-center p-6 bg-slate-950">
               {posterUrl && (
@@ -315,13 +361,13 @@ export const HostelVideoTourModal: React.FC<HostelVideoTourModalProps> = ({
                 />
               )}
               <div className="relative z-10 max-w-md space-y-3">
-                <div className="w-14 h-14 rounded-2xl bg-slate-800/80 border border-slate-700 mx-auto flex items-center justify-center text-amber-400 shadow-lg">
+                <div className="w-14 h-14 rounded-2xl bg-slate-800/80 border border-slate-700 mx-auto flex items-center justify-center text-slate-400 shadow-lg">
                   <VideoOff className="w-7 h-7" />
                 </div>
                 <div>
-                  <h4 className="text-base font-bold text-white">4K Video Walkthrough In Production</h4>
+                  <h4 className="text-base font-bold text-white">No 4K Video Tour Uploaded</h4>
                   <p className="text-xs text-slate-400 mt-1">
-                    The verified 4K walkthrough video for <strong className="text-slate-200">{property.title}</strong> is currently being reviewed by our physical campus inspection team.
+                    This property does not currently have a 4K walkthrough video tour attached. You can schedule an in-person physical campus inspection with the verified agent.
                   </p>
                 </div>
                 {onOpenInspectionModal && (
@@ -334,7 +380,7 @@ export const HostelVideoTourModal: React.FC<HostelVideoTourModalProps> = ({
                     className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl transition cursor-pointer shadow-md"
                   >
                     <Calendar className="w-3.5 h-3.5" />
-                    <span>Book Physical Inspection Instead</span>
+                    <span>Schedule Physical Inspection</span>
                   </button>
                 )}
               </div>

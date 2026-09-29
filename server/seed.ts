@@ -460,8 +460,17 @@ export function runSeed() {
       INSERT INTO properties (
         id, provider_id, university_id, area_id, title, slug, description, address, nearby_landmark,
         latitude, longitude, distance_from_campus_km, property_type, gender_preference, total_rooms,
-        verification_status, availability_status, is_demo, is_featured, completeness_score
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
+        verification_status, availability_status, is_demo, is_featured, completeness_score,
+        has_4k_video, video_tour_url, video_verification_status
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, 1, ?, 'APPROVED')
+    `);
+
+    const insertFourKVideo = db.prepare(`
+      INSERT OR IGNORE INTO four_k_videos (
+        id, agent_id, property_id, video_url, thumbnail_url,
+        width, height, resolution, file_size, duration,
+        status, uploaded_at, verified_at, verified_by, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, 3840, 2160, '3840x2160 (4K UHD)', 2534317, 90, 'VERIFIED', datetime('now'), datetime('now'), NULL, datetime('now'), datetime('now'))
     `);
 
     const insertPrice = db.prepare(`
@@ -511,7 +520,16 @@ export function runSeed() {
         p.status,
         p.avail,
         p.featured,
-        p.score
+        p.score,
+        imagePool.video
+      );
+
+      insertFourKVideo.run(
+        `vid-4k-${p.id}`,
+        p.providerId,
+        p.id,
+        imagePool.video,
+        p.media[0]?.url || null
       );
 
       const totalMandatory = p.rent + p.service + p.agency + p.other;
