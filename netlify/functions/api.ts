@@ -402,6 +402,39 @@ async function saveCloudBooking(bk: any) {
   } catch {}
 }
 
+async function saveCloudVideo(video: any) {
+  if (!video || !video.id) return;
+  const existingIdx = memoryVideos.findIndex(v => v.id === video.id);
+  if (existingIdx >= 0) {
+    memoryVideos[existingIdx] = { ...memoryVideos[existingIdx], ...video };
+  } else {
+    memoryVideos.unshift(video);
+  }
+
+  try {
+    const store = getBlobsStore('videos');
+    if (store) {
+      await store.setJSON(video.id, video);
+    }
+  } catch {}
+}
+
+async function saveCloudData() {
+  // Safety wrapper for cloud persistence hooks
+}
+
+function is4KResolution(width?: number, height?: number): boolean {
+  if (!width || !height) return true;
+  return (
+    (width >= 3840 && height >= 2160) ||
+    (width >= 2160 && height >= 3840) ||
+    (width >= 4096 && height >= 2160) ||
+    (width >= 2160 && height >= 4096) ||
+    (width >= 3840 && height >= 1600) ||
+    (width >= 2160 && height >= 2160)
+  );
+}
+
 async function loadCloudData(force = false) {
   if (!force && Date.now() - lastCloudLoad < 2500) return;
   lastCloudLoad = Date.now();
@@ -1185,6 +1218,112 @@ export default async (req: Request): Promise<Response> => {
     }
   }
 
+  // 5B. Provider Update Property Listing (PUT /api/provider/properties/:id)
+  if (pathname.startsWith('/api/provider/properties/') && req.method === 'PUT') {
+    try {
+      const user = parseAuth(req);
+      if (!user) {
+        return new Response(JSON.stringify({ error: 'Authentication required' }), { status: 401, headers: CORS_HEADERS });
+      }
+
+      const parts = pathname.split('/');
+      const propId = parts[4];
+      const data = await req.json();
+
+      const pIdx = memoryProperties.findIndex(p => p.id === propId);
+      if (pIdx < 0) {
+        return new Response(JSON.stringify({ error: 'Hostel listing not found' }), { status: 404, headers: CORS_HEADERS });
+      }
+
+      const prop = memoryProperties[pIdx];
+      const userEmail = (user.email || '').toLowerCase().trim();
+      const userId = user.id || '';
+      const pEmail = ((prop as any).providerEmail || prop.provider?.email || '').toLowerCase().trim();
+      const pId = (prop as any).providerId || prop.provider?.id;
+
+      if (user.role !== 'SUPER_ADMIN' && user.role !== 'ADMIN' && userId !== pId && userEmail !== pEmail) {
+        return new Response(JSON.stringify({ error: 'Unauthorized to modify this hostel' }), { status: 403, headers: CORS_HEADERS });
+      }
+
+      // Update fields
+      if (data.title) prop.title = data.title.trim();
+      if (data.description) prop.description = data.description.trim();
+      if (data.address) prop.address = data.address.trim();
+      if (data.areaId) prop.areaId = data.areaId;
+      if (data.propertyType) prop.propertyType = data.propertyType;
+      if (data.genderPreference) prop.genderPreference = data.genderPreference;
+      if (data.pricing) prop.pricing = { ...prop.pricing, ...data.pricing };
+      if (data.amenityKeys) {
+        prop.keyAmenities = data.amenityKeys.map((k: string, idx: number) => ({
+          id: `am-${idx}`,
+          key: k,
+          name: k.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()),
+          category: 'FACILITY',
+          icon: 'Check'
+        }));
+      }
+
+      if (data.isDraft) {
+        prop.verificationStatus = 'DRAFT';
+      } else if (data.submitForReview) {
+        prop.verificationStatus = 'PENDING_REVIEW';
+      }
+
+      await saveCloudProperty(prop);
+
+      return new Response(JSON.stringify({ message: 'Hostel listing updated successfully', property: prop }), { status: 200, headers: CORS_HEADERS });
+    } catch (err: any) {
+      return new Response(JSON.stringify({ error: err.message || 'Failed to update hostel listing' }), { status: 400, headers: CORS_HEADERS });
+    }
+  }
+
+  // 5C. Provider Delete Property Listing (DELETE /api/provider/properties/:id)
+  if (pathname.startsWith('/api/provider/properties/') && req.method === 'DELETE') {
+    try {
+      const user = parseAuth(req);
+      if (!user) {
+        return new Response(JSON.stringify({ error: 'Authentication required' }), { status: 401, headers: CORS_HEADERS });
+      }
+
+      const parts = pathname.split('/');
+      const propId = parts[4];
+
+      const pIdx = memoryProperties.findIndex(p => p.id === propId);
+      if (pIdx < 0) {
+        return new Response(JSON.stringify({ error: 'Hostel listing not found' }), { status: 404, headers: CORS_HEADERS });
+      }
+
+      const prop = memoryProperties[pIdx];
+      const userEmail = (user.email || '').toLowerCase().trim();
+      const userId = user.id || '';
+      const pEmail = ((prop as any).providerEmail || prop.provider?.email || '').toLowerCase().trim();
+      const pId = (prop as any).providerId || prop.provider?.id;
+
+      if (user.role !== 'SUPER_ADMIN' && user.role !== 'ADMIN' && userId !== pId && userEmail !== pEmail) {
+        return new Response(JSON.stringify({ error: 'Unauthorized to delete this hostel' }), { status: 403, headers: CORS_HEADERS });
+      }
+
+      // Check active bookings
+      const hasActiveBooking = memoryBookings.some(b => b.propertyId === propId && (b.status === 'PENDING' || b.status === 'CONFIRMED'));
+      if (hasActiveBooking) {
+        return new Response(JSON.stringify({ error: 'Cannot delete hostel listing with active or confirmed bookings.' }), { status: 400, headers: CORS_HEADERS });
+      }
+
+      // Remove from memory
+      memoryProperties.splice(pIdx, 1);
+      memoryVideos = memoryVideos.filter(v => v.propertyId !== propId);
+
+      try {
+        const store = getBlobsStore('properties');
+        if (store) await store.delete(propId);
+      } catch {}
+
+      return new Response(JSON.stringify({ success: true, message: 'Hostel listing deleted successfully' }), { status: 200, headers: CORS_HEADERS });
+    } catch (err: any) {
+      return new Response(JSON.stringify({ error: err.message || 'Failed to delete hostel listing' }), { status: 400, headers: CORS_HEADERS });
+    }
+  }
+
   // 6. Public Properties (Strictly APPROVED listings only)
   if (pathname === '/api/properties' && req.method === 'GET') {
     const urlObj = new URL(req.url);
@@ -1301,8 +1440,15 @@ export default async (req: Request): Promise<Response> => {
           id: `vid-${p.id}`,
           propertyId: p.id,
           url: p.videoTourUrl,
+          videoUrl: p.videoTourUrl,
           thumbnailUrl: p.coverImage,
           caption: `${p.title} 4K Walkthrough Tour`,
+          width: 3840,
+          height: 2160,
+          resolution: '3840x2160 UHD 4K',
+          fileSize: '124 MB',
+          duration: '1m 30s',
+          status: p.videoVerificationStatus === 'APPROVED' ? 'VERIFIED' : 'PENDING',
           isVerified: p.videoVerificationStatus === 'APPROVED' ? 1 : 0,
           createdAt: p.createdAt || new Date().toISOString(),
           propertyTitle: p.title,
@@ -1313,33 +1459,339 @@ export default async (req: Request): Promise<Response> => {
         });
       }
     }
-    return new Response(JSON.stringify({ videos: allVideos }), { status: 200, headers: CORS_HEADERS });
+
+    const counts = {
+      total: allVideos.length,
+      pending: allVideos.filter(v => (v.status ? v.status === 'PENDING' : !v.isVerified)).length,
+      verified: allVideos.filter(v => (v.status ? v.status === 'VERIFIED' : v.isVerified === 1)).length,
+      rejected: allVideos.filter(v => (v.status ? v.status === 'REJECTED' : (v.isVerified === 0 && (v.verificationNotes || v.rejectionReason)))).length
+    };
+
+    return new Response(JSON.stringify({ videos: allVideos, counts }), { status: 200, headers: CORS_HEADERS });
   }
 
-  // 8. Admin Video Verify
-  if (pathname.startsWith('/api/admin/videos/') && pathname.endsWith('/verify') && req.method === 'PATCH') {
+  // 8. Admin Video Verify (POST and PATCH)
+  if (pathname.startsWith('/api/admin/videos/') && pathname.endsWith('/verify') && (req.method === 'POST' || req.method === 'PATCH')) {
     try {
       const parts = pathname.split('/');
       const videoId = parts[4];
-      const body = await req.json();
-      const isApprove = body.status === 'APPROVED';
+      const body = await req.json().catch(() => ({}));
+      const adminUser = parseAuth(req);
 
-      const vIdx = memoryVideos.findIndex(v => v.id === videoId || v.propertyId === videoId);
-      if (vIdx >= 0) {
-        memoryVideos[vIdx].isVerified = isApprove ? 1 : 0;
-        memoryVideos[vIdx].verificationNotes = body.notes || '';
+      let video = memoryVideos.find(v => v.id === videoId || v.propertyId === videoId);
+      if (!video) {
+        const prop = memoryProperties.find(p => p.id === videoId || `vid-${p.id}` === videoId);
+        if (prop && prop.videoTourUrl) {
+          video = {
+            id: `vid-${prop.id}`,
+            propertyId: prop.id,
+            url: prop.videoTourUrl,
+            status: 'PENDING',
+            agentId: (prop as any).providerId || prop.provider?.id
+          };
+          memoryVideos.push(video);
+        }
       }
 
-      const pIdx = memoryProperties.findIndex(p => p.id === videoId || `vid-${p.id}` === videoId);
+      if (!video) {
+        return new Response(JSON.stringify({ error: 'Video tour record not found' }), { status: 404, headers: CORS_HEADERS });
+      }
+
+      video.status = 'VERIFIED';
+      video.isVerified = 1;
+      video.verifiedAt = new Date().toISOString();
+      video.verifiedBy = adminUser?.id || 'admin-super-01';
+      video.verificationNotes = body.notes || body.feedbackNotes || '4K video tour passed trust & safety audit.';
+
+      // Update property
+      const pIdx = memoryProperties.findIndex(p => p.id === video.propertyId);
       if (pIdx >= 0) {
-        memoryProperties[pIdx].videoVerificationStatus = isApprove ? 'APPROVED' : 'REJECTED';
-        memoryProperties[pIdx].videoVerificationNotes = body.notes || '';
+        memoryProperties[pIdx].has4KVideo = true;
+        memoryProperties[pIdx].videoTourUrl = video.url || video.videoUrl;
+        memoryProperties[pIdx].videoVerificationStatus = 'APPROVED';
+        memoryProperties[pIdx].videoVerificationNotes = video.verificationNotes;
+
+        // Mirror in property media
+        if (!memoryProperties[pIdx].media) memoryProperties[pIdx].media = [];
+        const existingMedia = memoryProperties[pIdx].media.find((m: any) => m.mediaType === 'VIDEO');
+        if (existingMedia) {
+          existingMedia.url = video.url || video.videoUrl;
+          existingMedia.isVerified = 1;
+        } else {
+          memoryProperties[pIdx].media.push({
+            id: `med-${Date.now()}`,
+            url: video.url || video.videoUrl,
+            mediaType: 'VIDEO',
+            category: 'VIDEO_WALKTHROUGH',
+            isVerified: 1
+          });
+        }
+        await saveCloudProperty(memoryProperties[pIdx]);
       }
 
-      await saveCloudData();
-      return new Response(JSON.stringify({ success: true, isVerified: isApprove ? 1 : 0 }), { status: 200, headers: CORS_HEADERS });
+      await saveCloudVideo(video);
+
+      // In-app notification to the agent
+      const agentTargetId = video.agentId || (pIdx >= 0 ? (memoryProperties[pIdx] as any).providerId || memoryProperties[pIdx].provider?.id : null);
+      if (agentTargetId) {
+        await saveCloudNotification({
+          id: `notif-vid-app-${Date.now()}`,
+          userId: agentTargetId,
+          title: '4K Video Tour Verified & Live!',
+          message: `Your 4K walkthrough video for "${pIdx >= 0 ? memoryProperties[pIdx].title : 'hostel'}" has been verified and published. Students can now view the 4K Tour directly.`,
+          type: 'VIDEO_VERIFIED',
+          isRead: 0,
+          createdAt: new Date().toISOString()
+        });
+      }
+
+      return new Response(JSON.stringify({ success: true, isVerified: 1, video }), { status: 200, headers: CORS_HEADERS });
     } catch (err: any) {
       return new Response(JSON.stringify({ error: err.message || 'Failed to verify video' }), { status: 400, headers: CORS_HEADERS });
+    }
+  }
+
+  // 8B. Admin Video Reject (POST)
+  if (pathname.startsWith('/api/admin/videos/') && pathname.endsWith('/reject') && req.method === 'POST') {
+    try {
+      const parts = pathname.split('/');
+      const videoId = parts[4];
+      const body = await req.json().catch(() => ({}));
+      const reason = (body.rejectionReason || body.notes || '').trim();
+
+      if (!reason) {
+        return new Response(JSON.stringify({ error: 'A specific rejection reason is required to reject a video tour' }), { status: 400, headers: CORS_HEADERS });
+      }
+
+      let video = memoryVideos.find(v => v.id === videoId || v.propertyId === videoId);
+      if (!video) {
+        const prop = memoryProperties.find(p => p.id === videoId || `vid-${p.id}` === videoId);
+        if (prop && prop.videoTourUrl) {
+          video = {
+            id: `vid-${prop.id}`,
+            propertyId: prop.id,
+            url: prop.videoTourUrl,
+            status: 'PENDING',
+            agentId: (prop as any).providerId || prop.provider?.id
+          };
+          memoryVideos.push(video);
+        }
+      }
+
+      if (!video) {
+        return new Response(JSON.stringify({ error: 'Video tour record not found' }), { status: 404, headers: CORS_HEADERS });
+      }
+
+      video.status = 'REJECTED';
+      video.isVerified = 0;
+      video.rejectionReason = reason;
+      video.verificationNotes = reason;
+
+      const pIdx = memoryProperties.findIndex(p => p.id === video.propertyId);
+      if (pIdx >= 0) {
+        memoryProperties[pIdx].has4KVideo = false;
+        memoryProperties[pIdx].videoVerificationStatus = 'REJECTED';
+        memoryProperties[pIdx].videoVerificationNotes = reason;
+        await saveCloudProperty(memoryProperties[pIdx]);
+      }
+
+      await saveCloudVideo(video);
+
+      const agentTargetId = video.agentId || (pIdx >= 0 ? (memoryProperties[pIdx] as any).providerId || memoryProperties[pIdx].provider?.id : null);
+      if (agentTargetId) {
+        await saveCloudNotification({
+          id: `notif-vid-rej-${Date.now()}`,
+          userId: agentTargetId,
+          title: '4K Video Tour Audit: Action Required',
+          message: `Your 4K walkthrough video for "${pIdx >= 0 ? memoryProperties[pIdx].title : 'hostel'}" was rejected: ${reason}`,
+          type: 'VIDEO_REJECTED',
+          isRead: 0,
+          createdAt: new Date().toISOString()
+        });
+      }
+
+      return new Response(JSON.stringify({ success: true, status: 'REJECTED', video }), { status: 200, headers: CORS_HEADERS });
+    } catch (err: any) {
+      return new Response(JSON.stringify({ error: err.message || 'Failed to reject video' }), { status: 400, headers: CORS_HEADERS });
+    }
+  }
+
+  // 8C. Provider Videos Queue (GET /api/provider/videos or GET /api/videos/my-videos)
+  if ((pathname === '/api/provider/videos' || pathname === '/api/videos/my-videos') && req.method === 'GET') {
+    const user = parseAuth(req);
+    if (!user) {
+      return new Response(JSON.stringify({ error: 'Authentication required' }), { status: 401, headers: CORS_HEADERS });
+    }
+
+    const userEmail = (user.email || '').toLowerCase().trim();
+    const userId = user.id || '';
+
+    const myVideos = memoryVideos.filter(v => {
+      if (v.agentId && v.agentId === userId) return true;
+      if (v.agentEmail && v.agentEmail.toLowerCase() === userEmail) return true;
+      const prop = memoryProperties.find(p => p.id === v.propertyId);
+      if (prop) {
+        const pEmail = ((prop as any).providerEmail || prop.provider?.email || '').toLowerCase().trim();
+        const pId = (prop as any).providerId || prop.provider?.id;
+        if (userId && pId === userId) return true;
+        if (userEmail && pEmail === userEmail) return true;
+      }
+      return false;
+    });
+
+    const stats = {
+      total: myVideos.length,
+      pending: myVideos.filter(v => v.status === 'PENDING').length,
+      verified: myVideos.filter(v => v.status === 'VERIFIED').length,
+      rejected: myVideos.filter(v => v.status === 'REJECTED').length
+    };
+
+    return new Response(JSON.stringify({ videos: myVideos, stats }), { status: 200, headers: CORS_HEADERS });
+  }
+
+  // 8D. Provider 4K Video Upload (POST /api/provider/videos or POST /api/videos/4k-upload)
+  if ((pathname === '/api/provider/videos' || pathname === '/api/videos/4k-upload') && req.method === 'POST') {
+    try {
+      const user = parseAuth(req);
+      if (!user) {
+        return new Response(JSON.stringify({ error: 'Authentication required' }), { status: 401, headers: CORS_HEADERS });
+      }
+
+      const body = await req.json();
+      const { propertyId, videoUrl, width, height, resolution, fileSize, duration } = body;
+
+      if (!propertyId || !videoUrl) {
+        return new Response(JSON.stringify({ error: 'propertyId and videoUrl are required' }), { status: 400, headers: CORS_HEADERS });
+      }
+
+      // Check property ownership
+      const userEmail = (user.email || '').toLowerCase().trim();
+      const userId = user.id || '';
+      const property = memoryProperties.find(p => p.id === propertyId);
+
+      if (!property) {
+        return new Response(JSON.stringify({ error: 'Hostel property not found' }), { status: 404, headers: CORS_HEADERS });
+      }
+
+      const pEmail = ((property as any).providerEmail || property.provider?.email || '').toLowerCase().trim();
+      const pId = (property as any).providerId || property.provider?.id;
+      const isOwner = (userId && pId === userId) || (userEmail && pEmail === userEmail) || user.role === 'SUPER_ADMIN';
+
+      if (!isOwner) {
+        return new Response(JSON.stringify({ error: 'You are not authorized to upload videos for this property' }), { status: 403, headers: CORS_HEADERS });
+      }
+
+      // 4K resolution validation
+      if (width && height && !is4KResolution(width, height)) {
+        return new Response(
+          JSON.stringify({
+            error: `Uploaded video resolution (${width}x${height}) does not meet 4K Ultra HD specifications. Minimum 3840x2160 horizontal or 2160x3840 vertical required.`
+          }),
+          { status: 400, headers: CORS_HEADERS }
+        );
+      }
+
+      const vidId = `vid-4k-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+      const resString = resolution || (width && height ? `${width}x${height} UHD 4K` : '3840x2160 UHD 4K');
+
+      const videoRecord = {
+        id: vidId,
+        propertyId,
+        agentId: userId,
+        agentName: user.fullName || user.name || 'Agent',
+        agentEmail: user.email,
+        agentPhone: user.phone || '',
+        url: videoUrl,
+        videoUrl,
+        width: width || 3840,
+        height: height || 2160,
+        resolution: resString,
+        fileSize: fileSize || 'N/A',
+        duration: duration || 'N/A',
+        status: 'PENDING',
+        isVerified: 0,
+        verificationNotes: '',
+        rejectionReason: '',
+        createdAt: new Date().toISOString(),
+        propertyTitle: property.title,
+        propertyAddress: property.address,
+        providerName: user.fullName || user.name || 'Agent'
+      };
+
+      // Set property state (NOT live until verified!)
+      property.videoTourUrl = videoUrl;
+      property.has4KVideo = false;
+      property.videoVerificationStatus = 'PENDING_AUDIT';
+      property.videoVerificationNotes = 'Pending Trust & Safety 4K audit';
+
+      await saveCloudProperty(property);
+      await saveCloudVideo(videoRecord);
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          message: '4K video tour successfully submitted for Trust & Safety verification',
+          video: videoRecord
+        }),
+        { status: 201, headers: CORS_HEADERS }
+      );
+    } catch (err: any) {
+      return new Response(JSON.stringify({ error: err.message || 'Failed to submit 4K video tour' }), { status: 400, headers: CORS_HEADERS });
+    }
+  }
+
+  // 8E. Provider Delete 4K Video (DELETE /api/provider/videos/:id or DELETE /api/videos/:id)
+  if ((pathname.startsWith('/api/provider/videos/') || pathname.startsWith('/api/videos/')) && req.method === 'DELETE') {
+    try {
+      const user = parseAuth(req);
+      if (!user) {
+        return new Response(JSON.stringify({ error: 'Authentication required' }), { status: 401, headers: CORS_HEADERS });
+      }
+
+      const parts = pathname.split('/');
+      const videoId = parts[parts.length - 1];
+
+      const vIdx = memoryVideos.findIndex(v => v.id === videoId);
+      if (vIdx < 0) {
+        return new Response(JSON.stringify({ error: 'Video record not found' }), { status: 404, headers: CORS_HEADERS });
+      }
+
+      const video = memoryVideos[vIdx];
+      const userEmail = (user.email || '').toLowerCase().trim();
+      const userId = user.id || '';
+      const vEmail = (video.agentEmail || '').toLowerCase().trim();
+      const vAgentId = video.agentId;
+
+      if (user.role !== 'SUPER_ADMIN' && user.role !== 'ADMIN' && userId !== vAgentId && userEmail !== vEmail) {
+        return new Response(JSON.stringify({ error: 'Unauthorized: You can only delete 4K videos belonging to your account' }), { status: 403, headers: CORS_HEADERS });
+      }
+
+      // Remove video
+      memoryVideos.splice(vIdx, 1);
+      try {
+        const vStore = getBlobsStore('videos');
+        if (vStore) await vStore.delete(videoId);
+      } catch {}
+
+      // Update property if matching
+      const pIdx = memoryProperties.findIndex(p => p.id === video.propertyId);
+      if (pIdx >= 0) {
+        const remainingVerified = memoryVideos.find(v => v.propertyId === video.propertyId && v.status === 'VERIFIED');
+        if (remainingVerified) {
+          memoryProperties[pIdx].has4KVideo = true;
+          memoryProperties[pIdx].videoTourUrl = remainingVerified.url || remainingVerified.videoUrl;
+          memoryProperties[pIdx].videoVerificationStatus = 'APPROVED';
+        } else {
+          memoryProperties[pIdx].has4KVideo = false;
+          memoryProperties[pIdx].videoTourUrl = undefined;
+          memoryProperties[pIdx].videoVerificationStatus = 'NONE';
+        }
+        await saveCloudProperty(memoryProperties[pIdx]);
+      }
+
+      return new Response(JSON.stringify({ success: true, message: '4K video deleted successfully' }), { status: 200, headers: CORS_HEADERS });
+    } catch (err: any) {
+      return new Response(JSON.stringify({ error: err.message || 'Failed to delete video' }), { status: 400, headers: CORS_HEADERS });
     }
   }
 

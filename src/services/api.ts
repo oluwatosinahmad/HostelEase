@@ -3619,6 +3619,28 @@ export const api = {
       return { message: 'Hostel updated successfully' };
     },
 
+    async deleteListing(id: string): Promise<{ success: boolean; message: string }> {
+      const res = await fetch(`${API_BASE}/provider/properties/${id}`, {
+        method: 'DELETE',
+        headers: { ...getAuthHeader() }
+      });
+      const data = await handleResponse<{ success: boolean; message: string }>(res);
+      window.dispatchEvent(new CustomEvent('hostel_ease_properties_updated'));
+      return data;
+    },
+
+    async deleteProperty(id: string): Promise<{ success: boolean; message: string }> {
+      return this.deleteListing(id);
+    },
+
+    async deleteVideo(id: string): Promise<{ success: boolean; message: string }> {
+      const res = await fetch(`${API_BASE}/provider/videos/${id}`, {
+        method: 'DELETE',
+        headers: { ...getAuthHeader() }
+      });
+      return handleResponse<{ success: boolean; message: string }>(res);
+    },
+
     async updateAvailability(id: string, availabilityStatus: string): Promise<{ message: string }> {
       try {
         const res = await fetch(`${API_BASE}/provider/properties/${id}/availability`, {
@@ -3856,6 +3878,14 @@ export const api = {
 
     async aiAssist(prompt: string, propertyId?: string): Promise<{ response: string; structuredData?: any }> {
       return this.askAI(prompt, propertyId);
+    },
+
+    async getVideos(): Promise<{ videos: any[]; counts: { total: number; pending: number; verified: number; rejected: number } }> {
+      return api.videos.getMyVideos();
+    },
+
+    async upload4KVideo(data: any): Promise<{ message: string; video: any }> {
+      return api.videos.upload4K(data);
     },
 
     async getTeam(): Promise<{ team: any[] }> {
@@ -4611,15 +4641,20 @@ export const api = {
       };
     },
 
-    async getVideos(): Promise<{ videos: any[] }> {
+    async getVideos(statusFilter?: string): Promise<{ videos: any[]; counts: { total: number; pending: number; verified: number; rejected: number } }> {
       let serverVideos: any[] = [];
+      let counts = { total: 0, pending: 0, verified: 0, rejected: 0 };
       try {
-        const res = await fetch(`${API_BASE}/admin/videos`, {
+        const url = statusFilter && statusFilter !== 'ALL' && statusFilter !== 'all'
+          ? `${API_BASE}/admin/videos?status=${statusFilter}`
+          : `${API_BASE}/admin/videos`;
+        const res = await fetch(url, {
           headers: { ...getAuthHeader() }
         });
         if (res.ok) {
           const data = await res.json();
           if (data && Array.isArray(data.videos)) serverVideos = data.videos;
+          if (data && data.counts) counts = data.counts;
         }
       } catch (err) {
         console.warn('Backend getVideos offline');
@@ -4636,16 +4671,26 @@ export const api = {
           const vidMedia = (p.media || []).find(m => m.mediaType === 'VIDEO' || m.category === 'VIDEO_WALKTHROUGH');
           const videoUrl = p.videoTourUrl || vidMedia?.url || '/uploads/sample_hostel_tour.mp4';
           const isAppr = p.videoVerificationStatus === 'APPROVED' ? 1 : 0;
+          const status = isAppr ? 'VERIFIED' : (p as any).videoVerificationStatus === 'REJECTED' ? 'REJECTED' : 'PENDING';
 
           merged.unshift({
             id: vidMedia?.id || `vid-${p.id}`,
             propertyId: p.id,
             url: videoUrl,
+            videoUrl,
             thumbnailUrl: p.coverImage || 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=1200&q=80',
             caption: vidMedia?.caption || `${p.title} 4K Walkthrough Tour`,
             isVerified: isAppr,
+            status,
+            resolution: '3840x2160 (4K UHD)',
+            width: 3840,
+            height: 2160,
+            fileSize: 18500000,
+            duration: 90,
             verificationNotes: (p as any).videoVerificationNotes || null,
+            rejectionReason: (p as any).videoVerificationNotes || null,
             createdAt: p.createdAt || new Date().toISOString(),
+            uploadedAt: p.createdAt || new Date().toISOString(),
             propertyTitle: p.title,
             propertyAddress: p.address,
             providerName: p.provider?.name || 'Verified Agent',
@@ -4656,13 +4701,22 @@ export const api = {
         }
       }
 
-      return { videos: merged };
+      if (counts.total === 0 && merged.length > 0) {
+        counts = {
+          total: merged.length,
+          pending: merged.filter(v => v.status === 'PENDING' || !v.isVerified).length,
+          verified: merged.filter(v => v.status === 'VERIFIED' || v.isVerified === 1).length,
+          rejected: merged.filter(v => v.status === 'REJECTED' || (v.isVerified === 0 && (v.verificationNotes || v.rejectionReason))).length
+        };
+      }
+
+      return { videos: merged, counts };
     },
 
-    async verifyVideo(id: string, status: 'APPROVED' | 'REJECTED', notes?: string): Promise<{ success: boolean; message: string; isVerified: number }> {
+    async verifyVideo(id: string, status: 'APPROVED' | 'REJECTED' = 'APPROVED', notes?: string): Promise<{ success: boolean; message: string; isVerified: number }> {
       try {
         const res = await fetch(`${API_BASE}/admin/videos/${id}/verify`, {
-          method: 'PATCH',
+          method: 'POST',
           headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
           body: JSON.stringify({ status, notes })
         });
@@ -4680,6 +4734,31 @@ export const api = {
         success: true,
         message: status === 'APPROVED' ? 'Property 4K Video Tour verified and published' : 'Video tour rejected with feedback notes',
         isVerified: status === 'APPROVED' ? 1 : 0
+      };
+    },
+
+    async rejectVideo(id: string, rejectionReason: string): Promise<{ success: boolean; message: string; isVerified: number; rejectionReason?: string }> {
+      try {
+        const res = await fetch(`${API_BASE}/admin/videos/${id}/reject`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+          body: JSON.stringify({ rejectionReason })
+        });
+        if (res.ok) {
+          const json = await res.json();
+          updateLocalPropertyVideoStatus(id, 'REJECTED', rejectionReason);
+          return json;
+        }
+      } catch (err) {
+        console.warn('Backend rejectVideo offline, persisting locally:', err);
+      }
+
+      updateLocalPropertyVideoStatus(id, 'REJECTED', rejectionReason);
+      return {
+        success: true,
+        message: 'Video tour rejected with feedback notes',
+        isVerified: 0,
+        rejectionReason
       };
     },
 
@@ -5285,6 +5364,82 @@ export const api = {
         size: file.size,
         thumbnailUrl: thumbnailDataUrl || null
       };
+    }
+  },
+
+  // 4K Video Tour System & Admin Verification
+  videos: {
+    async upload4K(data: {
+      propertyId: string;
+      videoUrl: string;
+      thumbnailUrl?: string;
+      width: number;
+      height: number;
+      fileSize: number;
+      duration: number;
+      caption?: string;
+    }): Promise<{ message: string; video: any }> {
+      const res = await fetch(`${API_BASE}/provider/videos`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+        body: JSON.stringify(data)
+      });
+      return handleResponse(res);
+    },
+
+    async getMyVideos(): Promise<{ videos: any[]; counts: { total: number; pending: number; verified: number; rejected: number } }> {
+      try {
+        const res = await fetch(`${API_BASE}/provider/videos`, {
+          headers: { ...getAuthHeader() }
+        });
+        if (res.ok) {
+          return await res.json();
+        }
+      } catch (e) {
+        console.warn('Failed to fetch provider videos from backend:', e);
+      }
+      return { videos: [], counts: { total: 0, pending: 0, verified: 0, rejected: 0 } };
+    },
+
+    async getAdminQueue(status?: string): Promise<{ videos: any[]; counts: { total: number; pending: number; verified: number; rejected: number } }> {
+      const url = status && status !== 'ALL' && status !== 'all' ? `${API_BASE}/admin/videos?status=${status}` : `${API_BASE}/admin/videos`;
+      try {
+        const res = await fetch(url, {
+          headers: { ...getAuthHeader() }
+        });
+        if (res.ok) {
+          return await res.json();
+        }
+      } catch (e) {
+        console.warn('Failed to fetch admin video queue from backend:', e);
+      }
+      return { videos: [], counts: { total: 0, pending: 0, verified: 0, rejected: 0 } };
+    },
+
+    async verify(id: string): Promise<{ success: boolean; message: string; status: string; isVerified: number }> {
+      const res = await fetch(`${API_BASE}/admin/videos/${id}/verify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+        body: JSON.stringify({ status: 'APPROVED' })
+      });
+      return handleResponse(res);
+    },
+
+    async reject(id: string, reason: string): Promise<{ success: boolean; message: string; status: string; rejectionReason: string; isVerified: number }> {
+      const res = await fetch(`${API_BASE}/admin/videos/${id}/reject`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+        body: JSON.stringify({ rejectionReason: reason })
+      });
+      return handleResponse(res);
+    },
+
+    async delete(id: string): Promise<{ success: boolean; message: string }> {
+      const res = await fetch(`${API_BASE}/provider/videos/${id}`, {
+        method: 'DELETE',
+        headers: { ...getAuthHeader() }
+      });
+      return handleResponse<{ success: boolean; message: string }>(res);
     }
   },
 

@@ -326,19 +326,26 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
   };
 
   const handleVerifyVideo = async (videoId: string, status: 'APPROVED' | 'REJECTED', notesOverride?: string) => {
-    setSubmittingVideoReview(true);
     const feedbackNotes = notesOverride !== undefined ? notesOverride : videoReviewNotes;
+    if (status === 'REJECTED' && !feedbackNotes.trim()) {
+      onShowToast('A specific rejection reason is required to provide actionable feedback to the agent', 'error');
+      return;
+    }
+    setSubmittingVideoReview(true);
     try {
-      const res = await api.admin.verifyVideo(videoId, status, feedbackNotes.trim());
+      const res = status === 'REJECTED'
+        ? await api.admin.rejectVideo(videoId, feedbackNotes.trim())
+        : await api.admin.verifyVideo(videoId, 'APPROVED', feedbackNotes.trim());
       if (res.success) {
         onShowToast(
-          status === 'APPROVED' ? '✓ Property 4K Video Tour approved and published!' : 'Video tour rejected with feedback notes sent to provider.',
+          status === 'APPROVED' ? '✓ Property 4K Video Tour approved and published!' : 'Video tour rejected with feedback notes sent to agent.',
           status === 'APPROVED' ? 'success' : 'info'
         );
         setSelectedVideoForReview(null);
         setVideoReviewNotes('');
         const vRes = await api.admin.getVideos().catch(() => ({ videos: [] }));
         setVideosList(vRes?.videos || []);
+        fetchAllAdminData();
       }
     } catch (err: any) {
       onShowToast(err.message || 'Failed to update video verification status', 'error');
@@ -766,7 +773,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
           { id: 'overview', label: 'Overview', icon: TrendingUp },
           { id: 'hostels', label: 'Hostels', icon: Layers },
           { id: 'verification', label: 'Verify', icon: ShieldCheck },
-          { id: 'video_verification', label: '4K Videos', icon: Video },
+          { id: 'video_verification', label: `4K Videos${videosList.filter(v => v.status === 'PENDING' || !v.isVerified).length > 0 ? ` (${videosList.filter(v => v.status === 'PENDING' || !v.isVerified).length})` : ''}`, icon: Video },
           { id: 'users', label: 'Users', icon: Users },
           { id: 'bookings', label: 'Bookings', icon: Calendar },
           { id: 'disputes', label: 'Disputes', icon: ShieldAlert },
@@ -798,13 +805,20 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
         <aside className="hidden md:flex md:w-64 bg-slate-950/90 border-r border-slate-800 p-3 md:flex-col gap-4 md:overflow-y-auto shrink-0">
           {[
             {
-              category: 'OPERATIONS HUB',
+              category: 'HOSTEL OPERATIONS',
               items: [
                 { id: 'operations', label: 'Phase 15 Operations', icon: Activity, badge: 'Live Ops', badgeColor: 'bg-emerald-500/20 text-emerald-300' },
                 { id: 'overview', label: 'Command Overview', icon: TrendingUp, badge: null },
+                { id: 'hostels', label: 'Hostel Listings', icon: Layers, badge: dashboardData?.stats?.totalHostels ?? 0 },
+                { 
+                  id: 'video_verification', 
+                  label: `4K Videos${videosList.filter(v => v.status === 'PENDING' || !v.isVerified).length > 0 ? ` (${videosList.filter(v => v.status === 'PENDING' || !v.isVerified).length})` : ''}`, 
+                  icon: Video, 
+                  badge: videosList.filter(v => v.status === 'PENDING' || !v.isVerified).length > 0 ? `${videosList.filter(v => v.status === 'PENDING' || !v.isVerified).length} Pending` : null, 
+                  badgeColor: 'bg-amber-500/20 text-amber-300' 
+                },
                 { id: 'users', label: 'User Directory', icon: Users, badge: dashboardData?.stats?.totalStudents ?? 0 },
                 { id: 'providers', label: 'Providers / Hosts', icon: Building2, badge: dashboardData?.stats?.totalProviders ?? 0 },
-                { id: 'hostels', label: 'Hostel Listings', icon: Layers, badge: dashboardData?.stats?.totalHostels ?? 0 },
                 { id: 'bookings', label: 'Bookings Oversight', icon: Calendar, badge: dashboardData?.stats?.activeBookings ?? 0 }
               ]
             },
@@ -812,7 +826,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
               category: 'TRUST & SAFETY',
               items: [
                 { id: 'verification', label: 'Verification Center', icon: ShieldCheck, badge: dashboardData?.stats?.pendingHostels ?? 0, badgeColor: 'bg-amber-500/20 text-amber-300' },
-                { id: 'video_verification', label: '4K Video Tours Queue', icon: Video, badge: videosList.filter(v => !v.isVerified).length || null, badgeColor: 'bg-indigo-500/20 text-indigo-300' },
+                { id: 'video_verification', label: '4K Video Tours Queue', icon: Video, badge: videosList.filter(v => v.status === 'PENDING' || !v.isVerified).length || null, badgeColor: 'bg-indigo-500/20 text-indigo-300' },
                 { id: 'disputes', label: 'Dispute Cases', icon: ShieldAlert, badge: (disputesList || []).filter(d => d.status === 'OPEN' || d.status === 'UNDER_REVIEW').length || null, badgeColor: 'bg-rose-500/20 text-rose-300' },
                 { id: 'reports', label: 'Safety & Reports', icon: AlertTriangle, badge: dashboardData?.stats?.openReports ?? 0, badgeColor: 'bg-rose-500/20 text-rose-300' },
                 { id: 'reviews', label: 'Review Moderation', icon: MessageSquareQuote, badge: null },
@@ -1777,80 +1791,136 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
           )}
 
           {/* TAB 5B: PROPERTY 4K VIDEO TOURS VERIFICATION QUEUE */}
-          {activeTab === 'video_verification' && (
-            <div className="space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-950 p-4 rounded-xl border border-slate-800">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <Video className="w-5 h-5 text-indigo-400" />
-                    <h2 className="text-lg font-bold text-white">4K Property Video Walkthroughs Queue</h2>
-                    <span className="text-[10px] bg-indigo-950 text-indigo-300 font-bold px-2 py-0.5 rounded border border-indigo-800">
-                      Trust & Safety Video Review
-                    </span>
+          {activeTab === 'video_verification' && (() => {
+            const pendingCount = videosList.filter(v => (v.status ? v.status === 'PENDING' : !v.isVerified)).length;
+            const verifiedCount = videosList.filter(v => (v.status ? v.status === 'VERIFIED' : v.isVerified === 1)).length;
+            const rejectedCount = videosList.filter(v => (v.status ? v.status === 'REJECTED' : (v.isVerified === 0 && (v.verificationNotes || v.rejection_reason)))).length;
+
+            const filteredVideos = videosList.filter(v => {
+              const isPending = v.status ? v.status === 'PENDING' : !v.isVerified;
+              const isApproved = v.status ? v.status === 'VERIFIED' : v.isVerified === 1;
+              const isRejected = v.status ? v.status === 'REJECTED' : (v.isVerified === 0 && (v.verificationNotes || v.rejection_reason));
+              if (videoFilter === 'PENDING') return isPending;
+              if (videoFilter === 'APPROVED' || videoFilter === 'VERIFIED') return isApproved;
+              if (videoFilter === 'REJECTED') return isRejected;
+              return true;
+            });
+
+            return (
+              <div className="space-y-4">
+                {/* Header & Controls */}
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-slate-950 p-5 rounded-2xl border border-slate-800 shadow-xl">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <Video className="w-5 h-5 text-indigo-400" />
+                      <h2 className="text-lg font-bold text-white">4K Property Video Walkthroughs Queue</h2>
+                      <span className="text-[10px] bg-indigo-950 text-indigo-300 font-bold px-2 py-0.5 rounded border border-indigo-800">
+                        Trust & Safety Video Review
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-400 mt-1">
+                      Review authentic uncut 4K video tours submitted by verified agents. Approved tours display the 4K Tour badge directly to students.
+                    </p>
                   </div>
-                  <p className="text-xs text-slate-400">
-                    Review and verify authentic uncut video tours uploaded by agents before they are published to students.
-                  </p>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={async () => {
+                        const vRes = await api.admin.getVideos().catch(() => ({ videos: [] }));
+                        setVideosList(vRes?.videos || []);
+                        onShowToast('Refreshed 4K video verification queue', 'info');
+                      }}
+                      className="p-2 bg-slate-900 hover:bg-slate-800 border border-slate-700 rounded-xl text-slate-300 hover:text-white transition-colors cursor-pointer flex items-center gap-1.5 text-xs font-semibold"
+                      title="Refresh video list"
+                    >
+                      <RefreshCw className="w-4 h-4" />
+                      <span className="hidden sm:inline">Refresh</span>
+                    </button>
+                  </div>
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <select
-                    value={videoFilter}
-                    onChange={(e) => setVideoFilter(e.target.value)}
-                    className="bg-slate-900 border border-slate-700 text-xs text-slate-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-indigo-500 font-medium"
+                {/* Filter Pills with Counts */}
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    onClick={() => setVideoFilter('all')}
+                    className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                      videoFilter === 'all'
+                        ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30'
+                        : 'bg-slate-900/80 hover:bg-slate-800 text-slate-400 border border-slate-800'
+                    }`}
                   >
-                    <option value="all">All Videos ({videosList.length})</option>
-                    <option value="PENDING">Pending Review ({videosList.filter(v => !v.isVerified).length})</option>
-                    <option value="APPROVED">Verified & Live ({videosList.filter(v => v.isVerified === 1).length})</option>
-                    <option value="REJECTED">Rejected / Retake Needed ({videosList.filter(v => v.isVerified === 0 && v.verificationNotes).length})</option>
-                  </select>
+                    <span>All Videos</span>
+                    <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-white/20">{videosList.length}</span>
+                  </button>
 
                   <button
-                    onClick={async () => {
-                      const vRes = await api.admin.getVideos().catch(() => ({ videos: [] }));
-                      setVideosList(vRes?.videos || []);
-                      onShowToast('Refreshed video verification queue', 'info');
-                    }}
-                    className="p-1.5 bg-slate-900 hover:bg-slate-800 border border-slate-700 rounded-lg text-slate-300 hover:text-white transition-colors cursor-pointer"
-                    title="Refresh video list"
+                    onClick={() => setVideoFilter('PENDING')}
+                    className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                      videoFilter === 'PENDING'
+                        ? 'bg-amber-600 text-white shadow-lg shadow-amber-600/30'
+                        : 'bg-slate-900/80 hover:bg-slate-800 text-amber-400/90 border border-slate-800'
+                    }`}
                   >
-                    <RefreshCw className="w-4 h-4" />
+                    <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+                    <span>Pending Audit</span>
+                    <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-amber-950 text-amber-300 border border-amber-800/60 font-mono">
+                      {pendingCount}
+                    </span>
+                  </button>
+
+                  <button
+                    onClick={() => setVideoFilter('APPROVED')}
+                    className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                      videoFilter === 'APPROVED' || videoFilter === 'VERIFIED'
+                        ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/30'
+                        : 'bg-slate-900/80 hover:bg-slate-800 text-emerald-400/90 border border-slate-800'
+                    }`}
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span>Verified & Live</span>
+                    <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-emerald-950 text-emerald-300 border border-emerald-800/60 font-mono">
+                      {verifiedCount}
+                    </span>
+                  </button>
+
+                  <button
+                    onClick={() => setVideoFilter('REJECTED')}
+                    className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                      videoFilter === 'REJECTED'
+                        ? 'bg-rose-600 text-white shadow-lg shadow-rose-600/30'
+                        : 'bg-slate-900/80 hover:bg-slate-800 text-rose-400/90 border border-slate-800'
+                    }`}
+                  >
+                    <XCircle className="w-3.5 h-3.5" />
+                    <span>Rejected</span>
+                    <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-rose-950 text-rose-300 border border-rose-800/60 font-mono">
+                      {rejectedCount}
+                    </span>
                   </button>
                 </div>
-              </div>
 
-              {(() => {
-                const filteredVideos = videosList.filter(v => {
-                  if (videoFilter === 'PENDING') return !v.isVerified;
-                  if (videoFilter === 'APPROVED') return v.isVerified === 1;
-                  if (videoFilter === 'REJECTED') return v.isVerified === 0 && v.verificationNotes;
-                  return true;
-                });
-
-                if (filteredVideos.length === 0) {
-                  return (
-                    <div className="bg-slate-950 border border-slate-800 rounded-2xl p-12 text-center space-y-3">
-                      <Video className="w-10 h-10 text-indigo-500 mx-auto opacity-60" />
-                      <h3 className="text-sm font-bold text-white">No Videos Found</h3>
-                      <p className="text-xs text-slate-400 max-w-sm mx-auto">
-                        {videoFilter === 'PENDING'
-                          ? 'All agent property videos have been audited and verified.'
-                          : 'No video tours match the selected filter criteria.'}
-                      </p>
-                    </div>
-                  );
-                }
-
-                return (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {filteredVideos.length === 0 ? (
+                  <div className="bg-slate-950 border border-slate-800 rounded-2xl p-12 text-center space-y-3">
+                    <Video className="w-12 h-12 text-indigo-500 mx-auto opacity-50" />
+                    <h3 className="text-base font-bold text-white">No 4K Videos Found</h3>
+                    <p className="text-xs text-slate-400 max-w-sm mx-auto">
+                      {videoFilter === 'PENDING'
+                        ? 'All uploaded 4K videos have been reviewed and audited.'
+                        : 'No video tours match the current filter selection.'}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                     {filteredVideos.map((v) => {
-                      const isApproved = v.isVerified === 1;
-                      const isRejected = v.isVerified === 0 && v.verificationNotes;
+                      const isApproved = v.status === 'VERIFIED' || v.isVerified === 1;
+                      const isRejected = v.status === 'REJECTED' || (v.isVerified === 0 && (v.verificationNotes || v.rejection_reason));
+                      const isPending = !isApproved && !isRejected;
+
                       return (
-                        <div key={v.id} className="bg-slate-950 border border-slate-800 rounded-2xl overflow-hidden flex flex-col justify-between shadow-xl">
+                        <div key={v.id} className="bg-slate-950 border border-slate-800 rounded-2xl overflow-hidden flex flex-col justify-between shadow-xl hover:border-slate-700 transition-all">
                           <div>
                             {/* Video Viewport */}
-                            <div className="h-44 bg-black relative">
+                            <div className="h-48 bg-black relative">
                               <video
                                 src={v.url}
                                 controls
@@ -1858,31 +1928,52 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                                 playsInline
                                 className="w-full h-full object-cover"
                               />
-                              <span className={`absolute top-2.5 right-2.5 text-[10px] font-bold px-2.5 py-0.5 rounded-full shadow-md ${
+                              <span className={`absolute top-2.5 right-2.5 text-[10px] font-black px-2.5 py-1 rounded-full shadow-lg ${
                                 isApproved ? 'bg-emerald-600 text-white' :
                                 isRejected ? 'bg-rose-600 text-white' :
-                                'bg-amber-600 text-white animate-pulse'
+                                'bg-amber-500 text-black font-extrabold animate-pulse'
                               }`}>
-                                {isApproved ? '✓ VERIFIED & LIVE' : isRejected ? '✗ REJECTED' : '⏳ PENDING AUDIT'}
+                                {isApproved ? '✓ 4K VERIFIED & LIVE' : isRejected ? '✗ REJECTED' : '⏳ PENDING AUDIT'}
                               </span>
-                              <span className="absolute bottom-2 left-2 text-[10px] font-black bg-slate-950/80 text-indigo-300 border border-indigo-500/30 px-2 py-0.5 rounded-md flex items-center gap-1">
+                              <span className="absolute bottom-2.5 left-2.5 text-[10px] font-black bg-slate-950/90 text-indigo-300 border border-indigo-500/40 px-2 py-0.5 rounded-md flex items-center gap-1 shadow-md">
                                 <Sparkles className="w-3 h-3 text-indigo-400" />
-                                4K UHD Tour
+                                {v.resolution || '4K UHD (3840x2160)'}
                               </span>
                             </div>
 
-                            {/* Info */}
-                            <div className="p-4 space-y-2.5">
-                              <h3 className="font-bold text-white text-sm leading-tight">{v.propertyTitle}</h3>
-                              <p className="text-xs text-slate-400 flex items-center gap-1">
-                                <MapPin className="w-3.5 h-3.5 text-slate-500 flex-shrink-0" />
-                                <span className="truncate">{v.propertyAddress || 'Ogbomoso LAUTECH Area'}</span>
-                              </p>
+                            {/* Property & Specs Details */}
+                            <div className="p-4 space-y-3">
+                              <div>
+                                <h3 className="font-bold text-white text-sm leading-snug">{v.propertyTitle || 'Hostel Property'}</h3>
+                                <p className="text-xs text-slate-400 flex items-center gap-1 mt-0.5">
+                                  <MapPin className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                                  <span className="truncate">{v.propertyAddress || 'Ogbomoso LAUTECH Area'}</span>
+                                </p>
+                              </div>
 
-                              <div className="text-[11px] text-slate-400 pt-2 border-t border-slate-900 space-y-1">
+                              {/* Technical Specs Pill Strip */}
+                              <div className="grid grid-cols-3 gap-1.5 py-2 px-2.5 bg-slate-900/80 border border-slate-800/80 rounded-xl text-[10px]">
+                                <div>
+                                  <span className="text-slate-500 block">Resolution</span>
+                                  <span className="text-indigo-300 font-mono font-bold truncate block">
+                                    {v.width && v.height ? `${v.width}x${v.height}` : '4K UHD'}
+                                  </span>
+                                </div>
+                                <div>
+                                  <span className="text-slate-500 block">File Size</span>
+                                  <span className="text-slate-300 font-mono font-semibold block">{v.fileSize || 'N/A'}</span>
+                                </div>
+                                <div>
+                                  <span className="text-slate-500 block">Duration</span>
+                                  <span className="text-slate-300 font-mono font-semibold block">{v.duration || 'N/A'}</span>
+                                </div>
+                              </div>
+
+                              {/* Agent Contact */}
+                              <div className="text-[11px] text-slate-400 pt-1 space-y-1">
                                 <div className="flex items-center justify-between">
-                                  <span>Agent:</span>
-                                  <span className="text-white font-semibold">{v.providerName}</span>
+                                  <span className="text-slate-500">Agent:</span>
+                                  <span className="text-white font-semibold truncate max-w-[170px]">{v.providerName || 'Authorized Agent'}</span>
                                 </div>
                                 {v.providerPhone && (
                                   <div className="flex items-center justify-between text-slate-500">
@@ -1890,18 +1981,27 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                                     <span className="text-slate-300 font-mono">{v.providerPhone}</span>
                                   </div>
                                 )}
-                                {v.providerEmail && (
+                                {v.createdAt && (
                                   <div className="flex items-center justify-between text-slate-500">
-                                    <span>Email:</span>
-                                    <span className="text-slate-300 truncate max-w-[150px]">{v.providerEmail}</span>
+                                    <span>Uploaded:</span>
+                                    <span className="text-slate-300 font-mono text-[10px]">
+                                      {new Date(v.createdAt).toLocaleDateString()}
+                                    </span>
                                   </div>
                                 )}
                               </div>
 
-                              {v.verificationNotes && (
-                                <div className="p-2.5 bg-slate-900/90 border border-slate-800 rounded-xl text-[11px] text-amber-300/90 space-y-1">
-                                  <span className="font-bold text-slate-400 text-[10px] uppercase tracking-wider block">Feedback / Notes:</span>
-                                  <p className="italic">{v.verificationNotes}</p>
+                              {/* Feedback / Notes */}
+                              {(v.verificationNotes || v.rejection_reason) && (
+                                <div className={`p-2.5 rounded-xl text-[11px] space-y-1 ${
+                                  isRejected
+                                    ? 'bg-rose-950/40 border border-rose-800/60 text-rose-300'
+                                    : 'bg-slate-900/90 border border-slate-800 text-amber-300/90'
+                                }`}>
+                                  <span className="font-bold text-[10px] uppercase tracking-wider block opacity-75">
+                                    {isRejected ? 'Rejection Feedback:' : 'Verification Notes:'}
+                                  </span>
+                                  <p className="italic">{v.verificationNotes || v.rejection_reason}</p>
                                 </div>
                               )}
                             </div>
@@ -1912,12 +2012,12 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                             <button
                               onClick={() => {
                                 setSelectedVideoForReview(v);
-                                setVideoReviewNotes(v.verificationNotes || '');
+                                setVideoReviewNotes(v.verificationNotes || v.rejection_reason || '');
                               }}
                               className="w-full bg-slate-900 hover:bg-slate-800 border border-slate-700 text-indigo-300 text-xs font-bold py-2 rounded-xl transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
                             >
                               <Eye className="w-3.5 h-3.5" />
-                              <span>Inspect & Full Audit</span>
+                              <span>Inspect 4K Video & Full Specs</span>
                             </button>
 
                             <div className="flex items-center gap-2">
@@ -1926,30 +2026,32 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                                   <button
                                     onClick={() => handleVerifyVideo(v.id, 'APPROVED', '')}
                                     disabled={submittingVideoReview}
-                                    className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold py-2 rounded-xl transition-colors flex items-center justify-center gap-1 cursor-pointer disabled:opacity-50"
+                                    className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold py-2 rounded-xl transition-colors flex items-center justify-center gap-1 cursor-pointer disabled:opacity-50 shadow-md shadow-emerald-950/40"
                                   >
                                     <CheckCircle2 className="w-3.5 h-3.5" />
-                                    <span>Approve</span>
+                                    <span>Verify & Publish</span>
                                   </button>
                                   <button
                                     onClick={() => {
                                       setSelectedVideoForReview(v);
-                                      setVideoReviewNotes(v.verificationNotes || '');
+                                      setVideoReviewNotes(v.verificationNotes || v.rejection_reason || '');
                                     }}
                                     className="flex-1 bg-rose-950/80 hover:bg-rose-900 border border-rose-800 text-rose-300 text-xs font-bold py-2 rounded-xl transition-colors flex items-center justify-center gap-1 cursor-pointer"
                                   >
                                     <XCircle className="w-3.5 h-3.5" />
-                                    <span>Reject</span>
+                                    <span>Reject...</span>
                                   </button>
                                 </>
                               ) : (
                                 <button
-                                  onClick={() => handleVerifyVideo(v.id, 'REJECTED', 'Video tour authorization revoked by admin audit.')}
-                                  disabled={submittingVideoReview}
-                                  className="w-full bg-slate-900 hover:bg-rose-950/60 border border-slate-800 hover:border-rose-800 text-slate-400 hover:text-rose-300 text-xs font-bold py-2 rounded-xl transition-colors flex items-center justify-center gap-1 cursor-pointer disabled:opacity-50"
+                                  onClick={() => {
+                                    setSelectedVideoForReview(v);
+                                    setVideoReviewNotes('Video tour authorization revoked after quality review.');
+                                  }}
+                                  className="w-full bg-slate-900 hover:bg-rose-950/60 border border-slate-800 hover:border-rose-800 text-slate-400 hover:text-rose-300 text-xs font-bold py-2 rounded-xl transition-colors flex items-center justify-center gap-1 cursor-pointer"
                                 >
                                   <XCircle className="w-3.5 h-3.5" />
-                                  <span>Revoke Live Approval</span>
+                                  <span>Revoke Live Approval...</span>
                                 </button>
                               )}
                             </div>
@@ -1958,10 +2060,10 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                       );
                     })}
                   </div>
-                );
-              })()}
-            </div>
-          )}
+                )}
+              </div>
+            );
+          })()}
 
           {/* TAB 6: BOOKINGS OVERSIGHT (OPERATIONS HUB) */}
           {activeTab === 'bookings' && (
@@ -2677,29 +2779,32 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
 
       {/* 🎥 MODAL: PROPERTY VIDEO AUDIT & VERIFICATION */}
       {selectedVideoForReview && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-950 border border-slate-800 rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl space-y-4 p-6 max-h-[92vh] overflow-y-auto">
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-950 border border-slate-800 rounded-2xl w-full max-w-3xl overflow-hidden shadow-2xl space-y-4 p-6 max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <div>
                 <h3 className="font-bold text-white text-base flex items-center gap-2">
-                  <Video className="w-4 h-4 text-indigo-400" />
-                  <span>4K Video Tour Audit & Decision</span>
+                  <Video className="w-5 h-5 text-indigo-400" />
+                  <span>4K Video Tour Audit & Verification</span>
+                  <span className="text-[10px] bg-indigo-950 text-indigo-300 font-extrabold px-2 py-0.5 rounded border border-indigo-800/80">
+                    4K ULTRA HD
+                  </span>
                 </h3>
-                <p className="text-xs text-slate-400">{selectedVideoForReview.propertyTitle}</p>
+                <p className="text-xs text-slate-400 mt-0.5">{selectedVideoForReview.propertyTitle}</p>
               </div>
               <button
                 onClick={() => {
                   setSelectedVideoForReview(null);
                   setVideoReviewNotes('');
                 }}
-                className="text-slate-400 hover:text-white cursor-pointer"
+                className="text-slate-400 hover:text-white cursor-pointer p-1 rounded-lg hover:bg-slate-900 transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             {/* Video Player */}
-            <div className="aspect-video max-h-72 rounded-xl overflow-hidden bg-black mx-auto border border-slate-800">
+            <div className="aspect-video max-h-80 rounded-xl overflow-hidden bg-black mx-auto border border-slate-800 shadow-inner">
               <video
                 src={selectedVideoForReview.url}
                 controls
@@ -2709,40 +2814,92 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
               />
             </div>
 
+            {/* Technical Specifications & Ownership Breakdown */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-slate-900/90 border border-slate-800 rounded-xl p-3 text-xs">
+              <div>
+                <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">Resolution</span>
+                <span className="font-mono text-indigo-300 font-bold block truncate">
+                  {selectedVideoForReview.resolution || (selectedVideoForReview.width && selectedVideoForReview.height ? `${selectedVideoForReview.width}x${selectedVideoForReview.height} 4K` : '3840x2160 UHD')}
+                </span>
+              </div>
+              <div>
+                <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">File Size</span>
+                <span className="font-mono text-slate-200 font-medium block">
+                  {selectedVideoForReview.fileSize || 'N/A'}
+                </span>
+              </div>
+              <div>
+                <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">Duration</span>
+                <span className="font-mono text-slate-200 font-medium block">
+                  {selectedVideoForReview.duration || 'N/A'}
+                </span>
+              </div>
+              <div>
+                <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">Uploaded Date</span>
+                <span className="font-mono text-slate-200 font-medium block text-[11px]">
+                  {selectedVideoForReview.createdAt ? new Date(selectedVideoForReview.createdAt).toLocaleDateString() : 'N/A'}
+                </span>
+              </div>
+            </div>
+
+            {/* Property & Agent Summary */}
+            <div className="bg-slate-900/60 border border-slate-800/80 rounded-xl p-3 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+              <div>
+                <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">Property Details</span>
+                <p className="text-white font-semibold truncate">{selectedVideoForReview.propertyTitle}</p>
+                <p className="text-slate-400 text-[11px] truncate flex items-center gap-1 mt-0.5">
+                  <MapPin className="w-3 h-3 text-slate-500 shrink-0" />
+                  <span>{selectedVideoForReview.propertyAddress || 'Ogbomoso LAUTECH Area'}</span>
+                </p>
+              </div>
+              <div>
+                <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">Agent / Landlord</span>
+                <p className="text-white font-semibold truncate">{selectedVideoForReview.providerName || 'Authorized Agent'}</p>
+                <p className="text-slate-400 text-[11px] font-mono truncate">
+                  {selectedVideoForReview.providerPhone || selectedVideoForReview.providerEmail || 'Verified Provider'}
+                </p>
+              </div>
+            </div>
+
             {/* Audit Checklist Guidance */}
             <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-3 text-xs space-y-2">
               <span className="font-bold text-emerald-400 text-[11px] uppercase tracking-wider block">
-                Trust & Safety Video Verification Criteria:
+                Trust & Safety 4K Verification Criteria:
               </span>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-slate-300 text-[11px]">
                 <div className="flex items-center gap-1.5">
                   <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                  <span>Continuous uncut walkthrough of room</span>
+                  <span>Continuous uncut walkthrough of bedroom & space</span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                  <span>Borehole water running from taps</span>
+                  <span>Borehole water running from taps / bathroom</span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                  <span>Prepaid meter & light fixtures visible</span>
+                  <span>Prepaid meter & light fixtures clearly shown</span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                  <span>Perimeter fencing and gating clear</span>
+                  <span>Perimeter fencing, security gate & surroundings</span>
                 </div>
               </div>
             </div>
 
             {/* Notes / Feedback */}
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-slate-300">
-                Agent Feedback / Rejection Reason (sent directly to provider notification bell)
-              </label>
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-slate-300">
+                  Agent Feedback / Rejection Reason
+                </label>
+                <span className="text-[10px] text-amber-400 font-medium">
+                  * Mandatory if rejecting or requesting retake
+                </span>
+              </div>
               <textarea
                 value={videoReviewNotes}
                 onChange={(e) => setVideoReviewNotes(e.target.value)}
-                placeholder="e.g., Video approved and verified. OR: Please re-upload with clear lighting showing running borehole water."
+                placeholder="e.g., Video approved and verified. OR: Lighting in bathroom is too dark; please re-upload with clear view of running tap and prepaid meter."
                 rows={3}
                 className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
               />
@@ -2774,7 +2931,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                 onClick={() => handleVerifyVideo(selectedVideoForReview.id, 'APPROVED')}
                 className="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl transition-colors cursor-pointer shadow-lg shadow-emerald-950/50 disabled:opacity-50"
               >
-                ✓ Approve Video (Make Live)
+                ✓ Approve 4K Video (Make Live)
               </button>
             </div>
           </div>

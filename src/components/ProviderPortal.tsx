@@ -23,6 +23,8 @@ import {
   Sun,
   Upload,
   Video,
+  Play,
+  XCircle,
   Image as ImageIcon,
   Trash2,
   Star,
@@ -125,7 +127,7 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
 
   // Active Tab
   const [activeTab, setActiveTab] = useState<
-    'dashboard' | 'listings' | 'rooms' | 'availability' | 'bookings' | 'move_ins' | 'inspections' | 'financials' | 'messages' | 'performance' | 'profile_team' | 'wizard'
+    'dashboard' | 'listings' | 'drafts' | 'videos' | 'rooms' | 'availability' | 'bookings' | 'move_ins' | 'inspections' | 'financials' | 'messages' | 'performance' | 'profile_team' | 'wizard'
   >('dashboard');
   
   // Property Switcher: 'all' or propertyId
@@ -214,6 +216,11 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
   // Modals & Sub-states
   const [onboardingOpen, setOnboardingOpen] = useState(false);
   const [editingProperty, setEditingProperty] = useState<any | null>(null);
+  const [hostelToDelete, setHostelToDelete] = useState<any | null>(null);
+  const [deletingHostel, setDeletingHostel] = useState<boolean>(false);
+  const [videoToDelete, setVideoToDelete] = useState<any | null>(null);
+  const [deletingVideo, setDeletingVideo] = useState<boolean>(false);
+  const [hostelToView, setHostelToView] = useState<any | null>(null);
   const [selectedPropertyPriceHistory, setSelectedPropertyPriceHistory] = useState<PriceHistoryItem[] | null>(null);
   const [historyPropertyTitle, setHistoryPropertyTitle] = useState('');
   
@@ -257,6 +264,155 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
   // Document Upload
   const [selectedDocType, setSelectedDocType] = useState('NIN_CARD');
   const [isUploadingDoc, setIsUploadingDoc] = useState(false);
+
+  // 4K Video Tours State
+  const [providerVideos, setProviderVideos] = useState<any[]>([]);
+  const [videoStats, setVideoStats] = useState<{ total: number; pending: number; verified: number; rejected: number }>({
+    total: 0, pending: 0, verified: 0, rejected: 0
+  });
+  const [loadingVideos, setLoadingVideos] = useState<boolean>(false);
+  const [upload4KModalOpen, setUpload4KModalOpen] = useState<boolean>(false);
+  const [selectedUploadPropertyId, setSelectedUploadPropertyId] = useState<string>('');
+  const [uploadVideoFile, setUploadVideoFile] = useState<File | null>(null);
+  const [videoDimensions, setVideoDimensions] = useState<{ width: number; height: number; duration: number } | null>(null);
+  const [videoDimensionError, setVideoDimensionError] = useState<string | null>(null);
+  const [videoUploadProgress, setVideoUploadProgress] = useState<number | null>(null);
+  const [isSubmittingVideo, setIsSubmittingVideo] = useState<boolean>(false);
+  const [previewThumbnailUrl, setPreviewThumbnailUrl] = useState<string | null>(null);
+  const [agentVideoFilter, setAgentVideoFilter] = useState<'all' | 'PENDING' | 'VERIFIED' | 'REJECTED'>('all');
+  const [playingVideoUrl, setPlayingVideoUrl] = useState<string | null>(null);
+  const [uploadVideoCaption, setUploadVideoCaption] = useState<string>('');
+  const videoInputRef = useRef<HTMLInputElement>(null);
+
+  const fetchProviderVideos = async () => {
+    setLoadingVideos(true);
+    try {
+      const res = await api.videos.getMyVideos();
+      setProviderVideos(res?.videos || []);
+      setVideoStats(res?.counts || { total: 0, pending: 0, verified: 0, rejected: 0 });
+    } catch (e) {
+      console.warn('Failed to load agent 4K videos:', e);
+    } finally {
+      setLoadingVideos(false);
+    }
+  };
+
+  const handleSelectVideoFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadVideoFile(file);
+    setVideoDimensionError(null);
+    setVideoDimensions(null);
+    setPreviewThumbnailUrl(null);
+
+    const videoUrl = URL.createObjectURL(file);
+    const tempVideo = document.createElement('video');
+    tempVideo.preload = 'metadata';
+    tempVideo.src = videoUrl;
+
+    tempVideo.onloadedmetadata = () => {
+      const w = tempVideo.videoWidth;
+      const h = tempVideo.videoHeight;
+      const dur = tempVideo.duration;
+
+      setVideoDimensions({ width: w, height: h, duration: dur });
+
+      // Valid 4K standard check: min 3840x2160 UHD or 2160x3840 vertical 4K or 3840x1600 ultrawide
+      const is4K = (w >= 3840 && h >= 2160) || (w >= 2160 && h >= 3840) || (w >= 3840 && h >= 1600) || (w >= 2160 && h >= 2160);
+      if (!is4K) {
+        setVideoDimensionError(`Video resolution ${w}×${h} is below the required 4K UHD standard (min 3840×2160 or 2160×3840 for vertical tours). Please upload a true 4K recording.`);
+      }
+
+      tempVideo.currentTime = Math.min(1.5, Math.max(0.5, dur / 4));
+    };
+
+    tempVideo.onseeked = () => {
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.min(640, tempVideo.videoWidth || 640);
+        canvas.height = Math.min(360, tempVideo.videoHeight || 360);
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(tempVideo, 0, 0, canvas.width, canvas.height);
+          const thumbUrl = canvas.toDataURL('image/jpeg', 0.8);
+          setPreviewThumbnailUrl(thumbUrl);
+        }
+      } catch (e) {
+        console.warn('Could not generate video thumbnail:', e);
+      }
+    };
+
+    tempVideo.onerror = () => {
+      setVideoDimensionError('Could not read video metadata. Please select a valid MP4 or WebM video file.');
+    };
+  };
+
+  const handleUpload4KVideoSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!uploadVideoFile || !selectedUploadPropertyId) {
+      onShowToast('Please select a property and choose a 4K video file', 'error');
+      return;
+    }
+
+    if (!videoDimensions) {
+      onShowToast('Reading video metadata, please wait a moment...', 'info');
+      return;
+    }
+
+    const { width, height, duration } = videoDimensions;
+    const is4K = (width >= 3840 && height >= 2160) || (width >= 2160 && height >= 3840) || (width >= 3840 && height >= 1600) || (width >= 2160 && height >= 2160);
+    if (!is4K) {
+      onShowToast(`Selected video is ${width}x${height}, which is below the 4K UHD standard.`, 'error');
+      return;
+    }
+
+    setIsSubmittingVideo(true);
+    setVideoUploadProgress(5);
+
+    try {
+      const uploaded = await api.upload.chunkedVideo(
+        uploadVideoFile,
+        (progress) => setVideoUploadProgress(Math.max(5, Math.min(95, progress))),
+        previewThumbnailUrl || undefined
+      );
+
+      if (!uploaded || !uploaded.url) {
+        throw new Error('Failed to upload video file to server.');
+      }
+
+      setVideoUploadProgress(98);
+
+      await api.videos.upload4K({
+        propertyId: selectedUploadPropertyId,
+        videoUrl: uploaded.url,
+        thumbnailUrl: uploaded.thumbnailUrl || previewThumbnailUrl || undefined,
+        width,
+        height,
+        fileSize: uploadVideoFile.size,
+        duration: Math.round(duration),
+        caption: uploadVideoCaption.trim() || undefined
+      });
+
+      onShowToast('4K video tour uploaded successfully and queued for admin verification! 🎬', 'success');
+      setUpload4KModalOpen(false);
+      setUploadVideoFile(null);
+      setVideoDimensions(null);
+      setVideoDimensionError(null);
+      setPreviewThumbnailUrl(null);
+      setUploadVideoCaption('');
+
+      await fetchProviderVideos();
+      fetchAllProviderData(selectedPropertyId);
+    } catch (err: any) {
+      console.error('Error uploading 4K video:', err);
+      onShowToast(err.message || 'Failed to complete 4K video tour upload', 'error');
+    } finally {
+      setIsSubmittingVideo(false);
+      setVideoUploadProgress(null);
+      if (videoInputRef.current) videoInputRef.current.value = '';
+    }
+  };
 
   const fetchConversations = async (targetId?: string) => {
     try {
@@ -374,9 +530,46 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
     });
   };
 
+  const publishedHostels = properties.filter(p => p?.verificationStatus !== 'DRAFT');
+  const draftHostels = properties.filter(p => p?.verificationStatus === 'DRAFT');
+
+  const handleConfirmDeleteHostel = async () => {
+    if (!hostelToDelete) return;
+    setDeletingHostel(true);
+    try {
+      await api.provider.deleteListing(hostelToDelete.id);
+      onShowToast(hostelToDelete.verificationStatus === 'DRAFT' ? 'Hostel draft permanently deleted' : 'Hostel listing permanently deleted', 'success');
+      setHostelToDelete(null);
+      fetchAllProviderData(selectedPropertyId);
+    } catch (err: any) {
+      console.error('Failed to delete hostel:', err);
+      onShowToast(err.message || 'Failed to delete hostel listing', 'error');
+    } finally {
+      setDeletingHostel(false);
+    }
+  };
+
+  const handleConfirmDeleteVideo = async () => {
+    if (!videoToDelete) return;
+    setDeletingVideo(true);
+    try {
+      await api.videos.delete(videoToDelete.id);
+      onShowToast('4K video tour permanently deleted', 'success');
+      setVideoToDelete(null);
+      await fetchProviderVideos();
+      fetchAllProviderData(selectedPropertyId);
+    } catch (err: any) {
+      console.error('Failed to delete 4K video:', err);
+      onShowToast(err.message || 'Failed to delete video', 'error');
+    } finally {
+      setDeletingVideo(false);
+    }
+  };
+
   useEffect(() => {
     loadedTabs.current.clear();
     fetchAllProviderData(selectedPropertyId);
+    fetchProviderVideos();
   }, [selectedPropertyId, user?.id, user?.email]);
 
   // Progressive On-Demand Lazy Tab Loading: Only fetch data for active tab when opened
@@ -1027,11 +1220,13 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
         </div>
       </header>
 
-      {/* MOBILE AGENT HORIZONTAL SUB-NAV BAR (Instant access to all 13 features on phones) */}
+      {/* MOBILE AGENT HORIZONTAL SUB-NAV BAR (Instant access to all features on phones) */}
       <div className="lg:hidden bg-white/95 dark:bg-slate-900/95 backdrop-blur border-b border-gray-200 dark:border-slate-800 px-3 py-2 overflow-x-auto scrollbar-none shadow-xs flex items-center gap-1.5">
         {[
           { id: 'dashboard', label: 'Overview', icon: Building2 },
-          { id: 'listings', label: `Hostels (${properties.length})`, icon: Building2 },
+          { id: 'listings', label: `My Hostels (${publishedHostels.length})`, icon: Building2 },
+          { id: 'drafts', label: `Drafts (${draftHostels.length})`, icon: FileText },
+          { id: 'videos', label: `4K Videos (${videoStats.total})`, icon: Video },
           { id: 'wizard', label: '+ Add Hostel', icon: PlusCircle, highlight: true },
           { id: 'ai', label: 'Ask AI Bot', icon: Sparkles, highlight: true },
           { id: 'rooms', label: 'Rooms & Bedspaces', icon: Layers },
@@ -1100,7 +1295,9 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
             <div className="space-y-1">
               {[
                 { id: 'dashboard', label: 'Overview', icon: Building2 },
-                { id: 'listings', label: 'My Hostels', count: properties.length, icon: Building2 },
+                { id: 'listings', label: 'My Hostels', count: publishedHostels.length, icon: Building2 },
+                { id: 'drafts', label: 'My Hostel Drafts', count: draftHostels.length, badgeColor: 'bg-amber-500 text-white', icon: FileText },
+                { id: 'videos', label: '4K Videos', count: videoStats.total, badgeColor: videoStats.pending > 0 ? 'bg-amber-500 text-white' : undefined, icon: Video },
                 { id: 'rooms', label: 'Rooms & Bedspaces', count: stats?.totalCapacity, icon: Layers },
                 { id: 'availability', label: 'Availability & Calendar', icon: CalendarIcon }
               ].map(tab => {
@@ -1122,7 +1319,7 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
                     </div>
                     {tab.count !== undefined && tab.count > 0 && (
                       <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
-                        isActive ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-700'
+                        isActive ? 'bg-white/20 text-white' : (tab as any).badgeColor || 'bg-gray-100 text-gray-700'
                       }`}>
                         {tab.count}
                       </span>
@@ -1518,9 +1715,9 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
 
         {/* TAB 2: MY HOSTELS LISTINGS */}
         {activeTab === 'listings' && (() => {
-          const verifiedCount = properties.filter(p => p?.verificationStatus === 'APPROVED').length;
-          const pendingCount = properties.filter(p => p?.verificationStatus !== 'APPROVED' && p?.verificationStatus !== 'REJECTED').length;
-          const rejectedCount = properties.filter(p => p?.verificationStatus === 'REJECTED').length;
+          const verifiedCount = publishedHostels.filter(p => p?.verificationStatus === 'APPROVED').length;
+          const pendingCount = publishedHostels.filter(p => p?.verificationStatus !== 'APPROVED' && p?.verificationStatus !== 'REJECTED').length;
+          const rejectedCount = publishedHostels.filter(p => p?.verificationStatus === 'REJECTED').length;
 
           return (
           <div className="space-y-6">
@@ -1556,7 +1753,7 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
             <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
               <span className="text-xs font-bold text-gray-500">Filter:</span>
               <span className="px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-800 text-white shadow-xs">
-                All Hostels ({properties.length})
+                All Hostels ({publishedHostels.length})
               </span>
               <span className="px-3 py-1.5 rounded-xl text-xs font-bold bg-white text-emerald-800 border border-emerald-200">
                 ✓ Verified ({verifiedCount})
@@ -1571,7 +1768,7 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
               )}
             </div>
 
-            {(!properties || properties.length === 0) ? (
+            {(!publishedHostels || publishedHostels.length === 0) ? (
               <div className="bg-white rounded-3xl p-12 border border-gray-200 text-center space-y-4 shadow-xs">
                 <div className="w-16 h-16 bg-emerald-50 text-emerald-800 rounded-3xl flex items-center justify-center mx-auto shadow-xs">
                   <Building2 className="w-8 h-8" />
@@ -1595,7 +1792,7 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
               </div>
             ) : (
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                {properties.map((prop, idx) => {
+                {publishedHostels.map((prop, idx) => {
                   const isVerified = prop?.verificationStatus === 'APPROVED';
                   const isRejected = prop?.verificationStatus === 'REJECTED';
 
@@ -1736,16 +1933,35 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
                         </div>
                       </div>
 
-                      {/* Action Buttons */}
+                      {/* Action Buttons: [View] [Edit] [Delete] */}
                       <div className="pt-2 flex items-center gap-2 border-t border-gray-100">
+                        <button
+                          onClick={() => setHostelToView(prop)}
+                          className="flex-1 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                          title="View Hostel Details"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                          <span>View</span>
+                        </button>
+
                         <button
                           onClick={() => {
                             setEditingProperty(prop);
                             setActiveTab('wizard');
                           }}
-                          className="flex-1 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold rounded-xl transition-colors text-center cursor-pointer"
+                          className="flex-1 py-2 bg-emerald-800 hover:bg-emerald-900 text-white text-xs font-bold rounded-xl transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+                          title="Edit Details"
                         >
-                          Edit Details
+                          <Edit3 className="w-3.5 h-3.5" />
+                          <span>Edit</span>
+                        </button>
+
+                        <button
+                          onClick={() => setHostelToDelete(prop)}
+                          className="p-2 border border-rose-200 hover:bg-rose-50 text-rose-600 rounded-xl transition-colors cursor-pointer"
+                          title="Delete Hostel"
+                        >
+                          <Trash2 className="w-4 h-4" />
                         </button>
 
                         <button
@@ -1782,6 +1998,499 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
               </div>
             )}
           </div>
+          );
+        })()}
+
+        {/* TAB 2A: MY HOSTEL DRAFTS */}
+        {activeTab === 'drafts' && (() => {
+          return (
+            <div className="space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <FileText className="w-5 h-5 text-amber-600" />
+                    <h2 className="text-lg font-bold text-gray-900">My Hostel Drafts</h2>
+                    <span className="text-[10px] bg-amber-100 text-amber-800 font-bold px-2 py-0.5 rounded-full border border-amber-200">
+                      Private & In-Progress
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Manage your saved drafts. Drafts are not visible to students and do not appear in public search until you submit them for admin review.
+                  </p>
+                </div>
+                <button
+                  onClick={() => {
+                    setEditingProperty(null);
+                    setActiveTab('wizard');
+                  }}
+                  className="px-4 py-2 bg-emerald-800 hover:bg-emerald-900 text-white text-xs font-bold rounded-xl shadow-xs flex items-center gap-1.5 cursor-pointer transition-colors shrink-0"
+                >
+                  <PlusCircle className="w-4 h-4" />
+                  Start New Draft
+                </button>
+              </div>
+
+              {/* Drafts Info Callout */}
+              <div className="bg-amber-50/70 border border-amber-200 p-4 rounded-2xl flex items-start gap-3 shadow-xs">
+                <AlertCircle className="w-5 h-5 text-amber-700 shrink-0 mt-0.5" />
+                <div className="text-xs space-y-1">
+                  <h4 className="font-bold text-amber-950">How Hostel Ease Drafts Work</h4>
+                  <p className="text-amber-900 leading-relaxed">
+                    You can save any hostel registration as a draft to complete later. When you click <strong>Continue Editing</strong>, your existing record is updated without creating duplicate listings. Once you click <strong>Submit for Verification</strong>, the draft moves automatically to your active listings queue.
+                  </p>
+                </div>
+              </div>
+
+              {(!draftHostels || draftHostels.length === 0) ? (
+                <div className="bg-white rounded-3xl p-12 border border-gray-200 text-center space-y-4 shadow-xs">
+                  <div className="w-16 h-16 bg-amber-50 text-amber-700 rounded-3xl flex items-center justify-center mx-auto shadow-xs">
+                    <FileText className="w-8 h-8" />
+                  </div>
+                  <div className="space-y-1">
+                    <h3 className="text-lg font-bold text-gray-900">No Saved Hostel Drafts</h3>
+                    <p className="text-xs text-gray-500 max-w-md mx-auto leading-relaxed">
+                      You have no unfinished or saved drafts. All your hostel accommodations are either submitted for review or actively live on LAUTECH search.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setEditingProperty(null);
+                      setActiveTab('wizard');
+                    }}
+                    className="px-5 py-2.5 bg-emerald-800 hover:bg-emerald-900 text-white text-xs font-bold rounded-xl shadow-xs inline-flex items-center gap-2 cursor-pointer transition-colors"
+                  >
+                    <PlusCircle className="w-4 h-4" />
+                    <span>+ Start New Hostel Draft</span>
+                  </button>
+                </div>
+              ) : (
+                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {draftHostels.map((draft, idx) => (
+                    <div key={draft?.id || `draft-${idx}`} className="bg-white rounded-2xl border border-amber-200 overflow-hidden shadow-xs hover:shadow-md transition-all flex flex-col justify-between">
+                      <div>
+                        <div className="h-44 relative bg-gray-100">
+                          <img
+                            src={draft?.coverImage || 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=600&q=80'}
+                            alt={draft?.title || 'Draft Hostel'}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=600&q=80';
+                            }}
+                          />
+                          <span className="absolute top-3 right-3 text-[10px] font-black px-2.5 py-1 rounded-full shadow-md bg-amber-500 text-white flex items-center gap-1">
+                            <Clock className="w-3 h-3" />
+                            <span>DRAFT</span>
+                          </span>
+                        </div>
+
+                        <div className="p-5 space-y-3">
+                          <div>
+                            <h3 className="text-base font-bold text-gray-900">{draft?.title || 'Untitled Hostel Draft'}</h3>
+                            <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5 truncate">
+                              <MapPin className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                              <span>{draft?.address || 'Address not set'}</span>
+                            </p>
+                          </div>
+
+                          <div className="p-3 bg-gray-50 rounded-xl space-y-1 text-xs">
+                            <div className="flex justify-between">
+                              <span className="text-gray-500">Rent:</span>
+                              <span className="font-bold text-gray-900">{formatNaira(draft?.priceSummary?.rentAmount || draft?.rentAmount || 0)}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-gray-500">Saved:</span>
+                              <span className="text-gray-700 font-medium">
+                                {draft?.createdAt ? new Date(draft.createdAt).toLocaleDateString() : 'Recently'}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div>
+                            <div className="flex items-center justify-between text-[11px] font-semibold text-gray-600 mb-1">
+                              <span>Draft Completeness</span>
+                              <span className="font-bold">{draft?.completenessScore ?? 40}%</span>
+                            </div>
+                            <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
+                              <div
+                                className="h-full rounded-full bg-amber-500"
+                                style={{ width: `${draft?.completenessScore ?? 40}%` }}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="p-4 pt-0 border-t border-gray-100 pt-3 flex items-center gap-2">
+                        <button
+                          onClick={() => {
+                            setEditingProperty(draft);
+                            setActiveTab('wizard');
+                          }}
+                          className="flex-1 py-2 bg-emerald-800 hover:bg-emerald-900 text-white text-xs font-bold rounded-xl transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+                        >
+                          <Edit3 className="w-3.5 h-3.5" />
+                          <span>Continue Editing</span>
+                        </button>
+
+                        <button
+                          onClick={() => setHostelToDelete(draft)}
+                          className="p-2 border border-rose-200 hover:bg-rose-50 text-rose-600 rounded-xl transition-colors cursor-pointer"
+                          title="Delete Draft"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
+        {/* TAB 2B: 4K VIDEO TOURS ("My 4K Videos") */}
+        {activeTab === 'videos' && (() => {
+          const filteredVideos = providerVideos.filter(v => {
+            if (agentVideoFilter === 'PENDING') return v.status === 'PENDING';
+            if (agentVideoFilter === 'VERIFIED') return v.status === 'VERIFIED';
+            if (agentVideoFilter === 'REJECTED') return v.status === 'REJECTED';
+            return true;
+          });
+
+          return (
+            <div className="space-y-6">
+              {/* Header */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <Video className="w-5 h-5 text-indigo-600" />
+                    <h2 className="text-lg font-bold text-gray-900">My 4K Video Tours</h2>
+                    <span className="text-[10px] bg-indigo-100 text-indigo-800 font-bold px-2 py-0.5 rounded-full border border-indigo-200">
+                      Ultra HD Walkthroughs
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Upload and manage uncut 4K video tours for your student accommodations. Once verified by HostelEase admin, properties receive the 4K Verified Tour badge.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={fetchProviderVideos}
+                    disabled={loadingVideos}
+                    className="p-2 border border-gray-200 hover:bg-gray-100 text-gray-600 rounded-xl transition-colors cursor-pointer"
+                    title="Refresh video list"
+                  >
+                    <History className={`w-4 h-4 ${loadingVideos ? 'animate-spin' : ''}`} />
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (properties.length > 0 && !selectedUploadPropertyId) {
+                        setSelectedUploadPropertyId(properties[0].id);
+                      }
+                      setUpload4KModalOpen(true);
+                    }}
+                    className="px-4 py-2 bg-emerald-800 hover:bg-emerald-900 text-white text-xs font-bold rounded-xl shadow-xs flex items-center gap-1.5 cursor-pointer transition-colors shrink-0"
+                  >
+                    <PlusCircle className="w-4 h-4" />
+                    Upload 4K Video Tour
+                  </button>
+                </div>
+              </div>
+
+              {/* 4-Card Statistics Header */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <div className="bg-white border border-gray-200 rounded-2xl p-4 space-y-1 shadow-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">Total Uploads</span>
+                    <Video className="w-4 h-4 text-indigo-600" />
+                  </div>
+                  <p className="text-2xl font-black text-gray-900">{videoStats.total}</p>
+                  <p className="text-[10px] text-gray-400">All recorded 4K tours</p>
+                </div>
+
+                <div className="bg-amber-50/60 border border-amber-200 rounded-2xl p-4 space-y-1 shadow-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-amber-800 uppercase tracking-wider">Pending Audit</span>
+                    <Clock className="w-4 h-4 text-amber-600" />
+                  </div>
+                  <p className="text-2xl font-black text-amber-900">{videoStats.pending}</p>
+                  <p className="text-[10px] text-amber-700">Awaiting admin review</p>
+                </div>
+
+                <div className="bg-emerald-50/60 border border-emerald-200 rounded-2xl p-4 space-y-1 shadow-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-emerald-800 uppercase tracking-wider">Verified & Live</span>
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                  </div>
+                  <p className="text-2xl font-black text-emerald-900">{videoStats.verified}</p>
+                  <p className="text-[10px] text-emerald-700">Live for student search</p>
+                </div>
+
+                <div className="bg-rose-50/60 border border-rose-200 rounded-2xl p-4 space-y-1 shadow-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-rose-800 uppercase tracking-wider">Rejected</span>
+                    <XCircle className="w-4 h-4 text-rose-600" />
+                  </div>
+                  <p className="text-2xl font-black text-rose-900">{videoStats.rejected}</p>
+                  <p className="text-[10px] text-rose-700">Requires adjustment/retake</p>
+                </div>
+              </div>
+
+              {/* Filter Pills */}
+              <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+                <span className="text-xs font-bold text-gray-500">Filter:</span>
+                <button
+                  onClick={() => setAgentVideoFilter('all')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                    agentVideoFilter === 'all'
+                      ? 'bg-slate-900 text-white shadow-xs'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  All Videos ({videoStats.total})
+                </button>
+                <button
+                  onClick={() => setAgentVideoFilter('PENDING')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                    agentVideoFilter === 'PENDING'
+                      ? 'bg-amber-600 text-white shadow-xs'
+                      : 'bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100'
+                  }`}
+                >
+                  ⏳ Pending Review ({videoStats.pending})
+                </button>
+                <button
+                  onClick={() => setAgentVideoFilter('VERIFIED')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                    agentVideoFilter === 'VERIFIED'
+                      ? 'bg-emerald-600 text-white shadow-xs'
+                      : 'bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100'
+                  }`}
+                >
+                  ✓ Verified & Live ({videoStats.verified})
+                </button>
+                {videoStats.rejected > 0 && (
+                  <button
+                    onClick={() => setAgentVideoFilter('REJECTED')}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                      agentVideoFilter === 'REJECTED'
+                        ? 'bg-rose-600 text-white shadow-xs'
+                        : 'bg-rose-50 text-rose-800 border border-rose-200 hover:bg-rose-100'
+                    }`}
+                  >
+                    ❌ Needs Action ({videoStats.rejected})
+                  </button>
+                )}
+              </div>
+
+              {/* Videos List / Grid */}
+              {loadingVideos ? (
+                <div className="text-center py-16 bg-white rounded-3xl border border-gray-200">
+                  <div className="w-8 h-8 border-3 border-emerald-800 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+                  <p className="text-xs font-bold text-gray-600">Loading 4K video tours...</p>
+                </div>
+              ) : filteredVideos.length === 0 ? (
+                <div className="bg-white rounded-3xl p-12 border border-gray-200 text-center space-y-4 shadow-xs">
+                  <div className="w-16 h-16 bg-indigo-50 text-indigo-700 rounded-3xl flex items-center justify-center mx-auto shadow-xs">
+                    <Video className="w-8 h-8" />
+                  </div>
+                  <div className="space-y-1">
+                    <h3 className="text-lg font-bold text-gray-900">
+                      {agentVideoFilter === 'all'
+                        ? 'No 4K Video Tours Uploaded Yet'
+                        : `No ${agentVideoFilter.toLowerCase()} videos found`}
+                    </h3>
+                    <p className="text-xs text-gray-500 max-w-md mx-auto leading-relaxed">
+                      {agentVideoFilter === 'all'
+                        ? 'Upload an authentic 4K video walkthrough of your rooms, bathrooms, and compound to earn the verified 4K badge and boost student trust.'
+                        : 'There are no video tours matching the selected status filter.'}
+                    </p>
+                  </div>
+                  {agentVideoFilter === 'all' && (
+                    <button
+                      onClick={() => {
+                        if (properties.length > 0 && !selectedUploadPropertyId) {
+                          setSelectedUploadPropertyId(properties[0].id);
+                        }
+                        setUpload4KModalOpen(true);
+                      }}
+                      className="px-5 py-2.5 bg-emerald-800 hover:bg-emerald-900 text-white text-xs font-bold rounded-xl shadow-xs inline-flex items-center gap-2 cursor-pointer transition-colors"
+                    >
+                      <PlusCircle className="w-4 h-4" />
+                      <span>Upload Your First 4K Tour</span>
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {filteredVideos.map((v) => {
+                    const isApproved = v.status === 'VERIFIED';
+                    const isRejected = v.status === 'REJECTED';
+                    const isPending = v.status === 'PENDING';
+
+                    return (
+                      <div
+                        key={v.id}
+                        className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-xs hover:shadow-md transition-shadow flex flex-col justify-between"
+                      >
+                        <div>
+                          {/* Video Thumbnail / Preview */}
+                          <div className="h-44 bg-black relative group overflow-hidden">
+                            {v.thumbnailUrl ? (
+                              <img
+                                src={v.thumbnailUrl}
+                                alt={v.propertyTitle}
+                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                              />
+                            ) : (
+                              <video
+                                src={v.videoUrl}
+                                preload="metadata"
+                                className="w-full h-full object-cover"
+                              />
+                            )}
+
+                            {/* Play Overlay */}
+                            <button
+                              onClick={() => setPlayingVideoUrl(v.videoUrl)}
+                              className="absolute inset-0 m-auto w-12 h-12 bg-black/60 hover:bg-black/80 text-white rounded-full flex items-center justify-center transition-transform hover:scale-110 cursor-pointer shadow-lg"
+                              title="Play 4K Video Tour"
+                            >
+                              <Play className="w-5 h-5 fill-white ml-0.5" />
+                            </button>
+
+                            {/* Status Badge */}
+                            <span
+                              className={`absolute top-2.5 right-2.5 text-[10px] font-bold px-2.5 py-0.5 rounded-full shadow-md ${
+                                isApproved
+                                  ? 'bg-emerald-600 text-white'
+                                  : isRejected
+                                  ? 'bg-rose-600 text-white'
+                                  : 'bg-amber-600 text-white animate-pulse'
+                              }`}
+                            >
+                              {isApproved
+                                ? '✓ 4K VERIFIED & LIVE'
+                                : isRejected
+                                ? '✗ REJECTED'
+                                : '⏳ PENDING REVIEW'}
+                            </span>
+
+                            {/* 4K Resolution Badge */}
+                            <span className="absolute bottom-2 left-2 text-[10px] font-black bg-black/80 text-indigo-300 border border-indigo-400/30 px-2 py-0.5 rounded-md flex items-center gap-1 backdrop-blur-xs">
+                              <Sparkles className="w-3 h-3 text-indigo-400" />
+                              {v.resolution || '3840×2160 (4K UHD)'}
+                            </span>
+                          </div>
+
+                          {/* Card Content */}
+                          <div className="p-4 space-y-3">
+                            <div>
+                              <h3 className="font-bold text-gray-900 text-sm leading-tight truncate">
+                                {v.propertyTitle}
+                              </h3>
+                              <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
+                                <MapPin className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                                <span className="truncate">{v.propertyAddress || 'LAUTECH Area, Ogbomoso'}</span>
+                              </p>
+                            </div>
+
+                            {/* Technical Specs */}
+                            <div className="p-2.5 bg-gray-50 rounded-xl space-y-1 text-xs">
+                              <div className="flex justify-between">
+                                <span className="text-gray-500">Duration:</span>
+                                <span className="font-bold text-gray-900">
+                                  {v.duration ? `${Math.floor(v.duration / 60)}m ${Math.round(v.duration % 60)}s` : '1m 30s'}
+                                </span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-gray-500">File Size:</span>
+                                <span className="font-bold text-gray-900">
+                                  {v.fileSize ? `${(v.fileSize / (1024 * 1024)).toFixed(1)} MB` : '32 MB'}
+                                </span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-gray-500">Uploaded:</span>
+                                <span className="text-gray-700 font-medium">
+                                  {new Date(v.uploadedAt || v.createdAt).toLocaleDateString()}
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Status Callout / Rejection Notes */}
+                            {isApproved && (
+                              <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-[11px] text-emerald-900 flex items-start gap-2">
+                                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                                <span>
+                                  <strong>Live & Published:</strong> Students viewing this hostel can watch your verified 4K walkthrough.
+                                </span>
+                              </div>
+                            )}
+
+                            {isPending && (
+                              <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-xl text-[11px] text-amber-900 flex items-start gap-2">
+                                <Clock className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                                <span>
+                                  <strong>Awaiting Admin Review:</strong> Your video is in the queue for 4K quality and authenticity check.
+                                </span>
+                              </div>
+                            )}
+
+                            {isRejected && (
+                              <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs space-y-1.5">
+                                <div className="flex items-center gap-1.5 font-bold text-rose-900">
+                                  <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                                  <span>Admin Feedback / Reason:</span>
+                                </div>
+                                <p className="text-rose-800 text-[11px] italic bg-white/70 p-2 rounded-lg border border-rose-100">
+                                  "{v.rejectionReason || v.verificationNotes || 'Video resolution or authenticity could not be verified. Please record an uncut tour showing room and amenities.'}"
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Card Actions: [View Video] [Delete] */}
+                        <div className="p-4 pt-0 space-y-2 border-t border-gray-100 pt-3">
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => setPlayingVideoUrl(v.videoUrl)}
+                              className="flex-1 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                              title="Watch 4K Video Tour"
+                            >
+                              <Play className="w-3.5 h-3.5" />
+                              <span>View Video</span>
+                            </button>
+
+                            <button
+                              onClick={() => setVideoToDelete(v)}
+                              className="p-2 border border-rose-200 hover:bg-rose-50 text-rose-600 rounded-xl transition-colors cursor-pointer"
+                              title="Delete Video"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+
+                          {isRejected && (
+                            <button
+                              onClick={() => {
+                                setSelectedUploadPropertyId(v.propertyId);
+                                setUpload4KModalOpen(true);
+                              }}
+                              className="w-full py-2 bg-emerald-800 hover:bg-emerald-900 text-white text-xs font-bold rounded-xl transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+                            >
+                              <Upload className="w-3.5 h-3.5" />
+                              <span>Re-upload 4K Tour</span>
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           );
         })()}
 
@@ -2846,6 +3555,451 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
                   </div>
                 ))
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 9. UPLOAD 4K VIDEO TOUR MODAL */}
+      {upload4KModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xs p-4">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-xl w-full p-6 space-y-5 animate-in fade-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="p-2 bg-indigo-50 text-indigo-700 rounded-xl">
+                  <Video className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-gray-900">Upload 4K Video Tour</h3>
+                  <p className="text-xs text-gray-500">Ultra-High-Definition Walkthrough for Admin Audit</p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  if (!isSubmittingVideo) {
+                    setUpload4KModalOpen(false);
+                    setUploadVideoFile(null);
+                    setVideoDimensions(null);
+                    setVideoDimensionError(null);
+                    setPreviewThumbnailUrl(null);
+                  }
+                }}
+                disabled={isSubmittingVideo}
+                className="text-gray-400 hover:text-gray-600 p-1 rounded-lg cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Quality Standard Notice */}
+            <div className="bg-indigo-50/70 border border-indigo-200 p-3.5 rounded-2xl flex items-start gap-2.5 text-xs">
+              <Sparkles className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
+              <div className="space-y-1 text-indigo-950">
+                <p className="font-bold">4K UHD Quality Standard</p>
+                <p className="text-indigo-800 text-[11px] leading-relaxed">
+                  Video must be true 4K (min 3840×2160 or 2160×3840 for vertical smartphone tours). Videos at 1080p or 720p will be rejected. Show uncut entry, bedroom, bathroom, water tap, and prepaid electricity sub-meter.
+                </p>
+              </div>
+            </div>
+
+            <form onSubmit={handleUpload4KVideoSubmit} className="space-y-4 text-xs">
+              {/* Select Hostel */}
+              <div>
+                <label className="block font-bold text-gray-800 mb-1.5">Select Hostel / Property *</label>
+                <select
+                  required
+                  value={selectedUploadPropertyId}
+                  onChange={e => setSelectedUploadPropertyId(e.target.value)}
+                  disabled={isSubmittingVideo}
+                  className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-xl font-medium focus:ring-2 focus:ring-emerald-500 focus:bg-white text-xs cursor-pointer"
+                >
+                  <option value="">-- Choose from your registered hostels --</option>
+                  {properties.map(p => (
+                    <option key={p.id} value={p.id}>
+                      {p.title} ({p.address || 'LAUTECH Area'})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Video File Picker */}
+              <div>
+                <label className="block font-bold text-gray-800 mb-1.5">Choose 4K Video File (MP4, WebM, MOV) *</label>
+                <input
+                  ref={videoInputRef}
+                  type="file"
+                  accept="video/mp4,video/webm,video/quicktime"
+                  onChange={handleSelectVideoFile}
+                  disabled={isSubmittingVideo}
+                  className="w-full text-xs file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-indigo-50 file:text-indigo-800 hover:file:bg-indigo-100 p-2 border border-gray-300 rounded-xl bg-gray-50 cursor-pointer"
+                />
+              </div>
+
+              {/* Video Dimension Verification Feedback */}
+              {videoDimensions && (
+                <div className={`p-3 rounded-xl border space-y-1.5 ${
+                  videoDimensionError
+                    ? 'bg-rose-50 border-rose-200 text-rose-900'
+                    : 'bg-emerald-50 border-emerald-200 text-emerald-950'
+                }`}>
+                  <div className="flex items-center justify-between font-bold">
+                    <span className="flex items-center gap-1.5">
+                      {videoDimensionError ? (
+                        <XCircle className="w-4 h-4 text-rose-600" />
+                      ) : (
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                      )}
+                      <span>
+                        {videoDimensionError ? 'Resolution Below 4K Standard' : 'Verified 4K UHD Resolution!'}
+                      </span>
+                    </span>
+                    <span className="font-mono text-[11px]">
+                      {videoDimensions.width} × {videoDimensions.height} px
+                    </span>
+                  </div>
+
+                  {videoDimensionError ? (
+                    <p className="text-[11px] text-rose-700 leading-relaxed">
+                      {videoDimensionError}
+                    </p>
+                  ) : (
+                    <p className="text-[11px] text-emerald-800">
+                      ✓ This video meets the HostelEase 4K standard ({videoDimensions.width}×{videoDimensions.height}, {Math.round(videoDimensions.duration)}s duration).
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Thumbnail Frame Preview */}
+              {previewThumbnailUrl && !videoDimensionError && (
+                <div className="space-y-1">
+                  <span className="block font-semibold text-gray-700 text-[11px]">Auto-Captured Cover Thumbnail:</span>
+                  <div className="h-32 bg-black rounded-xl overflow-hidden relative border border-gray-200">
+                    <img src={previewThumbnailUrl} alt="Thumbnail preview" className="w-full h-full object-cover" />
+                    <span className="absolute bottom-2 left-2 text-[10px] font-bold bg-black/80 text-white px-2 py-0.5 rounded-md">
+                      Frame 1.5s
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* Optional Caption */}
+              <div>
+                <label className="block font-bold text-gray-800 mb-1.5">Video Tour Caption (Optional)</label>
+                <input
+                  type="text"
+                  value={uploadVideoCaption}
+                  onChange={e => setUploadVideoCaption(e.target.value)}
+                  placeholder="e.g. Full lodge compound, self-contain room, borehole running water"
+                  disabled={isSubmittingVideo}
+                  className="w-full p-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 text-xs"
+                />
+              </div>
+
+              {/* Upload Progress Bar */}
+              {videoUploadProgress !== null && (
+                <div className="space-y-2 p-3 bg-gray-50 rounded-xl border border-gray-200">
+                  <div className="flex justify-between font-bold text-[11px]">
+                    <span className="text-gray-700">Uploading 4K chunks...</span>
+                    <span className="text-emerald-800">{videoUploadProgress}%</span>
+                  </div>
+                  <div className="h-2 w-full bg-gray-200 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-emerald-600 rounded-full transition-all duration-300"
+                      style={{ width: `${videoUploadProgress}%` }}
+                    />
+                  </div>
+                  <p className="text-[10px] text-gray-500 text-center">
+                    Please do not close this window while chunks are being transferred.
+                  </p>
+                </div>
+              )}
+
+              {/* Modal Actions */}
+              <div className="pt-3 flex justify-end gap-2.5 border-t border-gray-100">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setUpload4KModalOpen(false);
+                    setUploadVideoFile(null);
+                    setVideoDimensions(null);
+                    setVideoDimensionError(null);
+                  }}
+                  disabled={isSubmittingVideo}
+                  className="px-4 py-2.5 border border-gray-300 rounded-xl font-bold text-gray-600 hover:bg-gray-50 cursor-pointer disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingVideo || !uploadVideoFile || !!videoDimensionError || !videoDimensions}
+                  className="px-5 py-2.5 bg-emerald-800 hover:bg-emerald-900 text-white font-bold rounded-xl shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isSubmittingVideo ? (
+                    <>
+                      <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      <span>Uploading 4K Video...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="w-4 h-4" />
+                      <span>Submit for 4K Audit</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 10. INTERACTIVE 4K VIDEO PLAYER MODAL */}
+      {playingVideoUrl && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4 backdrop-blur-md"
+          onClick={() => setPlayingVideoUrl(null)}
+        >
+          <div 
+            className="w-full max-w-4xl bg-black rounded-3xl overflow-hidden shadow-2xl relative border border-slate-800"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="p-3 bg-slate-950 flex items-center justify-between border-b border-slate-800 text-white">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-indigo-400" />
+                <span className="text-xs font-bold">4K UHD Video Tour Preview</span>
+              </div>
+              <button
+                onClick={() => setPlayingVideoUrl(null)}
+                className="p-1 rounded-full hover:bg-slate-800 text-slate-400 hover:text-white cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="aspect-video bg-black flex items-center justify-center">
+              <video
+                src={playingVideoUrl}
+                controls
+                autoPlay
+                playsInline
+                className="w-full h-full object-contain"
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 11. CONFIRMATION MODAL: DELETE HOSTEL */}
+      {hostelToDelete && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs animate-in fade-in duration-200"
+          onClick={() => !deletingHostel && setHostelToDelete(null)}
+        >
+          <div 
+            className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-gray-200 space-y-4"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center shadow-xs">
+              <Trash2 className="w-6 h-6" />
+            </div>
+
+            <div className="space-y-1.5">
+              <h3 className="text-base font-bold text-gray-900">
+                {hostelToDelete.verificationStatus === 'DRAFT' ? 'Delete Hostel Draft?' : 'Delete Hostel Listing?'}
+              </h3>
+              <p className="text-xs text-gray-600 leading-relaxed">
+                Are you sure you want to delete this hostel? This action will permanently remove the listing and all associated rooms and media.
+              </p>
+              <div className="p-3 bg-gray-50 rounded-xl border border-gray-100 text-xs">
+                <span className="font-bold text-gray-800">{hostelToDelete.title || 'Untitled Hostel'}</span>
+                <span className="text-gray-500 block mt-0.5">{hostelToDelete.address || 'LAUTECH Area'}</span>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-gray-100">
+              <button
+                type="button"
+                disabled={deletingHostel}
+                onClick={() => setHostelToDelete(null)}
+                className="px-4 py-2 text-xs font-bold text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-xl transition-colors cursor-pointer disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={deletingHostel}
+                onClick={handleConfirmDeleteHostel}
+                className="px-4 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl transition-colors shadow-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+              >
+                {deletingHostel ? (
+                  <>
+                    <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    <span>Deleting...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Delete</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 12. CONFIRMATION MODAL: DELETE 4K VIDEO */}
+      {videoToDelete && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs animate-in fade-in duration-200"
+          onClick={() => !deletingVideo && setVideoToDelete(null)}
+        >
+          <div 
+            className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-gray-200 space-y-4"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center shadow-xs">
+              <Video className="w-6 h-6" />
+            </div>
+
+            <div className="space-y-1.5">
+              <h3 className="text-base font-bold text-gray-900">Delete 4K Video Tour?</h3>
+              <p className="text-xs text-gray-600 leading-relaxed">
+                Are you sure you want to delete this video?
+              </p>
+              <div className="p-3 bg-gray-50 rounded-xl border border-gray-100 text-xs">
+                <span className="font-bold text-gray-800">{videoToDelete.propertyTitle || 'Property Video'}</span>
+                <span className="text-gray-500 block mt-0.5">
+                  Resolution: {videoToDelete.resolution || '3840×2160 UHD'} • Status: {videoToDelete.status}
+                </span>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-gray-100">
+              <button
+                type="button"
+                disabled={deletingVideo}
+                onClick={() => setVideoToDelete(null)}
+                className="px-4 py-2 text-xs font-bold text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-xl transition-colors cursor-pointer disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={deletingVideo}
+                onClick={handleConfirmDeleteVideo}
+                className="px-4 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl transition-colors shadow-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+              >
+                {deletingVideo ? (
+                  <>
+                    <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    <span>Deleting...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Delete</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 13. HOSTEL QUICK VIEW MODAL */}
+      {hostelToView && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs animate-in fade-in duration-200"
+          onClick={() => setHostelToView(null)}
+        >
+          <div 
+            className="bg-white rounded-3xl max-w-xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-gray-200 overflow-hidden"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="relative h-56 bg-gray-100">
+              <img
+                src={hostelToView?.coverImage || 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=800&q=80'}
+                alt={hostelToView?.title}
+                className="w-full h-full object-cover"
+              />
+              <button
+                onClick={() => setHostelToView(null)}
+                className="absolute top-3 right-3 p-1.5 bg-black/60 hover:bg-black/80 text-white rounded-full transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+              <span className={`absolute bottom-3 left-3 text-[10px] font-black px-2.5 py-1 rounded-full shadow-md ${
+                hostelToView?.verificationStatus === 'APPROVED' ? 'bg-emerald-600 text-white' :
+                hostelToView?.verificationStatus === 'REJECTED' ? 'bg-rose-600 text-white' :
+                hostelToView?.verificationStatus === 'DRAFT' ? 'bg-amber-600 text-white' :
+                'bg-amber-500 text-white'
+              }`}>
+                {hostelToView?.verificationStatus === 'APPROVED' ? '✓ VERIFIED' :
+                 hostelToView?.verificationStatus === 'REJECTED' ? '✗ ACTION REQUIRED' :
+                 hostelToView?.verificationStatus === 'DRAFT' ? 'DRAFT' : '⏳ PENDING AUDIT'}
+              </span>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div>
+                <h3 className="text-xl font-bold text-gray-900">{hostelToView?.title}</h3>
+                <p className="text-xs text-gray-500 flex items-center gap-1 mt-1">
+                  <MapPin className="w-4 h-4 text-gray-400 shrink-0" />
+                  <span>{hostelToView?.address || 'LAUTECH Area, Ogbomoso'}</span>
+                  <span>•</span>
+                  <span>{hostelToView?.distanceFromCampusKm || 0.8}km from Campus</span>
+                </p>
+              </div>
+
+              {hostelToView?.description && (
+                <div className="text-xs text-gray-600 leading-relaxed bg-gray-50 p-3 rounded-xl border border-gray-100">
+                  {hostelToView?.description}
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-3 text-xs">
+                <div className="p-3 bg-gray-50 rounded-xl">
+                  <span className="text-gray-400 block mb-0.5">Annual Rent</span>
+                  <span className="text-base font-bold text-gray-900">{formatNaira(hostelToView?.priceSummary?.rentAmount || hostelToView?.rentAmount || 0)}</span>
+                </div>
+                <div className="p-3 bg-gray-50 rounded-xl">
+                  <span className="text-gray-400 block mb-0.5">Total Move-in Cost</span>
+                  <span className="text-base font-bold text-emerald-800">{formatNaira(hostelToView?.priceSummary?.totalMandatoryCost || hostelToView?.totalCost || 0)}</span>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between text-xs p-3 bg-slate-900 text-white rounded-xl">
+                <span className="flex items-center gap-2">
+                  <Video className="w-4 h-4 text-emerald-400" />
+                  <span>4K Video Tour Status:</span>
+                </span>
+                <span className="font-bold text-emerald-300">
+                  {hostelToView?.has4KVideo || hostelToView?.videoVerificationStatus === 'APPROVED' ? '✓ Verified 4K Tour' :
+                   hostelToView?.videoTourUrl ? '⏳ Under Review' : 'No Video'}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-gray-100">
+                <button
+                  onClick={() => setHostelToView(null)}
+                  className="px-4 py-2 text-xs font-bold text-gray-600 hover:bg-gray-100 rounded-xl transition-colors cursor-pointer"
+                >
+                  Close
+                </button>
+                <button
+                  onClick={() => {
+                    const toEdit = hostelToView;
+                    setHostelToView(null);
+                    setEditingProperty(toEdit);
+                    setActiveTab('wizard');
+                  }}
+                  className="px-4 py-2 text-xs font-bold text-white bg-emerald-800 hover:bg-emerald-900 rounded-xl transition-colors cursor-pointer shadow-xs flex items-center gap-1.5"
+                >
+                  <Edit3 className="w-3.5 h-3.5" />
+                  <span>Edit Hostel</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>

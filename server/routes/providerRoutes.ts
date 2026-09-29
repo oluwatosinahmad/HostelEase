@@ -505,7 +505,10 @@ router.get(
           otherCharges: p.other_mandatory_charges || 0,
           totalMandatoryCost: p.total_mandatory_cost || p.rent_amount || 0
         },
-        createdAt: p.created_at
+        createdAt: p.created_at,
+        has4KVideo: Boolean(p.has_4k_video),
+        videoVerificationStatus: p.video_verification_status || 'NONE',
+        videoTourUrl: p.video_tour_url
       }))
     });
   }
@@ -867,10 +870,12 @@ router.put(
       longitude,
       propertyType,
       genderPreference,
+      totalRooms,
       pricing,
       amenityKeys,
       mediaItems,
       rules,
+      isDraft,
       submitForReview
     } = req.body;
 
@@ -951,8 +956,13 @@ router.put(
             longitude = COALESCE(?, longitude),
             property_type = COALESCE(?, property_type),
             gender_preference = COALESCE(?, gender_preference),
+            total_rooms = COALESCE(?, total_rooms),
             rules_json = COALESCE(?, rules_json),
-            verification_status = CASE WHEN ? = 1 THEN 'PENDING_REVIEW' ELSE verification_status END,
+            verification_status = CASE 
+              WHEN ? = 1 THEN 'PENDING_REVIEW' 
+              WHEN ? = 1 THEN 'DRAFT'
+              ELSE verification_status 
+            END,
             updated_at = datetime('now')
         WHERE id = ?
       `).run(
@@ -966,8 +976,10 @@ router.put(
         longitude,
         normalizedPropertyType,
         normalizedGenderPreference,
+        totalRooms !== undefined ? parseInt(totalRooms, 10) : null,
         rules ? JSON.stringify(rules) : null,
         submitForReview ? 1 : 0,
+        isDraft ? 1 : 0,
         id
       );
 
@@ -1071,11 +1083,11 @@ router.delete(
     try {
       db.transaction(() => {
         // Cascade delete child entities
+        db.prepare('DELETE FROM four_k_videos WHERE property_id = ?').run(id);
         db.prepare('DELETE FROM bedspaces WHERE room_id IN (SELECT id FROM rooms WHERE property_id = ?)').run(id);
         db.prepare('DELETE FROM rooms WHERE property_id = ?').run(id);
         db.prepare('DELETE FROM property_media WHERE property_id = ?').run(id);
         db.prepare('DELETE FROM property_amenities WHERE property_id = ?').run(id);
-        db.prepare('DELETE FROM property_rules WHERE property_id = ?').run(id);
         db.prepare('DELETE FROM prices WHERE property_id = ?').run(id);
         db.prepare('DELETE FROM price_history WHERE property_id = ?').run(id);
         db.prepare('DELETE FROM saved_properties WHERE property_id = ?').run(id);
@@ -1097,7 +1109,7 @@ router.delete(
         );
       })();
 
-      return res.json({ message: 'Hostel listing deleted successfully' });
+      return res.json({ success: true, message: 'Hostel listing deleted successfully' });
     } catch (err: any) {
       console.error('Failed to delete property listing:', err);
       return res.status(500).json({ error: 'Failed to delete hostel listing' });

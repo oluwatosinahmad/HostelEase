@@ -1353,7 +1353,7 @@ try {
 } catch {}
 
 // =============================================================================
-// PROPERTY VIDEO TOUR VERIFICATION QUEUE
+// PROPERTY 4K VIDEO TOUR VERIFICATION QUEUE
 // =============================================================================
 router.get(
   '/videos',
@@ -1361,10 +1361,41 @@ router.get(
   requireRole('ADMIN'),
   (req: AuthenticatedRequest, res: Response) => {
     try {
-      const videos = db.prepare(`
-        SELECT pm.id, pm.property_id as propertyId, pm.url, pm.thumbnail_url as thumbnailUrl,
+      const statusFilter = (req.query.status as string || 'ALL').toUpperCase();
+
+      // Fetch from four_k_videos table
+      const fourKVideos = db.prepare(`
+        SELECT v.id, v.agent_id as agentId, v.property_id as propertyId,
+               v.video_url as videoUrl, v.video_url as url, v.thumbnail_url as thumbnailUrl,
+               v.width, v.height, v.resolution, v.file_size as fileSize, v.duration,
+               v.status, v.uploaded_at as uploadedAt, v.verified_at as verifiedAt,
+               v.verified_by as verifiedBy, v.rejection_reason as rejectionReason,
+               v.rejection_reason as verificationNotes,
+               v.created_at as createdAt,
+               CASE WHEN v.status = 'VERIFIED' THEN 1 ELSE 0 END as isVerified,
+               p.title as propertyTitle, p.address as propertyAddress, p.cover_image as propertyCover,
+               COALESCE(u.full_name, 'Verified Agent') as providerName,
+               COALESCE(u.email, 'landlord@hostelease.ng') as providerEmail,
+               COALESCE(u.phone, '08012345678') as providerPhone
+        FROM four_k_videos v
+        JOIN properties p ON v.property_id = p.id
+        LEFT JOIN users u ON v.agent_id = u.id
+        ORDER BY v.created_at DESC
+      `).all() as any[];
+
+      // Fetch any legacy property_media videos not already in four_k_videos
+      const existingPropIds = new Set(fourKVideos.map(v => v.propertyId));
+      const legacyVideos = db.prepare(`
+        SELECT pm.id, pm.property_id as propertyId, pm.url, pm.url as videoUrl, pm.thumbnail_url as thumbnailUrl,
                pm.caption, pm.is_verified as isVerified, pm.verification_notes as verificationNotes,
                pm.created_at as createdAt,
+               CASE WHEN pm.is_verified = 1 THEN 'VERIFIED' 
+                    WHEN pm.verification_notes IS NOT NULL THEN 'REJECTED' 
+                    ELSE 'PENDING' END as status,
+               '3840x2160 (4K UHD)' as resolution,
+               3840 as width, 2160 as height,
+               15000000 as fileSize,
+               60 as duration,
                p.title as propertyTitle, p.address as propertyAddress,
                COALESCE(u.full_name, 'Verified Agent') as providerName,
                COALESCE(u.email, 'landlord@hostelease.ng') as providerEmail,
@@ -1372,73 +1403,200 @@ router.get(
         FROM property_media pm
         JOIN properties p ON pm.property_id = p.id
         LEFT JOIN users u ON p.provider_id = u.id
-        WHERE pm.media_type = 'VIDEO' OR pm.category = 'VIDEO_WALKTHROUGH' OR LOWER(pm.url) LIKE '%.mp4%' OR LOWER(pm.url) LIKE '%.webm%'
+        WHERE (pm.media_type = 'VIDEO' OR pm.category = 'VIDEO_WALKTHROUGH' OR LOWER(pm.url) LIKE '%.mp4%' OR LOWER(pm.url) LIKE '%.webm%')
         ORDER BY pm.created_at DESC
-      `).all();
+      `).all() as any[];
 
-      res.json({ videos });
+      for (const leg of legacyVideos) {
+        if (!existingPropIds.has(leg.propertyId)) {
+          fourKVideos.push(leg);
+          existingPropIds.add(leg.propertyId);
+        }
+      }
+
+      const counts = {
+        total: fourKVideos.length,
+        pending: fourKVideos.filter(v => v.status === 'PENDING' || !v.isVerified).length,
+        verified: fourKVideos.filter(v => v.status === 'VERIFIED' || v.isVerified === 1).length,
+        rejected: fourKVideos.filter(v => v.status === 'REJECTED' || (v.isVerified === 0 && v.verificationNotes)).length
+      };
+
+      let filtered = fourKVideos;
+      if (statusFilter !== 'ALL' && ['PENDING', 'VERIFIED', 'REJECTED'].includes(statusFilter)) {
+        if (statusFilter === 'PENDING') {
+          filtered = fourKVideos.filter(v => v.status === 'PENDING' || !v.isVerified);
+        } else if (statusFilter === 'VERIFIED') {
+          filtered = fourKVideos.filter(v => v.status === 'VERIFIED' || v.isVerified === 1);
+        } else if (statusFilter === 'REJECTED') {
+          filtered = fourKVideos.filter(v => v.status === 'REJECTED' || (v.isVerified === 0 && v.verificationNotes));
+        }
+      }
+
+      res.json({ videos: filtered, counts });
     } catch (err: any) {
+      console.error('Failed to fetch video verification queue:', err);
       res.status(500).json({ error: 'Failed to fetch video verification queue' });
     }
   }
 );
 
-router.patch(
-  '/videos/:id/verify',
+// Verify 4K Video (supports both POST and PATCH)
+const verifyVideoHandler = (req: AuthenticatedRequest, res: Response) => {
+  const { id } = req.params;
+  const status = (req.body.status || 'APPROVED').toUpperCase();
+  const notes = req.body.notes || req.body.rejectionReason || req.body.reason;
+  const adminId = req.user?.id || 'usr-admin-default';
+
+  if (!['APPROVED', 'VERIFIED', 'REJECTED'].includes(status)) {
+    return res.status(400).json({ error: 'Status must be APPROVED/VERIFIED or REJECTED' });
+  }
+
+  const isApproved = status === 'APPROVED' || status === 'VERIFIED';
+
+  try {
+    // 1. Check four_k_videos first
+    const video = db.prepare(`
+      SELECT v.*, p.title as property_title, p.provider_id
+      FROM four_k_videos v
+      JOIN properties p ON v.property_id = p.id
+      WHERE v.id = ?
+    `).get(id) as any;
+
+    if (video) {
+      const newStatus = isApproved ? 'VERIFIED' : 'REJECTED';
+      db.prepare(`
+        UPDATE four_k_videos
+        SET status = ?,
+            verified_at = ?,
+            verified_by = ?,
+            rejection_reason = ?,
+            updated_at = datetime('now')
+        WHERE id = ?
+      `).run(
+        newStatus,
+        isApproved ? new Date().toISOString() : null,
+        isApproved ? adminId : null,
+        isApproved ? null : (notes || 'Requires revisions'),
+        id
+      );
+
+      db.prepare(`
+        UPDATE properties
+        SET has_4k_video = ?,
+            video_tour_url = ?,
+            video_verification_status = ?,
+            video_verification_notes = ?
+        WHERE id = ?
+      `).run(
+        isApproved ? 1 : 0,
+        isApproved ? video.video_url : null,
+        isApproved ? 'APPROVED' : 'REJECTED',
+        notes || null,
+        video.property_id
+      );
+
+      // Mirror to property_media
+      try {
+        db.prepare(`
+          UPDATE property_media
+          SET is_verified = ?, verification_notes = ?
+          WHERE property_id = ? AND (media_type = 'VIDEO' OR category = 'VIDEO_WALKTHROUGH')
+        `).run(isApproved ? 1 : 0, notes || null, video.property_id);
+      } catch {}
+
+      // Notify agent
+      const notifId = `notif-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+      const notifTitle = isApproved ? '🎉 4K Video Tour Verified!' : '⚠️ 4K Video Tour Rejected';
+      const notifMessage = isApproved
+        ? `Your 4K video tour for "${video.property_title}" has been approved and is now live with the 4K Verified Tour badge for all students.`
+        : `Your video tour for "${video.property_title}" was rejected. Feedback: ${notes || 'Please upload a clear, authentic 4K video tour.'}`;
+
+      try {
+        db.prepare(`
+          INSERT INTO notifications (id, user_id, title, message, type, is_read, link_url)
+          VALUES (?, ?, ?, ?, 'VIDEO_VERIFICATION', 0, ?)
+        `).run(notifId, video.agent_id || video.provider_id, notifTitle, notifMessage, '/provider?tab=videos');
+      } catch {}
+
+      return res.json({
+        success: true,
+        message: `Video ${isApproved ? 'verified' : 'rejected'} successfully`,
+        status: newStatus,
+        isVerified: isApproved ? 1 : 0
+      });
+    }
+
+    // 2. Fallback to property_media
+    const media = db.prepare(`
+      SELECT pm.*, p.title as property_title, p.provider_id
+      FROM property_media pm
+      JOIN properties p ON pm.property_id = p.id
+      WHERE pm.id = ?
+    `).get(id) as any;
+
+    if (!media) {
+      return res.status(404).json({ error: 'Video tour not found' });
+    }
+
+    const isVerified = isApproved ? 1 : 0;
+    try {
+      db.prepare(`
+        UPDATE property_media 
+        SET is_verified = ?, verification_notes = ?
+        WHERE id = ?
+      `).run(isVerified, notes || null, id);
+    } catch {
+      db.prepare(`
+        UPDATE property_media 
+        SET is_verified = ?
+        WHERE id = ?
+      `).run(isVerified, id);
+    }
+
+    db.prepare(`
+      UPDATE properties
+      SET has_4k_video = ?,
+          video_verification_status = ?
+      WHERE id = ?
+    `).run(isVerified, isApproved ? 'APPROVED' : 'REJECTED', media.property_id);
+
+    // Notify landlord
+    const notifId = `notif-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+    const notifTitle = isApproved ? 'Property Video Tour Verified!' : 'Property Video Tour Rejected';
+    const notifMessage = isApproved 
+      ? `Your uploaded video tour for "${media.property_title}" has been approved and is now live for all students.`
+      : `Your video tour for "${media.property_title}" was rejected. Feedback: ${notes || 'Please upload a clear, authentic video of the lodge.'}`;
+    
+    try {
+      db.prepare(`
+        INSERT INTO notifications (id, user_id, title, message, type, is_read, link_url)
+        VALUES (?, ?, ?, ?, 'VIDEO_VERIFICATION', 0, ?)
+      `).run(notifId, media.provider_id, notifTitle, notifMessage, '/provider?tab=videos');
+    } catch {}
+
+    return res.json({ success: true, message: `Video ${isApproved ? 'approved' : 'rejected'} successfully`, isVerified });
+  } catch (err: any) {
+    console.error('Failed to verify video:', err);
+    return res.status(500).json({ error: 'Failed to verify video' });
+  }
+};
+
+router.patch('/videos/:id/verify', authenticate, requireRole('ADMIN'), verifyVideoHandler);
+router.post('/videos/:id/verify', authenticate, requireRole('ADMIN'), verifyVideoHandler);
+
+// Reject 4K Video with Required Rejection Reason
+router.post(
+  '/videos/:id/reject',
   authenticate,
   requireRole('ADMIN'),
   (req: AuthenticatedRequest, res: Response) => {
-    const { id } = req.params;
-    const { status, notes } = req.body; // status: 'APPROVED' | 'REJECTED'
-
-    if (!['APPROVED', 'REJECTED'].includes(status)) {
-      return res.status(400).json({ error: 'Status must be APPROVED or REJECTED' });
+    const reason = (req.body.rejectionReason || req.body.reason || req.body.notes || '').trim();
+    if (!reason) {
+      return res.status(400).json({ error: 'Rejection reason is required to provide actionable feedback to the agent.' });
     }
-
-    try {
-      const media = db.prepare(`
-        SELECT pm.*, p.title as property_title, p.provider_id
-        FROM property_media pm
-        JOIN properties p ON pm.property_id = p.id
-        WHERE pm.id = ?
-      `).get(id) as any;
-
-      if (!media) {
-        return res.status(404).json({ error: 'Video media not found' });
-      }
-
-      const isVerified = status === 'APPROVED' ? 1 : 0;
-      
-      try {
-        db.prepare(`
-          UPDATE property_media 
-          SET is_verified = ?, verification_notes = ?
-          WHERE id = ?
-        `).run(isVerified, notes || null, id);
-      } catch {
-        db.prepare(`
-          UPDATE property_media 
-          SET is_verified = ?
-          WHERE id = ?
-        `).run(isVerified, id);
-      }
-
-      // Notify landlord
-      const notifId = `notif-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
-      const notifTitle = status === 'APPROVED' ? 'Property Video Tour Verified!' : 'Property Video Tour Rejected';
-      const notifMessage = status === 'APPROVED' 
-        ? `Your uploaded video tour for "${media.property_title}" has been approved and is now live for all students.`
-        : `Your video tour for "${media.property_title}" was rejected. Feedback: ${notes || 'Please upload a clear, authentic video of the lodge.'}`;
-      
-      db.prepare(`
-        INSERT INTO notifications (id, user_id, title, message, type, is_read, link_url)
-        VALUES (?, ?, ?, ?, ?, 0, ?)
-      `).run(notifId, media.provider_id, notifTitle, notifMessage, 'VIDEO_VERIFICATION', `/provider-portal?tab=listings`);
-
-      res.json({ success: true, message: `Video ${status.toLowerCase()} successfully`, isVerified });
-    } catch (err: any) {
-      res.status(500).json({ error: 'Failed to verify video' });
-    }
+    req.body.status = 'REJECTED';
+    req.body.notes = reason;
+    return verifyVideoHandler(req, res);
   }
 );
 

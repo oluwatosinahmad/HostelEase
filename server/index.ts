@@ -32,6 +32,7 @@ import communityRoutes from './routes/communityRoutes';
 import roommateRoutes from './routes/roommateRoutes';
 import operationsRoutes from './routes/operationsRoutes';
 import adminRevenueRoutes from './routes/adminRevenueRoutes';
+import videoRoutes from './routes/videoRoutes';
 
 import { securityHeaders } from './middleware/securityHeaders';
 import { sanitizeInputs } from './middleware/sanitize';
@@ -195,6 +196,8 @@ app.use('/api/saved-properties', savedRoutes);
 app.use('/api/inspections', inspectionRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/provider', providerRoutes);
+app.use('/api/provider/videos', videoRoutes);
+app.use('/api/videos', videoRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/admin/operations', operationsRoutes);
 app.use('/api/admin/revenue', adminRevenueRoutes);

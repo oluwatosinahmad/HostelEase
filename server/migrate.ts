@@ -276,11 +276,41 @@ export function runMigrations() {
         display_order INTEGER NOT NULL DEFAULT 0,
         is_cover INTEGER NOT NULL DEFAULT 0,
         is_verified INTEGER NOT NULL DEFAULT 0,
+        verification_notes TEXT,
         created_at TEXT NOT NULL DEFAULT (datetime('now')),
         FOREIGN KEY (property_id) REFERENCES properties(id) ON DELETE CASCADE
       );
       CREATE INDEX IF NOT EXISTS idx_prop_media_prop ON property_media(property_id);
       CREATE INDEX IF NOT EXISTS idx_prop_media_type ON property_media(property_id, media_type);
+    `);
+
+    // 14b. 4K Videos table for agent upload & admin verification
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS four_k_videos (
+        id TEXT PRIMARY KEY,
+        agent_id TEXT NOT NULL,
+        property_id TEXT NOT NULL,
+        video_url TEXT NOT NULL,
+        thumbnail_url TEXT,
+        width INTEGER NOT NULL,
+        height INTEGER NOT NULL,
+        resolution TEXT NOT NULL,
+        file_size INTEGER NOT NULL,
+        duration REAL NOT NULL DEFAULT 0,
+        status TEXT NOT NULL DEFAULT 'PENDING' CHECK(status IN ('PENDING', 'VERIFIED', 'REJECTED')),
+        uploaded_at TEXT NOT NULL DEFAULT (datetime('now')),
+        verified_at TEXT,
+        verified_by TEXT,
+        rejection_reason TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+        FOREIGN KEY (agent_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (property_id) REFERENCES properties(id) ON DELETE CASCADE,
+        FOREIGN KEY (verified_by) REFERENCES users(id) ON DELETE SET NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_4k_videos_agent ON four_k_videos(agent_id);
+      CREATE INDEX IF NOT EXISTS idx_4k_videos_prop ON four_k_videos(property_id);
+      CREATE INDEX IF NOT EXISTS idx_4k_videos_status ON four_k_videos(status);
     `);
 
     // 15. Verification Documents table
@@ -2521,6 +2551,12 @@ Your caution deposit is refundable upon move-out provided no unauthorized struct
     ['department', 'level', 'matric_no', 'gender', 'account_status', 'status_reason'].forEach(col => {
       try { db.exec(`ALTER TABLE users ADD COLUMN ${col} TEXT`); } catch {}
     });
+
+    // 4K Video Tour columns on properties
+    try { db.exec(`ALTER TABLE properties ADD COLUMN has_4k_video INTEGER NOT NULL DEFAULT 0`); } catch {}
+    try { db.exec(`ALTER TABLE properties ADD COLUMN video_tour_url TEXT`); } catch {}
+    try { db.exec(`ALTER TABLE properties ADD COLUMN video_verification_status TEXT DEFAULT 'NONE'`); } catch {}
+    try { db.exec(`ALTER TABLE properties ADD COLUMN video_verification_notes TEXT`); } catch {}
 
     try {
       db.prepare(`
