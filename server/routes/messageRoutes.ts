@@ -1,9 +1,95 @@
-import { Router, Response } from 'express';
+import { Router, Request, Response } from 'express';
 import crypto from 'crypto';
+import jwt from 'jsonwebtoken';
 import db from '../db.js';
 import { authenticate, AuthenticatedRequest } from '../middleware/auth.js';
 
+const JWT_SECRET = process.env.AUTH_JWT_SECRET || 'hostel-ease-jwt-secure-secret-key-2026';
 const router = Router();
+
+// Initialize user_presence table for real online / last-seen tracking
+db.exec(`
+  CREATE TABLE IF NOT EXISTS user_presence (
+    user_id TEXT PRIMARY KEY,
+    last_seen_at TEXT NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_user_presence_seen ON user_presence(last_seen_at);
+`);
+
+export function updateUserPresence(userId: string) {
+  try {
+    db.prepare(`
+      INSERT INTO user_presence (user_id, last_seen_at)
+      VALUES (?, datetime('now'))
+      ON CONFLICT(user_id) DO UPDATE SET last_seen_at = datetime('now')
+    `).run(userId);
+  } catch (err) {
+    console.warn('Update user presence error:', err);
+  }
+}
+
+export function getUserPresence(userId: string): { isOnline: boolean; lastSeenAt: string | null } {
+  try {
+    const row = db.prepare('SELECT last_seen_at FROM user_presence WHERE user_id = ?').get(userId) as any;
+    if (!row || !row.last_seen_at) {
+      return { isOnline: false, lastSeenAt: null };
+    }
+    // Parse UTC datetime string from SQLite datetime('now')
+    const raw = row.last_seen_at.endsWith('Z') ? row.last_seen_at : row.last_seen_at.replace(' ', 'T') + 'Z';
+    const lastSeenMs = new Date(raw).getTime();
+    // User is Online if active within the last 65 seconds
+    const isOnline = !isNaN(lastSeenMs) && (Date.now() - lastSeenMs) < 65000;
+    return { isOnline, lastSeenAt: row.last_seen_at };
+  } catch (err) {
+    return { isOnline: false, lastSeenAt: null };
+  }
+}
+
+// ----------------------------------------------------
+// 0. PRESENCE HEARTBEAT & QUERY ENDPOINTS
+// ----------------------------------------------------
+function extractUserIdFromRequest(req: Request): string | null {
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    try {
+      const decoded = jwt.verify(authHeader.split(' ')[1], JWT_SECRET) as any;
+      if (decoded && decoded.id) return decoded.id;
+    } catch {}
+  }
+  const headerId = req.headers['x-user-id'] as string;
+  if (headerId) return headerId;
+  if (req.body && req.body.userId) return req.body.userId;
+  return null;
+}
+
+router.post('/presence/heartbeat', (req: Request, res: Response) => {
+  const userId = extractUserIdFromRequest(req);
+  if (!userId) return res.status(401).json({ error: 'User identification required' });
+  updateUserPresence(userId);
+  return res.json({ success: true, userId, timestamp: new Date().toISOString() });
+});
+
+router.post('/heartbeat', (req: Request, res: Response) => {
+  const userId = extractUserIdFromRequest(req);
+  if (!userId) return res.status(401).json({ error: 'User identification required' });
+  updateUserPresence(userId);
+  return res.json({ success: true, userId, timestamp: new Date().toISOString() });
+});
+
+router.get('/presence/:userId', (req: Request, res: Response) => {
+  const presence = getUserPresence(req.params.userId);
+  return res.json({ userId: req.params.userId, ...presence });
+});
+
+router.get('/:userId/presence', (req: Request, res: Response) => {
+  const presence = getUserPresence(req.params.userId);
+  return res.json({ userId: req.params.userId, ...presence });
+});
+
+router.get('/:userId', (req: Request, res: Response) => {
+  const presence = getUserPresence(req.params.userId);
+  return res.json({ userId: req.params.userId, ...presence });
+});
 
 // In-memory rate limiting map for message spam prevention (per user: max 30 msgs per minute)
 const messageRateMap = new Map<string, { count: number; resetAt: number }>();
@@ -34,9 +120,15 @@ router.post('/conversations', authenticate, (req: AuthenticatedRequest, res: Res
   }
 
   try {
+    updateUserPresence(req.user.id);
+
     const property = db.prepare(`
-      SELECT p.id, p.title, p.provider_id, u.full_name as provider_name,
-             (SELECT url FROM property_media WHERE property_id = p.id AND is_cover = 1 LIMIT 1) as cover_image,
+      SELECT p.id, p.title, p.provider_id, u.full_name as provider_name, u.avatar_url as provider_avatar,
+             COALESCE(
+               (SELECT url FROM property_media WHERE property_id = p.id AND is_cover = 1 LIMIT 1),
+               (SELECT url FROM property_media WHERE property_id = p.id ORDER BY display_order ASC LIMIT 1),
+               (SELECT url FROM property_media WHERE property_id = p.id LIMIT 1)
+             ) as cover_image,
              a.name as area_name
       FROM properties p
       JOIN users u ON u.id = p.provider_id
@@ -123,17 +215,26 @@ router.post('/conversations', authenticate, (req: AuthenticatedRequest, res: Res
       );
     }
 
+    const providerPresence = getUserPresence(providerId);
+    const studentPresence = getUserPresence(studentId);
+    const coverImage = property.cover_image || 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=1200&q=85';
+
     return res.json({
       conversationId: conv.id,
       conversation: {
         id: conv.id,
         propertyId: property.id,
         propertyTitle: property.title,
-        propertyCoverImage: property.cover_image,
+        propertyCoverImage: coverImage,
         areaName: property.area_name,
         providerId: property.provider_id,
         providerName: property.provider_name,
+        providerAvatarUrl: property.provider_avatar || coverImage,
+        providerIsOnline: providerPresence.isOnline,
+        providerLastSeenAt: providerPresence.lastSeenAt,
         studentId: conv.student_id,
+        studentIsOnline: studentPresence.isOnline,
+        studentLastSeenAt: studentPresence.lastSeenAt,
         createdAt: conv.created_at
       }
     });
@@ -150,19 +251,26 @@ router.get('/conversations', authenticate, (req: AuthenticatedRequest, res: Resp
   if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
 
   try {
+    updateUserPresence(req.user.id);
     let sql = '';
     const params: any[] = [];
 
     if (req.user.role === 'STUDENT') {
       sql = `
         SELECT c.*, p.title as property_title, p.address as property_address,
-               a.name as area_name, u.full_name as provider_name,
-               (SELECT url FROM property_media WHERE property_id = p.id AND is_cover = 1 LIMIT 1) as property_cover,
+               a.name as area_name, u.full_name as provider_name, u.avatar_url as other_avatar_url,
+               COALESCE(
+                 (SELECT url FROM property_media WHERE property_id = p.id AND is_cover = 1 LIMIT 1),
+                 (SELECT url FROM property_media WHERE property_id = p.id ORDER BY display_order ASC LIMIT 1),
+                 (SELECT url FROM property_media WHERE property_id = p.id LIMIT 1)
+               ) as property_cover,
+               up.last_seen_at as other_last_seen_at,
                (SELECT COUNT(*) FROM messages m WHERE m.conversation_id = c.id AND m.sender_id != ? AND m.is_read = 0) as unread_count
         FROM conversations c
         JOIN properties p ON c.property_id = p.id
         JOIN areas a ON p.area_id = a.id
         JOIN users u ON c.provider_id = u.id
+        LEFT JOIN user_presence up ON up.user_id = c.provider_id
         WHERE c.student_id = ?
         ORDER BY c.last_message_at DESC
       `;
@@ -170,13 +278,19 @@ router.get('/conversations', authenticate, (req: AuthenticatedRequest, res: Resp
     } else if (req.user.role === 'PROVIDER') {
       sql = `
         SELECT c.*, p.title as property_title, p.address as property_address,
-               a.name as area_name, u.full_name as student_name,
-               (SELECT url FROM property_media WHERE property_id = p.id AND is_cover = 1 LIMIT 1) as property_cover,
+               a.name as area_name, u.full_name as student_name, u.avatar_url as other_avatar_url,
+               COALESCE(
+                 (SELECT url FROM property_media WHERE property_id = p.id AND is_cover = 1 LIMIT 1),
+                 (SELECT url FROM property_media WHERE property_id = p.id ORDER BY display_order ASC LIMIT 1),
+                 (SELECT url FROM property_media WHERE property_id = p.id LIMIT 1)
+               ) as property_cover,
+               up.last_seen_at as other_last_seen_at,
                (SELECT COUNT(*) FROM messages m WHERE m.conversation_id = c.id AND m.sender_id != ? AND m.is_read = 0) as unread_count
         FROM conversations c
         JOIN properties p ON c.property_id = p.id
         JOIN areas a ON p.area_id = a.id
         JOIN users u ON c.student_id = u.id
+        LEFT JOIN user_presence up ON up.user_id = c.student_id
         WHERE c.provider_id = ?
         ORDER BY c.last_message_at DESC
       `;
@@ -184,38 +298,60 @@ router.get('/conversations', authenticate, (req: AuthenticatedRequest, res: Resp
     } else if (req.user.role === 'ADMIN') {
       sql = `
         SELECT c.*, p.title as property_title, p.address as property_address,
-               a.name as area_name, u_s.full_name as student_name, u_p.full_name as provider_name,
-               (SELECT url FROM property_media WHERE property_id = p.id AND is_cover = 1 LIMIT 1) as property_cover,
+               a.name as area_name, u_s.full_name as student_name, u_s.avatar_url as student_avatar_url,
+               u_p.full_name as provider_name, u_p.avatar_url as provider_avatar_url,
+               COALESCE(
+                 (SELECT url FROM property_media WHERE property_id = p.id AND is_cover = 1 LIMIT 1),
+                 (SELECT url FROM property_media WHERE property_id = p.id ORDER BY display_order ASC LIMIT 1),
+                 (SELECT url FROM property_media WHERE property_id = p.id LIMIT 1)
+               ) as property_cover,
+               up_s.last_seen_at as student_last_seen_at,
+               up_p.last_seen_at as provider_last_seen_at,
                0 as unread_count
         FROM conversations c
         JOIN properties p ON c.property_id = p.id
         JOIN areas a ON p.area_id = a.id
         JOIN users u_s ON c.student_id = u_s.id
         JOIN users u_p ON c.provider_id = u_p.id
+        LEFT JOIN user_presence up_s ON up_s.user_id = c.student_id
+        LEFT JOIN user_presence up_p ON up_p.user_id = c.provider_id
         ORDER BY c.last_message_at DESC
       `;
     }
 
     const conversations = db.prepare(sql).all(...params) as any[];
+    const now = Date.now();
 
     return res.json({
-      conversations: conversations.map(c => ({
-        id: c.id,
-        propertyId: c.property_id,
-        propertyTitle: c.property_title,
-        propertyAddress: c.property_address,
-        propertyCoverImage: c.property_cover || 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=600&q=80',
-        areaName: c.area_name,
-        studentId: c.student_id,
-        studentName: c.student_name || 'Student',
-        providerId: c.provider_id,
-        providerName: c.provider_name || 'Hostel Provider',
-        lastMessageText: c.last_message_text,
-        lastMessageAt: c.last_message_at,
-        unreadCount: c.unread_count || 0,
-        status: c.status,
-        createdAt: c.created_at
-      }))
+      conversations: conversations.map(c => {
+        const lastSeenRaw = c.other_last_seen_at || (req.user!.role === 'ADMIN' ? c.provider_last_seen_at : null);
+        const lastSeenMs = lastSeenRaw ? new Date(lastSeenRaw.endsWith('Z') ? lastSeenRaw : lastSeenRaw.replace(' ', 'T') + 'Z').getTime() : 0;
+        const isOnline = !isNaN(lastSeenMs) && lastSeenMs > 0 && (now - lastSeenMs) < 65000;
+
+        const coverImg = c.property_cover || 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=1200&q=85';
+        const bestAvatar = c.other_avatar_url || coverImg;
+
+        return {
+          id: c.id,
+          propertyId: c.property_id,
+          propertyTitle: c.property_title,
+          propertyAddress: c.property_address,
+          propertyCoverImage: coverImg,
+          areaName: c.area_name,
+          studentId: c.student_id,
+          studentName: c.student_name || 'Student',
+          providerId: c.provider_id,
+          providerName: c.provider_name || 'Hostel Provider',
+          avatarUrl: bestAvatar,
+          isOnline,
+          lastSeenAt: lastSeenRaw || null,
+          lastMessageText: c.last_message_text,
+          lastMessageAt: c.last_message_at,
+          unreadCount: c.unread_count || 0,
+          status: c.status,
+          createdAt: c.created_at
+        };
+      })
     });
   } catch (err: any) {
     console.error('List conversations error:', err);
@@ -231,18 +367,29 @@ router.get('/conversations/:id', authenticate, (req: AuthenticatedRequest, res: 
   const { id } = req.params;
 
   try {
+    updateUserPresence(req.user.id);
+
     const conv = db.prepare(`
       SELECT c.*, p.title as property_title, p.address as property_address,
              p.property_type, p.distance_from_campus_km,
              pr.rent_amount, pr.total_mandatory_cost,
-             a.name as area_name, u_s.full_name as student_name, u_p.full_name as provider_name,
-             (SELECT url FROM property_media WHERE property_id = p.id AND is_cover = 1 LIMIT 1) as property_cover
+             a.name as area_name, u_s.full_name as student_name, u_s.avatar_url as student_avatar,
+             u_p.full_name as provider_name, u_p.avatar_url as provider_avatar,
+             COALESCE(
+               (SELECT url FROM property_media WHERE property_id = p.id AND is_cover = 1 LIMIT 1),
+               (SELECT url FROM property_media WHERE property_id = p.id ORDER BY display_order ASC LIMIT 1),
+               (SELECT url FROM property_media WHERE property_id = p.id LIMIT 1)
+             ) as property_cover,
+             up_s.last_seen_at as student_last_seen_at,
+             up_p.last_seen_at as provider_last_seen_at
       FROM conversations c
       JOIN properties p ON c.property_id = p.id
       JOIN areas a ON p.area_id = a.id
       LEFT JOIN prices pr ON pr.property_id = p.id
       JOIN users u_s ON c.student_id = u_s.id
       JOIN users u_p ON c.provider_id = u_p.id
+      LEFT JOIN user_presence up_s ON up_s.user_id = c.student_id
+      LEFT JOIN user_presence up_p ON up_p.user_id = c.provider_id
       WHERE c.id = ?
     `).get(id) as any;
 
@@ -275,6 +422,17 @@ router.get('/conversations/:id', authenticate, (req: AuthenticatedRequest, res: 
       WHERE conversation_id = ? AND sender_id != ? AND is_read = 0
     `).run(id, req.user.id);
 
+    const now = Date.now();
+    const studentLastSeenRaw = conv.student_last_seen_at;
+    const studentLastSeenMs = studentLastSeenRaw ? new Date(studentLastSeenRaw.endsWith('Z') ? studentLastSeenRaw : studentLastSeenRaw.replace(' ', 'T') + 'Z').getTime() : 0;
+    const studentIsOnline = !isNaN(studentLastSeenMs) && studentLastSeenMs > 0 && (now - studentLastSeenMs) < 65000;
+
+    const providerLastSeenRaw = conv.provider_last_seen_at;
+    const providerLastSeenMs = providerLastSeenRaw ? new Date(providerLastSeenRaw.endsWith('Z') ? providerLastSeenRaw : providerLastSeenRaw.replace(' ', 'T') + 'Z').getTime() : 0;
+    const providerIsOnline = !isNaN(providerLastSeenMs) && providerLastSeenMs > 0 && (now - providerLastSeenMs) < 65000;
+
+    const coverImage = conv.property_cover || 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=1200&q=85';
+
     return res.json({
       conversation: {
         id: conv.id,
@@ -287,10 +445,22 @@ router.get('/conversations/:id', authenticate, (req: AuthenticatedRequest, res: 
           distanceFromCampusKm: conv.distance_from_campus_km,
           rentAmount: conv.rent_amount || 0,
           totalMandatoryCost: conv.total_mandatory_cost || conv.rent_amount || 0,
-          coverImage: conv.property_cover || 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=600&q=80'
+          coverImage
         },
-        student: { id: conv.student_id, name: conv.student_name },
-        provider: { id: conv.provider_id, name: conv.provider_name },
+        student: {
+          id: conv.student_id,
+          name: conv.student_name,
+          avatarUrl: conv.student_avatar || null,
+          isOnline: studentIsOnline,
+          lastSeenAt: studentLastSeenRaw || null
+        },
+        provider: {
+          id: conv.provider_id,
+          name: conv.provider_name,
+          avatarUrl: conv.provider_avatar || coverImage,
+          isOnline: providerIsOnline,
+          lastSeenAt: providerLastSeenRaw || null
+        },
         status: conv.status,
         createdAt: conv.created_at
       },
@@ -320,6 +490,8 @@ router.post('/conversations/:id/messages', authenticate, (req: AuthenticatedRequ
   if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
   const { id } = req.params;
   const { content, messageType, metadata } = req.body;
+
+  updateUserPresence(req.user.id);
 
   if (!content || typeof content !== 'string' || !content.trim()) {
     return res.status(400).json({ error: 'Message content cannot be empty' });

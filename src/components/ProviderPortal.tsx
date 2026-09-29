@@ -63,6 +63,8 @@ import { ProviderMoveInManager } from './ProviderMoveInManager';
 import { ListingQualityCard } from './ListingQualityCard';
 import { AIAgentAssistantModal } from './AILandlordAssistantModal';
 import { formatNaira, formatDistance, getAvailabilityBadgeInfo, getPropertyTypeLabel } from '../utils/formatters';
+import { formatPresence } from '../utils/presence';
+import { ChatImageModal } from './ChatImageModal';
 
 interface ProviderPortalProps {
   areas: Area[];
@@ -196,6 +198,38 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
   const [messagesLoading, setMessagesLoading] = useState<boolean>(false);
   const [sendingReply, setSendingReply] = useState<boolean>(false);
   const [conversationSearch, setConversationSearch] = useState<string>('');
+  const [fullScreenImage, setFullScreenImage] = useState<{
+    imageUrl: string;
+    title: string;
+    subtitle?: string;
+    isOnline?: boolean;
+    presenceText?: string;
+  } | null>(null);
+
+  // Active presence heartbeat while agent is on provider portal
+  useEffect(() => {
+    if (!user) return;
+    api.presence.heartbeat().catch(() => {});
+
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        api.presence.heartbeat().catch(() => {});
+      }
+    }, 20000);
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        api.presence.heartbeat().catch(() => {});
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
+  }, [user]);
+
   const [notifDropdownOpen, setNotifDropdownOpen] = useState<boolean>(false);
   const notifRef = useRef<HTMLDivElement>(null);
   const mobileNotifModalRef = useRef<HTMLDivElement>(null);
@@ -2841,9 +2875,44 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
                                 : 'hover:bg-gray-100/70'
                             }`}
                           >
-                            <div className="w-9 h-9 rounded-full bg-emerald-800 text-white font-bold text-xs flex items-center justify-center shrink-0 shadow-xs">
-                              {conv.studentName?.charAt(0) || 'S'}
-                            </div>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                if (conv.avatarUrl) {
+                                  e.stopPropagation();
+                                  setFullScreenImage({
+                                    imageUrl: conv.avatarUrl,
+                                    title: conv.studentName || 'Student',
+                                    subtitle: conv.propertyTitle,
+                                    isOnline: conv.isOnline,
+                                    presenceText: formatPresence(conv.isOnline, conv.lastSeenAt)
+                                  });
+                                }
+                              }}
+                              className={`relative shrink-0 rounded-full group ${conv.avatarUrl ? 'cursor-pointer hover:scale-105 transition-transform' : ''}`}
+                              title={conv.avatarUrl ? `View ${conv.studentName}'s photo` : conv.studentName}
+                            >
+                              {conv.avatarUrl ? (
+                                <img
+                                  src={conv.avatarUrl}
+                                  alt={conv.studentName}
+                                  className="w-9 h-9 rounded-full object-cover shadow-xs border border-gray-200"
+                                  onError={(e) => {
+                                    (e.currentTarget as HTMLElement).style.display = 'none';
+                                    (e.currentTarget.parentElement?.querySelector('.provider-list-fallback') as HTMLElement)?.style.setProperty('display', 'flex');
+                                  }}
+                                />
+                              ) : null}
+                              <div className={`provider-list-fallback w-9 h-9 rounded-full bg-emerald-800 text-white font-bold text-xs items-center justify-center shrink-0 shadow-xs ${conv.avatarUrl ? 'hidden' : 'flex'}`}>
+                                {conv.studentName?.charAt(0) || 'S'}
+                              </div>
+                              <span 
+                                className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-white ${
+                                  conv.isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-gray-400'
+                                }`}
+                                title={conv.isOnline ? 'Online now' : formatPresence(conv.isOnline, conv.lastSeenAt)}
+                              />
+                            </button>
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center justify-between mb-0.5">
                                 <h5 className="text-xs font-bold text-gray-900 truncate">
@@ -2880,34 +2949,84 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
                 {activeDetail ? (
                   <>
                     {/* Conversation Header */}
-                    <div className="p-4 border-b border-gray-200 bg-white flex items-center justify-between gap-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-emerald-800 text-white font-black text-sm flex items-center justify-center shadow-xs">
-                          {activeDetail.conversation.student?.name?.charAt(0) || 'S'}
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <h4 className="text-sm font-bold text-gray-900">
-                              {activeDetail.conversation.student?.name || 'Student'}
-                            </h4>
-                            <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 text-[10px] font-bold rounded-full">
-                              Prospective Tenant
-                            </span>
-                          </div>
-                          <p className="text-xs text-gray-500">
-                            Inquiring regarding <span className="font-semibold text-emerald-800">{activeDetail.conversation.property?.title}</span> • {activeDetail.conversation.property?.areaName}
-                          </p>
-                        </div>
-                      </div>
+                    {(() => {
+                      const student = activeDetail.conversation.student;
+                      const studentName = student?.name || 'Student';
+                      const studentAvatar = student?.avatarUrl || activeDetail.conversation.property?.coverImage;
+                      const isOnline = student?.isOnline ?? false;
+                      const lastSeenAt = student?.lastSeenAt ?? null;
+                      const presenceText = formatPresence(isOnline, lastSeenAt);
 
-                      {/* Property badge */}
-                      <div className="text-right hidden sm:block">
-                        <span className="text-xs font-black text-gray-900">
-                          {formatNaira(activeDetail.conversation.property?.rentAmount || 0)}/yr
-                        </span>
-                        <p className="text-[10px] text-gray-400">Total: {formatNaira(activeDetail.conversation.property?.totalMandatoryCost || 0)}</p>
-                      </div>
-                    </div>
+                      return (
+                        <div className="p-4 border-b border-gray-200 bg-white flex items-center justify-between gap-4">
+                          <div className="flex items-center gap-3">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (studentAvatar) {
+                                  setFullScreenImage({
+                                    imageUrl: studentAvatar,
+                                    title: studentName,
+                                    subtitle: `Inquiring for ${activeDetail.conversation.property?.title}`,
+                                    isOnline,
+                                    presenceText
+                                  });
+                                }
+                              }}
+                              className={`relative shrink-0 rounded-full group ${studentAvatar ? 'cursor-pointer hover:scale-105 transition-transform' : ''}`}
+                              title={studentAvatar ? `View ${studentName}'s photo` : studentName}
+                            >
+                              {studentAvatar ? (
+                                <img
+                                  src={studentAvatar}
+                                  alt={studentName}
+                                  className="w-10 h-10 rounded-full object-cover shadow-xs border border-gray-200"
+                                  onError={(e) => {
+                                    (e.currentTarget as HTMLElement).style.display = 'none';
+                                    (e.currentTarget.parentElement?.querySelector('.provider-header-fallback') as HTMLElement)?.style.setProperty('display', 'flex');
+                                  }}
+                                />
+                              ) : null}
+                              <div className={`provider-header-fallback w-10 h-10 rounded-full bg-emerald-800 text-white font-black text-sm items-center justify-center shadow-xs ${studentAvatar ? 'hidden' : 'flex'}`}>
+                                {studentName.charAt(0)}
+                              </div>
+                              <span
+                                className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white ${
+                                  isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-gray-400'
+                                }`}
+                                title={isOnline ? 'Online now' : presenceText}
+                              />
+                            </button>
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <h4 className="text-sm font-bold text-gray-900">
+                                  {studentName}
+                                </h4>
+                                <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 text-[10px] font-bold rounded-full">
+                                  Prospective Tenant
+                                </span>
+                              </div>
+                              <p className="text-xs text-gray-500 flex items-center gap-1.5 mt-0.5">
+                                <span className={`w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-gray-400'}`} />
+                                <span className={isOnline ? 'text-emerald-700 font-semibold' : 'text-gray-500'}>
+                                  {presenceText}
+                                </span>
+                                <span>•</span>
+                                <span>Inquiring: <strong className="text-emerald-800">{activeDetail.conversation.property?.title}</strong></span>
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* Property badge */}
+                          <div className="text-right hidden sm:block">
+                            <span className="text-xs font-black text-gray-900">
+                              {formatNaira(activeDetail.conversation.property?.rentAmount || 0)}/yr
+                            </span>
+                            <p className="text-[10px] text-gray-400">Total: {formatNaira(activeDetail.conversation.property?.totalMandatoryCost || 0)}</p>
+                          </div>
+                        </div>
+                      );
+                    })()}
 
                     {/* Messages Feed */}
                     <div className="flex-1 p-5 overflow-y-auto space-y-4 bg-gray-50/40 max-h-[460px]">
@@ -3380,7 +3499,7 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
         isOpen={aiDrawerOpen}
         onClose={() => setAiDrawerOpen(false)}
         selectedPropertyId={selectedPropertyId}
-        onNavigateTab={(tab) => {
+        onNavigateTab={(tab: string) => {
           setActiveTab(tab as any);
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
@@ -4034,6 +4153,17 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
           </div>
         </div>
       )}
+
+      {/* Fullscreen Student Profile / Hostel Photo Preview */}
+      <ChatImageModal
+        isOpen={!!fullScreenImage}
+        imageUrl={fullScreenImage?.imageUrl || ''}
+        title={fullScreenImage?.title || 'Profile'}
+        subtitle={fullScreenImage?.subtitle}
+        isOnline={fullScreenImage?.isOnline}
+        presenceText={fullScreenImage?.presenceText}
+        onClose={() => setFullScreenImage(null)}
+      />
 
     </div>
   );

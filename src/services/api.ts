@@ -2987,9 +2987,17 @@ export const api = {
             saveLocalMessages(conversationId, [...msgs, data.message]);
             return data;
           }
+        } else if (!res.ok) {
+          let errText = 'Failed to send message';
+          try {
+            const errData = await res.json();
+            if (errData.error) errText = errData.error;
+          } catch {}
+          throw new Error(errText);
         }
-      } catch (err) {
-        console.warn('Backend sendMessage unreachable, saved locally.');
+      } catch (err: any) {
+        console.warn('Backend sendMessage error:', err);
+        throw err;
       }
 
       // Save locally
@@ -3195,6 +3203,30 @@ export const api = {
       saveLocalConversations(filtered);
 
       return { success: true, message: 'Conversation deleted successfully' };
+    }
+  },
+
+  // Presence & Online Heartbeat API
+  presence: {
+    async heartbeat(): Promise<{ success: boolean; timestamp: string }> {
+      try {
+        const res = await fetch(`${API_BASE}/presence/heartbeat`, {
+          method: 'POST',
+          headers: { ...getAuthHeader() }
+        });
+        if (res.ok) return await res.json();
+      } catch {}
+      return { success: true, timestamp: new Date().toISOString() };
+    },
+
+    async getUserPresence(userId: string): Promise<{ userId: string; isOnline: boolean; lastSeenAt: string | null }> {
+      try {
+        const res = await fetch(`${API_BASE}/presence/${encodeURIComponent(userId)}`, {
+          headers: { ...getAuthHeader() }
+        });
+        if (res.ok) return await res.json();
+      } catch {}
+      return { userId, isOnline: false, lastSeenAt: null };
     }
   },
 

@@ -338,11 +338,20 @@ export interface ConversationItem {
   studentName: string;
   providerId: string;
   providerName: string;
+  avatarUrl?: string;
+  isOnline?: boolean;
+  lastSeenAt?: string | null;
   lastMessageText?: string;
   lastMessageAt?: string;
   unreadCount: number;
   status: 'ACTIVE' | 'ARCHIVED' | 'BLOCKED';
   createdAt: string;
+}
+
+export interface UserPresence {
+  userId: string;
+  isOnline: boolean;
+  lastSeenAt: string | null;
 }
 
 export interface MessageItem {
@@ -365,6 +374,8 @@ export interface MessageItem {
   isRead: boolean;
   readAt?: string;
   createdAt: string;
+  isFailed?: boolean;
+  isSending?: boolean;
 }
 
 export interface ConversationDetail {
@@ -381,8 +392,20 @@ export interface ConversationDetail {
       totalMandatoryCost: number;
       coverImage: string;
     };
-    student: { id: string; name: string };
-    provider: { id: string; name: string };
+    student: {
+      id: string;
+      name: string;
+      avatarUrl?: string | null;
+      isOnline?: boolean;
+      lastSeenAt?: string | null;
+    };
+    provider: {
+      id: string;
+      name: string;
+      avatarUrl?: string | null;
+      isOnline?: boolean;
+      lastSeenAt?: string | null;
+    };
     status: string;
     createdAt: string;
   };

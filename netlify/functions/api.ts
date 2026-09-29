@@ -60,6 +60,21 @@ let memoryUsers: any[] = [
 
 const SINGLE_ADMIN_ACCOUNT = memoryUsers[memoryUsers.length - 1];
 
+let memoryPresence = new Map<string, string>();
+
+function updateMemoryPresence(userId: string) {
+  if (!userId) return;
+  memoryPresence.set(userId, new Date().toISOString());
+}
+
+function getMemoryPresence(userId: string): { isOnline: boolean; lastSeenAt: string | null } {
+  const ts = memoryPresence.get(userId);
+  if (!ts) return { isOnline: false, lastSeenAt: null };
+  const ms = new Date(ts).getTime();
+  const isOnline = !isNaN(ms) && (Date.now() - ms) < 65000;
+  return { isOnline, lastSeenAt: ts };
+}
+
 let memoryProperties: any[] = [
   ...(seedPropertiesData as any[]),
   {
@@ -2664,11 +2679,32 @@ export default async (req: Request): Promise<Response> => {
     }
   }
 
+  // Presence Heartbeat & Query Endpoints
+  if ((pathname === '/api/presence/heartbeat' || pathname === '/api/messages/presence/heartbeat' || pathname === '/api/presence') && req.method === 'POST') {
+    const user = parseAuth(req);
+    let userId = user?.id || req.headers.get('x-user-id');
+    if (!userId) {
+      const body = await req.json().catch(() => ({}));
+      userId = body.userId;
+    }
+    if (!userId) return new Response(JSON.stringify({ error: 'User identification required' }), { status: 401, headers: CORS_HEADERS });
+    updateMemoryPresence(userId);
+    return new Response(JSON.stringify({ success: true, userId, timestamp: new Date().toISOString() }), { status: 200, headers: CORS_HEADERS });
+  }
+
+  if ((pathname.startsWith('/api/presence/') || pathname.startsWith('/api/messages/presence/')) && req.method === 'GET') {
+    const targetUserId = pathname.replace('/api/messages/presence/', '').replace('/api/presence/', '');
+    const presence = getMemoryPresence(targetUserId);
+    return new Response(JSON.stringify({ userId: targetUserId, ...presence }), { status: 200, headers: CORS_HEADERS });
+  }
+
   if (pathname === '/api/messages/conversations' && req.method === 'GET') {
     const user = parseAuth(req);
     if (!user) {
       return new Response(JSON.stringify({ conversations: [] }), { status: 200, headers: CORS_HEADERS });
     }
+
+    updateMemoryPresence(user.id);
 
     const userId = user.id;
     const userEmail = (user.email || '').toLowerCase().trim();
@@ -2682,27 +2718,95 @@ export default async (req: Request): Promise<Response> => {
       }
     });
 
-    return new Response(JSON.stringify({ conversations: userConvs }), { status: 200, headers: CORS_HEADERS });
+    const enriched = userConvs.map(c => {
+      const otherUserId = user.role === 'STUDENT' ? c.providerId : c.studentId;
+      const presence = getMemoryPresence(otherUserId);
+      const otherUserObj = memoryUsers.find(u => u.id === otherUserId);
+      const prop = memoryProperties.find(p => p.id === c.propertyId);
+      const coverImg = prop?.coverImage || c.propertyCoverImage || 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=1200&q=85';
+      const bestAvatar = otherUserObj?.avatarUrl || coverImg;
+
+      return {
+        ...c,
+        propertyCoverImage: coverImg,
+        avatarUrl: bestAvatar,
+        isOnline: presence.isOnline,
+        lastSeenAt: presence.lastSeenAt
+      };
+    });
+
+    return new Response(JSON.stringify({ conversations: enriched }), { status: 200, headers: CORS_HEADERS });
   }
 
   if (pathname.startsWith('/api/messages/conversations/') && !pathname.includes('/messages') && !pathname.includes('/read') && req.method === 'GET') {
+    const user = parseAuth(req);
+    if (!user) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: CORS_HEADERS });
+    }
+
+    updateMemoryPresence(user.id);
+
     const convId = pathname.replace('/api/messages/conversations/', '');
     const conv = memoryConversations.find(c => c.id === convId);
+    if (!conv) {
+      return new Response(JSON.stringify({ error: 'Conversation not found' }), { status: 404, headers: CORS_HEADERS });
+    }
+
+    // Strict Authorization Check: Only participant student, provider, or admin
+    const isStudent = user.role === 'STUDENT' && (conv.studentId === user.id || (user.email && conv.studentEmail?.toLowerCase() === user.email.toLowerCase()));
+    const isProvider = user.role === 'PROVIDER' && (conv.providerId === user.id || (user.email && conv.providerEmail?.toLowerCase() === user.email.toLowerCase()));
+    const isAdmin = user.role === 'ADMIN';
+
+    if (!isStudent && !isProvider && !isAdmin) {
+      return new Response(JSON.stringify({ error: 'Access denied: You are not authorized to view this conversation' }), { status: 403, headers: CORS_HEADERS });
+    }
+
     const msgs = memoryMessages.filter(m => m.conversationId === convId);
 
-    const prop = conv ? memoryProperties.find(p => p.id === conv.propertyId) : null;
+    // Mark unread messages sent by opposite party as read
+    msgs.forEach(m => {
+      if (m.senderId !== user.id) {
+        m.isRead = true;
+      }
+    });
+
+    const prop = memoryProperties.find(p => p.id === conv.propertyId);
+    const coverImg = prop?.coverImage || conv.propertyCoverImage || 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=1200&q=85';
+
+    const studentPresence = getMemoryPresence(conv.studentId);
+    const providerPresence = getMemoryPresence(conv.providerId);
+    const studentObj = memoryUsers.find(u => u.id === conv.studentId);
+    const providerObj = memoryUsers.find(u => u.id === conv.providerId);
 
     return new Response(JSON.stringify({
-      conversation: conv ? {
-        ...conv,
-        property: prop || {
+      conversation: {
+        id: conv.id,
+        property: {
           id: conv.propertyId,
-          title: conv.propertyTitle,
-          address: conv.propertyAddress,
-          coverImage: conv.propertyCoverImage,
-          areaName: conv.areaName
-        }
-      } : null,
+          title: prop?.title || conv.propertyTitle || 'Hostel Accommodation',
+          address: prop?.address || conv.propertyAddress || 'LAUTECH Area, Ogbomoso',
+          areaName: prop?.areaName || conv.areaName || 'LAUTECH Area',
+          coverImage: coverImg,
+          rentAmount: prop?.rentAmount || 0,
+          totalMandatoryCost: prop?.totalMandatoryCost || prop?.rentAmount || 0
+        },
+        student: {
+          id: conv.studentId,
+          name: conv.studentName || studentObj?.fullName || 'Student',
+          avatarUrl: studentObj?.avatarUrl || null,
+          isOnline: studentPresence.isOnline,
+          lastSeenAt: studentPresence.lastSeenAt
+        },
+        provider: {
+          id: conv.providerId,
+          name: conv.providerName || providerObj?.fullName || 'Agent',
+          avatarUrl: providerObj?.avatarUrl || coverImg,
+          isOnline: providerPresence.isOnline,
+          lastSeenAt: providerPresence.lastSeenAt
+        },
+        status: conv.status || 'ACTIVE',
+        createdAt: conv.createdAt
+      },
       messages: msgs
     }), { status: 200, headers: CORS_HEADERS });
   }
@@ -2713,6 +2817,8 @@ export default async (req: Request): Promise<Response> => {
       if (!user) {
         return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: CORS_HEADERS });
       }
+
+      updateMemoryPresence(user.id);
 
       const convId = pathname.replace('/api/messages/conversations/', '').replace('/messages', '');
       const conv = memoryConversations.find(c => c.id === convId);

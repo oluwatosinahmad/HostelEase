@@ -208,6 +208,7 @@ app.use('/api/verification', verificationRoutes);
 app.use('/api/public/providers', publicProviderRoutes);
 app.use('/api/discovery', discoveryRoutes);
 app.use('/api/messages', messageRoutes);
+app.use('/api/presence', messageRoutes);
 app.use('/api/bookings', bookingRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/student', studentDashboardRoutes);

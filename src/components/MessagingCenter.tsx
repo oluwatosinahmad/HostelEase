@@ -51,7 +51,9 @@ import { ConversationItem, ConversationDetail, MessageItem, Property } from '../
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { formatNaira, formatDistance } from '../utils/formatters';
+import { formatPresence } from '../utils/presence';
 import { ReportUserModal } from './ReportUserModal';
+import { ChatImageModal } from './ChatImageModal';
 
 interface MessagingCenterProps {
   initialPropertyId?: string | null;
@@ -137,6 +139,41 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
     conversationId?: string;
     targetName?: string;
   } | null>(null);
+
+  // Full-Screen Profile / Hostel Image Preview Modal
+  const [fullScreenImage, setFullScreenImage] = useState<{
+    imageUrl: string;
+    title: string;
+    subtitle?: string;
+    isOnline?: boolean;
+    presenceText?: string;
+  } | null>(null);
+
+  // Presence heartbeat loop while active on messaging screen
+  useEffect(() => {
+    if (!user) return;
+    
+    // Immediate heartbeat
+    api.presence.heartbeat().catch(() => {});
+
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        api.presence.heartbeat().catch(() => {});
+      }
+    }, 20000);
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        api.presence.heartbeat().catch(() => {});
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
+  }, [user]);
 
   // Real Audio Recording & Playback References
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -402,7 +439,7 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
     }
   };
 
-  // Send Text Message or Quick Inquiry
+  // Send Text Message or Quick Inquiry with Optimistic State and Failure Handling
   const handleSendMessage = async (contentToSend?: string) => {
     const text = (contentToSend || messageInput).trim();
     if (!text || !activeConversationId) return;
@@ -414,19 +451,44 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
       meta.replyToSender = replyingToMessage.senderRole;
     }
 
+    const tempId = `temp-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+    const optimisticMessage: MessageItem = {
+      id: tempId,
+      conversationId: activeConversationId,
+      senderId: user?.id || 'me',
+      senderRole: isStudent ? 'STUDENT' : 'PROVIDER',
+      messageType: 'TEXT',
+      content: text,
+      metadata: Object.keys(meta).length > 0 ? meta : undefined,
+      isRead: false,
+      createdAt: new Date().toISOString(),
+      isSending: true,
+      isFailed: false,
+    };
+
+    // Optimistically show message immediately
+    setActiveDetail(prev => {
+      if (!prev) return null;
+      return {
+        ...prev,
+        messages: [...prev.messages, optimisticMessage]
+      };
+    });
+
+    setMessageInput('');
+    setReplyingToMessage(null);
+    setShowEmojiPicker(false);
     setSending(true);
+
     try {
       const res = await api.messages.sendMessage(activeConversationId, text, 'TEXT', Object.keys(meta).length > 0 ? meta : undefined);
-      setMessageInput('');
-      setReplyingToMessage(null);
-      setShowEmojiPicker(false);
 
-      // Append message to active detail
+      // Replace optimistic message with server-confirmed message
       setActiveDetail(prev => {
         if (!prev) return null;
         return {
           ...prev,
-          messages: [...prev.messages, res.message]
+          messages: prev.messages.map(m => m.id === tempId ? { ...res.message, isSending: false, isFailed: false } : m)
         };
       });
 
@@ -440,9 +502,63 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
 
       inputRef.current?.focus();
     } catch (err: any) {
-      onShowToast(err.message || 'Failed to send message', 'error');
+      // Mark optimistic message as failed for retry
+      setActiveDetail(prev => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          messages: prev.messages.map(m => m.id === tempId ? { ...m, isSending: false, isFailed: true } : m)
+        };
+      });
+      onShowToast(err.message || 'Failed to send message. Tap retry.', 'error');
     } finally {
       setSending(false);
+    }
+  };
+
+  const handleRetrySendMessage = async (failedMsg: MessageItem) => {
+    if (!activeConversationId) return;
+
+    // Set sending state on the failed message
+    setActiveDetail(prev => {
+      if (!prev) return null;
+      return {
+        ...prev,
+        messages: prev.messages.map(m => m.id === failedMsg.id ? { ...m, isSending: true, isFailed: false } : m)
+      };
+    });
+
+    try {
+      const res = await api.messages.sendMessage(
+        activeConversationId,
+        failedMsg.content,
+        failedMsg.messageType || 'TEXT',
+        failedMsg.metadata
+      );
+
+      setActiveDetail(prev => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          messages: prev.messages.map(m => m.id === failedMsg.id ? { ...res.message, isSending: false, isFailed: false } : m)
+        };
+      });
+
+      setConversations(prev => prev.map(c => {
+        if (c.id === activeConversationId) {
+          return { ...c, lastMessageText: failedMsg.content, lastMessageAt: new Date().toISOString() };
+        }
+        return c;
+      }));
+    } catch (err: any) {
+      setActiveDetail(prev => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          messages: prev.messages.map(m => m.id === failedMsg.id ? { ...m, isSending: false, isFailed: true } : m)
+        };
+      });
+      onShowToast(err.message || 'Retry failed. Please check connection.', 'error');
     }
   };
 
@@ -874,6 +990,9 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
                 const isSelected = conv.id === activeConversationId;
                 const otherPartyName = isStudent ? conv.providerName : conv.studentName;
                 const hasUnread = (conv.unreadCount || 0) > 0;
+                const isOnline = !!conv.isOnline;
+                const convPresenceText = formatPresence(conv.isOnline, conv.lastSeenAt);
+                const convAvatar = conv.avatarUrl || conv.propertyCoverImage || 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=1200&q=85';
 
                 return (
                   <div
@@ -887,14 +1006,41 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
                         : 'hover:bg-slate-850 bg-slate-900/40 border-transparent'
                     } group/conv`}
                   >
-                    {/* Avatar with Snapchat/iMessage Active Dot */}
-                    <div className="relative shrink-0">
-                      <div className={`w-11 h-11 rounded-2xl flex items-center justify-center font-black text-xs text-white shadow-md ${
-                        isStudent ? 'bg-gradient-to-br from-emerald-500 to-teal-700' : 'bg-gradient-to-br from-indigo-500 to-purple-700'
-                      }`}>
-                        {otherPartyName ? otherPartyName.charAt(0).toUpperCase() : 'H'}
+                    {/* Avatar with Real Photo & Online Dot & Click to View */}
+                    <div 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setFullScreenImage({
+                          imageUrl: convAvatar,
+                          title: otherPartyName,
+                          subtitle: conv.propertyTitle,
+                          isOnline: isOnline,
+                          presenceText: convPresenceText
+                        });
+                      }}
+                      className="relative shrink-0 cursor-pointer group/itemavatar"
+                      title="Click to view full photo"
+                    >
+                      <div className="w-11 h-11 rounded-2xl overflow-hidden bg-slate-800 border border-slate-700/80 shadow-md flex items-center justify-center transition-transform group-hover/itemavatar:scale-105">
+                        {convAvatar ? (
+                          <img
+                            src={convAvatar}
+                            alt={otherPartyName}
+                            className="w-full h-full object-cover object-center"
+                            onError={(e) => {
+                              (e.currentTarget as HTMLElement).style.display = 'none';
+                            }}
+                          />
+                        ) : null}
+                        <div className={`absolute inset-0 flex items-center justify-center font-black text-xs text-white -z-10 ${
+                          isStudent ? 'bg-gradient-to-br from-emerald-500 to-teal-700' : 'bg-gradient-to-br from-indigo-500 to-purple-700'
+                        }`}>
+                          {otherPartyName ? otherPartyName.charAt(0).toUpperCase() : 'H'}
+                        </div>
                       </div>
-                      <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-emerald-500 border-2 border-slate-900 rounded-full shadow-sm" />
+                      <span className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 border-2 border-slate-900 rounded-full shadow-sm ${
+                        isOnline ? 'bg-emerald-400' : 'bg-slate-500'
+                      }`} />
                     </div>
 
                     <div className="flex-1 min-w-0 space-y-0.5">
@@ -927,10 +1073,18 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
                         </div>
                       </div>
 
-                      {/* Property Title */}
-                      <p className="text-[11px] font-bold text-emerald-400 truncate">
-                        🏢 {conv.propertyTitle} <span className="text-slate-500 font-normal">({conv.areaName})</span>
-                      </p>
+                      {/* Property Title & Presence status */}
+                      <div className="flex items-center justify-between gap-1">
+                        <p className="text-[11px] font-bold text-emerald-400 truncate">
+                          🏢 {conv.propertyTitle} <span className="text-slate-500 font-normal">({conv.areaName})</span>
+                        </p>
+                        {isOnline && (
+                          <span className="text-[9px] font-bold text-emerald-400 shrink-0 flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                            Online
+                          </span>
+                        )}
+                      </div>
 
                       {/* Last Message Snippet */}
                       <div className="flex items-center justify-between gap-2 pt-0.5">
@@ -980,45 +1134,97 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
               {/* TOP STICKY CHAT HEADER: Profile, Status & Property Anchor */}
               <div className="p-3 sm:p-4 bg-slate-900/90 backdrop-blur-md border-b border-slate-800/80 shadow-md space-y-2 shrink-0">
                 <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-3 min-w-0">
-                    {/* Mobile Back Button */}
-                    <button
-                      type="button"
-                      onClick={() => setActiveConversationId(null)}
-                      className="md:hidden p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center text-slate-300 hover:text-white bg-slate-800 active:bg-slate-700 rounded-xl cursor-pointer shrink-0"
-                      aria-label="Back to conversations"
-                    >
-                      <ChevronLeft className="w-5 h-5" />
-                    </button>
+                  {(() => {
+                    const otherUser = isStudent ? activeDetail.conversation.provider : activeDetail.conversation.student;
+                    const otherName = isStudent ? activeDetail.conversation.provider.name : (activeDetail.conversation.student.name || 'Student');
+                    const otherAvatar = isStudent 
+                      ? (activeDetail.conversation.provider.avatarUrl || activeDetail.conversation.property?.coverImage)
+                      : (activeDetail.conversation.student.avatarUrl);
+                    const isOnline = otherUser?.isOnline ?? false;
+                    const lastSeenAt = otherUser?.lastSeenAt ?? null;
+                    const presenceText = formatPresence(isOnline, lastSeenAt);
+                    const badgeTitle = isStudent ? 'Verified Landlord / Agent' : 'Verified Student';
 
-                    <div className="relative shrink-0">
-                      <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-700 text-white flex items-center justify-center font-black text-sm shadow-md">
-                        {isStudent ? (activeDetail.conversation.provider.name?.charAt(0) || 'L') : (activeDetail.conversation.student.name?.charAt(0) || 'S')}
-                      </div>
-                      <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 border-2 border-slate-900 rounded-full" />
-                    </div>
+                    return (
+                      <div className="flex items-center gap-3 min-w-0">
+                        {/* Mobile Back Button */}
+                        <button
+                          type="button"
+                          onClick={() => setActiveConversationId(null)}
+                          className="md:hidden p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center text-slate-300 hover:text-white bg-slate-800 active:bg-slate-700 rounded-xl cursor-pointer shrink-0"
+                          aria-label="Back to conversations"
+                        >
+                          <ChevronLeft className="w-5 h-5" />
+                        </button>
 
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-xs sm:text-sm font-black text-white truncate">
-                          {isStudent
-                            ? activeDetail.conversation.provider.name
-                            : activeDetail.conversation.student.name}
-                        </span>
-                        <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 uppercase flex items-center gap-0.5">
-                          <ShieldCheck className="w-3 h-3 text-emerald-400" />
-                          Verified Owner
-                        </span>
+                        {/* Clickable Profile / Hostel Image */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (otherAvatar) {
+                              setFullScreenImage({
+                                imageUrl: otherAvatar,
+                                title: otherName,
+                                subtitle: isStudent ? activeDetail.conversation.property?.title : 'Student Inquiry Profile',
+                                isOnline,
+                                presenceText
+                              });
+                            }
+                          }}
+                          className={`relative shrink-0 rounded-2xl group focus:outline-none focus:ring-2 focus:ring-emerald-500 ${
+                            otherAvatar ? 'cursor-pointer hover:scale-105 active:scale-95 transition-transform' : 'cursor-default'
+                          }`}
+                          title={otherAvatar ? `Click to view ${otherName}'s full-size photo` : otherName}
+                        >
+                          {otherAvatar ? (
+                            <img
+                              src={otherAvatar}
+                              alt={otherName}
+                              className="w-10 h-10 rounded-2xl object-cover shadow-md border border-slate-700/80 group-hover:border-emerald-500 transition-colors"
+                              onError={(e) => {
+                                (e.currentTarget as HTMLElement).style.display = 'none';
+                                (e.currentTarget.parentElement?.querySelector('.fallback-initial') as HTMLElement)?.style.setProperty('display', 'flex');
+                              }}
+                            />
+                          ) : null}
+                          <div
+                            className={`fallback-initial w-10 h-10 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-700 text-white items-center justify-center font-black text-sm shadow-md ${
+                              otherAvatar ? 'hidden' : 'flex'
+                            }`}
+                          >
+                            {otherName.charAt(0).toUpperCase()}
+                          </div>
+                          <span
+                            className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-slate-900 ${
+                              isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-slate-500'
+                            }`}
+                            title={isOnline ? 'Online now' : presenceText}
+                          />
+                        </button>
+
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-xs sm:text-sm font-black text-white truncate">
+                              {otherName}
+                            </span>
+                            <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 uppercase flex items-center gap-0.5">
+                              <ShieldCheck className="w-3 h-3 text-emerald-400" />
+                              {badgeTitle}
+                            </span>
+                          </div>
+                          <p className="text-[10px] text-slate-300 font-medium truncate flex items-center gap-1.5 mt-0.5">
+                            <span className={`w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-emerald-400 animate-pulse' : 'bg-slate-500'}`} />
+                            <span className={isOnline ? 'text-emerald-400 font-semibold' : 'text-slate-400'}>
+                              {presenceText}
+                            </span>
+                            {(activeDetail.conversation.provider as any)?.phone && isStudent && (
+                              <span className="text-slate-400 font-normal">• 📞 {(activeDetail.conversation.provider as any).phone}</span>
+                            )}
+                          </p>
+                        </div>
                       </div>
-                      <p className="text-[10px] text-emerald-400 font-bold truncate flex items-center gap-1.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                        <span>Online • Usually replies in &lt;15 mins</span>
-                        {(activeDetail.conversation.provider as any)?.phone && (
-                          <span className="text-slate-400 font-normal">• 📞 {(activeDetail.conversation.provider as any).phone}</span>
-                        )}
-                      </p>
-                    </div>
-                  </div>
+                    );
+                  })()}
 
                   {/* Actions Right */}
                   <div className="flex items-center gap-1.5 shrink-0">
@@ -1624,14 +1830,28 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
                               </div>
                             )}
 
-                            {/* Timestamp and Delivery Ticks (WhatsApp Cyan Checks when read) */}
-                            <div className={`flex items-center justify-end gap-1 text-[9px] pt-0.5 ${isMe ? 'text-emerald-200' : 'text-slate-400'}`}>
+                            {/* Timestamp and Delivery Ticks (WhatsApp Cyan Checks when read, Spinner when sending, Retry when failed) */}
+                            <div className={`flex items-center justify-end gap-1.5 text-[9px] pt-0.5 ${isMe ? 'text-emerald-200' : 'text-slate-400'}`}>
                               <span>
                                 {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                               </span>
-                              {isMe && (
+                              {msg.isSending ? (
+                                <span title="Sending...">
+                                  <Clock className="w-3 h-3 text-emerald-200/80 animate-spin" />
+                                </span>
+                              ) : msg.isFailed ? (
+                                <button
+                                  type="button"
+                                  onClick={() => handleRetrySendMessage(msg)}
+                                  className="flex items-center gap-0.5 text-rose-300 hover:text-white font-bold underline bg-rose-950/70 px-1 py-0.5 rounded cursor-pointer"
+                                  title="Failed to deliver. Click to retry."
+                                >
+                                  <AlertCircle className="w-3 h-3 text-rose-400" />
+                                  <span>Retry</span>
+                                </button>
+                              ) : isMe ? (
                                 <CheckCheck className={`w-3.5 h-3.5 ${msg.isRead ? 'text-cyan-400' : 'text-emerald-200'}`} />
-                              )}
+                              ) : null}
                             </div>
                           </div>
                         </div>
@@ -2331,6 +2551,17 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
           </div>
         </div>
       )}
+
+      {/* WhatsApp-Style Fullscreen Profile / Hostel Image Preview Modal */}
+      <ChatImageModal
+        isOpen={!!fullScreenImage}
+        imageUrl={fullScreenImage?.imageUrl || ''}
+        title={fullScreenImage?.title || 'Profile'}
+        subtitle={fullScreenImage?.subtitle}
+        isOnline={fullScreenImage?.isOnline}
+        presenceText={fullScreenImage?.presenceText}
+        onClose={() => setFullScreenImage(null)}
+      />
     </div>
   );
 };
