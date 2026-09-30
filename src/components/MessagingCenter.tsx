@@ -361,20 +361,115 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
       const convs = res.conversations || [];
       setConversations(convs);
 
-      if (preferredSelectId) {
-        setActiveConversationId(preferredSelectId);
-      } else if (!activeConversationId && convs.length > 0) {
-        setActiveConversationId(convs[0].id);
-      } else if (activeConversationId) {
-        const exists = convs.some(c => c.id === activeConversationId);
-        if (!exists && convs.length > 0) {
-          setActiveConversationId(convs[0].id);
+      const targetId = preferredSelectId || activeConversationId;
+      if (targetId) {
+        const item = convs.find(c => c.id === targetId);
+        selectAndLoadConversation(targetId, false, item || convs[0]);
+      } else if (convs.length > 0) {
+        // Auto-select first conversation on wider desktop screens
+        if (typeof window !== 'undefined' && window.innerWidth >= 768) {
+          selectAndLoadConversation(convs[0].id, false, convs[0]);
         }
       }
     } catch (err) {
       console.error('Failed to load conversations:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const selectAndLoadConversation = async (convId: string, forceReload = false, fallbackItem?: ConversationItem) => {
+    if (!convId) return;
+
+    const currentItem = fallbackItem || conversations.find(c => c.id === convId);
+
+    // If already active with detail and not forcing reload, return
+    if (convId === activeConversationId && activeDetail && !forceReload) {
+      return;
+    }
+
+    setActiveConversationId(convId);
+    setMessagesLoading(true);
+
+    // Optimistically initialize activeDetail from conversation summary so UI opens instantly without blank screen
+    if (currentItem && (!activeDetail || activeDetail.conversation.id !== convId)) {
+      const initialMsgs: MessageItem[] = currentItem.lastMessageText ? [{
+        id: `msg-${convId}-initial`,
+        conversationId: convId,
+        senderId: currentItem.studentId || 'student',
+        senderRole: 'STUDENT',
+        messageType: 'TEXT',
+        content: currentItem.lastMessageText,
+        isRead: true,
+        createdAt: currentItem.lastMessageAt || currentItem.createdAt || new Date().toISOString()
+      }] : [];
+
+      setActiveDetail({
+        conversation: {
+          id: convId,
+          property: {
+            id: currentItem.propertyId || 'prop-default',
+            title: currentItem.propertyTitle || 'Hostel Accommodation',
+            address: currentItem.propertyAddress || 'LAUTECH Area, Ogbomoso',
+            areaName: currentItem.areaName || 'Under G',
+            propertyType: 'SELF_CONTAIN',
+            distanceFromCampusKm: 0.5,
+            rentAmount: 0,
+            totalMandatoryCost: 0,
+            coverImage: currentItem.propertyCoverImage || currentItem.avatarUrl || 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=1200&q=85'
+          },
+          student: {
+            id: currentItem.studentId || 'student',
+            name: currentItem.studentName || 'Student',
+            avatarUrl: currentItem.avatarUrl || null,
+            isOnline: Boolean(currentItem.isOnline),
+            lastSeenAt: currentItem.lastSeenAt || null
+          },
+          provider: {
+            id: currentItem.providerId || 'provider',
+            name: currentItem.providerName || 'Verified Agent',
+            avatarUrl: currentItem.avatarUrl || currentItem.propertyCoverImage || null,
+            isOnline: Boolean(currentItem.isOnline),
+            lastSeenAt: currentItem.lastSeenAt || null
+          },
+          status: currentItem.status || 'ACTIVE',
+          createdAt: currentItem.createdAt || new Date().toISOString()
+        },
+        messages: initialMsgs,
+        typingUser: null
+      });
+    }
+
+    try {
+      const res = await api.messages.getConversation(convId);
+      if (res) {
+        // If fetched messages is empty but currentItem had a lastMessageText (e.g. "HI"), preserve that message
+        if ((!res.messages || res.messages.length === 0) && currentItem?.lastMessageText) {
+          res.messages = [{
+            id: `msg-${convId}-initial`,
+            conversationId: convId,
+            senderId: currentItem.studentId || 'student',
+            senderRole: 'STUDENT',
+            messageType: 'TEXT',
+            content: currentItem.lastMessageText,
+            isRead: true,
+            createdAt: currentItem.lastMessageAt || currentItem.createdAt || new Date().toISOString()
+          }];
+        }
+        setActiveDetail(res);
+        setTimeout(() => scrollToBottom('auto'), 50);
+      }
+
+      // Mark as read in background
+      api.messages.markAsRead(convId).then(() => {
+        setConversations(prev => prev.map(c => c.id === convId ? { ...c, unreadCount: 0 } : c));
+        window.dispatchEvent(new CustomEvent('hostel_ease_notification_updated'));
+        window.dispatchEvent(new CustomEvent('hostel_ease_conversations_updated'));
+      }).catch(() => {});
+    } catch (err) {
+      console.error('Failed to load conversation messages:', err);
+    } finally {
+      setMessagesLoading(false);
     }
   };
 
@@ -470,30 +565,17 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
     return () => clearInterval(syncInterval);
   }, [activeConversationId, user?.id]);
 
-  // Load message detail whenever activeConversationId changes
+  // Load message detail whenever activeConversationId changes from an external prop or route
   useEffect(() => {
     if (!activeConversationId) {
       setActiveDetail(null);
       return;
     }
-
-    setMessagesLoading(true);
-    api.messages.getConversation(activeConversationId)
-      .then(res => {
-        setActiveDetail(res);
-        setMessagesLoading(false);
-        // Scroll to bottom immediately without jumping page
-        setTimeout(() => scrollToBottom('auto'), 50);
-        // Mark as read in background and update notification count
-        api.messages.markAsRead(activeConversationId).then(() => {
-          window.dispatchEvent(new CustomEvent('hostel_ease_notification_updated'));
-          window.dispatchEvent(new CustomEvent('hostel_ease_conversations_updated'));
-        }).catch(() => {});
-      })
-      .catch(err => {
-        console.error('Failed to load messages for conversation:', err);
-        setMessagesLoading(false);
-      });
+    // Only load if activeDetail is missing or has a different ID
+    if (!activeDetail || activeDetail.conversation.id !== activeConversationId) {
+      const item = conversations.find(c => c.id === activeConversationId);
+      selectAndLoadConversation(activeConversationId, false, item);
+    }
   }, [activeConversationId]);
 
   // Auto-scroll on new messages
@@ -504,12 +586,8 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
   }, [activeDetail?.messages?.length]);
 
   const handleSelectConversation = (convId: string) => {
-    if (convId === activeConversationId) return;
-    setActiveConversationId(convId);
-    api.messages.markAsRead(convId).then(() => {
-      window.dispatchEvent(new CustomEvent('hostel_ease_notification_updated'));
-      window.dispatchEvent(new CustomEvent('hostel_ease_conversations_updated'));
-    }).catch(() => {});
+    const item = conversations.find(c => c.id === convId);
+    selectAndLoadConversation(convId, true, item);
   };
 
   const handleStartNewChatWithHostel = async (propertyId: string) => {
@@ -917,7 +995,7 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
     setBookingTour(true);
     try {
       const prop = activeDetail.conversation.property;
-      const res = await api.inspections.request(prop.id, {
+      const res = await api.inspections.request(prop?.id || 'prop-default', {
         inspectionType: tourType,
         preferredDate: tourDate,
         preferredTime: tourTime,
@@ -926,7 +1004,10 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
       });
 
       const pin = `PASS-${Math.floor(1000 + Math.random() * 9000)}-LAUTECH`;
-      const messageText = `📅 Inspection Tour Appointment Confirmed!\n• Visit Type: ${tourType === 'PHYSICAL' ? '🚶 Physical Walkthrough' : '📹 Live Video Tour'}\n• Scheduled: ${tourDate} at ${tourTime}\n• Gate Passcode: ${pin}\n• Location: ${prop.title} (${prop.areaName})\n• Agent: ${activeDetail.conversation.provider.name}`;
+      const propTitle = prop?.title || 'Hostel Accommodation';
+      const propArea = prop?.areaName || 'LAUTECH Area';
+      const agentName = activeDetail.conversation.provider?.name || 'Verified Agent';
+      const messageText = `📅 Inspection Tour Appointment Confirmed!\n• Visit Type: ${tourType === 'PHYSICAL' ? '🚶 Physical Walkthrough' : '📹 Live Video Tour'}\n• Scheduled: ${tourDate} at ${tourTime}\n• Gate Passcode: ${pin}\n• Location: ${propTitle} (${propArea})\n• Agent: ${agentName}`;
 
       // Send verification pass directly into active conversation
       const chatRes = await api.messages.sendMessage(activeConversationId, messageText, 'SNAP_PASSCODE', {
@@ -1198,7 +1279,7 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
         {/* RIGHT COLUMN: ADVANCED CHAT STREAM (SNAPCHAT / iMESSAGE GRADIENT CANVAS)   */}
         {/* ========================================================================= */}
         <div className={`md:col-span-8 flex flex-col bg-slate-950/95 relative overflow-hidden ${!activeConversationId ? 'hidden md:flex' : 'flex'}`}>
-          {!activeConversationId || !activeDetail ? (
+          {!activeConversationId ? (
             <div className="flex-1 flex flex-col items-center justify-center p-8 text-center space-y-4">
               <div className="w-16 h-16 bg-slate-900 text-emerald-400 rounded-3xl flex items-center justify-center shadow-inner border border-slate-800">
                 <MessageSquare className="w-8 h-8" />
@@ -1218,6 +1299,32 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
                 </button>
               )}
             </div>
+          ) : (!activeDetail && messagesLoading) ? (
+            <div className="flex-1 flex flex-col items-center justify-center p-8 text-center space-y-4">
+              <div className="w-8 h-8 border-3 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto" />
+              <div className="space-y-1">
+                <h4 className="font-bold text-sm text-white">Opening Conversation...</h4>
+                <p className="text-xs text-slate-400">Loading verified inquiry history and messages</p>
+              </div>
+            </div>
+          ) : !activeDetail ? (
+            <div className="flex-1 flex flex-col items-center justify-center p-8 text-center space-y-4">
+              <div className="w-16 h-16 bg-slate-900 text-amber-400 rounded-3xl flex items-center justify-center shadow-inner border border-slate-800">
+                <MessageSquare className="w-8 h-8" />
+              </div>
+              <div className="space-y-1">
+                <h3 className="font-black text-base text-white">Conversation Not Available</h3>
+                <p className="text-xs text-slate-400 max-w-sm">
+                  Could not load messages for this conversation. Please select another conversation or retry.
+                </p>
+              </div>
+              <button
+                onClick={() => activeConversationId && selectAndLoadConversation(activeConversationId, true)}
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs rounded-2xl shadow-lg cursor-pointer transition-all"
+              >
+                Retry Loading
+              </button>
+            </div>
           ) : (
             <>
               {/* TOP STICKY CHAT HEADER: Profile, Status & Property Anchor */}
@@ -1225,10 +1332,12 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
                 <div className="flex items-center justify-between gap-3">
                   {(() => {
                     const otherUser = isStudent ? activeDetail.conversation.provider : activeDetail.conversation.student;
-                    const otherName = isStudent ? activeDetail.conversation.provider.name : (activeDetail.conversation.student.name || 'Student');
+                    const otherName = isStudent 
+                      ? (activeDetail.conversation.provider?.name || 'Verified Agent') 
+                      : (activeDetail.conversation.student?.name || 'Student');
                     const rawAvatar = isStudent 
-                      ? (activeDetail.conversation.provider.avatarUrl || activeDetail.conversation.property?.coverImage)
-                      : (activeDetail.conversation.student.avatarUrl);
+                      ? (activeDetail.conversation.provider?.avatarUrl || activeDetail.conversation.property?.coverImage)
+                      : (activeDetail.conversation.student?.avatarUrl);
                     const otherAvatar = getMediaUrl(rawAvatar);
                     const isOnline = otherUser?.isOnline ?? false;
                     const lastSeenAt = otherUser?.lastSeenAt ?? null;
@@ -1241,7 +1350,10 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
                         {/* Mobile Back Button */}
                         <button
                           type="button"
-                          onClick={() => setActiveConversationId(null)}
+                          onClick={() => {
+                            setActiveConversationId(null);
+                            setActiveDetail(null);
+                          }}
                           className="md:hidden p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center text-slate-300 hover:text-white bg-slate-800 active:bg-slate-700 rounded-xl cursor-pointer shrink-0"
                           aria-label="Back to conversations"
                         >
@@ -1256,7 +1368,7 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
                               setFullScreenImage({
                                 imageUrl: otherAvatar,
                                 title: otherName,
-                                subtitle: isStudent ? activeDetail.conversation.property?.title : 'Student Inquiry Profile',
+                                subtitle: isStudent ? (activeDetail.conversation.property?.title || 'Hostel Accommodation') : 'Student Inquiry Profile',
                                 isOnline,
                                 presenceText
                               });
@@ -1472,60 +1584,62 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
                 )}
 
                 {/* Property Compact Bar */}
-                <div className="p-2 bg-slate-800/80 rounded-2xl border border-slate-700/60 flex items-center justify-between gap-3 text-xs shadow-inner">
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <img
-                      src={getMediaUrl(activeDetail.conversation.property.coverImage) || 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?w=600'}
-                      alt={activeDetail.conversation.property.title}
-                      className="w-9 h-9 rounded-xl object-cover shrink-0"
-                    />
-                    <div className="min-w-0">
-                      <p className="font-bold text-white truncate">
-                        🏢 {activeDetail.conversation.property.title}
-                      </p>
-                      <p className="text-[10px] text-slate-400 truncate">
-                        📍 {activeDetail.conversation.property.areaName} ({formatDistance(activeDetail.conversation.property.distanceFromCampusKm)}) •{' '}
-                        <strong className="text-emerald-400 font-black">{formatNaira(activeDetail.conversation.property.rentAmount)}/yr</strong>
-                      </p>
+                {activeDetail.conversation?.property && (
+                  <div className="p-2 bg-slate-800/80 rounded-2xl border border-slate-700/60 flex items-center justify-between gap-3 text-xs shadow-inner">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <img
+                        src={getMediaUrl(activeDetail.conversation.property.coverImage) || 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?w=600'}
+                        alt={activeDetail.conversation.property.title || 'Hostel Accommodation'}
+                        className="w-9 h-9 rounded-xl object-cover shrink-0"
+                      />
+                      <div className="min-w-0">
+                        <p className="font-bold text-white truncate">
+                          🏢 {activeDetail.conversation.property.title || 'Hostel Accommodation'}
+                        </p>
+                        <p className="text-[10px] text-slate-400 truncate">
+                          📍 {activeDetail.conversation.property.areaName || 'LAUTECH Area'} ({formatDistance(activeDetail.conversation.property.distanceFromCampusKm || 0.5)}) •{' '}
+                          <strong className="text-emerald-400 font-black">{formatNaira(activeDetail.conversation.property.rentAmount || 0)}/yr</strong>
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        onClick={() => setShowInspectionDetailsModal(true)}
+                        className="px-2.5 py-1 text-[11px] font-bold text-emerald-300 hover:text-white bg-emerald-950/80 hover:bg-emerald-900/80 border border-emerald-500/40 rounded-xl flex items-center gap-1 whitespace-nowrap transition-colors cursor-pointer"
+                        title="View Verified Physical Inspection Details"
+                      >
+                        <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                        <span>Inspect Details</span>
+                      </button>
+
+                      {onViewOnMap && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const addr = activeDetail.conversation?.property?.address || activeDetail.conversation?.property?.areaName || '';
+                            onViewOnMap(addr);
+                          }}
+                          className="px-2.5 py-1 text-[11px] font-bold text-sky-300 hover:text-white bg-sky-950/80 hover:bg-sky-900/80 border border-sky-500/40 rounded-xl flex items-center gap-1 whitespace-nowrap transition-colors cursor-pointer"
+                          title="View Location on Google Maps"
+                        >
+                          <MapPin className="w-3.5 h-3.5 text-sky-400" />
+                          <span>Google Map</span>
+                        </button>
+                      )}
+
+                      {onSelectProperty && activeDetail.conversation.property.id && (
+                        <button
+                          onClick={() => onSelectProperty(activeDetail.conversation.property.id)}
+                          className="px-2 py-1 text-[11px] font-bold text-slate-300 hover:text-white bg-slate-700 hover:bg-slate-600 rounded-xl flex items-center gap-1 whitespace-nowrap transition-colors cursor-pointer"
+                          title="View Full Listing"
+                        >
+                          <Eye className="w-3.5 h-3.5 text-slate-300" />
+                        </button>
+                      )}
                     </div>
                   </div>
-
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <button
-                      onClick={() => setShowInspectionDetailsModal(true)}
-                      className="px-2.5 py-1 text-[11px] font-bold text-emerald-300 hover:text-white bg-emerald-950/80 hover:bg-emerald-900/80 border border-emerald-500/40 rounded-xl flex items-center gap-1 whitespace-nowrap transition-colors cursor-pointer"
-                      title="View Verified Physical Inspection Details"
-                    >
-                      <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                      <span>Inspect Details</span>
-                    </button>
-
-                    {onViewOnMap && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const addr = activeDetail.conversation.property.address || activeDetail.conversation.property.areaName || '';
-                          onViewOnMap(addr);
-                        }}
-                        className="px-2.5 py-1 text-[11px] font-bold text-sky-300 hover:text-white bg-sky-950/80 hover:bg-sky-900/80 border border-sky-500/40 rounded-xl flex items-center gap-1 whitespace-nowrap transition-colors cursor-pointer"
-                        title="View Location on Google Maps"
-                      >
-                        <MapPin className="w-3.5 h-3.5 text-sky-400" />
-                        <span>Google Map</span>
-                      </button>
-                    )}
-
-                    {onSelectProperty && (
-                      <button
-                        onClick={() => onSelectProperty(activeDetail.conversation.property.id)}
-                        className="px-2 py-1 text-[11px] font-bold text-slate-300 hover:text-white bg-slate-700 hover:bg-slate-600 rounded-xl flex items-center gap-1 whitespace-nowrap transition-colors cursor-pointer"
-                        title="View Full Listing"
-                      >
-                        <Eye className="w-3.5 h-3.5 text-slate-300" />
-                      </button>
-                    )}
-                  </div>
-                </div>
+                )}
               </div>
 
               {/* MESSAGES FEED CONTAINER (Scroll strictly contained here!) */}
@@ -1533,7 +1647,7 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
                 ref={messagesContainerRef}
                 className="flex-1 p-3 sm:p-5 overflow-y-auto space-y-3.5 bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950"
               >
-                {messagesLoading ? (
+                {messagesLoading && (!activeDetail.messages || activeDetail.messages.length === 0) ? (
                   <div className="py-20 text-center space-y-2">
                     <div className="w-6 h-6 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto" />
                     <p className="text-xs text-slate-400 font-bold">Loading message history...</p>
@@ -1541,7 +1655,7 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
                 ) : (() => {
                   const filteredMessages = inChatSearchQuery.trim()
                     ? activeDetail.messages.filter(m => (m.content || '').toLowerCase().includes(inChatSearchQuery.toLowerCase().trim()))
-                    : activeDetail.messages;
+                    : (activeDetail.messages || []);
 
                   if (inChatSearchQuery.trim() && filteredMessages.length === 0) {
                     return (
@@ -1561,10 +1675,10 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
                     );
                   }
 
-                  if (activeDetail.messages.length === 0) {
+                  if (filteredMessages.length === 0) {
                     return (
                       <div className="py-20 text-center space-y-2">
-                        <p className="text-xs font-bold text-slate-300">Start the conversation with {activeDetail.conversation.provider.name}</p>
+                        <p className="text-xs font-bold text-slate-300">Start the conversation with {activeDetail.conversation?.provider?.name || 'Agent'}</p>
                         <p className="text-[11px] text-slate-500">Pick a quick inquiry chip below or send a photo snap.</p>
                       </div>
                     );
@@ -1592,8 +1706,8 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
                     const senderLabel = isMe
                       ? `You (${isStudent ? 'Student' : 'Agent'})`
                       : msg.senderRole === 'PROVIDER'
-                      ? `🏡 Agent: ${activeDetail.conversation.provider.name}`
-                      : `🎓 Student: ${activeDetail.conversation.student.name}`;
+                      ? `🏡 Agent: ${activeDetail.conversation?.provider?.name || 'Agent'}`
+                      : `🎓 Student: ${activeDetail.conversation?.student?.name || 'Student'}`;
 
                     const isSwipingThis = swipingMessageId === msg.id;
 
@@ -1982,7 +2096,7 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
                 {(isTyping || activeDetail.typingUser) && (
                   <div className="flex items-center gap-2 text-slate-400 text-xs animate-in fade-in">
                     <div className="w-7 h-7 rounded-xl bg-emerald-600 text-white font-black text-xs flex items-center justify-center shadow-md">
-                      {activeDetail.typingUser?.userName?.charAt(0) || (isStudent ? activeDetail.conversation.provider.name.charAt(0) : (activeDetail.conversation.student.name?.charAt(0) || 'S'))}
+                      {activeDetail.typingUser?.userName?.charAt(0) || (isStudent ? (activeDetail.conversation?.provider?.name?.charAt(0) || 'A') : (activeDetail.conversation?.student?.name?.charAt(0) || 'S'))}
                     </div>
                     <div className="p-3 bg-slate-800 rounded-2xl rounded-tl-xs border border-slate-700 flex items-center gap-2">
                       <span className="w-2 h-2 rounded-full bg-emerald-400 animate-bounce" />
@@ -1991,7 +2105,7 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
                       <span className="text-[11px] text-emerald-400 font-bold ml-1">
                         {activeDetail.typingUser
                           ? `${activeDetail.typingUser.userName || (activeDetail.typingUser.role === 'PROVIDER' ? 'Agent' : 'Student')} is typing...`
-                          : (typingCustomText || (isStudent ? `${activeDetail.conversation.provider.name} is typing...` : 'Student is typing...'))}
+                          : (typingCustomText || (isStudent ? `${activeDetail.conversation?.provider?.name || 'Agent'} is typing...` : `${activeDetail.conversation?.student?.name || 'Student'} is typing...`))}
                       </span>
                     </div>
                   </div>
@@ -2169,8 +2283,8 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
                       onBlur={() => stopTypingNow()}
                       placeholder={
                         isStudent
-                          ? `Message ${activeDetail.conversation.provider.name}...`
-                          : `Reply to ${activeDetail.conversation.student.name}...`
+                          ? `Message ${activeDetail.conversation?.provider?.name || 'Agent'}...`
+                          : `Reply to ${activeDetail.conversation?.student?.name || 'Student'}...`
                       }
                       className="flex-1 min-w-0 px-3.5 sm:px-4 py-3 bg-slate-800 text-white placeholder:text-slate-500 rounded-2xl border border-slate-700 text-[16px] sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all shadow-inner"
                     />
@@ -2282,7 +2396,7 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
                     Physical Inspection & Verification Audit
                   </h3>
                   <p className="text-xs text-slate-400">
-                    Hostel Ease On-Site Verification for <strong className="text-emerald-400">{activeDetail.conversation.property.title}</strong>
+                    Hostel Ease On-Site Verification for <strong className="text-emerald-400">{activeDetail.conversation?.property?.title || 'Accommodation'}</strong>
                   </p>
                 </div>
               </div>
@@ -2298,17 +2412,17 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
             <div className="p-3.5 bg-slate-800/80 rounded-2xl border border-slate-700/80 flex items-center justify-between gap-3 text-xs">
               <div className="flex items-center gap-3">
                 <img
-                  src={activeDetail.conversation.property.coverImage || 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?w=600'}
-                  alt={activeDetail.conversation.property.title}
+                  src={activeDetail.conversation?.property?.coverImage || 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?w=600'}
+                  alt={activeDetail.conversation?.property?.title || 'Hostel'}
                   className="w-12 h-12 rounded-xl object-cover"
                 />
                 <div>
-                  <h4 className="font-black text-white text-sm">{activeDetail.conversation.property.title}</h4>
+                  <h4 className="font-black text-white text-sm">{activeDetail.conversation?.property?.title || 'Hostel Accommodation'}</h4>
                   <p className="text-slate-400 text-[11px]">
-                    📍 {activeDetail.conversation.property.areaName} ({formatDistance(activeDetail.conversation.property.distanceFromCampusKm)} to campus)
+                    📍 {activeDetail.conversation?.property?.areaName || 'LAUTECH Area'} ({formatDistance(activeDetail.conversation?.property?.distanceFromCampusKm || 0.5)} to campus)
                   </p>
                   <p className="text-emerald-400 font-black text-xs pt-0.5">
-                    {formatNaira(activeDetail.conversation.property.rentAmount)}/yr • Verified Agent: {activeDetail.conversation.provider.name}
+                    {formatNaira(activeDetail.conversation?.property?.rentAmount || 0)}/yr • Verified Agent: {activeDetail.conversation?.provider?.name || 'Verified Agent'}
                   </p>
                 </div>
               </div>
@@ -2391,7 +2505,7 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
                 Meeting & Navigation Directions
               </span>
               <p className="text-slate-300 font-medium">
-                📍 Location: {activeDetail.conversation.property.areaName}, near LAUTECH Campus, Ogbomoso.
+                📍 Location: {activeDetail.conversation?.property?.areaName || 'Under G'}, near LAUTECH Campus, Ogbomoso.
               </p>
               <p className="text-slate-400 text-[11px]">
                 When visiting, meet the agent or resident caretaker at the main gate. Present your digital Inspection Passcode.
@@ -2438,7 +2552,7 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
                   Book Hostel Inspection Tour
                 </h3>
                 <p className="text-xs text-slate-400">
-                  Pick your preferred date & time to tour {activeDetail.conversation.property.title}.
+                  Pick your preferred date & time to tour {activeDetail.conversation?.property?.title || 'Accommodation'}.
                 </p>
               </div>
               <button
@@ -2585,9 +2699,9 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
         <ReportUserModal
           isOpen={reportModalOpen}
           onClose={() => setReportModalOpen(false)}
-          reportedUserId={isStudent ? activeDetail.conversation.provider.id : activeDetail.conversation.student.id}
-          reportedUserName={isStudent ? activeDetail.conversation.provider.name : activeDetail.conversation.student.name}
-          conversationId={activeDetail.conversation.id}
+          reportedUserId={isStudent ? (activeDetail.conversation?.provider?.id || '') : (activeDetail.conversation?.student?.id || '')}
+          reportedUserName={isStudent ? (activeDetail.conversation?.provider?.name || 'Verified Agent') : (activeDetail.conversation?.student?.name || 'Student')}
+          conversationId={activeDetail.conversation?.id || ''}
           onShowToast={onShowToast}
         />
       )}

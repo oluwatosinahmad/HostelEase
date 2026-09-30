@@ -2806,7 +2806,48 @@ export const api = {
         } catch {}
         throw new Error(errText);
       }
-      return await res.json();
+      const data = await res.json();
+      const rawConv = data.conversation || data;
+      const rawProp = rawConv.property || {};
+      const rawStudent = rawConv.student || {};
+      const rawProvider = rawConv.provider || {};
+
+      const normalized: ConversationDetail = {
+        conversation: {
+          id: rawConv.id || id,
+          property: {
+            id: rawProp.id || rawConv.propertyId || 'prop-default',
+            title: rawProp.title || rawConv.propertyTitle || 'Hostel Accommodation',
+            address: rawProp.address || rawConv.propertyAddress || 'LAUTECH Area, Ogbomoso',
+            areaName: rawProp.areaName || rawConv.areaName || 'Under G',
+            propertyType: rawProp.propertyType || rawConv.propertyType || 'SELF_CONTAIN',
+            distanceFromCampusKm: rawProp.distanceFromCampusKm ?? rawConv.distanceFromCampusKm ?? 0.5,
+            rentAmount: rawProp.rentAmount || rawConv.rentAmount || 0,
+            totalMandatoryCost: rawProp.totalMandatoryCost || rawConv.totalMandatoryCost || rawProp.rentAmount || 0,
+            coverImage: rawProp.coverImage || rawConv.propertyCoverImage || 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=1200&q=85'
+          },
+          student: {
+            id: rawStudent.id || rawConv.studentId || 'student-default',
+            name: rawStudent.name || rawConv.studentName || 'Student',
+            avatarUrl: rawStudent.avatarUrl || rawConv.studentAvatar || null,
+            isOnline: Boolean(rawStudent.isOnline ?? rawConv.studentIsOnline),
+            lastSeenAt: rawStudent.lastSeenAt || rawConv.studentLastSeenAt || null
+          },
+          provider: {
+            id: rawProvider.id || rawConv.providerId || 'provider-default',
+            name: rawProvider.name || rawConv.providerName || 'Verified Agent',
+            avatarUrl: rawProvider.avatarUrl || rawConv.providerAvatar || rawProp.coverImage || 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=1200&q=85',
+            isOnline: Boolean(rawProvider.isOnline ?? rawConv.providerIsOnline),
+            lastSeenAt: rawProvider.lastSeenAt || rawConv.providerLastSeenAt || null
+          },
+          status: rawConv.status || 'ACTIVE',
+          createdAt: rawConv.createdAt || rawConv.created_at || new Date().toISOString()
+        },
+        messages: Array.isArray(data.messages) ? data.messages : [],
+        typingUser: data.typingUser || null
+      };
+
+      return normalized;
     },
 
     async sendMessage(conversationId: string, content: string, messageType?: string, metadata?: any): Promise<{ message: MessageItem }> {

@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { createPortal } from 'react-dom';
 import { 
   Building2, 
   PlusCircle, 
@@ -29,7 +28,6 @@ import {
   Trash2,
   Star,
   FileText,
-  Bell,
   AlertTriangle,
   History,
   Lock,
@@ -50,7 +48,7 @@ import {
   MessageSquare,
   Search
 } from 'lucide-react';
-import { Area, Property, NotificationItem, VerificationDocument, PriceHistoryItem, ConversationItem, ConversationDetail, MessageItem } from '../types/hostelEase';
+import { Area, Property, VerificationDocument, PriceHistoryItem, ConversationItem, ConversationDetail, MessageItem } from '../types/hostelEase';
 import { DEFAULT_PROPERTIES } from '../services/offlineFallback';
 import { api, getMediaUrl } from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -186,8 +184,6 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
   const [performanceData, setPerformanceData] = useState<any>(DEFAULT_PROVIDER_PERFORMANCE);
   const [teamMembers, setTeamMembers] = useState<any[]>([]);
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
-  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
-  const [unreadNotifsCount, setUnreadNotifsCount] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(true);
 
   // Live Student Inquiries & Direct Messages State
@@ -229,23 +225,6 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
       document.removeEventListener('visibilitychange', handleVisibility);
     };
   }, [user]);
-
-  const [notifDropdownOpen, setNotifDropdownOpen] = useState<boolean>(false);
-  const notifRef = useRef<HTMLDivElement>(null);
-  const mobileNotifModalRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (
-        notifRef.current && !notifRef.current.contains(e.target as Node) &&
-        (!mobileNotifModalRef.current || !mobileNotifModalRef.current.contains(e.target as Node))
-      ) {
-        setNotifDropdownOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
 
   // Modals & Sub-states
   const [onboardingOpen, setOnboardingOpen] = useState(false);
@@ -456,15 +435,65 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
       
       const toSelect = targetId || activeConversationId || (list.length > 0 ? list[0].id : null);
       if (toSelect) {
-        setActiveConversationId(toSelect);
-        loadConversationDetail(toSelect);
+        const item = list.find(c => c.id === toSelect);
+        selectAndLoadConversation(toSelect, item);
       }
     } catch (err) {
       console.error('Error fetching conversations:', err);
     }
   };
 
-  const loadConversationDetail = async (id: string) => {
+  const selectAndLoadConversation = async (id: string, itemHint?: ConversationItem) => {
+    setActiveConversationId(id);
+
+    // Optimistically seed activeDetail from itemHint immediately (0ms blank screen)
+    if (itemHint) {
+      setActiveDetail(prev => {
+        if (prev && prev.conversation?.id === id && prev.messages.length > 0) return prev;
+        return {
+          conversation: {
+            id: itemHint.id,
+            property: {
+              id: itemHint.propertyId,
+              title: itemHint.propertyTitle || 'Accommodation',
+              address: itemHint.propertyAddress || '',
+              areaName: itemHint.areaName || 'Under G',
+              propertyType: 'SELF_CONTAIN' as const,
+              distanceFromCampusKm: 0.5,
+              rentAmount: (itemHint as any).rentAmount || 0,
+              totalMandatoryCost: (itemHint as any).totalMandatoryCost || 0,
+              coverImage: itemHint.propertyCoverImage || itemHint.avatarUrl || 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?w=600'
+            },
+            student: {
+              id: itemHint.studentId,
+              name: itemHint.studentName || 'Student',
+              avatarUrl: itemHint.avatarUrl,
+              isOnline: itemHint.isOnline ?? false,
+              lastSeenAt: itemHint.lastSeenAt ?? null
+            },
+            provider: {
+              id: user?.id || 'agent',
+              name: user?.fullName || 'Agent',
+              avatarUrl: user?.avatarUrl,
+              isOnline: true
+            },
+            status: itemHint.status || 'ACTIVE',
+            createdAt: itemHint.createdAt || itemHint.lastMessageAt || new Date().toISOString()
+          },
+          messages: itemHint.lastMessageText ? [{
+            id: `seed-${itemHint.id}`,
+            conversationId: itemHint.id,
+            senderId: itemHint.studentId,
+            senderRole: 'STUDENT',
+            content: itemHint.lastMessageText,
+            messageType: 'TEXT',
+            isRead: true,
+            createdAt: itemHint.lastMessageAt || new Date().toISOString()
+          }] : []
+        };
+      });
+    }
+
     setMessagesLoading(true);
     try {
       const res = await api.messages.getConversation(id);
@@ -478,6 +507,11 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
     } finally {
       setMessagesLoading(false);
     }
+  };
+
+  const loadConversationDetail = async (id: string) => {
+    const item = conversations.find(c => c.id === id);
+    return selectAndLoadConversation(id, item);
   };
 
   const handleSendReply = async (e: React.FormEvent) => {
@@ -551,12 +585,6 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
       if (resolvedDashboard?.onboarding && !resolvedDashboard.onboarding.completed && fetchedProps.length === 0) {
         setOnboardingOpen(true);
       }
-
-      // Fast non-blocking load of notifications badge only
-      api.notifications.getAll().then(res => {
-        setNotifications(res?.notifications || []);
-        setUnreadNotifsCount(res?.unreadCount || 0);
-      }).catch(() => {});
     }).catch(err => {
       console.error('Error loading primary provider data', err);
       setDashboardData(DEFAULT_PROVIDER_DASHBOARD);
@@ -647,11 +675,6 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
   // Real-time listener & cross-device polling for incoming student messages, bookings, inspections & notifications
   useEffect(() => {
     const handleNotificationUpdate = () => {
-      api.notifications.getAll().then(res => {
-        setNotifications(res?.notifications || []);
-        setUnreadNotifsCount(res?.unreadCount || 0);
-      }).catch(() => {});
-
       api.messages.getConversations().then(res => {
         setConversations(res?.conversations || []);
       }).catch(() => {});
@@ -1094,170 +1117,8 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
             </div>
           </div>
 
-          {/* Quick Actions Header Bar (Desktop) */}
+          {/* Quick Actions Header Bar (Desktop & Mobile) */}
           <div className="flex items-center gap-2 max-w-full overflow-x-auto scrollbar-none py-1">
-            
-            {/* Real-time Notification Bell Dropdown */}
-            <div className="relative shrink-0" ref={notifRef}>
-              <button
-                onClick={() => setNotifDropdownOpen(!notifDropdownOpen)}
-                className="relative p-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl transition-colors cursor-pointer flex items-center justify-center"
-                title="Agent In-App Notifications"
-              >
-                <Bell className="w-4 h-4 text-gray-700" />
-                {unreadNotifsCount > 0 && (
-                  <span className="absolute -top-1 -right-1 w-5 h-5 bg-rose-600 text-white text-[10px] font-black rounded-full flex items-center justify-center animate-pulse">
-                    {unreadNotifsCount}
-                  </span>
-                )}
-              </button>
-
-              {notifDropdownOpen && (
-                <>
-                  {/* Centered Mobile Notification Dialog (< sm) rendered via Portal */}
-                  {createPortal(
-                    <div 
-                      ref={mobileNotifModalRef}
-                      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in-50 duration-200 sm:hidden"
-                      onClick={() => setNotifDropdownOpen(false)}
-                    >
-                      <div 
-                        className="w-full max-w-sm bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-gray-200 dark:border-slate-800 overflow-hidden flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-200"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <div className="px-4 py-3 border-b border-gray-100 dark:border-slate-800 flex items-center justify-between bg-gray-50 dark:bg-slate-950 shrink-0">
-                          <div className="flex items-center gap-2">
-                            <Bell className="w-4 h-4 text-emerald-800 dark:text-emerald-400" />
-                            <h4 className="text-xs font-bold text-gray-900 dark:text-white">Student & Booking Alerts</h4>
-                            {unreadNotifsCount > 0 && (
-                              <span className="text-[10px] bg-rose-500 text-white px-2 py-0.5 rounded-full font-black">
-                                {unreadNotifsCount} new
-                              </span>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-2">
-                            {unreadNotifsCount > 0 && (
-                              <button
-                                onClick={async () => {
-                                  await api.notifications.markAllRead();
-                                  setUnreadNotifsCount(0);
-                                  setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
-                                  onShowToast('All notifications marked as read', 'info');
-                                }}
-                                className="text-[11px] font-bold text-emerald-800 dark:text-emerald-400 hover:underline cursor-pointer"
-                              >
-                                Mark read
-                              </button>
-                            )}
-                            <button
-                              onClick={() => setNotifDropdownOpen(false)}
-                              className="p-1 rounded-full hover:bg-gray-200 dark:hover:bg-slate-800 text-gray-500 cursor-pointer"
-                            >
-                              <X className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </div>
-
-                        <div className="flex-1 min-h-0 overflow-y-auto divide-y divide-gray-100 dark:divide-slate-800 p-2 text-xs">
-                          {notifications.length === 0 ? (
-                            <p className="text-center py-8 text-gray-400">No notifications yet.</p>
-                          ) : (
-                            notifications.slice(0, 15).map((n) => (
-                              <div
-                                key={n.id}
-                                onClick={() => {
-                                  setNotifDropdownOpen(false);
-                                  const convMatch = n.linkUrl?.match(/conversationId=([^&]+)/);
-                                  const convId = convMatch ? convMatch[1] : undefined;
-                                  if (n.type === 'NEW_MESSAGE' || n.linkUrl?.includes('messages')) {
-                                    setActiveTab('messages');
-                                    fetchConversations(convId);
-                                  } else {
-                                    setActiveTab('bookings');
-                                  }
-                                  api.notifications.markRead(n.id);
-                                  setNotifications(prev => prev.map(item => item.id === n.id ? { ...item, isRead: true } : item));
-                                  setUnreadNotifsCount(prev => Math.max(0, prev - 1));
-                                }}
-                                className={`p-3 rounded-2xl border transition-all cursor-pointer ${
-                                  !n.isRead ? 'bg-emerald-50/80 border-emerald-200 text-emerald-950 font-medium' : 'bg-gray-50 border-gray-200 text-gray-700'
-                                }`}
-                              >
-                                <div className="flex items-center justify-between mb-1">
-                                  <span className="font-bold text-[11px] text-gray-900 dark:text-white">{n.title}</span>
-                                  <span className="text-[10px] text-gray-400">{new Date(n.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                                </div>
-                                <p className="text-[11px] leading-relaxed text-gray-600 dark:text-gray-300 line-clamp-2">{n.message}</p>
-                              </div>
-                            ))
-                          )}
-                        </div>
-                      </div>
-                    </div>,
-                    document.body
-                  )}
-
-                  {/* Desktop Dropdown (sm+) */}
-                  <div className="hidden sm:block absolute top-full right-0 mt-2 w-96 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-2xl shadow-2xl z-50 p-4 space-y-3 animate-in fade-in zoom-in-95 duration-150">
-                    <div className="flex items-center justify-between border-b border-gray-100 dark:border-slate-800 pb-2.5">
-                      <div className="flex items-center gap-2">
-                        <Bell className="w-4 h-4 text-emerald-800 dark:text-emerald-400" />
-                        <h4 className="text-xs font-bold text-gray-900 dark:text-white">Student & Booking Alerts</h4>
-                      </div>
-                      {unreadNotifsCount > 0 && (
-                        <button
-                          onClick={async () => {
-                            await api.notifications.markAllRead();
-                            setUnreadNotifsCount(0);
-                            setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
-                            onShowToast('All notifications marked as read', 'info');
-                          }}
-                          className="text-[11px] font-bold text-emerald-800 dark:text-emerald-400 hover:underline cursor-pointer"
-                        >
-                          Mark all read
-                        </button>
-                      )}
-                    </div>
-
-                    <div className="max-h-72 overflow-y-auto space-y-2 text-xs">
-                      {notifications.length === 0 ? (
-                        <p className="text-center py-6 text-gray-400">No notifications yet.</p>
-                      ) : (
-                        notifications.slice(0, 10).map((n) => (
-                          <div
-                            key={n.id}
-                            onClick={() => {
-                              setNotifDropdownOpen(false);
-                              const convMatch = n.linkUrl?.match(/conversationId=([^&]+)/);
-                              const convId = convMatch ? convMatch[1] : undefined;
-                              if (n.type === 'NEW_MESSAGE' || n.linkUrl?.includes('messages')) {
-                                setActiveTab('messages');
-                                fetchConversations(convId);
-                              } else {
-                                setActiveTab('bookings');
-                              }
-                              api.notifications.markRead(n.id);
-                              setNotifications(prev => prev.map(item => item.id === n.id ? { ...item, isRead: true } : item));
-                              setUnreadNotifsCount(prev => Math.max(0, prev - 1));
-                            }}
-                            className={`p-3 rounded-xl border transition-all cursor-pointer ${
-                              !n.isRead ? 'bg-emerald-50/80 border-emerald-200 text-emerald-950 font-medium' : 'bg-gray-50 border-gray-200 text-gray-700'
-                            }`}
-                          >
-                            <div className="flex items-center justify-between mb-1">
-                              <span className="font-bold text-[11px] text-gray-900 dark:text-white">{n.title}</span>
-                              <span className="text-[10px] text-gray-400">{new Date(n.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                            </div>
-                            <p className="text-[11px] leading-relaxed text-gray-600 dark:text-gray-300 line-clamp-2">{n.message}</p>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
-
             <button
               onClick={() => {
                 setEditingProperty(null);
@@ -1775,8 +1636,7 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
                         <button
                           onClick={() => {
                             setActiveTab('messages');
-                            setActiveConversationId(conv.id);
-                            loadConversationDetail(conv.id);
+                            selectAndLoadConversation(conv.id, conv);
                           }}
                           className="font-bold text-emerald-800 hover:text-emerald-950 flex items-center gap-1 cursor-pointer"
                         >
@@ -2880,8 +2740,7 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
                           <div
                             key={conv.id}
                             onClick={() => {
-                              setActiveConversationId(conv.id);
-                              loadConversationDetail(conv.id);
+                              selectAndLoadConversation(conv.id, conv);
                             }}
                             className={`p-3.5 cursor-pointer transition-all flex items-start gap-3 ${
                               isSelected
@@ -3046,7 +2905,7 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
 
                     {/* Messages Feed */}
                     <div className="flex-1 p-5 overflow-y-auto space-y-4 bg-gray-50/40 max-h-[460px]">
-                      {messagesLoading ? (
+                      {messagesLoading && (!activeDetail.messages || activeDetail.messages.length === 0) ? (
                         <div className="text-center py-16">
                           <div className="w-6 h-6 border-2 border-emerald-800 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
                           <p className="text-xs text-gray-500">Loading conversation history...</p>
@@ -3112,6 +2971,12 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
                       </div>
                     </div>
                   </>
+                ) : messagesLoading ? (
+                  <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-gray-400 space-y-3 min-h-[400px]">
+                    <div className="w-8 h-8 border-3 border-emerald-800 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+                    <h4 className="text-sm font-bold text-gray-700">Opening conversation...</h4>
+                    <p className="text-xs max-w-sm">Fetching student inquiry history...</p>
+                  </div>
                 ) : (
                   <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-gray-400 space-y-3 min-h-[400px]">
                     <MessageSquare className="w-12 h-12 text-gray-300" />

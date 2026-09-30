@@ -311,9 +311,10 @@ router.get('/conversations/:id', authenticate, (req: AuthenticatedRequest, res: 
 
     const conv = db.prepare(`
       SELECT c.*, p.title as property_title, p.address as property_address,
-             p.property_type, p.distance_from_campus_km,
+             p.property_type, p.distance_from_campus_km, p.provider_id as property_provider_id,
              pr.rent_amount, pr.total_mandatory_cost,
              a.name as area_name, u_s.full_name as student_name, u_s.avatar_url as student_avatar,
+             u_s.email as student_email, u_p.email as provider_email,
              u_p.full_name as provider_name, u_p.avatar_url as provider_avatar,
              COALESCE(
                (SELECT url FROM property_media WHERE property_id = p.id AND is_cover = 1 LIMIT 1),
@@ -337,23 +338,52 @@ router.get('/conversations/:id', authenticate, (req: AuthenticatedRequest, res: 
       return res.status(404).json({ error: 'Conversation not found' });
     }
 
-    // Strict Authorization Check: Only participant student, provider, or admin
-    const isStudent = req.user.role === 'STUDENT' && conv.student_id === req.user.id;
-    const isProvider = req.user.role === 'PROVIDER' && conv.provider_id === req.user.id;
-    const isAdmin = req.user.role === 'ADMIN';
+    // Role Normalization & Authorization Check: participant student, provider, property owner, or admin
+    const userRole = (req.user.role || '').toUpperCase();
+    const isStudentRole = userRole === 'STUDENT';
+    const isProviderRole = userRole === 'PROVIDER' || userRole === 'LANDLORD' || userRole === 'AGENT';
+    const isAdminRole = userRole === 'ADMIN' || userRole === 'OWNER';
 
-    if (!isStudent && !isProvider && !isAdmin) {
+    const isStudent = (isStudentRole || !isProviderRole) && (
+      conv.student_id === req.user.id || 
+      (req.user.email && conv.student_email && conv.student_email.toLowerCase() === req.user.email.toLowerCase())
+    );
+    const isProvider = isProviderRole && (
+      conv.provider_id === req.user.id || 
+      conv.property_provider_id === req.user.id ||
+      (req.user.email && conv.provider_email && conv.provider_email.toLowerCase() === req.user.email.toLowerCase())
+    );
+    const isParticipant = conv.student_id === req.user.id || conv.provider_id === req.user.id;
+    const isAdmin = isAdminRole;
+
+    if (!isStudent && !isProvider && !isAdmin && !isParticipant) {
       return res.status(403).json({ error: 'Access denied: You are not authorized to view this conversation' });
     }
 
     // Fetch message history
-    const messages = db.prepare(`
+    let messages = db.prepare(`
       SELECT id, conversation_id, sender_id, sender_role, message_type, content,
              metadata_json, is_read, read_at, created_at
       FROM messages
       WHERE conversation_id = ?
       ORDER BY created_at ASC
     `).all(id) as any[];
+
+    // If messages table has no entries yet, but the conversation record has a last_message_text (e.g. "HI"), preserve it
+    if (messages.length === 0 && conv.last_message_text && conv.last_message_text.trim()) {
+      messages.push({
+        id: `msg-${conv.id}-initial`,
+        conversation_id: conv.id,
+        sender_id: conv.student_id,
+        sender_role: 'STUDENT',
+        message_type: 'TEXT',
+        content: conv.last_message_text,
+        metadata_json: null,
+        is_read: 1,
+        read_at: conv.last_message_at || conv.created_at,
+        created_at: conv.created_at || conv.last_message_at || new Date().toISOString()
+      });
+    }
 
     // Mark unread messages sent by opposite party as read
     db.prepare(`
@@ -448,7 +478,7 @@ router.post('/conversations/:id/messages', authenticate, (req: AuthenticatedRequ
 
   try {
     const conv = db.prepare(`
-      SELECT c.*, p.title as property_title
+      SELECT c.*, p.title as property_title, p.provider_id as property_provider_id
       FROM conversations c
       JOIN properties p ON c.property_id = p.id
       WHERE c.id = ?
@@ -458,12 +488,18 @@ router.post('/conversations/:id/messages', authenticate, (req: AuthenticatedRequ
       return res.status(404).json({ error: 'Conversation not found' });
     }
 
-    // Strict Authorization check
-    const isStudent = req.user.role === 'STUDENT' && conv.student_id === req.user.id;
-    const isProvider = req.user.role === 'PROVIDER' && conv.provider_id === req.user.id;
-    const isAdmin = req.user.role === 'ADMIN';
+    // Role Normalization & Authorization check
+    const userRole = (req.user.role || '').toUpperCase();
+    const isStudentRole = userRole === 'STUDENT';
+    const isProviderRole = userRole === 'PROVIDER' || userRole === 'LANDLORD' || userRole === 'AGENT';
+    const isAdminRole = userRole === 'ADMIN' || userRole === 'OWNER';
 
-    if (!isStudent && !isProvider && !isAdmin) {
+    const isStudent = (isStudentRole || !isProviderRole) && (conv.student_id === req.user.id);
+    const isProvider = isProviderRole && (conv.provider_id === req.user.id || conv.property_provider_id === req.user.id);
+    const isParticipant = conv.student_id === req.user.id || conv.provider_id === req.user.id;
+    const isAdmin = isAdminRole;
+
+    if (!isStudent && !isProvider && !isAdmin && !isParticipant) {
       return res.status(403).json({ error: 'Access denied: You cannot send messages in this conversation' });
     }
 

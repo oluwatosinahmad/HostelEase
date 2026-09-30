@@ -2756,16 +2756,48 @@ export default async (req: Request): Promise<Response> => {
       return new Response(JSON.stringify({ error: 'Conversation not found' }), { status: 404, headers: CORS_HEADERS });
     }
 
-    // Strict Authorization Check: Only participant student, provider, or admin
-    const isStudent = user.role === 'STUDENT' && (conv.studentId === user.id || (user.email && conv.studentEmail?.toLowerCase() === user.email.toLowerCase()));
-    const isProvider = user.role === 'PROVIDER' && (conv.providerId === user.id || (user.email && conv.providerEmail?.toLowerCase() === user.email.toLowerCase()));
-    const isAdmin = user.role === 'ADMIN';
+    const prop = memoryProperties.find(p => p.id === conv.propertyId);
+    const userEmail = (user.email || '').toLowerCase().trim();
 
-    if (!isStudent && !isProvider && !isAdmin) {
+    // Role Normalization & Authorization Check: participant student, provider, property owner, or admin
+    const userRole = (user.role || '').toUpperCase();
+    const isStudentRole = userRole === 'STUDENT';
+    const isProviderRole = userRole === 'PROVIDER' || userRole === 'LANDLORD' || userRole === 'AGENT';
+    const isAdminRole = userRole === 'ADMIN' || userRole === 'OWNER';
+
+    const isStudent = (isStudentRole || !isProviderRole) && (
+      conv.studentId === user.id || 
+      (userEmail && conv.studentEmail && conv.studentEmail.toLowerCase() === userEmail)
+    );
+    const isProvider = isProviderRole && (
+      conv.providerId === user.id || 
+      (prop && (prop.providerId === user.id || (prop.providerEmail && prop.providerEmail.toLowerCase() === userEmail))) ||
+      (userEmail && conv.providerEmail && conv.providerEmail.toLowerCase() === userEmail)
+    );
+    const isParticipant = conv.studentId === user.id || conv.providerId === user.id;
+    const isAdmin = isAdminRole;
+
+    if (!isStudent && !isProvider && !isAdmin && !isParticipant) {
       return new Response(JSON.stringify({ error: 'Access denied: You are not authorized to view this conversation' }), { status: 403, headers: CORS_HEADERS });
     }
 
-    const msgs = memoryMessages.filter(m => m.conversationId === convId);
+    let msgs = memoryMessages.filter(m => m.conversationId === convId);
+
+    // If messages list is empty, but conversation has lastMessageText (e.g. "HI"), preserve and display it
+    if (msgs.length === 0 && conv.lastMessageText && conv.lastMessageText.trim()) {
+      const initialMsg = {
+        id: `msg-${conv.id}-initial`,
+        conversationId: conv.id,
+        senderId: conv.studentId || 'student',
+        senderRole: 'STUDENT',
+        messageType: 'TEXT',
+        content: conv.lastMessageText,
+        isRead: true,
+        createdAt: conv.createdAt || conv.lastMessageAt || new Date().toISOString()
+      };
+      msgs.push(initialMsg);
+      memoryMessages.push(initialMsg);
+    }
 
     // Mark unread messages sent by opposite party as read
     msgs.forEach(m => {
@@ -2774,36 +2806,45 @@ export default async (req: Request): Promise<Response> => {
       }
     });
 
-    const prop = memoryProperties.find(p => p.id === conv.propertyId);
     const coverImg = prop?.coverImage || conv.propertyCoverImage || 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=1200&q=85';
+    const rentAmount = prop?.priceSummary?.rentAmount || prop?.rentAmount || 0;
+    const totalMandatoryCost = prop?.priceSummary?.totalMandatoryCost || prop?.totalMandatoryCost || rentAmount;
+    const areaName = prop?.area?.name || prop?.areaName || conv.areaName || 'Under G';
+    const address = prop?.address || conv.propertyAddress || 'LAUTECH Area, Ogbomoso';
+    const title = prop?.title || conv.propertyTitle || 'Hostel Accommodation';
+    const distanceFromCampusKm = prop?.distanceFromCampusKm || 0.5;
 
     const studentPresence = getMemoryPresence(conv.studentId);
     const providerPresence = getMemoryPresence(conv.providerId);
     const studentObj = memoryUsers.find(u => u.id === conv.studentId);
     const providerObj = memoryUsers.find(u => u.id === conv.providerId);
 
+    const studentName = conv.studentName || studentObj?.fullName || 'Student';
+    const providerName = conv.providerName || providerObj?.fullName || prop?.provider?.name || 'Verified Agent';
+
     return new Response(JSON.stringify({
       conversation: {
         id: conv.id,
         property: {
-          id: conv.propertyId,
-          title: prop?.title || conv.propertyTitle || 'Hostel Accommodation',
-          address: prop?.address || conv.propertyAddress || 'LAUTECH Area, Ogbomoso',
-          areaName: prop?.areaName || conv.areaName || 'LAUTECH Area',
+          id: conv.propertyId || prop?.id || 'prop-default',
+          title,
+          address,
+          areaName,
+          distanceFromCampusKm,
           coverImage: coverImg,
-          rentAmount: prop?.rentAmount || 0,
-          totalMandatoryCost: prop?.totalMandatoryCost || prop?.rentAmount || 0
+          rentAmount,
+          totalMandatoryCost
         },
         student: {
           id: conv.studentId,
-          name: conv.studentName || studentObj?.fullName || 'Student',
+          name: studentName,
           avatarUrl: studentObj?.avatarUrl || null,
           isOnline: studentPresence.isOnline,
           lastSeenAt: studentPresence.lastSeenAt
         },
         provider: {
           id: conv.providerId,
-          name: conv.providerName || providerObj?.fullName || 'Agent',
+          name: providerName,
           avatarUrl: providerObj?.avatarUrl || coverImg,
           isOnline: providerPresence.isOnline,
           lastSeenAt: providerPresence.lastSeenAt
@@ -2828,13 +2869,27 @@ export default async (req: Request): Promise<Response> => {
       const conv = memoryConversations.find(c => c.id === convId);
       const body = await req.json();
 
+      if (!body.content || typeof body.content !== 'string' || !body.content.trim()) {
+        return new Response(JSON.stringify({ error: 'Message content cannot be empty' }), { status: 400, headers: CORS_HEADERS });
+      }
+
+      const userRole = (user.role || '').toUpperCase();
+      const isStudentRole = userRole === 'STUDENT';
+      const isProviderRole = userRole === 'PROVIDER' || userRole === 'LANDLORD' || userRole === 'AGENT';
+      const isAdminRole = userRole === 'ADMIN' || userRole === 'OWNER';
+
+      const isParticipant = !conv || conv.studentId === user.id || conv.providerId === user.id;
+      if (conv && !isParticipant && !isAdminRole && !isStudentRole && !isProviderRole) {
+        return new Response(JSON.stringify({ error: 'Access denied: You cannot send messages in this conversation' }), { status: 403, headers: CORS_HEADERS });
+      }
+
       const newMsg = {
         id: `msg-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
         conversationId: convId,
         senderId: user.id,
         senderRole: user.role || 'STUDENT',
         messageType: body.messageType || 'TEXT',
-        content: body.content,
+        content: body.content.trim(),
         metadata: body.metadata,
         isRead: false,
         createdAt: new Date().toISOString()
@@ -2843,7 +2898,7 @@ export default async (req: Request): Promise<Response> => {
       await saveCloudMessage(newMsg);
 
       if (conv) {
-        conv.lastMessageText = body.content;
+        conv.lastMessageText = body.content.trim();
         conv.lastMessageAt = new Date().toISOString();
         await saveCloudConversation(conv);
 
@@ -2857,7 +2912,7 @@ export default async (req: Request): Promise<Response> => {
           userId: recipientId,
           userEmail: recipientEmail,
           title: `New message from ${senderName}`,
-          message: `${senderName}: "${body.content.substring(0, 60)}"`,
+          message: `${senderName}: "${body.content.trim().substring(0, 60)}"`,
           type: 'NEW_MESSAGE',
           isRead: false,
           linkUrl: `/messages?conversationId=${convId}&propertyId=${conv.propertyId || ''}`,
