@@ -70,7 +70,14 @@ function extractUserId(req: Request): string | null {
   }
   const headerId = req.headers['x-user-id'] as string;
   if (headerId) return headerId;
-  if (req.body && req.body.userId) return req.body.userId;
+  if (req.query && typeof req.query.userId === 'string') return req.query.userId;
+  if (req.body && typeof req.body === 'object' && req.body.userId) return req.body.userId;
+  if (typeof req.body === 'string') {
+    try {
+      const parsed = JSON.parse(req.body);
+      if (parsed.userId) return parsed.userId;
+    } catch {}
+  }
   return null;
 }
 
@@ -90,8 +97,15 @@ router.post('/presence/heartbeat', optionalAuthenticate, (req: Request, res: Res
   return res.json({ success: true, userId, timestamp: new Date().toISOString() });
 });
 
-// 2. Set user as Offline immediately on sign-out
+// 2. Set user as Offline immediately on sign-out or page unload beacon
 router.post('/offline', optionalAuthenticate, (req: Request, res: Response) => {
+  const userId = extractUserId(req);
+  if (!userId) return res.status(401).json({ error: 'User identification required' });
+  setUserOffline(userId);
+  return res.json({ success: true, userId, isOnline: false });
+});
+
+router.post('/presence/offline', optionalAuthenticate, (req: Request, res: Response) => {
   const userId = extractUserId(req);
   if (!userId) return res.status(401).json({ error: 'User identification required' });
   setUserOffline(userId);

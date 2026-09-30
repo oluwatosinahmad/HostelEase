@@ -39,6 +39,7 @@ import {
   Sparkles,
   Send,
   Check,
+  CheckCheck,
   TrendingUp,
   Activity,
   UserCheck,
@@ -63,6 +64,7 @@ import { AIAgentAssistantModal } from './AILandlordAssistantModal';
 import { formatNaira, formatDistance, getAvailabilityBadgeInfo, getPropertyTypeLabel } from '../utils/formatters';
 import { formatPresence } from '../utils/presence';
 import { ChatImageModal } from './ChatImageModal';
+import { playMessageNotificationSound } from '../utils/sound';
 
 interface ProviderPortalProps {
   areas: Area[];
@@ -526,6 +528,8 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
       onShowToast('Reply sent to student successfully!', 'success');
       const res = await api.messages.getConversations();
       setConversations(res.conversations || []);
+      window.dispatchEvent(new CustomEvent('hostel_ease_notification_updated'));
+      window.dispatchEvent(new CustomEvent('hostel_ease_conversations_updated'));
     } catch (err: any) {
       onShowToast(err.message || 'Failed to send message', 'error');
     } finally {
@@ -676,7 +680,13 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
   useEffect(() => {
     const handleNotificationUpdate = () => {
       api.messages.getConversations().then(res => {
-        setConversations(res?.conversations || []);
+        const list = res?.conversations || [];
+        setConversations(list);
+        list.forEach(c => {
+          if (c.unreadCount > 0 && c.lastMessageText && c.studentId !== user?.id) {
+            playMessageNotificationSound(`conv-agent-notif-${c.id}-${c.lastMessageAt}`, c.studentId, user?.id, c.lastMessageAt);
+          }
+        });
       }).catch(() => {});
 
       if (activeConversationId) {
@@ -690,6 +700,14 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
                 (newMsgs.length > 0 && prevMsgs.length > 0 && newMsgs[newMsgs.length - 1].id !== prevMsgs[prevMsgs.length - 1].id) ||
                 newMsgs.some((m, i) => m.isRead !== prevMsgs[i]?.isRead);
               const presenceChanged = prev.conversation.student?.isOnline !== res.conversation.student?.isOnline;
+
+              if (newMsgs.length > prevMsgs.length) {
+                const newestMsg = newMsgs[newMsgs.length - 1];
+                if (newestMsg && newestMsg.senderId !== user?.id) {
+                  playMessageNotificationSound(newestMsg.id, newestMsg.senderId, user?.id, newestMsg.createdAt);
+                }
+              }
+
               if (msgsChanged || presenceChanged) {
                 return res;
               }
@@ -736,6 +754,7 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
 
     window.addEventListener('hostel_ease_notification_updated', handleNotificationUpdate);
     window.addEventListener('hostel_ease_conversations_updated', handleNotificationUpdate);
+    window.addEventListener('hostel_ease_refresh_messages', handleNotificationUpdate);
     window.addEventListener('hostel_ease_bookings_updated', handlePropsUpdate);
     window.addEventListener('hostel_ease_inspections_updated', handlePropsUpdate);
     window.addEventListener('hostel_ease_properties_updated', handlePropsUpdate);
@@ -744,6 +763,7 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
       clearInterval(pollTimer);
       window.removeEventListener('hostel_ease_notification_updated', handleNotificationUpdate);
       window.removeEventListener('hostel_ease_conversations_updated', handleNotificationUpdate);
+      window.removeEventListener('hostel_ease_refresh_messages', handleNotificationUpdate);
       window.removeEventListener('hostel_ease_bookings_updated', handlePropsUpdate);
       window.removeEventListener('hostel_ease_inspections_updated', handlePropsUpdate);
       window.removeEventListener('hostel_ease_properties_updated', handlePropsUpdate);
@@ -2916,7 +2936,14 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
                         </div>
                       ) : (
                         activeDetail.messages.map((msg: MessageItem) => {
-                          const isMe = msg.senderRole === 'PROVIDER';
+                          const isAutoReply = Boolean(msg.metadata?.isAutoReply || (msg as any).isAutoReply || msg.metadata?.automated);
+                          const isMe = !isAutoReply && (msg.senderId === user?.id || ['PROVIDER', 'LANDLORD', 'AGENT'].includes(msg.senderRole?.toUpperCase() || ''));
+                          const senderLabel = isAutoReply
+                            ? '🤖 Hostel Ease Automated Assistant'
+                            : isMe
+                            ? 'You (Agent)'
+                            : activeDetail.conversation.student?.name || 'Student';
+
                           return (
                             <div
                               key={msg.id}
@@ -2924,7 +2951,7 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
                             >
                               <div className="flex items-center gap-1.5 mb-1 px-1">
                                 <span className="text-[10px] font-bold text-gray-500">
-                                  {isMe ? 'You (Agent)' : activeDetail.conversation.student?.name || 'Student'}
+                                  {senderLabel}
                                 </span>
                                 <span className="text-[9px] text-gray-400">
                                   {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -2932,12 +2959,30 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
                               </div>
                               <div
                                 className={`max-w-md p-3.5 rounded-2xl text-xs leading-relaxed shadow-xs ${
-                                  isMe
+                                  isAutoReply
+                                    ? 'bg-emerald-50/80 border border-emerald-300 text-slate-800 rounded-tl-none'
+                                    : isMe
                                     ? 'bg-emerald-800 text-white rounded-tr-none'
                                     : 'bg-white border border-gray-200 text-gray-800 rounded-tl-none'
                                 }`}
                               >
-                                {msg.content}
+                                {isAutoReply && (
+                                  <div className="flex items-center gap-1.5 pb-1 text-[10px] font-bold text-emerald-800 border-b border-emerald-500/20 mb-1">
+                                    <Sparkles className="w-3 h-3 text-emerald-600" />
+                                    <span>Automated Acknowledgement</span>
+                                  </div>
+                                )}
+                                <p className="whitespace-pre-wrap">{msg.content}</p>
+                                {isMe && (
+                                  <div className="flex items-center justify-end gap-1 mt-1 text-[9px] text-emerald-200">
+                                    <span>{new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                    {msg.isRead ? (
+                                      <span title="Read by student"><CheckCheck className="w-3.5 h-3.5 text-cyan-300" /></span>
+                                    ) : (
+                                      <span title="Delivered to student"><Check className="w-3.5 h-3.5 text-emerald-200" /></span>
+                                    )}
+                                  </div>
+                                )}
                               </div>
                             </div>
                           );

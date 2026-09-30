@@ -2975,6 +2975,18 @@ export const api = {
       return { success: true };
     },
 
+    setOfflineBeacon(userId?: string): void {
+      try {
+        if (typeof navigator !== 'undefined' && navigator.sendBeacon) {
+          const user = getCurrentUser();
+          const targetId = userId || user?.id;
+          if (targetId) {
+            navigator.sendBeacon(`${API_BASE}/presence/offline?userId=${encodeURIComponent(targetId)}`);
+          }
+        }
+      } catch {}
+    },
+
     async getUserPresence(userId: string): Promise<{ userId: string; isOnline: boolean; lastSeenAt: string | null }> {
       try {
         const res = await fetch(`${API_BASE}/presence/${encodeURIComponent(userId)}`, {

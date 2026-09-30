@@ -2702,6 +2702,25 @@ export default async (req: Request): Promise<Response> => {
     return new Response(JSON.stringify({ userId: targetUserId, ...presence }), { status: 200, headers: CORS_HEADERS });
   }
 
+  // Set user as Offline on tab close / beacon
+  if ((pathname === '/api/presence/offline' || pathname === '/api/messages/presence/offline' || pathname === '/api/offline') && req.method === 'POST') {
+    const user = parseAuth(req);
+    const urlObj = new URL(req.url);
+    let userId = user?.id || req.headers.get('x-user-id') || urlObj.searchParams.get('userId');
+    if (!userId) {
+      const body = await req.json().catch(() => ({}));
+      userId = body.userId;
+    }
+    if (userId) {
+      const entry = memoryPresence.get(userId);
+      if (entry) {
+        entry.isOnline = false;
+        entry.lastSeenAt = new Date(Date.now() - 70000).toISOString();
+      }
+    }
+    return new Response(JSON.stringify({ success: true, userId, isOnline: false }), { status: 200, headers: CORS_HEADERS });
+  }
+
   if (pathname === '/api/messages/conversations' && req.method === 'GET') {
     const user = parseAuth(req);
     if (!user) {
@@ -2918,6 +2937,61 @@ export default async (req: Request): Promise<Response> => {
           linkUrl: `/messages?conversationId=${convId}&propertyId=${conv.propertyId || ''}`,
           createdAt: new Date().toISOString()
         });
+
+        // Automated Acknowledgement Reply for Students:
+        let autoReplyMsg: any = null;
+        if (isStudentRole && conv && !body.metadata?.isAutoReply) {
+          try {
+            const twelveHoursAgo = Date.now() - (12 * 60 * 60 * 1000);
+            const hasRecentProviderMsg = memoryMessages.some(m => 
+              m.conversationId === convId && 
+              m.senderId !== user.id && 
+              new Date(m.createdAt).getTime() > twelveHoursAgo
+            );
+
+            if (!hasRecentProviderMsg) {
+              const autoReplyContent = `Hi! Thanks for reaching out. Your message has been received. The verified agent has been notified and will respond as soon as possible.`;
+              const autoMeta = {
+                isAutoReply: true,
+                automated: true,
+                senderTag: 'Hostel Ease Automated Assistant'
+              };
+              autoReplyMsg = {
+                id: `msg-auto-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+                conversationId: convId,
+                senderId: conv.providerId,
+                senderRole: 'PROVIDER',
+                messageType: 'TEXT',
+                content: autoReplyContent,
+                metadata: autoMeta,
+                isRead: false,
+                createdAt: new Date(Date.now() + 1000).toISOString()
+              };
+
+              await saveCloudMessage(autoReplyMsg);
+
+              conv.lastMessageText = autoReplyContent;
+              conv.lastMessageAt = new Date(Date.now() + 1000).toISOString();
+              await saveCloudConversation(conv);
+
+              await saveCloudNotification({
+                id: `notif-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+                userId: user.id,
+                userEmail: user.email,
+                title: `Hostel Ease Automated Assistant`,
+                message: autoReplyContent,
+                type: 'NEW_MESSAGE',
+                isRead: false,
+                linkUrl: `/messages?conversationId=${convId}&propertyId=${conv.propertyId || ''}`,
+                createdAt: new Date(Date.now() + 1000).toISOString()
+              });
+            }
+          } catch (autoErr) {
+            console.warn('Netlify auto reply error:', autoErr);
+          }
+        }
+
+        return new Response(JSON.stringify({ message: newMsg, autoReply: autoReplyMsg }), { status: 201, headers: CORS_HEADERS });
       }
 
       return new Response(JSON.stringify({ message: newMsg }), { status: 201, headers: CORS_HEADERS });

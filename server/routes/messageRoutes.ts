@@ -55,16 +55,18 @@ router.post('/conversations', authenticate, (req: AuthenticatedRequest, res: Res
     updateUserPresence(req.user.id);
 
     const property = db.prepare(`
-      SELECT p.id, p.title, p.provider_id, u.full_name as provider_name, u.avatar_url as provider_avatar,
+      SELECT p.id, p.title, p.provider_id,
+             COALESCE(u.full_name, 'Verified Agent') as provider_name,
+             u.avatar_url as provider_avatar,
              COALESCE(
                (SELECT url FROM property_media WHERE property_id = p.id AND is_cover = 1 LIMIT 1),
                (SELECT url FROM property_media WHERE property_id = p.id ORDER BY display_order ASC LIMIT 1),
                (SELECT url FROM property_media WHERE property_id = p.id LIMIT 1)
              ) as cover_image,
-             a.name as area_name
+             COALESCE(a.name, 'Under G') as area_name
       FROM properties p
-      JOIN users u ON u.id = p.provider_id
-      JOIN areas a ON a.id = p.area_id
+      LEFT JOIN users u ON u.id = p.provider_id
+      LEFT JOIN areas a ON a.id = p.area_id
       WHERE p.id = ?
     `).get(propertyId) as any;
 
@@ -72,10 +74,13 @@ router.post('/conversations', authenticate, (req: AuthenticatedRequest, res: Res
       return res.status(404).json({ error: 'Hostel accommodation not found' });
     }
 
+    const userRole = (req.user.role || '').toUpperCase();
+    const isProviderUser = userRole === 'PROVIDER' || userRole === 'LANDLORD' || userRole === 'AGENT';
+
     let studentId = req.user.id;
     let providerId = property.provider_id;
 
-    if (req.user.role === 'PROVIDER') {
+    if (isProviderUser) {
       // If provider is opening, require studentId in body or find existing
       if (!req.body.studentId) {
         return res.status(400).json({ error: 'studentId is required when provider initiates conversation' });
@@ -195,10 +200,18 @@ router.get('/conversations', authenticate, (req: AuthenticatedRequest, res: Resp
     let sql = '';
     const params: any[] = [];
 
-    if (req.user.role === 'STUDENT') {
+    const userRole = (req.user.role || '').toUpperCase();
+    const isStudent = userRole === 'STUDENT';
+    const isProvider = userRole === 'PROVIDER' || userRole === 'LANDLORD' || userRole === 'AGENT';
+    const isAdmin = userRole === 'ADMIN' || userRole === 'OWNER';
+
+    if (isStudent || (!isProvider && !isAdmin)) {
       sql = `
         SELECT c.*, p.title as property_title, p.address as property_address,
-               a.name as area_name, u.full_name as provider_name, u.avatar_url as other_avatar_url,
+               COALESCE(a.name, 'Under G') as area_name,
+               COALESCE(u.full_name, 'Verified Agent') as provider_name,
+               COALESCE(u_s.full_name, 'Student') as student_name,
+               u.avatar_url as other_avatar_url,
                COALESCE(
                  (SELECT url FROM property_media WHERE property_id = p.id AND is_cover = 1 LIMIT 1),
                  (SELECT url FROM property_media WHERE property_id = p.id ORDER BY display_order ASC LIMIT 1),
@@ -207,18 +220,22 @@ router.get('/conversations', authenticate, (req: AuthenticatedRequest, res: Resp
                up.last_seen_at as other_last_seen_at,
                (SELECT COUNT(*) FROM messages m WHERE m.conversation_id = c.id AND m.sender_id != ? AND m.is_read = 0) as unread_count
         FROM conversations c
-        JOIN properties p ON c.property_id = p.id
-        JOIN areas a ON p.area_id = a.id
-        JOIN users u ON c.provider_id = u.id
+        LEFT JOIN properties p ON c.property_id = p.id
+        LEFT JOIN areas a ON p.area_id = a.id
+        LEFT JOIN users u ON c.provider_id = u.id
+        LEFT JOIN users u_s ON c.student_id = u_s.id
         LEFT JOIN user_presence up ON up.user_id = c.provider_id
         WHERE c.student_id = ?
         ORDER BY c.last_message_at DESC
       `;
       params.push(req.user.id, req.user.id);
-    } else if (req.user.role === 'PROVIDER') {
+    } else if (isProvider) {
       sql = `
         SELECT c.*, p.title as property_title, p.address as property_address,
-               a.name as area_name, u.full_name as student_name, u.avatar_url as other_avatar_url,
+               COALESCE(a.name, 'Under G') as area_name,
+               COALESCE(u.full_name, 'Student') as student_name,
+               COALESCE(u_p.full_name, 'Verified Agent') as provider_name,
+               u.avatar_url as other_avatar_url,
                COALESCE(
                  (SELECT url FROM property_media WHERE property_id = p.id AND is_cover = 1 LIMIT 1),
                  (SELECT url FROM property_media WHERE property_id = p.id ORDER BY display_order ASC LIMIT 1),
@@ -227,19 +244,23 @@ router.get('/conversations', authenticate, (req: AuthenticatedRequest, res: Resp
                up.last_seen_at as other_last_seen_at,
                (SELECT COUNT(*) FROM messages m WHERE m.conversation_id = c.id AND m.sender_id != ? AND m.is_read = 0) as unread_count
         FROM conversations c
-        JOIN properties p ON c.property_id = p.id
-        JOIN areas a ON p.area_id = a.id
-        JOIN users u ON c.student_id = u.id
+        LEFT JOIN properties p ON c.property_id = p.id
+        LEFT JOIN areas a ON p.area_id = a.id
+        LEFT JOIN users u ON c.student_id = u.id
+        LEFT JOIN users u_p ON c.provider_id = u_p.id
         LEFT JOIN user_presence up ON up.user_id = c.student_id
         WHERE c.provider_id = ?
         ORDER BY c.last_message_at DESC
       `;
       params.push(req.user.id, req.user.id);
-    } else if (req.user.role === 'ADMIN') {
+    } else if (isAdmin) {
       sql = `
         SELECT c.*, p.title as property_title, p.address as property_address,
-               a.name as area_name, u_s.full_name as student_name, u_s.avatar_url as student_avatar_url,
-               u_p.full_name as provider_name, u_p.avatar_url as provider_avatar_url,
+               COALESCE(a.name, 'Under G') as area_name,
+               COALESCE(u_s.full_name, 'Student') as student_name,
+               u_s.avatar_url as student_avatar_url,
+               COALESCE(u_p.full_name, 'Verified Agent') as provider_name,
+               u_p.avatar_url as provider_avatar_url,
                COALESCE(
                  (SELECT url FROM property_media WHERE property_id = p.id AND is_cover = 1 LIMIT 1),
                  (SELECT url FROM property_media WHERE property_id = p.id ORDER BY display_order ASC LIMIT 1),
@@ -249,10 +270,10 @@ router.get('/conversations', authenticate, (req: AuthenticatedRequest, res: Resp
                up_p.last_seen_at as provider_last_seen_at,
                0 as unread_count
         FROM conversations c
-        JOIN properties p ON c.property_id = p.id
-        JOIN areas a ON p.area_id = a.id
-        JOIN users u_s ON c.student_id = u_s.id
-        JOIN users u_p ON c.provider_id = u_p.id
+        LEFT JOIN properties p ON c.property_id = p.id
+        LEFT JOIN areas a ON p.area_id = a.id
+        LEFT JOIN users u_s ON c.student_id = u_s.id
+        LEFT JOIN users u_p ON c.provider_id = u_p.id
         LEFT JOIN user_presence up_s ON up_s.user_id = c.student_id
         LEFT JOIN user_presence up_p ON up_p.user_id = c.provider_id
         ORDER BY c.last_message_at DESC
@@ -310,12 +331,19 @@ router.get('/conversations/:id', authenticate, (req: AuthenticatedRequest, res: 
     updateUserPresence(req.user.id);
 
     const conv = db.prepare(`
-      SELECT c.*, p.title as property_title, p.address as property_address,
-             p.property_type, p.distance_from_campus_km, p.provider_id as property_provider_id,
+      SELECT c.*, COALESCE(p.title, 'Hostel Accommodation') as property_title,
+             COALESCE(p.address, 'LAUTECH Area, Ogbomoso') as property_address,
+             COALESCE(p.property_type, 'SELF_CONTAIN') as property_type,
+             COALESCE(p.distance_from_campus_km, 0.5) as distance_from_campus_km,
+             p.provider_id as property_provider_id,
              pr.rent_amount, pr.total_mandatory_cost,
-             a.name as area_name, u_s.full_name as student_name, u_s.avatar_url as student_avatar,
-             u_s.email as student_email, u_p.email as provider_email,
-             u_p.full_name as provider_name, u_p.avatar_url as provider_avatar,
+             COALESCE(a.name, 'Under G') as area_name,
+             COALESCE(u_s.full_name, 'Student') as student_name,
+             u_s.avatar_url as student_avatar,
+             u_s.email as student_email,
+             u_p.email as provider_email,
+             COALESCE(u_p.full_name, 'Verified Agent') as provider_name,
+             u_p.avatar_url as provider_avatar,
              COALESCE(
                (SELECT url FROM property_media WHERE property_id = p.id AND is_cover = 1 LIMIT 1),
                (SELECT url FROM property_media WHERE property_id = p.id ORDER BY display_order ASC LIMIT 1),
@@ -324,11 +352,11 @@ router.get('/conversations/:id', authenticate, (req: AuthenticatedRequest, res: 
              up_s.last_seen_at as student_last_seen_at,
              up_p.last_seen_at as provider_last_seen_at
       FROM conversations c
-      JOIN properties p ON c.property_id = p.id
-      JOIN areas a ON p.area_id = a.id
+      LEFT JOIN properties p ON c.property_id = p.id
+      LEFT JOIN areas a ON p.area_id = a.id
       LEFT JOIN prices pr ON pr.property_id = p.id
-      JOIN users u_s ON c.student_id = u_s.id
-      JOIN users u_p ON c.provider_id = u_p.id
+      LEFT JOIN users u_s ON c.student_id = u_s.id
+      LEFT JOIN users u_p ON c.provider_id = u_p.id
       LEFT JOIN user_presence up_s ON up_s.user_id = c.student_id
       LEFT JOIN user_presence up_p ON up_p.user_id = c.provider_id
       WHERE c.id = ?
@@ -480,7 +508,7 @@ router.post('/conversations/:id/messages', authenticate, (req: AuthenticatedRequ
     const conv = db.prepare(`
       SELECT c.*, p.title as property_title, p.provider_id as property_provider_id
       FROM conversations c
-      JOIN properties p ON c.property_id = p.id
+      LEFT JOIN properties p ON c.property_id = p.id
       WHERE c.id = ?
     `).get(id) as any;
 
@@ -536,11 +564,78 @@ router.post('/conversations/:id/messages', authenticate, (req: AuthenticatedRequ
       `New message from ${senderName}`,
       `"${cleanContent.substring(0, 60)}${cleanContent.length > 60 ? '...' : ''}"`,
       'NEW_MESSAGE',
-      `/messages?conversationId=${id}&propertyId=${conv.property_id}`,
+      `/messages?conversationId=${id}&propertyId=${conv.property_id || ''}`,
       id,
       messageId,
       req.user.id
     );
+
+    // Automated Acknowledgement Reply for Students:
+    // If sent by a student, check if this conversation has not had any agent response or auto-reply within the past 12 hours
+    let autoReplyMessage: any = null;
+    if (isStudent && !metadata?.isAutoReply) {
+      try {
+        const recentProviderMsg = db.prepare(`
+          SELECT id FROM messages 
+          WHERE conversation_id = ? AND sender_id != ? AND created_at > datetime('now', '-12 hours')
+          LIMIT 1
+        `).get(id, req.user.id) as any;
+
+        if (!recentProviderMsg) {
+          const autoReplyId = `msg-auto-${crypto.randomUUID()}`;
+          const autoReplyContent = `Hi! Thanks for reaching out. Your message has been received. The verified agent has been notified and will respond as soon as possible.`;
+          const autoMeta = {
+            isAutoReply: true,
+            automated: true,
+            senderTag: 'Hostel Ease Automated Assistant'
+          };
+
+          db.prepare(`
+            INSERT INTO messages (id, conversation_id, sender_id, sender_role, message_type, content, metadata_json, is_read, created_at)
+            VALUES (?, ?, ?, 'PROVIDER', 'TEXT', ?, ?, 0, datetime('now', '+1 second'))
+          `).run(
+            autoReplyId,
+            id,
+            conv.provider_id,
+            autoReplyContent,
+            JSON.stringify(autoMeta)
+          );
+
+          // Update conversation last message to reflect the auto reply
+          db.prepare(`
+            UPDATE conversations
+            SET last_message_text = ?, last_message_at = datetime('now', '+1 second'), updated_at = datetime('now', '+1 second')
+            WHERE id = ?
+          `).run(autoReplyContent, id);
+
+          autoReplyMessage = {
+            id: autoReplyId,
+            conversationId: id,
+            senderId: conv.provider_id,
+            senderRole: 'PROVIDER',
+            messageType: 'TEXT',
+            content: autoReplyContent,
+            metadata: autoMeta,
+            isRead: false,
+            createdAt: new Date(Date.now() + 1000).toISOString()
+          };
+
+          // Send notification to student about receipt
+          sendNotification(
+            req.user.id,
+            'Hostel Ease Automated Assistant',
+            autoReplyContent,
+            'NEW_MESSAGE',
+            `/messages?conversationId=${id}&propertyId=${conv.property_id || ''}`,
+            id,
+            autoReplyId,
+            conv.provider_id
+          );
+        }
+      } catch (autoErr) {
+        console.warn('Auto-reply trigger warning:', autoErr);
+      }
+    }
 
     // Clear typing indicator for sender upon message dispatch
     const existingTyping = conversationTypingMap.get(id);
@@ -559,7 +654,8 @@ router.post('/conversations/:id/messages', authenticate, (req: AuthenticatedRequ
         metadata: metadata || null,
         isRead: false,
         createdAt: new Date().toISOString()
-      }
+      },
+      autoReply: autoReplyMessage
     });
   } catch (err: any) {
     console.error('Send message error:', err);
@@ -633,15 +729,19 @@ router.get('/unread-count', authenticate, (req: AuthenticatedRequest, res: Respo
   if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
 
   try {
+    const userRole = (req.user.role || '').toUpperCase();
+    const isStudent = userRole === 'STUDENT';
+    const isProvider = userRole === 'PROVIDER' || userRole === 'LANDLORD' || userRole === 'AGENT';
+
     let sql = '';
-    if (req.user.role === 'STUDENT') {
+    if (isStudent) {
       sql = `
         SELECT COUNT(*) as unread_count
         FROM messages m
         JOIN conversations c ON m.conversation_id = c.id
         WHERE c.student_id = ? AND m.sender_id != ? AND m.is_read = 0
       `;
-    } else if (req.user.role === 'PROVIDER') {
+    } else if (isProvider) {
       sql = `
         SELECT COUNT(*) as unread_count
         FROM messages m

@@ -702,7 +702,7 @@ function MainApp() {
     };
   }, []);
 
-  // Real-time Platform-wide authenticated presence heartbeat (LAUTECH session tracker)
+  // Real-time Platform-wide authenticated presence heartbeat & connectivity tracker
   useEffect(() => {
     if (!isAuthenticated || !user) return;
 
@@ -711,24 +711,41 @@ function MainApp() {
 
     // Periodic heartbeat every 25 seconds while document is visible
     const heartbeatTimer = setInterval(() => {
-      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible' && navigator.onLine) {
         api.presence.heartbeat().catch(() => {});
       }
     }, 25000);
 
     const handleActive = () => {
-      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible' && navigator.onLine) {
         api.presence.heartbeat().catch(() => {});
       }
     };
 
+    const handleOnline = () => {
+      // Re-connected to internet: immediately trigger heartbeat to restore Online status
+      api.presence.heartbeat().catch(() => {});
+      window.dispatchEvent(new CustomEvent('hostel_ease_refresh_messages'));
+    };
+
+    const handleUnload = () => {
+      // Tab closed or page navigated away: fire beacon for instant Last Seen timestamp
+      api.presence.setOfflineBeacon(user?.id);
+    };
+
     window.addEventListener('visibilitychange', handleActive);
     window.addEventListener('focus', handleActive);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('beforeunload', handleUnload);
+    window.addEventListener('pagehide', handleUnload);
 
     return () => {
       clearInterval(heartbeatTimer);
       window.removeEventListener('visibilitychange', handleActive);
       window.removeEventListener('focus', handleActive);
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('beforeunload', handleUnload);
+      window.removeEventListener('pagehide', handleUnload);
     };
   }, [isAuthenticated, user?.id]);
 

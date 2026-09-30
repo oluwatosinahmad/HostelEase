@@ -191,11 +191,14 @@ export const Navbar: React.FC<NavbarProps> = ({
 
       onNavigate('messages');
       if (convId || propId) {
+        window.dispatchEvent(new CustomEvent('hostel_ease_open_conversation', { 
+          detail: { conversationId: convId, propertyId: propId } 
+        }));
         setTimeout(() => {
           window.dispatchEvent(new CustomEvent('hostel_ease_open_conversation', { 
             detail: { conversationId: convId, propertyId: propId } 
           }));
-        }, 100);
+        }, 120);
       }
     } else if (link.includes('inspections') || n.type.includes('INSPECTION')) {
       if (isProvider) {
@@ -435,9 +438,14 @@ export const Navbar: React.FC<NavbarProps> = ({
               <div className="flex items-center gap-3">
                 {/* Messages Shortcut */}
                 <button
-                  onClick={() => onNavigate('messages')}
+                  onClick={() => {
+                    onNavigate('messages');
+                    window.dispatchEvent(new CustomEvent('hostel_ease_refresh_messages'));
+                    api.messages.getUnreadCount().then(res => setUnreadMsgCount(res.unreadCount || 0)).catch(() => {});
+                  }}
                   className="p-2 text-slate-600 hover:text-emerald-700 hover:bg-slate-100 rounded-xl relative transition-all"
                   title="Messages"
+                  aria-label="Messages"
                 >
                   <MessageSquare className="w-4 h-4" />
                   {unreadMsgCount > 0 && (
@@ -753,7 +761,11 @@ export const Navbar: React.FC<NavbarProps> = ({
 
             {isAuthenticated && (
               <button
-                onClick={() => onNavigate('messages')}
+                onClick={() => {
+                  onNavigate('messages');
+                  window.dispatchEvent(new CustomEvent('hostel_ease_refresh_messages'));
+                  api.messages.getUnreadCount().then(res => setUnreadMsgCount(res.unreadCount || 0)).catch(() => {});
+                }}
                 className="p-1.5 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white relative rounded-xl transition-colors"
                 aria-label="Messages"
                 title="Messages"

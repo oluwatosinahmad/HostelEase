@@ -54,6 +54,7 @@ import { formatNaira, formatDistance } from '../utils/formatters';
 import { formatPresence } from '../utils/presence';
 import { ReportUserModal } from './ReportUserModal';
 import { ChatImageModal } from './ChatImageModal';
+import { playMessageNotificationSound } from '../utils/sound';
 
 interface MessagingCenterProps {
   initialPropertyId?: string | null;
@@ -521,6 +522,13 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
         // Silently update conversations list
         api.messages.getConversations().then(res => {
           if (res?.conversations) {
+            // Check for new incoming messages across all conversations to play chime
+            res.conversations.forEach(c => {
+              const prevC = conversations.find(p => p.id === c.id);
+              if (prevC && (c.unreadCount || 0) > (prevC.unreadCount || 0)) {
+                playMessageNotificationSound(`conv-notif-${c.id}-${c.lastMessageAt}`, c.studentId === user?.id ? c.providerId : c.studentId, user?.id);
+              }
+            });
             setConversations(res.conversations);
           }
         }).catch(() => {});
@@ -533,6 +541,15 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
                 if (!prev) return res;
                 const prevMsgs = prev.messages || [];
                 const newMsgs = res.messages || [];
+
+                // Check for new incoming messages in active conversation to trigger chime
+                if (newMsgs.length > prevMsgs.length) {
+                  const newestMsg = newMsgs[newMsgs.length - 1];
+                  if (newestMsg && newestMsg.senderId !== user?.id) {
+                    playMessageNotificationSound(newestMsg.id, newestMsg.senderId, user?.id, newestMsg.createdAt);
+                  }
+                }
+
                 const msgsChanged = prevMsgs.length !== newMsgs.length ||
                   (newMsgs.length > 0 && prevMsgs.length > 0 && newMsgs[newMsgs.length - 1].id !== prevMsgs[prevMsgs.length - 1].id) ||
                   newMsgs.some((m, i) => m.isRead !== prevMsgs[i]?.isRead);
@@ -563,7 +580,19 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
     }, 2500);
 
     return () => clearInterval(syncInterval);
-  }, [activeConversationId, user?.id]);
+  }, [activeConversationId, user?.id, conversations]);
+
+  // Handle immediate refresh when message shortcut icon is clicked in Navbar
+  useEffect(() => {
+    const handleRefreshMessages = () => {
+      loadConversations(activeConversationId || undefined);
+      if (activeConversationId) {
+        selectAndLoadConversation(activeConversationId, true);
+      }
+    };
+    window.addEventListener('hostel_ease_refresh_messages', handleRefreshMessages);
+    return () => window.removeEventListener('hostel_ease_refresh_messages', handleRefreshMessages);
+  }, [activeConversationId]);
 
   // Load message detail whenever activeConversationId changes from an external prop or route
   useEffect(() => {
@@ -645,21 +674,27 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
     setSending(true);
 
     try {
-      const res = await api.messages.sendMessage(activeConversationId, text, 'TEXT', Object.keys(meta).length > 0 ? meta : undefined);
+      const res: any = await api.messages.sendMessage(activeConversationId, text, 'TEXT', Object.keys(meta).length > 0 ? meta : undefined);
 
       // Replace optimistic message with server-confirmed message
       setActiveDetail(prev => {
         if (!prev) return null;
+        let updatedMsgs = prev.messages.map(m => m.id === tempId ? { ...res.message, isSending: false, isFailed: false } : m);
+        if (res.autoReply && !updatedMsgs.some(m => m.id === res.autoReply.id)) {
+          updatedMsgs = [...updatedMsgs, { ...res.autoReply, isSending: false, isFailed: false }];
+          playMessageNotificationSound(res.autoReply.id, res.autoReply.senderId, user?.id, res.autoReply.createdAt);
+        }
         return {
           ...prev,
-          messages: prev.messages.map(m => m.id === tempId ? { ...res.message, isSending: false, isFailed: false } : m)
+          messages: updatedMsgs
         };
       });
 
       // Update last message preview in conversations list
+      const latestSnippet = res.autoReply ? res.autoReply.content : text;
       setConversations(prev => prev.map(c => {
         if (c.id === activeConversationId) {
-          return { ...c, lastMessageText: text, lastMessageAt: new Date().toISOString() };
+          return { ...c, lastMessageText: latestSnippet, lastMessageAt: new Date().toISOString() };
         }
         return c;
       }));
@@ -1590,7 +1625,16 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
                       <img
                         src={getMediaUrl(activeDetail.conversation.property.coverImage) || 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?w=600'}
                         alt={activeDetail.conversation.property.title || 'Hostel Accommodation'}
-                        className="w-9 h-9 rounded-xl object-cover shrink-0"
+                        className="w-9 h-9 rounded-xl object-cover shrink-0 cursor-pointer hover:opacity-90 active:scale-95 transition-all"
+                        onClick={() => {
+                          const cover = getMediaUrl(activeDetail.conversation.property.coverImage) || 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=1200&q=85';
+                          setFullScreenImage({
+                            imageUrl: cover,
+                            title: activeDetail.conversation.property.title || 'Hostel Accommodation',
+                            subtitle: `${activeDetail.conversation.property.areaName || 'LAUTECH Area'} • ${formatNaira(activeDetail.conversation.property.rentAmount || 0)}/yr`
+                          });
+                        }}
+                        title="Click to view full-resolution photo"
                       />
                       <div className="min-w-0">
                         <p className="font-bold text-white truncate">
@@ -1685,7 +1729,8 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
                   }
 
                   return filteredMessages.map(msg => {
-                    const isMe = msg.senderId === user?.id || (isStudent && msg.senderRole === 'STUDENT') || (!isStudent && msg.senderRole === 'PROVIDER');
+                    const isMe = msg.senderId === user?.id || (isStudent && msg.senderRole === 'STUDENT') || (!isStudent && (msg.senderRole === 'PROVIDER' || (msg.senderRole as string) === 'AGENT' || (msg.senderRole as string) === 'LANDLORD'));
+                    const isAutoReply = Boolean(msg.metadata?.isAutoReply || msg.metadata?.automated);
                     const isImage = msg.messageType === 'IMAGE' || Boolean(msg.metadata?.imageUrl);
                     const isAudio = msg.messageType === 'AUDIO' || Boolean(msg.metadata?.audioDuration);
                     const isPasscode = msg.messageType === 'SNAP_PASSCODE' || Boolean(msg.metadata?.passcode);
@@ -1703,9 +1748,11 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
                       );
                     }
 
-                    const senderLabel = isMe
+                    const senderLabel = isAutoReply
+                      ? '🤖 Hostel Ease Automated Assistant'
+                      : isMe
                       ? `You (${isStudent ? 'Student' : 'Agent'})`
-                      : msg.senderRole === 'PROVIDER'
+                      : (msg.senderRole === 'PROVIDER' || (msg.senderRole as string) === 'AGENT' || (msg.senderRole as string) === 'LANDLORD')
                       ? `🏡 Agent: ${activeDetail.conversation?.provider?.name || 'Agent'}`
                       : `🎓 Student: ${activeDetail.conversation?.student?.name || 'Student'}`;
 
@@ -2018,6 +2065,12 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
                             {/* 4. REGULAR TEXT CONTENT */}
                             {!isImage && !isAudio && !isPasscode && (
                               <div className="space-y-1.5">
+                                {isAutoReply && (
+                                  <div className="flex items-center gap-1.5 pb-1 text-[10px] font-bold text-emerald-300 border-b border-emerald-500/20">
+                                    <Sparkles className="w-3 h-3 text-emerald-400" />
+                                    <span>Automated Acknowledgement</span>
+                                  </div>
+                                )}
                                 <p className="leading-relaxed whitespace-pre-wrap">{msg.content}</p>
                                 {onViewOnMap && /(?:no\.?\s*\d+|street|avenue|road|close|crescent|lane|ibadan|ogbomoso|oluyole|bodija|olubere|under-?g|adenike|stadium)/i.test(msg.content) && (
                                   <div className="pt-1">
