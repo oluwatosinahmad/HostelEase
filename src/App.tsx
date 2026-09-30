@@ -702,6 +702,36 @@ function MainApp() {
     };
   }, []);
 
+  // Real-time Platform-wide authenticated presence heartbeat (LAUTECH session tracker)
+  useEffect(() => {
+    if (!isAuthenticated || !user) return;
+
+    // Send immediate heartbeat on authenticated session start
+    api.presence.heartbeat().catch(() => {});
+
+    // Periodic heartbeat every 25 seconds while document is visible
+    const heartbeatTimer = setInterval(() => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        api.presence.heartbeat().catch(() => {});
+      }
+    }, 25000);
+
+    const handleActive = () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        api.presence.heartbeat().catch(() => {});
+      }
+    };
+
+    window.addEventListener('visibilitychange', handleActive);
+    window.addEventListener('focus', handleActive);
+
+    return () => {
+      clearInterval(heartbeatTimer);
+      window.removeEventListener('visibilitychange', handleActive);
+      window.removeEventListener('focus', handleActive);
+    };
+  }, [isAuthenticated, user?.id]);
+
   const handleOpenBookingModal = (property: Property) => {
     if (!isAuthenticated) {
       showToast('Please create an account or sign in first to book this hostel.', 'error');

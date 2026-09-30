@@ -7,89 +7,21 @@ import { authenticate, AuthenticatedRequest } from '../middleware/auth.js';
 const JWT_SECRET = process.env.AUTH_JWT_SECRET || 'hostel-ease-jwt-secure-secret-key-2026';
 const router = Router();
 
-// Initialize user_presence table for real online / last-seen tracking
-db.exec(`
-  CREATE TABLE IF NOT EXISTS user_presence (
-    user_id TEXT PRIMARY KEY,
-    last_seen_at TEXT NOT NULL
-  );
-  CREATE INDEX IF NOT EXISTS idx_user_presence_seen ON user_presence(last_seen_at);
-`);
+import { updateUserPresence, getUserPresence } from './presenceRoutes.js';
+export { updateUserPresence, getUserPresence };
 
-export function updateUserPresence(userId: string) {
-  try {
-    db.prepare(`
-      INSERT INTO user_presence (user_id, last_seen_at)
-      VALUES (?, datetime('now'))
-      ON CONFLICT(user_id) DO UPDATE SET last_seen_at = datetime('now')
-    `).run(userId);
-  } catch (err) {
-    console.warn('Update user presence error:', err);
+// In-memory typing indicator registry: conversationId -> { userId, userName, expiresAt }
+export const conversationTypingMap = new Map<string, { userId: string; userName: string; expiresAt: number }>();
+
+export function getTypingUser(conversationId: string): { userId: string; userName: string } | null {
+  const entry = conversationTypingMap.get(conversationId);
+  if (!entry) return null;
+  if (Date.now() > entry.expiresAt) {
+    conversationTypingMap.delete(conversationId);
+    return null;
   }
+  return { userId: entry.userId, userName: entry.userName };
 }
-
-export function getUserPresence(userId: string): { isOnline: boolean; lastSeenAt: string | null } {
-  try {
-    const row = db.prepare('SELECT last_seen_at FROM user_presence WHERE user_id = ?').get(userId) as any;
-    if (!row || !row.last_seen_at) {
-      return { isOnline: false, lastSeenAt: null };
-    }
-    // Parse UTC datetime string from SQLite datetime('now')
-    const raw = row.last_seen_at.endsWith('Z') ? row.last_seen_at : row.last_seen_at.replace(' ', 'T') + 'Z';
-    const lastSeenMs = new Date(raw).getTime();
-    // User is Online if active within the last 65 seconds
-    const isOnline = !isNaN(lastSeenMs) && (Date.now() - lastSeenMs) < 65000;
-    return { isOnline, lastSeenAt: row.last_seen_at };
-  } catch (err) {
-    return { isOnline: false, lastSeenAt: null };
-  }
-}
-
-// ----------------------------------------------------
-// 0. PRESENCE HEARTBEAT & QUERY ENDPOINTS
-// ----------------------------------------------------
-function extractUserIdFromRequest(req: Request): string | null {
-  const authHeader = req.headers.authorization;
-  if (authHeader && authHeader.startsWith('Bearer ')) {
-    try {
-      const decoded = jwt.verify(authHeader.split(' ')[1], JWT_SECRET) as any;
-      if (decoded && decoded.id) return decoded.id;
-    } catch {}
-  }
-  const headerId = req.headers['x-user-id'] as string;
-  if (headerId) return headerId;
-  if (req.body && req.body.userId) return req.body.userId;
-  return null;
-}
-
-router.post('/presence/heartbeat', (req: Request, res: Response) => {
-  const userId = extractUserIdFromRequest(req);
-  if (!userId) return res.status(401).json({ error: 'User identification required' });
-  updateUserPresence(userId);
-  return res.json({ success: true, userId, timestamp: new Date().toISOString() });
-});
-
-router.post('/heartbeat', (req: Request, res: Response) => {
-  const userId = extractUserIdFromRequest(req);
-  if (!userId) return res.status(401).json({ error: 'User identification required' });
-  updateUserPresence(userId);
-  return res.json({ success: true, userId, timestamp: new Date().toISOString() });
-});
-
-router.get('/presence/:userId', (req: Request, res: Response) => {
-  const presence = getUserPresence(req.params.userId);
-  return res.json({ userId: req.params.userId, ...presence });
-});
-
-router.get('/:userId/presence', (req: Request, res: Response) => {
-  const presence = getUserPresence(req.params.userId);
-  return res.json({ userId: req.params.userId, ...presence });
-});
-
-router.get('/:userId', (req: Request, res: Response) => {
-  const presence = getUserPresence(req.params.userId);
-  return res.json({ userId: req.params.userId, ...presence });
-});
 
 // In-memory rate limiting map for message spam prevention (per user: max 30 msgs per minute)
 const messageRateMap = new Map<string, { count: number; resetAt: number }>();
@@ -174,10 +106,11 @@ router.post('/conversations', authenticate, (req: AuthenticatedRequest, res: Res
       // If initial message provided, save it
       if (initialMessage && typeof initialMessage === 'string' && initialMessage.trim()) {
         const cleanMsg = initialMessage.trim();
+        const msgId = `msg-${crypto.randomUUID()}`;
         db.prepare(`
           INSERT INTO messages (id, conversation_id, sender_id, sender_role, message_type, content, is_read)
           VALUES (?, ?, ?, ?, 'TEXT', ?, 0)
-        `).run(crypto.randomUUID(), convId, req.user.id, req.user.role, cleanMsg);
+        `).run(msgId, convId, req.user.id, req.user.role, cleanMsg);
 
         // Notify recipient (provider if student sent, or student if provider sent)
         const recipientId = req.user.id === studentId ? providerId : studentId;
@@ -187,16 +120,20 @@ router.post('/conversations', authenticate, (req: AuthenticatedRequest, res: Res
           `New Message about ${property.title}`,
           `${senderName}: "${cleanMsg.substring(0, 60)}${cleanMsg.length > 60 ? '...' : ''}"`,
           'NEW_MESSAGE',
-          `/messages?conversationId=${convId}&propertyId=${propertyId}`
+          `/messages?conversationId=${convId}&propertyId=${propertyId}`,
+          convId,
+          msgId,
+          req.user.id
         );
       }
     } else if (initialMessage && typeof initialMessage === 'string' && initialMessage.trim()) {
       // If conversation already existed, persist new message and notify recipient
       const cleanMsg = initialMessage.trim();
+      const msgId = `msg-${crypto.randomUUID()}`;
       db.prepare(`
         INSERT INTO messages (id, conversation_id, sender_id, sender_role, message_type, content, is_read)
         VALUES (?, ?, ?, ?, 'TEXT', ?, 0)
-      `).run(crypto.randomUUID(), conv.id, req.user.id, req.user.role, cleanMsg);
+      `).run(msgId, conv.id, req.user.id, req.user.role, cleanMsg);
 
       db.prepare(`
         UPDATE conversations
@@ -211,7 +148,10 @@ router.post('/conversations', authenticate, (req: AuthenticatedRequest, res: Res
         `New Message about ${property.title}`,
         `${senderName}: "${cleanMsg.substring(0, 60)}${cleanMsg.length > 60 ? '...' : ''}"`,
         'NEW_MESSAGE',
-        `/messages?conversationId=${conv.id}&propertyId=${propertyId}`
+        `/messages?conversationId=${conv.id}&propertyId=${propertyId}`,
+        conv.id,
+        msgId,
+        req.user.id
       );
     }
 
@@ -433,6 +373,9 @@ router.get('/conversations/:id', authenticate, (req: AuthenticatedRequest, res: 
 
     const coverImage = conv.property_cover || 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=1200&q=85';
 
+    const typing = getTypingUser(id);
+    const typingInfo = (typing && typing.userId !== req.user.id) ? typing : null;
+
     return res.json({
       conversation: {
         id: conv.id,
@@ -464,6 +407,7 @@ router.get('/conversations/:id', authenticate, (req: AuthenticatedRequest, res: 
         status: conv.status,
         createdAt: conv.created_at
       },
+      typingUser: typingInfo,
       messages: messages.map(m => ({
         id: m.id,
         conversationId: m.conversation_id,
@@ -556,8 +500,17 @@ router.post('/conversations/:id/messages', authenticate, (req: AuthenticatedRequ
       `New message from ${senderName}`,
       `"${cleanContent.substring(0, 60)}${cleanContent.length > 60 ? '...' : ''}"`,
       'NEW_MESSAGE',
-      `/messages?conversationId=${id}&propertyId=${conv.property_id}`
+      `/messages?conversationId=${id}&propertyId=${conv.property_id}`,
+      id,
+      messageId,
+      req.user.id
     );
+
+    // Clear typing indicator for sender upon message dispatch
+    const existingTyping = conversationTypingMap.get(id);
+    if (existingTyping && existingTyping.userId === req.user.id) {
+      conversationTypingMap.delete(id);
+    }
 
     return res.status(201).json({
       message: {
@@ -579,9 +532,43 @@ router.post('/conversations/:id/messages', authenticate, (req: AuthenticatedRequ
 });
 
 // ----------------------------------------------------
+// 4b. REAL-TIME TYPING INDICATOR ENDPOINTS
+// ----------------------------------------------------
+router.post('/conversations/:id/typing', authenticate, (req: AuthenticatedRequest, res: Response) => {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+  const { id } = req.params;
+  const { isTyping } = req.body;
+
+  if (isTyping) {
+    conversationTypingMap.set(id, {
+      userId: req.user.id,
+      userName: req.user.fullName || (req.user.role === 'STUDENT' ? 'Student' : 'Agent'),
+      expiresAt: Date.now() + 4500 // 4.5s TTL
+    });
+  } else {
+    const existing = conversationTypingMap.get(id);
+    if (existing && existing.userId === req.user.id) {
+      conversationTypingMap.delete(id);
+    }
+  }
+
+  return res.json({ success: true, conversationId: id, isTyping: Boolean(isTyping) });
+});
+
+router.get('/conversations/:id/typing', authenticate, (req: AuthenticatedRequest, res: Response) => {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+  const { id } = req.params;
+  const typing = getTypingUser(id);
+  if (typing && typing.userId !== req.user.id) {
+    return res.json({ typing: true, isTyping: true, user: typing, typingUser: typing });
+  }
+  return res.json({ typing: false, isTyping: false, user: null, typingUser: null });
+});
+
+// ----------------------------------------------------
 // 5. MARK CONVERSATION AS READ
 // ----------------------------------------------------
-router.patch('/conversations/:id/read', authenticate, (req: AuthenticatedRequest, res: Response) => {
+const handleMarkConversationRead = (req: AuthenticatedRequest, res: Response) => {
   if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
   const { id } = req.params;
 
@@ -597,7 +584,11 @@ router.patch('/conversations/:id/read', authenticate, (req: AuthenticatedRequest
     console.error('Mark read error:', err);
     return res.status(500).json({ error: 'Failed to mark messages as read' });
   }
-});
+};
+
+router.patch('/conversations/:id/read', authenticate, handleMarkConversationRead);
+router.put('/conversations/:id/read', authenticate, handleMarkConversationRead);
+router.post('/conversations/:id/read', authenticate, handleMarkConversationRead);
 
 // ----------------------------------------------------
 // 6. GLOBAL UNREAD MESSAGES COUNT
@@ -757,12 +748,31 @@ router.delete('/conversations/:conversationId', authenticate, (req: Authenticate
   }
 });
 
-function sendNotification(userId: string, title: string, message: string, type: string, linkUrl?: string) {
+function sendNotification(
+  userId: string,
+  title: string,
+  message: string,
+  type: string,
+  linkUrl?: string,
+  conversationId?: string,
+  messageId?: string,
+  senderId?: string
+) {
   try {
     db.prepare(`
-      INSERT INTO notifications (id, user_id, title, message, type, is_read, link_url)
-      VALUES (?, ?, ?, ?, ?, 0, ?)
-    `).run(crypto.randomUUID(), userId, title, message, type, linkUrl || null);
+      INSERT INTO notifications (id, user_id, title, message, type, is_read, link_url, conversation_id, message_id, sender_id)
+      VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?, ?)
+    `).run(
+      crypto.randomUUID(),
+      userId,
+      title,
+      message,
+      type,
+      linkUrl || null,
+      conversationId || null,
+      messageId || null,
+      senderId || null
+    );
   } catch (err) {
     console.error('Failed to send notification:', err);
   }

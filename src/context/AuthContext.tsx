@@ -111,6 +111,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const logout = () => {
+    api.presence.setOffline().catch(() => {});
     safeStorage.removeItem('hostel_ease_token');
     safeStorage.removeItem('hostel_ease_user');
     setToken(null);

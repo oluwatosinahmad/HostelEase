@@ -29,6 +29,9 @@ router.get('/', authenticate, (req: AuthenticatedRequest, res: Response) => {
       type: n.type,
       isRead: Boolean(n.is_read),
       linkUrl: n.link_url,
+      conversationId: n.conversation_id || null,
+      messageId: n.message_id || null,
+      senderId: n.sender_id || null,
       createdAt: n.created_at
     })),
     unreadCount: unreadCount.count

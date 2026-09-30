@@ -491,6 +491,11 @@ export function runMigrations() {
     addColumnIfMissing('audit_logs', 'severity', "TEXT NOT NULL DEFAULT 'LOW'");
     addColumnIfMissing('audit_logs', 'actor_email', 'TEXT');
     addColumnIfMissing('audit_logs', 'user_agent', 'TEXT');
+
+    // Ensure notifications table supports direct conversation & message linking
+    addColumnIfMissing('notifications', 'conversation_id', 'TEXT');
+    addColumnIfMissing('notifications', 'message_id', 'TEXT');
+    addColumnIfMissing('notifications', 'sender_id', 'TEXT');
     // 24. Conversations table (Phase 4)
     db.exec(`
       CREATE TABLE IF NOT EXISTS conversations (

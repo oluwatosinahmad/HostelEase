@@ -410,6 +410,7 @@ export interface ConversationDetail {
     createdAt: string;
   };
   messages: MessageItem[];
+  typingUser?: { userId: string; userName: string; role: string } | null;
 }
 
 export interface ProviderCalendarData {

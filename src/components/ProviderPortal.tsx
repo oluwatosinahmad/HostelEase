@@ -471,6 +471,8 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
       setActiveDetail(res);
       await api.messages.markAsRead(id);
       setConversations(prev => prev.map(c => c.id === id ? { ...c, unreadCount: 0 } : c));
+      window.dispatchEvent(new CustomEvent('hostel_ease_notification_updated'));
+      window.dispatchEvent(new CustomEvent('hostel_ease_conversations_updated'));
     } catch (err) {
       console.error('Failed to load conversation detail:', err);
     } finally {
@@ -658,12 +660,26 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
         api.messages.getConversation(activeConversationId).then(res => {
           if (res) {
             setActiveDetail(prev => {
-              // Only update if message count or last message changed to avoid unnecessary re-renders
-              if (!prev || prev.messages.length !== res.messages.length) {
+              if (!prev) return res;
+              const prevMsgs = prev.messages || [];
+              const newMsgs = res.messages || [];
+              const msgsChanged = prevMsgs.length !== newMsgs.length ||
+                (newMsgs.length > 0 && prevMsgs.length > 0 && newMsgs[newMsgs.length - 1].id !== prevMsgs[prevMsgs.length - 1].id) ||
+                newMsgs.some((m, i) => m.isRead !== prevMsgs[i]?.isRead);
+              const presenceChanged = prev.conversation.student?.isOnline !== res.conversation.student?.isOnline;
+              if (msgsChanged || presenceChanged) {
                 return res;
               }
               return prev;
             });
+
+            const hasUnreadFromStudent = res.messages?.some((m: MessageItem) => !m.isRead && m.senderRole === 'STUDENT');
+            if (hasUnreadFromStudent) {
+              api.messages.markAsRead(activeConversationId).then(() => {
+                window.dispatchEvent(new CustomEvent('hostel_ease_notification_updated'));
+                window.dispatchEvent(new CustomEvent('hostel_ease_conversations_updated'));
+              }).catch(() => {});
+            }
           }
         }).catch(() => {});
       }
@@ -2881,7 +2897,7 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
                                 if (conv.avatarUrl) {
                                   e.stopPropagation();
                                   setFullScreenImage({
-                                    imageUrl: conv.avatarUrl,
+                                    imageUrl: getMediaUrl(conv.avatarUrl),
                                     title: conv.studentName || 'Student',
                                     subtitle: conv.propertyTitle,
                                     isOnline: conv.isOnline,
@@ -2894,7 +2910,7 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
                             >
                               {conv.avatarUrl ? (
                                 <img
-                                  src={conv.avatarUrl}
+                                  src={getMediaUrl(conv.avatarUrl)}
                                   alt={conv.studentName}
                                   className="w-9 h-9 rounded-full object-cover shadow-xs border border-gray-200"
                                   onError={(e) => {
@@ -2965,7 +2981,7 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
                               onClick={() => {
                                 if (studentAvatar) {
                                   setFullScreenImage({
-                                    imageUrl: studentAvatar,
+                                    imageUrl: getMediaUrl(studentAvatar),
                                     title: studentName,
                                     subtitle: `Inquiring for ${activeDetail.conversation.property?.title}`,
                                     isOnline,
@@ -2978,7 +2994,7 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
                             >
                               {studentAvatar ? (
                                 <img
-                                  src={studentAvatar}
+                                  src={getMediaUrl(studentAvatar)}
                                   alt={studentName}
                                   className="w-10 h-10 rounded-full object-cover shadow-xs border border-gray-200"
                                   onError={(e) => {

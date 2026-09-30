@@ -185,26 +185,17 @@ export const Navbar: React.FC<NavbarProps> = ({
     const link = n.linkUrl || '';
     if (link.includes('messages') || n.type === 'NEW_MESSAGE') {
       const convMatch = link.match(/conversationId=([^&]+)/);
-      const convId = convMatch ? convMatch[1] : undefined;
+      const convId = n.conversationId || (convMatch ? convMatch[1] : undefined);
       const propMatch = link.match(/propertyId=([^&]+)/);
-      const propId = propMatch ? propMatch[1] : undefined;
+      const propId = n.data?.propertyId || (propMatch ? propMatch[1] : undefined);
 
-      if (isProvider) {
-        onNavigate('provider-portal');
+      onNavigate('messages');
+      if (convId || propId) {
         setTimeout(() => {
-          window.dispatchEvent(new CustomEvent('hostel_ease_provider_tab', { 
-            detail: { tab: 'messages', conversationId: convId } 
+          window.dispatchEvent(new CustomEvent('hostel_ease_open_conversation', { 
+            detail: { conversationId: convId, propertyId: propId } 
           }));
         }, 100);
-      } else {
-        onNavigate('messages');
-        if (convId || propId) {
-          setTimeout(() => {
-            window.dispatchEvent(new CustomEvent('hostel_ease_open_conversation', { 
-              detail: { conversationId: convId, propertyId: propId } 
-            }));
-          }, 100);
-        }
       }
     } else if (link.includes('inspections') || n.type.includes('INSPECTION')) {
       if (isProvider) {

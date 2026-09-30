@@ -48,7 +48,7 @@ import {
   MoreVertical
 } from 'lucide-react';
 import { ConversationItem, ConversationDetail, MessageItem, Property } from '../types/hostelEase';
-import { api } from '../services/api';
+import { api, getMediaUrl } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { formatNaira, formatDistance } from '../utils/formatters';
 import { formatPresence } from '../utils/presence';
@@ -291,6 +291,42 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const voiceTimerRef = useRef<any>(null);
+  const typingTimerRef = useRef<any>(null);
+  const lastTypingSentRef = useRef<number>(0);
+
+  const handleInputChange = (val: string) => {
+    setMessageInput(val);
+    if (!activeConversationId) return;
+
+    const now = Date.now();
+    // Throttle typing heartbeats to server (at most once every 2 seconds)
+    if (now - lastTypingSentRef.current > 2000) {
+      lastTypingSentRef.current = now;
+      api.messages.setTyping(activeConversationId, true).catch(() => {});
+    }
+
+    // Reset 3s inactivity timer to mark typing false
+    if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+    typingTimerRef.current = setTimeout(() => {
+      if (activeConversationId) {
+        api.messages.setTyping(activeConversationId, false).catch(() => {});
+      }
+    }, 3000);
+  };
+
+  const stopTypingNow = () => {
+    if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+    if (activeConversationId) {
+      api.messages.setTyping(activeConversationId, false).catch(() => {});
+    }
+  };
+
+  // Clear typing on conversation switch or unmount
+  useEffect(() => {
+    return () => {
+      stopTypingNow();
+    };
+  }, [activeConversationId]);
 
   const quickQuestions = [
     { text: 'Is this hostel still available for the 2026/2027 session?', icon: '🏢' },
@@ -362,6 +398,27 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
     }
   }, [initialConversationId, initialPropertyId]);
 
+  // Instant notification navigation listener (even when already on messages screen)
+  useEffect(() => {
+    const handleOpenConv = (e: any) => {
+      const convId = e.detail?.conversationId;
+      const propId = e.detail?.propertyId;
+      if (convId) {
+        setActiveConversationId(convId);
+        loadConversations(convId);
+      } else if (propId) {
+        api.messages.startConversation(propId)
+          .then(res => {
+            setActiveConversationId(res.conversationId);
+            loadConversations(res.conversationId);
+          })
+          .catch(() => loadConversations());
+      }
+    };
+    window.addEventListener('hostel_ease_open_conversation', handleOpenConv);
+    return () => window.removeEventListener('hostel_ease_open_conversation', handleOpenConv);
+  }, []);
+
   // Active cross-device real-time sync (poll every 2.5 seconds when document is visible)
   useEffect(() => {
     const syncInterval = setInterval(() => {
@@ -373,16 +430,37 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
           }
         }).catch(() => {});
 
-        // If an active conversation is open, poll latest messages silently
+        // If an active conversation is open, poll latest messages and typing status silently
         if (activeConversationId) {
           api.messages.getConversation(activeConversationId).then(res => {
             if (res && res.messages) {
               setActiveDetail(prev => {
-                if (!prev || prev.messages.length !== res.messages.length) {
+                if (!prev) return res;
+                const prevMsgs = prev.messages || [];
+                const newMsgs = res.messages || [];
+                const msgsChanged = prevMsgs.length !== newMsgs.length ||
+                  (newMsgs.length > 0 && prevMsgs.length > 0 && newMsgs[newMsgs.length - 1].id !== prevMsgs[prevMsgs.length - 1].id) ||
+                  newMsgs.some((m, i) => m.isRead !== prevMsgs[i]?.isRead);
+                const typingChanged = (prev.typingUser?.userId !== res.typingUser?.userId) ||
+                  (prev.typingUser?.userName !== res.typingUser?.userName);
+                const presenceChanged = 
+                  prev.conversation.student?.isOnline !== res.conversation.student?.isOnline ||
+                  prev.conversation.provider?.isOnline !== res.conversation.provider?.isOnline;
+
+                if (msgsChanged || typingChanged || presenceChanged) {
                   return res;
                 }
                 return prev;
               });
+
+              // If there are unread messages from the other user while this conversation is open, mark as read
+              const hasUnreadFromOther = res.messages.some(m => !m.isRead && m.senderId !== user?.id);
+              if (hasUnreadFromOther) {
+                api.messages.markAsRead(activeConversationId).then(() => {
+                  window.dispatchEvent(new CustomEvent('hostel_ease_notification_updated'));
+                  window.dispatchEvent(new CustomEvent('hostel_ease_conversations_updated'));
+                }).catch(() => {});
+              }
             }
           }).catch(() => {});
         }
@@ -390,7 +468,7 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
     }, 2500);
 
     return () => clearInterval(syncInterval);
-  }, [activeConversationId]);
+  }, [activeConversationId, user?.id]);
 
   // Load message detail whenever activeConversationId changes
   useEffect(() => {
@@ -406,8 +484,11 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
         setMessagesLoading(false);
         // Scroll to bottom immediately without jumping page
         setTimeout(() => scrollToBottom('auto'), 50);
-        // Mark as read in background
-        api.messages.markAsRead(activeConversationId).catch(() => {});
+        // Mark as read in background and update notification count
+        api.messages.markAsRead(activeConversationId).then(() => {
+          window.dispatchEvent(new CustomEvent('hostel_ease_notification_updated'));
+          window.dispatchEvent(new CustomEvent('hostel_ease_conversations_updated'));
+        }).catch(() => {});
       })
       .catch(err => {
         console.error('Failed to load messages for conversation:', err);
@@ -425,6 +506,10 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
   const handleSelectConversation = (convId: string) => {
     if (convId === activeConversationId) return;
     setActiveConversationId(convId);
+    api.messages.markAsRead(convId).then(() => {
+      window.dispatchEvent(new CustomEvent('hostel_ease_notification_updated'));
+      window.dispatchEvent(new CustomEvent('hostel_ease_conversations_updated'));
+    }).catch(() => {});
   };
 
   const handleStartNewChatWithHostel = async (propertyId: string) => {
@@ -475,6 +560,7 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
       };
     });
 
+    stopTypingNow();
     setMessageInput('');
     setReplyingToMessage(null);
     setShowEmojiPicker(false);
@@ -499,6 +585,8 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
         }
         return c;
       }));
+
+      window.dispatchEvent(new CustomEvent('hostel_ease_conversations_updated'));
 
       inputRef.current?.focus();
     } catch (err: any) {
@@ -992,7 +1080,8 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
                 const hasUnread = (conv.unreadCount || 0) > 0;
                 const isOnline = !!conv.isOnline;
                 const convPresenceText = formatPresence(conv.isOnline, conv.lastSeenAt);
-                const convAvatar = conv.avatarUrl || conv.propertyCoverImage || 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=1200&q=85';
+                const rawAvatar = conv.avatarUrl || conv.propertyCoverImage || 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=1200&q=85';
+                const convAvatar = getMediaUrl(rawAvatar);
 
                 return (
                   <div
@@ -1137,13 +1226,15 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
                   {(() => {
                     const otherUser = isStudent ? activeDetail.conversation.provider : activeDetail.conversation.student;
                     const otherName = isStudent ? activeDetail.conversation.provider.name : (activeDetail.conversation.student.name || 'Student');
-                    const otherAvatar = isStudent 
+                    const rawAvatar = isStudent 
                       ? (activeDetail.conversation.provider.avatarUrl || activeDetail.conversation.property?.coverImage)
                       : (activeDetail.conversation.student.avatarUrl);
+                    const otherAvatar = getMediaUrl(rawAvatar);
                     const isOnline = otherUser?.isOnline ?? false;
                     const lastSeenAt = otherUser?.lastSeenAt ?? null;
                     const presenceText = formatPresence(isOnline, lastSeenAt);
                     const badgeTitle = isStudent ? 'Verified Landlord / Agent' : 'Verified Student';
+                    const isPeerTyping = !!activeDetail.typingUser;
 
                     return (
                       <div className="flex items-center gap-3 min-w-0">
@@ -1196,9 +1287,9 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
                           </div>
                           <span
                             className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-slate-900 ${
-                              isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-slate-500'
+                              isPeerTyping || isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-slate-500'
                             }`}
-                            title={isOnline ? 'Online now' : presenceText}
+                            title={isPeerTyping ? 'typing...' : (isOnline ? 'Online now' : presenceText)}
                           />
                         </button>
 
@@ -1213,10 +1304,21 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
                             </span>
                           </div>
                           <p className="text-[10px] text-slate-300 font-medium truncate flex items-center gap-1.5 mt-0.5">
-                            <span className={`w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-emerald-400 animate-pulse' : 'bg-slate-500'}`} />
-                            <span className={isOnline ? 'text-emerald-400 font-semibold' : 'text-slate-400'}>
-                              {presenceText}
-                            </span>
+                            {isPeerTyping ? (
+                              <>
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+                                <span className="text-emerald-400 font-bold animate-pulse">
+                                  typing...
+                                </span>
+                              </>
+                            ) : (
+                              <>
+                                <span className={`w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-emerald-400 animate-pulse' : 'bg-slate-500'}`} />
+                                <span className={isOnline ? 'text-emerald-400 font-semibold' : 'text-slate-400'}>
+                                  {presenceText}
+                                </span>
+                              </>
+                            )}
                             {(activeDetail.conversation.provider as any)?.phone && isStudent && (
                               <span className="text-slate-400 font-normal">• 📞 {(activeDetail.conversation.provider as any).phone}</span>
                             )}
@@ -1373,7 +1475,7 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
                 <div className="p-2 bg-slate-800/80 rounded-2xl border border-slate-700/60 flex items-center justify-between gap-3 text-xs shadow-inner">
                   <div className="flex items-center gap-2.5 min-w-0">
                     <img
-                      src={activeDetail.conversation.property.coverImage || 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?w=600'}
+                      src={getMediaUrl(activeDetail.conversation.property.coverImage) || 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?w=600'}
                       alt={activeDetail.conversation.property.title}
                       className="w-9 h-9 rounded-xl object-cover shrink-0"
                     />
@@ -1629,11 +1731,11 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
                             {isImage && msg.metadata?.imageUrl && (
                               <div className="space-y-1.5">
                                 <div
-                                  onClick={() => setPreviewImage({ url: msg.metadata?.imageUrl!, caption: msg.metadata?.imageCaption })}
+                                  onClick={() => setPreviewImage({ url: getMediaUrl(msg.metadata?.imageUrl!), caption: msg.metadata?.imageCaption })}
                                   className="relative rounded-2xl overflow-hidden cursor-pointer group/img border border-white/10"
                                 >
                                   <img
-                                    src={msg.metadata.imageUrl}
+                                    src={getMediaUrl(msg.metadata.imageUrl)}
                                     alt="Room Snap"
                                     className="w-full max-h-60 object-cover group-hover/img:scale-105 transition-transform duration-300"
                                   />
@@ -1876,18 +1978,20 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
                   });
                 })()}
 
-                {/* Live "Agent is typing..." indicator */}
-                {isTyping && (
+                {/* Live "Agent is typing..." / "Student is typing..." indicator */}
+                {(isTyping || activeDetail.typingUser) && (
                   <div className="flex items-center gap-2 text-slate-400 text-xs animate-in fade-in">
                     <div className="w-7 h-7 rounded-xl bg-emerald-600 text-white font-black text-xs flex items-center justify-center shadow-md">
-                      {isStudent ? activeDetail.conversation.provider.name.charAt(0) : (activeDetail.conversation.student.name?.charAt(0) || 'S')}
+                      {activeDetail.typingUser?.userName?.charAt(0) || (isStudent ? activeDetail.conversation.provider.name.charAt(0) : (activeDetail.conversation.student.name?.charAt(0) || 'S'))}
                     </div>
                     <div className="p-3 bg-slate-800 rounded-2xl rounded-tl-xs border border-slate-700 flex items-center gap-2">
                       <span className="w-2 h-2 rounded-full bg-emerald-400 animate-bounce" />
                       <span className="w-2 h-2 rounded-full bg-emerald-400 animate-bounce [animation-delay:0.2s]" />
                       <span className="w-2 h-2 rounded-full bg-emerald-400 animate-bounce [animation-delay:0.4s]" />
                       <span className="text-[11px] text-emerald-400 font-bold ml-1">
-                        {typingCustomText || (isStudent ? `${activeDetail.conversation.provider.name} is typing...` : 'Student is typing...')}
+                        {activeDetail.typingUser
+                          ? `${activeDetail.typingUser.userName || (activeDetail.typingUser.role === 'PROVIDER' ? 'Agent' : 'Student')} is typing...`
+                          : (typingCustomText || (isStudent ? `${activeDetail.conversation.provider.name} is typing...` : 'Student is typing...'))}
                       </span>
                     </div>
                   </div>
@@ -1990,6 +2094,7 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
                     <form
                       onSubmit={(e) => {
                         e.preventDefault();
+                        stopTypingNow();
                         handleSendMessage();
                       }}
                       className="flex items-center gap-1.5 sm:gap-2 relative"
@@ -2060,7 +2165,8 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
                       ref={inputRef}
                       type="text"
                       value={messageInput}
-                      onChange={(e) => setMessageInput(e.target.value)}
+                      onChange={(e) => handleInputChange(e.target.value)}
+                      onBlur={() => stopTypingNow()}
                       placeholder={
                         isStudent
                           ? `Message ${activeDetail.conversation.provider.name}...`
