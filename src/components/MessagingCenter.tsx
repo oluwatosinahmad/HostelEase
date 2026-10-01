@@ -394,17 +394,6 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
 
     // Optimistically initialize activeDetail from conversation summary so UI opens instantly without blank screen
     if (currentItem && (!activeDetail || activeDetail.conversation.id !== convId)) {
-      const initialMsgs: MessageItem[] = currentItem.lastMessageText ? [{
-        id: `msg-${convId}-initial`,
-        conversationId: convId,
-        senderId: currentItem.studentId || 'student',
-        senderRole: 'STUDENT',
-        messageType: 'TEXT',
-        content: currentItem.lastMessageText,
-        isRead: true,
-        createdAt: currentItem.lastMessageAt || currentItem.createdAt || new Date().toISOString()
-      }] : [];
-
       setActiveDetail({
         conversation: {
           id: convId,
@@ -436,7 +425,7 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
           status: currentItem.status || 'ACTIVE',
           createdAt: currentItem.createdAt || new Date().toISOString()
         },
-        messages: initialMsgs,
+        messages: [],
         typingUser: null
       });
     }
@@ -444,19 +433,6 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
     try {
       const res = await api.messages.getConversation(convId);
       if (res) {
-        // If fetched messages is empty but currentItem had a lastMessageText (e.g. "HI"), preserve that message
-        if ((!res.messages || res.messages.length === 0) && currentItem?.lastMessageText) {
-          res.messages = [{
-            id: `msg-${convId}-initial`,
-            conversationId: convId,
-            senderId: currentItem.studentId || 'student',
-            senderRole: 'STUDENT',
-            messageType: 'TEXT',
-            content: currentItem.lastMessageText,
-            isRead: true,
-            createdAt: currentItem.lastMessageAt || currentItem.createdAt || new Date().toISOString()
-          }];
-        }
         setActiveDetail(res);
         setTimeout(() => scrollToBottom('auto'), 50);
       }
@@ -1729,7 +1705,7 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
                   }
 
                   return filteredMessages.map(msg => {
-                    const isMe = msg.senderId === user?.id || (isStudent && msg.senderRole === 'STUDENT') || (!isStudent && (msg.senderRole === 'PROVIDER' || (msg.senderRole as string) === 'AGENT' || (msg.senderRole as string) === 'LANDLORD'));
+                    const isMe = Boolean(user?.id && msg.senderId === user.id) || Boolean(user?.email && (msg as any).senderEmail && (msg as any).senderEmail.toLowerCase() === user.email.toLowerCase());
                     const isAutoReply = Boolean(msg.metadata?.isAutoReply || msg.metadata?.automated);
                     const isImage = msg.messageType === 'IMAGE' || Boolean(msg.metadata?.imageUrl);
                     const isAudio = msg.messageType === 'AUDIO' || Boolean(msg.metadata?.audioDuration);
@@ -1751,7 +1727,7 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
                     const senderLabel = isAutoReply
                       ? '🤖 Hostel Ease Automated Assistant'
                       : isMe
-                      ? `You (${isStudent ? 'Student' : 'Agent'})`
+                      ? 'You'
                       : (msg.senderRole === 'PROVIDER' || (msg.senderRole as string) === 'AGENT' || (msg.senderRole as string) === 'LANDLORD')
                       ? `🏡 Agent: ${activeDetail.conversation?.provider?.name || 'Agent'}`
                       : `🎓 Student: ${activeDetail.conversation?.student?.name || 'Student'}`;

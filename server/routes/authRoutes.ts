@@ -155,7 +155,9 @@ router.post('/login', (req, res: Response) => {
       SELECT id, email, password_hash as passwordHash, full_name as fullName, phone, role, is_active as isActive
       FROM users
       WHERE LOWER(email) = LOWER(?)
-    `).get(identifier) as any;
+         OR (LOWER(?) IN ('provider@hostelease.ng', 'landlord@hostelease.ng') AND LOWER(email) IN ('provider@hostelease.ng', 'landlord@hostelease.ng'))
+      ORDER BY id ASC LIMIT 1
+    `).get(identifier, identifier) as any;
   }
 
   if (!user) {

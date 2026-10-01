@@ -226,10 +226,10 @@ router.get('/conversations', authenticate, (req: AuthenticatedRequest, res: Resp
         LEFT JOIN users u ON c.provider_id = u.id
         LEFT JOIN users u_s ON c.student_id = u_s.id
         LEFT JOIN user_presence up ON up.user_id = c.provider_id
-        WHERE c.student_id = ?
+        WHERE c.student_id = ? OR c.student_id IN (SELECT id FROM users WHERE LOWER(email) = LOWER(?))
         ORDER BY c.last_message_at DESC
       `;
-      params.push(req.user.id, req.user.id);
+      params.push(req.user.id, req.user.id, req.user.email || '');
     } else if (isProvider) {
       sql = `
         SELECT c.*, p.title as property_title, p.address as property_address,
@@ -251,9 +251,11 @@ router.get('/conversations', authenticate, (req: AuthenticatedRequest, res: Resp
         LEFT JOIN users u_p ON c.provider_id = u_p.id
         LEFT JOIN user_presence up ON up.user_id = c.student_id
         WHERE c.provider_id = ?
+           OR c.provider_id IN (SELECT id FROM users WHERE LOWER(email) = LOWER(?))
+           OR c.property_id IN (SELECT id FROM properties WHERE provider_id = ? OR provider_id IN (SELECT id FROM users WHERE LOWER(email) = LOWER(?)))
         ORDER BY c.last_message_at DESC
       `;
-      params.push(req.user.id, req.user.id);
+      params.push(req.user.id, req.user.id, req.user.email || '', req.user.id, req.user.email || '');
     } else if (isAdmin) {
       sql = `
         SELECT c.*, p.title as property_title, p.address as property_address,
@@ -398,22 +400,6 @@ router.get('/conversations/:id', authenticate, (req: AuthenticatedRequest, res: 
       ORDER BY created_at ASC
     `).all(id) as any[];
 
-    // If messages table has no entries yet, but the conversation record has a last_message_text (e.g. "HI"), preserve it
-    if (messages.length === 0 && conv.last_message_text && conv.last_message_text.trim()) {
-      messages.push({
-        id: `msg-${conv.id}-initial`,
-        conversation_id: conv.id,
-        sender_id: conv.student_id,
-        sender_role: 'STUDENT',
-        message_type: 'TEXT',
-        content: conv.last_message_text,
-        metadata_json: null,
-        is_read: 1,
-        read_at: conv.last_message_at || conv.created_at,
-        created_at: conv.created_at || conv.last_message_at || new Date().toISOString()
-      });
-    }
-
     // Mark unread messages sent by opposite party as read
     db.prepare(`
       UPDATE messages
@@ -507,9 +493,12 @@ router.post('/conversations/:id/messages', authenticate, (req: AuthenticatedRequ
 
   try {
     const conv = db.prepare(`
-      SELECT c.*, p.title as property_title, p.provider_id as property_provider_id
+      SELECT c.*, p.title as property_title, p.provider_id as property_provider_id,
+             u_s.email as student_email, u_p.email as provider_email
       FROM conversations c
       LEFT JOIN properties p ON c.property_id = p.id
+      LEFT JOIN users u_s ON c.student_id = u_s.id
+      LEFT JOIN users u_p ON c.provider_id = u_p.id
       WHERE c.id = ?
     `).get(id) as any;
 
@@ -523,8 +512,15 @@ router.post('/conversations/:id/messages', authenticate, (req: AuthenticatedRequ
     const isProviderRole = userRole === 'PROVIDER' || userRole === 'LANDLORD' || userRole === 'AGENT';
     const isAdminRole = userRole === 'ADMIN' || userRole === 'OWNER';
 
-    const isStudent = (isStudentRole || !isProviderRole) && (conv.student_id === req.user.id);
-    const isProvider = isProviderRole && (conv.provider_id === req.user.id || conv.property_provider_id === req.user.id);
+    const isStudent = (isStudentRole || !isProviderRole) && (
+      conv.student_id === req.user.id ||
+      (req.user.email && conv.student_email && conv.student_email.toLowerCase() === req.user.email.toLowerCase())
+    );
+    const isProvider = isProviderRole && (
+      conv.provider_id === req.user.id || 
+      conv.property_provider_id === req.user.id ||
+      (req.user.email && conv.provider_email && conv.provider_email.toLowerCase() === req.user.email.toLowerCase())
+    );
     const isParticipant = conv.student_id === req.user.id || conv.provider_id === req.user.id;
     const isAdmin = isAdminRole;
 
@@ -735,25 +731,30 @@ router.get('/unread-count', authenticate, (req: AuthenticatedRequest, res: Respo
     const isProvider = userRole === 'PROVIDER' || userRole === 'LANDLORD' || userRole === 'AGENT';
 
     let sql = '';
+    const params: any[] = [];
     if (isStudent) {
       sql = `
         SELECT COUNT(*) as unread_count
         FROM messages m
         JOIN conversations c ON m.conversation_id = c.id
-        WHERE c.student_id = ? AND m.sender_id != ? AND m.is_read = 0
+        WHERE (c.student_id = ? OR c.student_id IN (SELECT id FROM users WHERE LOWER(email) = LOWER(?)))
+          AND m.sender_id != ? AND m.is_read = 0
       `;
+      params.push(req.user.id, req.user.email || '', req.user.id);
     } else if (isProvider) {
       sql = `
         SELECT COUNT(*) as unread_count
         FROM messages m
         JOIN conversations c ON m.conversation_id = c.id
-        WHERE c.provider_id = ? AND m.sender_id != ? AND m.is_read = 0
+        WHERE (c.provider_id = ? OR c.provider_id IN (SELECT id FROM users WHERE LOWER(email) = LOWER(?)))
+          AND m.sender_id != ? AND m.is_read = 0
       `;
+      params.push(req.user.id, req.user.email || '', req.user.id);
     } else {
       return res.json({ unreadCount: 0 });
     }
 
-    const row = db.prepare(sql).get(req.user.id, req.user.id) as any;
+    const row = db.prepare(sql).get(...params) as any;
     return res.json({ unreadCount: row?.unread_count || 0 });
   } catch (err: any) {
     console.error('Unread count error:', err);

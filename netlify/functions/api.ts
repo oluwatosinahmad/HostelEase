@@ -3151,22 +3151,6 @@ export default async (req: Request): Promise<Response> => {
 
     let msgs = memoryMessages.filter(m => m.conversationId === convId);
 
-    // If messages list is empty, but conversation has lastMessageText (e.g. "HI"), preserve and display it
-    if (msgs.length === 0 && conv.lastMessageText && conv.lastMessageText.trim()) {
-      const initialMsg = {
-        id: `msg-${conv.id}-initial`,
-        conversationId: conv.id,
-        senderId: conv.studentId || 'student',
-        senderRole: 'STUDENT',
-        messageType: 'TEXT',
-        content: conv.lastMessageText,
-        isRead: true,
-        createdAt: conv.createdAt || conv.lastMessageAt || new Date().toISOString()
-      };
-      msgs.push(initialMsg);
-      memoryMessages.push(initialMsg);
-    }
-
     // Mark unread messages sent by opposite party as read
     msgs.forEach(m => {
       if (m.senderId !== user.id) {
