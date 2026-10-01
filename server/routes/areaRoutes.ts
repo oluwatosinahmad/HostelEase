@@ -43,30 +43,37 @@ router.get('/', (req, res: Response) => {
   }
 });
 
-// 2. Admin Create Area
-router.post('/', authenticate, requireRole('ADMIN'), (req: AuthenticatedRequest, res: Response) => {
+// 2. Admin & Provider Create / Register Area
+router.post('/', authenticate, requireRole('ADMIN', 'PROVIDER'), (req: AuthenticatedRequest, res: Response) => {
   const { name, slug, description, landmark, approxDistanceMinKm, approxDistanceMaxKm, centerLat, centerLng } = req.body;
 
-  if (!name || !slug) {
-    return res.status(400).json({ error: 'Name and slug are required' });
+  if (!name || typeof name !== 'string' || !name.trim()) {
+    return res.status(400).json({ error: 'Area name is required' });
   }
 
-  const areaId = `area-${slug.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
+  const cleanName = name.trim();
+  const cleanSlug = (slug || cleanName).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+  const areaId = `area-${cleanSlug}`;
 
   try {
+    const existing = db.prepare(`SELECT id, name FROM areas WHERE id = ? OR slug = ? OR LOWER(name) = LOWER(?)`).get(areaId, cleanSlug, cleanName) as any;
+    if (existing) {
+      return res.status(200).json({ message: 'Accommodation area already exists', areaId: existing.id });
+    }
+
     db.prepare(`
       INSERT INTO areas (
         id, university_id, name, slug, description, landmark,
         approx_distance_min_km, approx_distance_max_km, center_lat, center_lng, is_active
-      ) VALUES (?, 'lautech-ogbomoso', ?, ?, ?, ?, ?, ?, ?, ?, 1)
+      ) VALUES (?, 'uni-lautech-ogbomoso', ?, ?, ?, ?, ?, ?, ?, ?, 1)
     `).run(
       areaId,
-      name.trim(),
-      slug.trim().toLowerCase(),
-      description || null,
-      landmark || null,
-      parseFloat(approxDistanceMinKm) || 0.5,
-      parseFloat(approxDistanceMaxKm) || 2.5,
+      cleanName,
+      cleanSlug,
+      description || `Accommodation area near LAUTECH`,
+      landmark || `${cleanName} Axis`,
+      parseFloat(approxDistanceMinKm) || 0.6,
+      parseFloat(approxDistanceMaxKm) || 2.0,
       centerLat ? parseFloat(centerLat) : null,
       centerLng ? parseFloat(centerLng) : null
     );

@@ -69,17 +69,17 @@ const DEFAULT_AREA_UTILITIES: AreaUtilityStatus[] = [
     communityVotes: { lightOn: 112, lightOut: 4, waterRunning: 104 }
   },
   {
-    areaId: 'area-stadium-road',
-    areaName: 'Stadium Road',
-    landmark: 'Ogbomoso Township Stadium Gate 2',
-    lightHoursAvg: 16,
+    areaId: 'area-oluyole',
+    areaName: 'Olubere',
+    landmark: 'Olubere Avenue / Oluyole Axis',
+    lightHoursAvg: 19,
     currentLightStatus: 'ON',
-    lastStatusChange: 'Active for 2 hrs',
+    lastStatusChange: 'Active for 3.5 hrs',
     waterStatus: 'FLOWING',
     solarLodgesCount: 7,
-    studentSatisfactionRating: 4.6,
-    feederName: 'Stadium Residential Line',
-    communityVotes: { lightOn: 56, lightOut: 11, waterRunning: 68 }
+    studentSatisfactionRating: 4.8,
+    feederName: 'Olubere Residential Dedicated Feeder',
+    communityVotes: { lightOn: 65, lightOut: 5, waterRunning: 74 }
   },
   {
     areaId: 'area-college-road',

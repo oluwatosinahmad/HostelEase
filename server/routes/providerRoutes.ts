@@ -596,10 +596,40 @@ router.post(
       }
     }
 
-    // Resilient LAUTECH Area Resolution (Safeguards against 'custom', empty, or non-existent IDs)
+    // Resilient LAUTECH Area Resolution & Central Registration (Guarantees single source of truth across all devices)
+    const customLoc = (req.body.customLocationName || '').trim();
     let resolvedAreaId = areaId;
-    if (!resolvedAreaId || resolvedAreaId === 'custom') {
-      const defaultArea = db.prepare(`SELECT id FROM areas ORDER BY id ASC LIMIT 1`).get() as any;
+
+    if (customLoc) {
+      const customSlug = customLoc.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+      const existingArea = db.prepare(`SELECT id FROM areas WHERE LOWER(name) = LOWER(?) OR slug = ?`).get(customLoc, customSlug) as any;
+      if (existingArea) {
+        resolvedAreaId = existingArea.id;
+      } else {
+        const newAreaId = `area-${customSlug}`;
+        const approxDist = parseFloat(distanceFromCampusKm) || 0.8;
+        try {
+          db.prepare(`
+            INSERT INTO areas (
+              id, university_id, name, slug, description, landmark, approx_distance_min_km, approx_distance_max_km, is_active
+            ) VALUES (?, 'uni-lautech-ogbomoso', ?, ?, ?, ?, ?, ?, 1)
+          `).run(
+            newAreaId,
+            customLoc,
+            customSlug,
+            `Custom accommodation neighborhood near LAUTECH`,
+            nearbyLandmark || `${customLoc} Axis`,
+            approxDist,
+            approxDist + 0.6
+          );
+          resolvedAreaId = newAreaId;
+        } catch {
+          const fallback = db.prepare(`SELECT id FROM areas WHERE is_active = 1 ORDER BY approx_distance_min_km ASC LIMIT 1`).get() as any;
+          resolvedAreaId = fallback?.id || 'area-under-g';
+        }
+      }
+    } else if (!resolvedAreaId || resolvedAreaId === 'custom') {
+      const defaultArea = db.prepare(`SELECT id FROM areas WHERE is_active = 1 ORDER BY approx_distance_min_km ASC LIMIT 1`).get() as any;
       resolvedAreaId = defaultArea?.id || 'area-under-g';
     } else {
       const areaExists = db.prepare(`SELECT id FROM areas WHERE id = ?`).get(resolvedAreaId) as any;
@@ -608,7 +638,7 @@ router.post(
         if (areaByName) {
           resolvedAreaId = areaByName.id;
         } else {
-          const defaultArea = db.prepare(`SELECT id FROM areas ORDER BY id ASC LIMIT 1`).get() as any;
+          const defaultArea = db.prepare(`SELECT id FROM areas WHERE is_active = 1 ORDER BY approx_distance_min_km ASC LIMIT 1`).get() as any;
           resolvedAreaId = defaultArea?.id || 'area-under-g';
         }
       }
@@ -1968,7 +1998,7 @@ router.post(
     }
 
     // 4. Pricing Benchmarks & Zone Rate Intelligence
-    else if (lower.includes('price') || lower.includes('rent') || lower.includes('market') || lower.includes('rate') || lower.includes('under g') || lower.includes('adenike') || lower.includes('stadium') || lower.includes('how much')) {
+    else if (lower.includes('price') || lower.includes('rent') || lower.includes('market') || lower.includes('rate') || lower.includes('under g') || lower.includes('adenike') || lower.includes('abaa') || lower.includes('olubere') || lower.includes('how much')) {
       const zoneStats = db.prepare(`
         SELECT a.name as area_name,
                AVG(pr.rent_amount) as avg_rent,

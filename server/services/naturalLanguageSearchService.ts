@@ -29,7 +29,8 @@ export class NaturalLanguageSearchService {
   private static KNOWN_AREAS = [
     'under g',
     'adenike',
-    'stadium',
+    'abaa',
+    'olubere',
     'isale general',
     'aroma',
     'high school',

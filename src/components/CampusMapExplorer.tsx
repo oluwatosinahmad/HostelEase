@@ -103,7 +103,7 @@ export const CampusMapExplorer: React.FC<CampusMapExplorerProps> = ({
     'No. 59, Olubere Avenue, Oluyole, Ibadan',
     'Under-G Road, Ogbomoso',
     'Adenike Street, Ogbomoso',
-    'Stadium Area, Ogbomoso',
+    'College Road / 2nd Gate, Ogbomoso',
     'General Area, Ogbomoso',
     'LAUTECH Main Campus Gate'
   ];
@@ -365,9 +365,9 @@ export const CampusMapExplorer: React.FC<CampusMapExplorerProps> = ({
       } else if (lowerQuery.includes('adenike')) {
         setSearchedAreaKeyword('Adenike Area');
         setActiveAreaFocus('area-adenike');
-      } else if (lowerQuery.includes('stadium')) {
-        setSearchedAreaKeyword('Stadium Road');
-        setActiveAreaFocus('area-stadium-road');
+      } else if (lowerQuery.includes('college')) {
+        setSearchedAreaKeyword('College Road / 2nd Gate');
+        setActiveAreaFocus('area-college-road');
       } else if (lowerQuery.includes('oluyole') || lowerQuery.includes('olubere')) {
         setSearchedAreaKeyword('Oluyole Estate, Ibadan');
         setActiveAreaFocus('area-oluyole');

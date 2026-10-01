@@ -2040,42 +2040,43 @@ export const api = {
     }
   },
 
-  // Universities & Areas
+  // Universities & Areas (Strict Single Source of Truth from Database / Serverless)
   areas: {
     async getAll(): Promise<{ areas: Area[] }> {
-      let customAreas: Area[] = [];
-      try {
-        const saved = localStorage.getItem('hostel_ease_custom_areas');
-        if (saved) {
-          customAreas = JSON.parse(saved);
-        }
-      } catch {}
+      // Purge legacy local storage key if present to prevent cross-device poisoning
+      if (typeof window !== 'undefined' && window.localStorage) {
+        try {
+          if (localStorage.getItem('hostel_ease_custom_areas')) {
+            localStorage.removeItem('hostel_ease_custom_areas');
+          }
+        } catch {}
+      }
 
       try {
         const res = await fetch(`${API_BASE}/areas`);
         if (res.ok) {
           const data = await res.json();
-          if (data.areas && data.areas.length > 0) {
-            const combined = [...data.areas];
-            customAreas.forEach(ca => {
-              if (!combined.some(a => a.id === ca.id || a.name.toLowerCase() === ca.name.toLowerCase())) {
-                combined.push(ca);
-              }
-            });
-            return { areas: combined };
+          if (Array.isArray(data.areas) && data.areas.length > 0) {
+            return { areas: data.areas };
           }
         }
       } catch (err) {
-        console.warn('Backend /api/areas unreachable, using verified LAUTECH area catalog.');
+        console.warn('Backend /api/areas unreachable, using verified LAUTECH area fallback catalog.');
       }
 
-      const combined = [...DEFAULT_AREAS];
-      customAreas.forEach(ca => {
-        if (!combined.some(a => a.id === ca.id || a.name.toLowerCase() === ca.name.toLowerCase())) {
-          combined.push(ca);
-        }
+      return { areas: DEFAULT_AREAS };
+    },
+
+    async create(areaData: { name: string; slug?: string; description?: string; landmark?: string; approxDistanceMinKm?: number; approxDistanceMaxKm?: number }): Promise<{ message: string; areaId: string }> {
+      const res = await fetch(`${API_BASE}/areas`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+        body: JSON.stringify(areaData)
       });
-      return { areas: combined };
+      if (res.ok) {
+        return await res.json();
+      }
+      throw new Error('Failed to register accommodation area');
     }
   },
 
@@ -3205,23 +3206,15 @@ export const api = {
       const areaId = customLoc ? `area-${areaSlug}` : (data.areaId || 'area-under-g');
 
       if (customLoc) {
-        try {
-          const saved = localStorage.getItem('hostel_ease_custom_areas');
-          const customList: Area[] = saved ? JSON.parse(saved) : [];
-          if (!customList.some(a => a.name.toLowerCase() === customLoc.toLowerCase())) {
-            customList.push({
-              id: areaId,
-              universityId: 'uni-lautech',
-              name: customLoc,
-              slug: areaSlug,
-              description: `Custom accommodation neighborhood near ${matchedArea?.name || 'LAUTECH'}`,
-              landmark: data.nearbyLandmark || 'LAUTECH Off-Campus Area',
-              approxDistanceMinKm: Number(data.distanceFromCampusKm) || 0.8,
-              approxDistanceMaxKm: (Number(data.distanceFromCampusKm) || 0.8) + 0.5
-            });
-            localStorage.setItem('hostel_ease_custom_areas', JSON.stringify(customList));
-          }
-        } catch {}
+        // Register custom area centrally in backend so all devices, browsers, and portals receive it
+        api.areas.create({
+          name: customLoc,
+          slug: areaSlug,
+          description: `Custom accommodation neighborhood near ${matchedArea?.name || 'LAUTECH'}`,
+          landmark: data.nearbyLandmark || `${customLoc} Axis`,
+          approxDistanceMinKm: Number(data.distanceFromCampusKm) || 0.8,
+          approxDistanceMaxKm: (Number(data.distanceFromCampusKm) || 0.8) + 0.6
+        }).catch(() => {});
       }
 
       const newProp: Property = {
@@ -6430,7 +6423,7 @@ Hello Agent, a student has booked your accommodation under our standard 5% commi
           response: `Hello! 👋 Welcome to **Hostel Ease** — your dedicated LAUTECH Student Accommodation & Housing Advisory Assistant.\n\n` +
             `How can I assist you with your student accommodation today? Here is an overview of what we offer across the LAUTECH campus community:\n\n` +
             `• **🏢 Various Verified Student Houses & Lodges:**\n` +
-            `  - **Self-Contain Apartments:** Private kitchenette, private bath & balcony in Under G, Adenike & Stadium Road (~₦180,000 – ₦380,000/yr)\n` +
+            `  - **Self-Contain Apartments:** Private kitchenette, private bath & balcony in Under G, Abaa & Adenike (~₦180,000 – ₦380,000/yr)\n` +
             `  - **Single Rooms & Room-and-Parlour Units:** Spacious study areas with steady borehole water & security (~₦140,000 – ₦260,000/yr)\n` +
             `  - **2-Bedroom Flats & Shared Bedspaces:** Perfect for coursemates and roommates sharing expenses (~₦90,000 – ₦160,000/person/yr)\n\n` +
             `• **⚡ Reliable Power & Solar Inverter Lodges:** 24/7 lighting and laptop charging for serious scholars during tests and exams.\n\n` +
@@ -6453,19 +6446,20 @@ Hello Agent, a student has booked your accommodation under our standard 5% commi
       }
 
       // 1. Area guide
-      if (lower.includes('area') || lower.includes('under g') || lower.includes('adenike') || lower.includes('stadium') || lower.includes('college road') || lower.includes('general') || lower.includes('where should i live') || lower.includes('best place')) {
+      if (lower.includes('area') || lower.includes('under g') || lower.includes('adenike') || lower.includes('abaa') || lower.includes('olubere') || lower.includes('college road') || lower.includes('general') || lower.includes('where should i live') || lower.includes('best place')) {
         let areaMatched = DEFAULT_PROPERTIES.slice(0, 4);
         if (lower.includes('under g')) areaMatched = DEFAULT_PROPERTIES.filter(p => (p.area?.name || '').toLowerCase().includes('under g'));
         else if (lower.includes('adenike')) areaMatched = DEFAULT_PROPERTIES.filter(p => (p.area?.name || '').toLowerCase().includes('adenike'));
-        else if (lower.includes('stadium')) areaMatched = DEFAULT_PROPERTIES.filter(p => (p.area?.name || '').toLowerCase().includes('stadium'));
+        else if (lower.includes('abaa')) areaMatched = DEFAULT_PROPERTIES.filter(p => (p.area?.name || '').toLowerCase().includes('abaa'));
+        else if (lower.includes('olubere') || lower.includes('oluyole')) areaMatched = DEFAULT_PROPERTIES.filter(p => (p.area?.name || '').toLowerCase().includes('olubere') || (p.area?.name || '').toLowerCase().includes('oluyole'));
 
         return {
           conversationId: convId,
           messageId: msgId,
           response: `### 📍 LAUTECH Student Accommodation Area Guide\n\n` +
             `• **Under G (Main Gate Axis):** 200m – 1.0km from campus. 24/7 commercial life, study cafes, printing hubs, and quick walking access to lecture theaters without taking keke. Rent: ~₦180,000 – ₦380,000.\n\n` +
+            `• **Abaa Area:** 0.6km – 1.8km from campus. Fastest-growing student hostel hub adjacent to Under G with vibrant student community and new modern lodges. Rent: ~₦170,000 – ₦350,000.\n\n` +
             `• **Adenike Community:** 0.5km – 1.8km from campus. Known for having one of the most reliable electricity feeders, vibrant student supermarkets, and steady Keke shuttles. Rent: ~₦160,000 – ₦320,000.\n\n` +
-            `• **Stadium Road:** 0.8km – 2.0km from campus. Serene, well-paved avenue preferred by final-year scholars and serious students. Steady borehole water and strict night security. Rent: ~₦200,000 – ₦420,000.\n\n` +
             `• **College Road / 2nd Gate:** 0.4km – 1.5km. Direct walking route to LAUTECH College of Health Sciences (CHS), Anatomy labs, and main library. Rent: ~₦170,000 – ₦340,000.\n\n` +
             `• **General Area & Bowen:** 1.4km – 2.8km. Calm residential neighborhood near the State Hospital with clean water and gated compounds. Rent: ~₦150,000 – ₦300,000.`,
           structuredData: {

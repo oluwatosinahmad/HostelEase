@@ -97,7 +97,7 @@ router.get('/overview', (req: AuthenticatedRequest, res: Response) => {
                              (Number(featRev.thisMonthFeatured) || 0) +
                              (Number(servRev.thisMonthServices) || 0);
 
-    // 7. Area Revenue Distribution (Under G, Adenike, Stadium, Aroje, etc.)
+    // 7. Area Revenue Distribution (Under G, Adenike, Abaa, Aroje, etc.)
     const areaRevenue = db.prepare(`
       SELECT 
         a.name as areaName,

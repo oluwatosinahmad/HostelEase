@@ -9,7 +9,7 @@
 
 Hostel Ease is a verified student accommodation platform engineered to eliminate stress, fake agents, and high fees for LAUTECH students.
 
-* **Student Hub**: Smart search across Ogbomoso neighborhoods (*Under G*, *Adenike*, *Stadium*, *Isale General*), transparent fee itemization, scheduled physical/virtual inspections, reservation escrow payments, move-in damage audits, and **100% optional roommate compatibility matching**.
+* **Student Hub**: Smart search across Ogbomoso neighborhoods (*Under G*, *Abaa*, *Adenike*, *Olubere*, *Isale General*), transparent fee itemization, scheduled physical/virtual inspections, reservation escrow payments, move-in damage audits, and **100% optional roommate compatibility matching**.
 * **Landlord Portal**: Listing management, room space availability controls, inspection scheduling, booking requests, move-in key handover verification, and real-time revenue ledger.
 * **Admin Command Center**: Landlord identity verification (NIN/CAC/Property Deeds), dispute escrow mediation, safety report investigations, community moderation, and supply-demand gap telemetry.
 * **Community Engine**: Factual student Q&A, 9-category structured hostel feedback, verified stay badges, and local campus commute guides.

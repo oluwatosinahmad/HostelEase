@@ -55,7 +55,7 @@ const KNOWN_NIGERIAN_LOCATIONS: Record<string, { lat: number; lng: number; displ
   'under g road': { lat: 8.1485, lng: 4.2580, displayName: 'Under-G Road, Student Lodges District, Ogbomoso', city: 'Ogbomoso', state: 'Oyo' },
   'adenike': { lat: 8.1360, lng: 4.2690, displayName: 'Adenike Student Area, Ogbomoso', city: 'Ogbomoso', state: 'Oyo' },
   'adenike street': { lat: 8.1360, lng: 4.2690, displayName: 'Adenike Student Area, Ogbomoso', city: 'Ogbomoso', state: 'Oyo' },
-  'stadium': { lat: 8.1320, lng: 4.2540, displayName: 'Stadium Area, Ogbomoso', city: 'Ogbomoso', state: 'Oyo' },
+  'olubere': { lat: 8.1400, lng: 4.2610, displayName: 'Olubere Avenue / Oluyole Axis, Ogbomoso', city: 'Ogbomoso', state: 'Oyo' },
   'college road': { lat: 8.1420, lng: 4.2590, displayName: 'College Road / 2nd Gate, Ogbomoso', city: 'Ogbomoso', state: 'Oyo' },
   'general': { lat: 8.1510, lng: 4.2480, displayName: 'General Hospital Area, Ogbomoso', city: 'Ogbomoso', state: 'Oyo' },
   'isale general': { lat: 8.1320, lng: 4.2690, displayName: 'Isale General Area, Ogbomoso', city: 'Ogbomoso', state: 'Oyo' },

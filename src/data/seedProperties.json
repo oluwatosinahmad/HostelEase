@@ -609,14 +609,14 @@
   },
   {
     "id": "prop-5",
-    "title": "Stadium Road Royal Self-Contain Suites",
-    "slug": "stadium-road-self-contain-5",
-    "description": "Modern ensuite self-contain with private bathroom, dedicated prepaid meter, continuous borehole water supply, and solar backup lighting. Located at Stadium Road, approximately 0.8km from LAUTECH campus.",
-    "address": "Plot 17, Near Ogbomoso Township Stadium, Stadium Road, Ogbomoso",
-    "nearbyLandmark": "Opposite Ogbomoso Township Stadium",
+    "title": "Royal Self-Contain Suites (Under G)",
+    "slug": "royal-self-contain-suites-under-g-5",
+    "description": "Modern ensuite self-contain with private bathroom, dedicated prepaid meter, continuous borehole water supply, and solar backup lighting. Located at Under G, approximately 0.4km from LAUTECH campus.",
+    "address": "Plot 17, Off Main Gate Axis, Under G, Ogbomoso",
+    "nearbyLandmark": "Opposite Bovas Station & Under-G Gate",
     "latitude": 8.143,
     "longitude": 4.26,
-    "distanceFromCampusKm": 0.8,
+    "distanceFromCampusKm": 0.4,
     "propertyType": "SELF_CONTAIN",
     "genderPreference": "ANY",
     "totalRooms": 16,
@@ -629,10 +629,10 @@
     "videoVerificationStatus": "APPROVED",
     "coverImage": "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80",
     "area": {
-      "id": "area-stadium-road",
-      "name": "Stadium Road",
-      "slug": "stadium-road",
-      "landmark": "Ogbomoso Township Stadium"
+      "id": "area-under-g",
+      "name": "Under G",
+      "slug": "under-g",
+      "landmark": "Main Gate & Bovas Station"
     },
     "provider": {
       "id": "user-provider-2",
@@ -714,7 +714,7 @@
       {
         "id": "media-prop-5-1",
         "url": "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80",
-        "caption": "Stadium Road Royal Self-Contain Suites - Front Elevation & Compound",
+        "caption": "Royal Self-Contain Suites (Under G) - Front Elevation & Compound",
         "displayOrder": 1,
         "isCover": true,
         "mediaType": "IMAGE",
@@ -761,14 +761,14 @@
   },
   {
     "id": "prop-6",
-    "title": "Stadium Road Comfort Single Lodge",
-    "slug": "stadium-road-single-room-6",
-    "description": "Affordable and neat single room in a peaceful student compound. Features steady water supply, security gate, and study desk space. Located at Stadium Road, approximately 1km from LAUTECH campus.",
-    "address": "Plot 20, Near Ogbomoso Township Stadium, Stadium Road, Ogbomoso",
-    "nearbyLandmark": "Opposite Ogbomoso Township Stadium",
+    "title": "Comfort Single Lodge (Under G)",
+    "slug": "comfort-single-lodge-under-g-6",
+    "description": "Affordable and neat single room in a peaceful student compound. Features steady water supply, security gate, and study desk space. Located at Under G, approximately 0.5km from LAUTECH campus.",
+    "address": "Plot 20, Off Main Gate Axis, Under G, Ogbomoso",
+    "nearbyLandmark": "Near Under G Gate & Bovas Station",
     "latitude": 8.143,
     "longitude": 4.262,
-    "distanceFromCampusKm": 1,
+    "distanceFromCampusKm": 0.5,
     "propertyType": "SINGLE_ROOM",
     "genderPreference": "ANY",
     "totalRooms": 12,
@@ -781,10 +781,10 @@
     "videoVerificationStatus": "APPROVED",
     "coverImage": "https://images.unsplash.com/photo-1580587771525-78b9dba3b914?auto=format&fit=crop&w=1200&q=80",
     "area": {
-      "id": "area-stadium-road",
-      "name": "Stadium Road",
-      "slug": "stadium-road",
-      "landmark": "Ogbomoso Township Stadium"
+      "id": "area-under-g",
+      "name": "Under G",
+      "slug": "under-g",
+      "landmark": "Main Gate & Bovas Station"
     },
     "provider": {
       "id": "user-provider-3",
@@ -866,7 +866,7 @@
       {
         "id": "media-prop-6-1",
         "url": "https://images.unsplash.com/photo-1580587771525-78b9dba3b914?auto=format&fit=crop&w=1200&q=80",
-        "caption": "Stadium Road Comfort Single Lodge - Front Elevation & Compound",
+        "caption": "Comfort Single Lodge (Under G) - Front Elevation & Compound",
         "displayOrder": 1,
         "isCover": true,
         "mediaType": "IMAGE",
@@ -913,14 +913,14 @@
   },
   {
     "id": "prop-7",
-    "title": "Stadium Road Scholars Court 2-Bedroom Flat",
-    "slug": "stadium-road-flat-7",
-    "description": "Spacious 2-bedroom student flat ideal for roommates or group study. Includes large sitting parlor, fitted kitchen, and fenced perimeter. Located at Stadium Road, approximately 1.2km from LAUTECH campus.",
-    "address": "Plot 23, Near Ogbomoso Township Stadium, Stadium Road, Ogbomoso",
-    "nearbyLandmark": "Opposite Ogbomoso Township Stadium",
+    "title": "Scholars Court 2-Bedroom Flat (Abaa)",
+    "slug": "scholars-court-2-bedroom-flat-abaa-7",
+    "description": "Spacious 2-bedroom student flat ideal for roommates or group study. Includes large sitting parlor, fitted kitchen, and fenced perimeter. Located at Abaa Area, approximately 0.8km from LAUTECH campus.",
+    "address": "Plot 23, Abaa Corridor, Ogbomoso",
+    "nearbyLandmark": "Near Abaa Junction & Central Market",
     "latitude": 8.143,
     "longitude": 4.263999999999999,
-    "distanceFromCampusKm": 1.2,
+    "distanceFromCampusKm": 0.8,
     "propertyType": "FLAT",
     "genderPreference": "ANY",
     "totalRooms": 6,
@@ -933,10 +933,10 @@
     "videoVerificationStatus": "APPROVED",
     "coverImage": "https://images.unsplash.com/photo-1570129477492-45c003edd2be?auto=format&fit=crop&w=1200&q=80",
     "area": {
-      "id": "area-stadium-road",
-      "name": "Stadium Road",
-      "slug": "stadium-road",
-      "landmark": "Ogbomoso Township Stadium"
+      "id": "area-abaa",
+      "name": "Abaa Area",
+      "slug": "abaa",
+      "landmark": "Abaa Junction & Central Market"
     },
     "provider": {
       "id": "user-provider-4",
@@ -1018,7 +1018,7 @@
       {
         "id": "media-prop-7-1",
         "url": "https://images.unsplash.com/photo-1570129477492-45c003edd2be?auto=format&fit=crop&w=1200&q=80",
-        "caption": "Stadium Road Scholars Court 2-Bedroom Flat - Front Elevation & Compound",
+        "caption": "Scholars Court 2-Bedroom Flat (Abaa) - Front Elevation & Compound",
         "displayOrder": 1,
         "isCover": true,
         "mediaType": "IMAGE",
@@ -1065,14 +1065,14 @@
   },
   {
     "id": "prop-8",
-    "title": "Stadium Road Academics Shared Bedspaces",
-    "slug": "stadium-road-shared-bedspace-8",
-    "description": "Budget-friendly shared bedspace in a secure and tidy student hostel. Includes personal locker, study reading table, and borehole water. Located at Stadium Road, approximately 1.4km from LAUTECH campus.",
-    "address": "Plot 26, Near Ogbomoso Township Stadium, Stadium Road, Ogbomoso",
-    "nearbyLandmark": "Opposite Ogbomoso Township Stadium",
+    "title": "Academics Shared Bedspaces (Abaa)",
+    "slug": "academics-shared-bedspaces-abaa-8",
+    "description": "Budget-friendly shared bedspace in a secure and tidy student hostel. Includes personal locker, study reading table, and borehole water. Located at Abaa Area, approximately 0.9km from LAUTECH campus.",
+    "address": "Plot 26, Abaa Corridor, Ogbomoso",
+    "nearbyLandmark": "Near Abaa Central Market",
     "latitude": 8.143,
     "longitude": 4.266,
-    "distanceFromCampusKm": 1.4,
+    "distanceFromCampusKm": 0.9,
     "propertyType": "SHARED_BEDSPACE",
     "genderPreference": "FEMALE_ONLY",
     "totalRooms": 20,
@@ -1085,10 +1085,10 @@
     "videoVerificationStatus": "APPROVED",
     "coverImage": "https://images.unsplash.com/photo-1513694203232-719a280e022f?auto=format&fit=crop&w=1200&q=80",
     "area": {
-      "id": "area-stadium-road",
-      "name": "Stadium Road",
-      "slug": "stadium-road",
-      "landmark": "Ogbomoso Township Stadium"
+      "id": "area-abaa",
+      "name": "Abaa Area",
+      "slug": "abaa",
+      "landmark": "Abaa Junction & Central Market"
     },
     "provider": {
       "id": "user-provider-1",
@@ -1170,7 +1170,7 @@
       {
         "id": "media-prop-8-1",
         "url": "https://images.unsplash.com/photo-1513694203232-719a280e022f?auto=format&fit=crop&w=1200&q=80",
-        "caption": "Stadium Road Academics Shared Bedspaces - Front Elevation & Compound",
+        "caption": "Academics Shared Bedspaces (Abaa) - Front Elevation & Compound",
         "displayOrder": 1,
         "isCover": true,
         "mediaType": "IMAGE",

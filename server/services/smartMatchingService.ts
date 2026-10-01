@@ -71,7 +71,7 @@ export class SmartMatchingService {
         maxBudget: 200000,
         monthlyLivingBudget: 35000,
         paymentStylePreference: 'FULL_YEAR',
-        preferredAreas: ['Under G', 'Adenike', 'Stadium'],
+        preferredAreas: ['Under G', 'Abaa', 'Adenike'],
         preferredRoomTypes: ['SINGLE', 'SHARED_2'],
         maxDistanceMinutes: 15,
         maxDistanceKm: 2.0,

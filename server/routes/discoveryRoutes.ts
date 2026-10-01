@@ -45,7 +45,7 @@ const LAUTECH_CAMPUS_LANDMARKS = [
     category: 'RECREATION',
     lat: 8.1389,
     lng: 4.2580,
-    desc: 'Stadium Road student activity and sports center.'
+    desc: 'Sports complex and community recreation center.'
   },
   {
     id: 'landmark-adenike-junction',

@@ -2017,17 +2017,17 @@ Your caution deposit is refundable upon move-out provided no unauthorized struct
         nearby_services_json: '["Pharmacies", "Grocery Stores", "Barber & Salons", "Tech Hubs"]'
       },
       {
-        id: 'ag-stadium',
-        area_name: 'Stadium',
-        description: 'Vibrant neighborhood near Ogbomoso stadium with easy access to transport shuttles and open sports grounds.',
-        walking_minutes_to_campus: 16,
-        bike_minutes_to_campus: 5,
-        estimated_daily_transport: 200,
-        power_reliability_summary: 'Moderate grid power supplemented by compound generators.',
+        id: 'ag-abaa',
+        area_name: 'Abaa Area',
+        description: 'Fastest-growing student hostel hub adjacent to Under G with vibrant student community and new modern lodges.',
+        walking_minutes_to_campus: 10,
+        bike_minutes_to_campus: 3,
+        estimated_daily_transport: 150,
+        power_reliability_summary: 'Moderate grid power supplemented by solar inverter setups.',
         water_reliability_summary: 'Consistent borehole water supply.',
         security_summary: 'Gated compound communities with designated caretakers.',
-        popular_landmarks_json: '["Ogbomoso Township Stadium", "Stadium Gate", "Express Junction"]',
-        nearby_services_json: '["Fitness Centers", "Supermarkets", "Bike Parks", "Restaurants"]'
+        popular_landmarks_json: '["Abaa Junction", "Central Market", "Under G Link Road"]',
+        nearby_services_json: '["Tech Hubs", "Supermarkets", "Bike Parks", "Restaurants"]'
       },
       {
         id: 'ag-isale-general',

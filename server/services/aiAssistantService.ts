@@ -445,7 +445,7 @@ export class AIAssistantService {
         message: `Hello! 👋 Welcome to **Hostel Ease** — your dedicated LAUTECH Student Accommodation & Housing Advisory Assistant.\n\n` +
           `How can I assist you with your student accommodation today? Here is an overview of what we offer across the LAUTECH campus community:\n\n` +
           `• **🏢 Various Verified Student Houses & Lodges:**\n` +
-          `  - **Self-Contain Apartments:** Private kitchenette, private bath & balcony in Under G, Adenike & Stadium Road (~₦180,000 – ₦380,000/yr)\n` +
+          `  - **Self-Contain Apartments:** Private kitchenette, private bath & balcony in Under G, Abaa & Adenike (~₦180,000 – ₦380,000/yr)\n` +
           `  - **Single Rooms & Room-and-Parlour Units:** Spacious study areas with steady borehole water & security (~₦140,000 – ₦260,000/yr)\n` +
           `  - **2-Bedroom Flats & Shared Bedspaces:** Perfect for coursemates and roommates sharing expenses (~₦90,000 – ₦160,000/person/yr)\n\n` +
           `• **⚡ Reliable Power & Solar Inverter Lodges:** 24/7 lighting and laptop charging for serious scholars during tests and exams.\n\n` +
@@ -586,15 +586,14 @@ export class AIAssistantService {
     }
 
     // 🎓 LAUTECH ACCOMMODATION KNOWLEDGE BASE & ADVISORY
-    // Area guide inquiry
-    if (lower.includes('area') || lower.includes('under g') || lower.includes('adenike') || lower.includes('stadium') || lower.includes('college road') || lower.includes('general area') || lower.includes('where should i live') || lower.includes('best place to stay') || lower.includes('best area')) {
+    if (lower.includes('area') || lower.includes('under g') || lower.includes('adenike') || lower.includes('abaa') || lower.includes('olubere') || lower.includes('college road') || lower.includes('general area') || lower.includes('where should i live') || lower.includes('best place to stay') || lower.includes('best area')) {
       toolCallsExecuted.push('areaGuide');
       const areaProps = this.searchHostels({ limit: 4 }, studentId);
       return {
         message: `### 📍 LAUTECH Student Accommodation Area Guide\n\n` +
           `• **Under G (Main Gate Axis):** 200m – 1.0km from campus. 24/7 commercial life, study cafes, printing hubs, and quick walking access to lecture theaters without taking keke. Rent: ~₦180,000 – ₦380,000.\n\n` +
+          `• **Abaa Area:** 0.6km – 1.8km from campus. Fastest-growing student hostel hub adjacent to Under G with vibrant student community and new modern lodges. Rent: ~₦170,000 – ₦350,000.\n\n` +
           `• **Adenike Community:** 0.5km – 1.8km from campus. Known for having one of the most reliable electricity feeders, vibrant student supermarkets, and steady Keke shuttles. Rent: ~₦160,000 – ₦320,000.\n\n` +
-          `• **Stadium Road:** 0.8km – 2.0km from campus. Serene, well-paved avenue preferred by final-year scholars and serious students. Steady borehole water and strict night security. Rent: ~₦200,000 – ₦420,000.\n\n` +
           `• **College Road / 2nd Gate:** 0.4km – 1.5km. Direct walking route to LAUTECH College of Health Sciences (CHS), Anatomy labs, and main library. Rent: ~₦170,000 – ₦340,000.\n\n` +
           `• **General Area & Bowen:** 1.4km – 2.8km. Calm residential neighborhood near the State Hospital with clean water and gated compounds. Rent: ~₦150,000 – ₦300,000.`,
         structuredData: {
@@ -691,7 +690,7 @@ export class AIAssistantService {
         suggestedQueries: [
           'Find hostels suitable for 2 students sharing',
           'What are the cheapest self-contain lodges?',
-          'Show me hostels near Stadium Road'
+          'Show me hostels in Abaa Area'
         ],
         toolCallsExecuted
       };
@@ -772,7 +771,7 @@ export class AIAssistantService {
       } else if (ctx.savedHostels.length > 0) {
         statusMsg += `💡 You have **${ctx.savedHostels.length}** saved hostels in your shortlist. Would you like me to compare them for you?`;
       } else {
-        statusMsg += `Ready to start? Tell me your preferred budget and location around LAUTECH (e.g. Under G, Adenike, Stadium) to see top matches.`;
+        statusMsg += `Ready to start? Tell me your preferred budget and location around LAUTECH (e.g. Under G, Abaa, Adenike) to see top matches.`;
       }
 
       return {
@@ -804,7 +803,7 @@ export class AIAssistantService {
     }
 
     // 2. Area extraction
-    const areas = ['under g', 'adenike', 'stadium', 'caretaker', 'aroje', 'high school', 'general', 'randa', 'isale general'];
+    const areas = ['under g', 'adenike', 'abaa', 'olubere', 'caretaker', 'aroje', 'college road', 'general', 'randa', 'isale general'];
     for (const a of areas) {
       if (lower.includes(a)) {
         criteria.areaName = a;

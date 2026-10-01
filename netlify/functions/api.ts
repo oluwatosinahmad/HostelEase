@@ -175,6 +175,153 @@ function getBlobsStore(name: string) {
   }
 }
 
+const CANONICAL_NETLIFY_AREAS = [
+  {
+    id: 'area-under-g',
+    universityId: 'uni-lautech-ogbomoso',
+    name: 'Under G',
+    slug: 'under-g',
+    description: 'Closest student community to LAUTECH main gate. High concentration of modern self-contains, study cafes, and commercial activities.',
+    landmark: 'Main Gate & Bovas Station',
+    approxDistanceMinKm: 0.3,
+    approxDistanceMaxKm: 1.2
+  },
+  {
+    id: 'area-college-road',
+    universityId: 'uni-lautech-ogbomoso',
+    name: 'College Road / 2nd Gate',
+    slug: 'college-road',
+    description: 'Convenient walking distance to college lecture halls, science laboratories, and library.',
+    landmark: 'LAUTECH 2nd Gate / College of Health Sciences',
+    approxDistanceMinKm: 0.5,
+    approxDistanceMaxKm: 1.5
+  },
+  {
+    id: 'area-abaa',
+    universityId: 'uni-lautech-ogbomoso',
+    name: 'Abaa Area',
+    slug: 'abaa',
+    description: 'Fastest-growing student hostel hub adjacent to Under G with vibrant student community and new modern lodges.',
+    landmark: 'Abaa Junction & Central Market',
+    approxDistanceMinKm: 0.6,
+    approxDistanceMaxKm: 1.8
+  },
+  {
+    id: 'area-adenike',
+    universityId: 'uni-lautech-ogbomoso',
+    name: 'Adenike Area',
+    slug: 'adenike',
+    description: 'Popular and affordable student residential district with regular student shuttle and Keke NAPEP access.',
+    landmark: 'Adenike Junction & Holy Light',
+    approxDistanceMinKm: 1.0,
+    approxDistanceMaxKm: 2.5
+  },
+  {
+    id: 'area-oluyole',
+    universityId: 'uni-lautech-ogbomoso',
+    name: 'Olubere',
+    slug: 'olubere',
+    description: 'Serene residential quarter featuring premium student apartments, steady borehole water, and quiet study environment.',
+    landmark: 'Olubere Avenue / Oluyole Axis',
+    approxDistanceMinKm: 1.0,
+    approxDistanceMaxKm: 2.2
+  },
+  {
+    id: 'area-general',
+    universityId: 'uni-lautech-ogbomoso',
+    name: 'General Area',
+    slug: 'general',
+    description: 'Peaceful and secure environment highly preferred by medical, nursing, anatomy, and final-year students.',
+    landmark: 'Bowen Teaching Hospital / General Hospital',
+    approxDistanceMinKm: 1.5,
+    approxDistanceMaxKm: 3.0
+  },
+  {
+    id: 'area-isale-general',
+    universityId: 'uni-lautech-ogbomoso',
+    name: 'Isale General',
+    slug: 'isale-general',
+    description: 'Budget-friendly area with authentic student lodges, steady borehole water, and affordable food markets.',
+    landmark: 'Isale General Central Mosque',
+    approxDistanceMinKm: 1.8,
+    approxDistanceMaxKm: 3.2
+  },
+  {
+    id: 'area-caretaker',
+    universityId: 'uni-lautech-ogbomoso',
+    name: 'Caretaker',
+    slug: 'caretaker',
+    description: 'Well-connected commercial and residential hub with quick bike and bus transit directly to Under G campus gate.',
+    landmark: 'Caretaker Junction & Total Fuel Station',
+    approxDistanceMinKm: 2.0,
+    approxDistanceMaxKm: 3.5
+  },
+  {
+    id: 'area-randa',
+    universityId: 'uni-lautech-ogbomoso',
+    name: 'Randa',
+    slug: 'randa',
+    description: 'Quiet residential quarter with standard single rooms, flats, and reliable community security.',
+    landmark: 'Randa Roundabout',
+    approxDistanceMinKm: 2.0,
+    approxDistanceMaxKm: 3.8
+  },
+  {
+    id: 'area-yoaco',
+    universityId: 'uni-lautech-ogbomoso',
+    name: 'Yoaco',
+    slug: 'yoaco',
+    description: 'Rapidly developing student residential neighborhood with newly constructed modern lodges and serene study spaces.',
+    landmark: 'Yoaco Filling Station & Ogbomoso High School',
+    approxDistanceMinKm: 2.2,
+    approxDistanceMaxKm: 4.0
+  },
+  {
+    id: 'area-aroje',
+    universityId: 'uni-lautech-ogbomoso',
+    name: 'Aroje',
+    slug: 'aroje',
+    description: 'Spacious student compounds with high perimeter walls, borehole systems, and ample compound parking.',
+    landmark: 'Aroje Express Road / Ilorin Highway',
+    approxDistanceMinKm: 2.5,
+    approxDistanceMaxKm: 4.5
+  }
+];
+
+let memoryAreas: any[] = [...CANONICAL_NETLIFY_AREAS];
+let areasLoadedFromBlobs = false;
+
+async function loadAreasFromBlobs() {
+  if (areasLoadedFromBlobs) return;
+  try {
+    const store = getBlobsStore('areas');
+    if (store) {
+      const custom = await store.get('custom_areas', { type: 'json' });
+      if (Array.isArray(custom)) {
+        for (const ca of custom) {
+          if (!memoryAreas.some(a => a.id === ca.id || a.name.toLowerCase() === ca.name.toLowerCase())) {
+            memoryAreas.push(ca);
+          }
+        }
+      }
+    }
+  } catch {}
+  areasLoadedFromBlobs = true;
+}
+
+async function saveCustomAreaToBlobs(area: any) {
+  if (!memoryAreas.some(a => a.id === area.id || a.name.toLowerCase() === area.name.toLowerCase())) {
+    memoryAreas.push(area);
+  }
+  try {
+    const store = getBlobsStore('areas');
+    if (store) {
+      const customOnly = memoryAreas.filter(a => !CANONICAL_NETLIFY_AREAS.some(c => c.id === a.id));
+      await store.setJSON('custom_areas', customOnly);
+    }
+  } catch {}
+}
+
 async function saveCloudUser(user: any) {
   if (!user || !user.email) return;
   const cleanEmail = user.email.toLowerCase().trim();
@@ -1191,6 +1338,47 @@ export default async (req: Request): Promise<Response> => {
       const hasVideo = data.has4KVideo || (data.mediaItems || []).some((m: any) => m.mediaType === 'VIDEO' || m.type === 'VIDEO' || m.category === 'VIDEO_WALKTHROUGH');
       const videoTourUrl = data.videoTourUrl || (data.mediaItems || []).find((m: any) => m.mediaType === 'VIDEO' || m.type === 'VIDEO' || m.category === 'VIDEO_WALKTHROUGH')?.url || '';
 
+      await loadAreasFromBlobs();
+      let resolvedAreaObj = {
+        id: data.areaId || 'area-under-g',
+        name: 'Under G',
+        slug: 'under-g',
+        landmark: data.nearbyLandmark || 'LAUTECH Area'
+      };
+
+      const customLoc = (data.customLocationName || '').trim();
+      if (customLoc) {
+        const customSlug = customLoc.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+        const customAreaId = `area-${customSlug}`;
+        const newArea = {
+          id: customAreaId,
+          universityId: 'uni-lautech-ogbomoso',
+          name: customLoc,
+          slug: customSlug,
+          description: 'Custom accommodation neighborhood near LAUTECH',
+          landmark: data.nearbyLandmark || `${customLoc} Axis`,
+          approxDistanceMinKm: Number(data.distanceFromCampusKm) || 0.8,
+          approxDistanceMaxKm: (Number(data.distanceFromCampusKm) || 0.8) + 0.6
+        };
+        await saveCustomAreaToBlobs(newArea);
+        resolvedAreaObj = {
+          id: customAreaId,
+          name: customLoc,
+          slug: customSlug,
+          landmark: data.nearbyLandmark || `${customLoc} Axis`
+        };
+      } else {
+        const matched = memoryAreas.find(a => a.id === data.areaId || a.slug === data.areaId);
+        if (matched) {
+          resolvedAreaObj = {
+            id: matched.id,
+            name: matched.name,
+            slug: matched.slug,
+            landmark: matched.landmark || data.nearbyLandmark || `${matched.name} Area`
+          };
+        }
+      }
+
       const newProp = {
         id: propertyId,
         slug,
@@ -1199,12 +1387,8 @@ export default async (req: Request): Promise<Response> => {
         genderPreference: data.genderPreference || 'ANY',
         description: data.description || 'Modern student accommodation with steady water and electricity.',
         address: data.address || 'LAUTECH Off-Campus, Ogbomoso',
-        area: {
-          id: data.areaId || 'area-under-g',
-          name: data.customLocationName || 'Under G',
-          slug: 'under-g',
-          landmark: data.nearbyLandmark || 'LAUTECH Area'
-        },
+        area: resolvedAreaObj,
+        area_id: resolvedAreaObj.id,
         nearbyLandmark: data.nearbyLandmark || '',
         distanceFromCampusKm: Number(data.distanceFromCampusKm) || 0.8,
         totalRooms: Number(data.totalRooms) || 1,
@@ -2474,64 +2658,84 @@ export default async (req: Request): Promise<Response> => {
     }), { status: 200, headers: CORS_HEADERS });
   }
 
-  // 13. Areas API
+  // 13. Areas API (Dynamic counts from approved database listings, single source of truth, NO Stadium Road)
   if (pathname === '/api/areas' && req.method === 'GET') {
+    await loadAreasFromBlobs();
+
+    const resultAreas = memoryAreas.map(a => {
+      // Find all approved properties belonging to this area
+      const matchingProps = memoryProperties.filter(p => {
+        const isApproved = p.verificationStatus === 'APPROVED' || p.verification_status === 'APPROVED';
+        if (!isApproved) return false;
+
+        const propAreaId = p.area?.id || p.area_id;
+        const propAreaName = p.area?.name || '';
+        return propAreaId === a.id || 
+               propAreaId === a.slug || 
+               (propAreaName && propAreaName.toLowerCase() === a.name.toLowerCase());
+      });
+
+      const rentAmounts = matchingProps
+        .map(p => Number(p.priceSummary?.rentAmount || p.pricing?.rentAmount || 0))
+        .filter(r => r > 0);
+
+      const minRent = rentAmounts.length > 0 ? Math.min(...rentAmounts) : undefined;
+      const maxRent = rentAmounts.length > 0 ? Math.max(...rentAmounts) : undefined;
+
+      return {
+        id: a.id,
+        universityId: a.universityId || 'uni-lautech-ogbomoso',
+        name: a.name,
+        slug: a.slug,
+        description: a.description,
+        landmark: a.landmark,
+        approxDistanceMinKm: a.approxDistanceMinKm,
+        approxDistanceMaxKm: a.approxDistanceMaxKm,
+        propertyCount: matchingProps.length,
+        minRent,
+        maxRent
+      };
+    });
+
+    resultAreas.sort((a, b) => (a.approxDistanceMinKm || 0) - (b.approxDistanceMinKm || 0));
+
     return new Response(JSON.stringify({
-      areas: [
-        {
-          id: 'area-under-g',
-          universityId: 'univ-lautech',
-          name: 'Under G',
-          slug: 'under-g',
-          description: 'The premier student district directly opposite the LAUTECH Under G Gate.',
-          landmark: 'LAUTECH Under G Gate & Bovas Station',
-          approxDistanceMinKm: 0.2,
-          approxDistanceMaxKm: 1.0,
-          propertyCount: 18,
-          minRent: 180000,
-          maxRent: 380000
-        },
-        {
-          id: 'area-abaa',
-          universityId: 'univ-lautech',
-          name: 'Abaa Area',
-          slug: 'abaa',
-          description: 'Fastest-growing student hostel hub adjacent to Under-G.',
-          landmark: 'Abaa Junction & Central Market',
-          approxDistanceMinKm: 0.6,
-          approxDistanceMaxKm: 1.8,
-          propertyCount: 15,
-          minRent: 170000,
-          maxRent: 350000
-        },
-        {
-          id: 'area-adenike',
-          universityId: 'univ-lautech',
-          name: 'Adenike Area',
-          slug: 'adenike',
-          description: 'Popular residential zone near the Adenike campus gate.',
-          landmark: 'Adenike Junction',
-          approxDistanceMinKm: 0.6,
-          approxDistanceMaxKm: 1.8,
-          propertyCount: 15,
-          minRent: 170000,
-          maxRent: 350000
-        },
-        {
-          id: 'area-stadium',
-          universityId: 'univ-lautech',
-          name: 'Stadium Road',
-          slug: 'stadium-road',
-          description: 'Serene residential axis with new hostel developments.',
-          landmark: 'Ogbomoso Township Stadium',
-          approxDistanceMinKm: 1.2,
-          approxDistanceMaxKm: 2.5,
-          propertyCount: 10,
-          minRent: 150000,
-          maxRent: 300000
-        }
-      ]
+      areas: resultAreas
     }), { status: 200, headers: CORS_HEADERS });
+  }
+
+  // 13b. Areas API (POST /api/areas)
+  if (pathname === '/api/areas' && req.method === 'POST') {
+    let body: any = {};
+    try { body = await req.json(); } catch {}
+    const { name, slug, description, landmark, approxDistanceMinKm, approxDistanceMaxKm } = body;
+    if (!name || typeof name !== 'string' || !name.trim()) {
+      return new Response(JSON.stringify({ error: 'Area name is required' }), { status: 400, headers: CORS_HEADERS });
+    }
+    const cleanName = name.trim();
+    const cleanSlug = (slug || cleanName).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+    const areaId = `area-${cleanSlug}`;
+
+    await loadAreasFromBlobs();
+    const existing = memoryAreas.find(a => a.id === areaId || a.slug === cleanSlug || a.name.toLowerCase() === cleanName.toLowerCase());
+    if (existing) {
+      return new Response(JSON.stringify({ message: 'Accommodation area already exists', areaId: existing.id }), { status: 200, headers: CORS_HEADERS });
+    }
+
+    const newArea = {
+      id: areaId,
+      universityId: 'uni-lautech-ogbomoso',
+      name: cleanName,
+      slug: cleanSlug,
+      description: description || 'Custom accommodation neighborhood near LAUTECH',
+      landmark: landmark || `${cleanName} Axis`,
+      approxDistanceMinKm: parseFloat(approxDistanceMinKm) || 0.8,
+      approxDistanceMaxKm: parseFloat(approxDistanceMaxKm) || 2.0
+    };
+
+    await saveCustomAreaToBlobs(newArea);
+
+    return new Response(JSON.stringify({ message: 'Accommodation area created successfully', areaId }), { status: 201, headers: CORS_HEADERS });
   }
 
   // 14. Provider Sub-Endpoints (Resilient fallbacks)

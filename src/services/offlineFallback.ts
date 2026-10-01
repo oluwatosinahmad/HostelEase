@@ -54,18 +54,18 @@ export const DEFAULT_AREAS: Area[] = [
   },
   {
     id: 'area-oluyole',
-    universityId: 'univ-ui',
-    name: 'Oluyole Estate, Ibadan',
-    slug: 'oluyole-ibadan',
-    description: 'Upscale residential neighborhood in Ibadan with tarred roads, high-grade security estates, reliable utilities, and peaceful residential quarters.',
-    landmark: 'Olubere Avenue & Ring Road Axis',
-    approxDistanceMinKm: 2.0,
-    approxDistanceMaxKm: 5.0,
-    centerLat: 7.3526,
-    centerLng: 3.8642,
-    propertyCount: 8,
-    minRent: 450000,
-    maxRent: 1200000
+    universityId: 'univ-lautech',
+    name: 'Olubere',
+    slug: 'olubere',
+    description: 'Serene residential quarter featuring premium student apartments, steady borehole water, and quiet study environment.',
+    landmark: 'Olubere Avenue / Oluyole Axis',
+    approxDistanceMinKm: 1.0,
+    approxDistanceMaxKm: 2.2,
+    centerLat: 8.1400,
+    centerLng: 4.2610,
+    propertyCount: 4,
+    minRent: 220000,
+    maxRent: 450000
   },
   {
     id: 'area-adenike',
@@ -81,21 +81,6 @@ export const DEFAULT_AREAS: Area[] = [
     propertyCount: 14,
     minRent: 160000,
     maxRent: 320000
-  },
-  {
-    id: 'area-stadium-road',
-    universityId: 'univ-lautech',
-    name: 'Stadium Road',
-    slug: 'stadium-road',
-    description: 'Serene, well-paved avenue preferred by final-year scholars and serious students. Excellent night security, steady borehole water, and quiet surroundings.',
-    landmark: 'Ogbomoso Township Stadium Gate 2',
-    approxDistanceMinKm: 0.8,
-    approxDistanceMaxKm: 2.0,
-    centerLat: 8.1380,
-    centerLng: 4.2550,
-    propertyCount: 12,
-    minRent: 200000,
-    maxRent: 420000
   },
   {
     id: 'area-college-road',
@@ -359,13 +344,13 @@ export const DEFAULT_PROPERTIES: Property[] = [
   {
     id: 'prop-stadium-1',
     title: 'Scholars Court Premium Apartments',
-    slug: 'scholars-court-premium-stadium-road',
+    slug: 'scholars-court-premium-apartments',
     description: 'Serene, secure environment designed specifically for focused academic excellence. Features reading desks, high-speed Wi-Fi, constant water pressure, and night security watch.',
-    address: '8 Winners Avenue, Stadium Road, Ogbomoso',
-    nearbyLandmark: 'Beside Township Stadium Gate 2',
-    latitude: 8.1380,
-    longitude: 4.2550,
-    distanceFromCampusKm: 1.1,
+    address: '8 Winners Avenue, Under G, Ogbomoso',
+    nearbyLandmark: 'Behind Bovas Petrol Station, Under-G Gate',
+    latitude: 8.1458,
+    longitude: 4.2625,
+    distanceFromCampusKm: 0.4,
     propertyType: 'FLAT',
     genderPreference: 'ANY',
     totalRooms: 8,
@@ -376,7 +361,7 @@ export const DEFAULT_PROPERTIES: Property[] = [
     completenessScore: 100,
     createdAt: '2026-08-22T10:00:00Z',
     utilityRating: {
-      dailyLightHoursAvg: 16,
+      dailyLightHoursAvg: 18,
       powerSource: 'SOLAR_INVERTER',
       solarCapacityKva: 3.0,
       generatorSchedule: '8:00 PM - 12:00 AM Daily',
@@ -384,13 +369,13 @@ export const DEFAULT_PROPERTIES: Property[] = [
       waterStorageLitres: 10000,
       waterPumpingSchedule: 'Daily at 6:30 AM',
       prepaidSubMeter: true,
-      studentUtilityScore: 4.6
+      studentUtilityScore: 4.8
     },
     area: {
-      id: 'area-stadium-road',
-      name: 'Stadium Road',
-      slug: 'stadium-road',
-      landmark: 'Township Stadium'
+      id: 'area-under-g',
+      name: 'Under G',
+      slug: 'under-g',
+      landmark: 'Main Gate & Bovas Station'
     },
     coverImage: 'https://images.unsplash.com/photo-1507089947368-19c1da9775ae?auto=format&fit=crop&w=1000&q=80',
     coverImageCaption: 'Modern Living Space',

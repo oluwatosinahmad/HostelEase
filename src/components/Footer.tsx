@@ -60,7 +60,7 @@ export const Footer: React.FC<FooterProps> = ({
               <li><button onClick={() => handleAreaClick('area-under-g')} className="hover:text-emerald-400 transition-colors text-left">Under G (Main Gate Axis)</button></li>
               <li><button onClick={() => handleAreaClick('area-abaa')} className="hover:text-emerald-400 transition-colors text-left">Abaa Student Enclave</button></li>
               <li><button onClick={() => handleAreaClick('area-adenike')} className="hover:text-emerald-400 transition-colors text-left">Adenike Community</button></li>
-              <li><button onClick={() => handleAreaClick('area-stadium-road')} className="hover:text-emerald-400 transition-colors text-left">Stadium Road & Bovas</button></li>
+              <li><button onClick={() => handleAreaClick('area-oluyole')} className="hover:text-emerald-400 transition-colors text-left">Olubere & Oluyole Axis</button></li>
               <li><button onClick={() => handleAreaClick('area-college-road')} className="hover:text-emerald-400 transition-colors text-left">College Road / 2nd Gate</button></li>
               <li><button onClick={() => handleAreaClick('area-general')} className="hover:text-emerald-400 transition-colors text-left">General & Bowen Hospital</button></li>
             </ul>

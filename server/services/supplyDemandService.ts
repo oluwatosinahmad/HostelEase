@@ -30,7 +30,7 @@ export class SupplyDemandService {
     zeroResultQueries: Array<{ query: string; requestedBudget: number | null; count: number }>;
     highDemandSupplyGaps: string[];
   } {
-    const knownAreas = ['Under G', 'Adenike', 'Stadium', 'Isale General', 'Aroma', 'High School', 'Yoaco', 'Odo-Oba'];
+    const knownAreas = ['Under G', 'Adenike', 'Abaa', 'Olubere', 'Isale General', 'Caretaker', 'College Road', 'Yoaco'];
     const areaInsights: SupplyDemandAreaInsight[] = [];
 
     for (const area of knownAreas) {
@@ -101,7 +101,7 @@ export class SupplyDemandService {
     const highDemandSupplyGaps = [
       'High student demand for ₦100,000–₦150,000 single rooms in Under G',
       'Strong search interest for female-only hostels with solar power in Adenike',
-      'Supply deficit for 2-person self-contain rooms near LAUTECH Stadium gate'
+      'Supply deficit for 2-person self-contain rooms near Abaa Junction'
     ];
 
     return {

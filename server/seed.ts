@@ -81,18 +81,19 @@ export function runSeed() {
       4.2638
     );
 
-    // 2. Seed All 10 LAUTECH Areas
+    // 2. Seed All 11 Verified LAUTECH Areas (No Stadium Road)
     const areas = [
       { id: 'area-under-g', name: 'Under G', slug: 'under-g', landmark: 'Main Gate & Bovas Station', min: 0.3, max: 1.2, desc: 'Closest student community to LAUTECH main gate. High concentration of modern self-contains, study cafes, and 24/7 commercial activities.' },
-      { id: 'area-stadium-road', name: 'Stadium Road', slug: 'stadium-road', landmark: 'Ogbomoso Township Stadium', min: 0.8, max: 2.0, desc: 'Vibrant student residential zone with excellent transport, food hubs, sports facilities, and steady power supply.' },
+      { id: 'area-college-road', name: 'College Road / 2nd Gate', slug: 'college-road', landmark: 'LAUTECH 2nd Gate / College of Health Sciences', min: 0.5, max: 1.5, desc: 'Convenient walking distance to college lecture halls, science laboratories, and library.' },
+      { id: 'area-abaa', name: 'Abaa Area', slug: 'abaa', landmark: 'Abaa Junction & Central Market', min: 0.6, max: 1.8, desc: 'Fastest-growing student hostel hub adjacent to Under G with vibrant student community and new modern lodges.' },
       { id: 'area-adenike', name: 'Adenike Area', slug: 'adenike', landmark: 'Adenike Junction & Holy Light', min: 1.0, max: 2.5, desc: 'Popular and affordable student residential district with regular student shuttle and Keke NAPEP access.' },
+      { id: 'area-oluyole', name: 'Olubere', slug: 'olubere', landmark: 'Olubere Avenue / Oluyole Axis', min: 1.0, max: 2.2, desc: 'Serene residential quarter featuring premium student apartments, steady borehole water, and quiet study environment.' },
       { id: 'area-general', name: 'General Area', slug: 'general', landmark: 'Bowen Teaching Hospital / General Hospital', min: 1.5, max: 3.0, desc: 'Peaceful and secure environment highly preferred by medical, nursing, anatomy, and final-year students.' },
       { id: 'area-isale-general', name: 'Isale General', slug: 'isale-general', landmark: 'Isale General Central Mosque', min: 1.8, max: 3.2, desc: 'Budget-friendly area with authentic student lodges, steady borehole water, and affordable food markets.' },
       { id: 'area-caretaker', name: 'Caretaker', slug: 'caretaker', landmark: 'Caretaker Junction & Total Fuel Station', min: 2.0, max: 3.5, desc: 'Well-connected commercial and residential hub with quick bike and bus transit directly to Under G campus gate.' },
+      { id: 'area-randa', name: 'Randa', slug: 'randa', landmark: 'Randa Roundabout', min: 2.0, max: 3.8, desc: 'Quiet residential quarter with standard single rooms, flats, and reliable community security.' },
       { id: 'area-yoaco', name: 'Yoaco', slug: 'yoaco', landmark: 'Yoaco Filling Station & Ogbomoso High School', min: 2.2, max: 4.0, desc: 'Rapidly developing student residential neighborhood with newly constructed modern lodges and serene study spaces.' },
-      { id: 'area-aroje', name: 'Aroje', slug: 'aroje', landmark: 'Aroje Express Road / Ilorin Highway', min: 2.5, max: 4.5, desc: 'Spacious student compounds with high perimeter walls, borehole systems, and ample compound parking.' },
-      { id: 'area-college-road', name: 'College Road / 2nd Gate', slug: 'college-road', landmark: 'LAUTECH 2nd Gate / College of Health Sciences', min: 0.5, max: 1.5, desc: 'Convenient walking distance to college lecture halls, science laboratories, and library.' },
-      { id: 'area-randa', name: 'Randa', slug: 'randa', landmark: 'Randa Roundabout', min: 2.0, max: 3.8, desc: 'Quiet residential quarter with standard single rooms, flats, and reliable community security.' }
+      { id: 'area-aroje', name: 'Aroje', slug: 'aroje', landmark: 'Aroje Express Road / Ilorin Highway', min: 2.5, max: 4.5, desc: 'Spacious student compounds with high perimeter walls, borehole systems, and ample compound parking.' }
     ];
 
     const insertArea = db.prepare(`
@@ -172,7 +173,7 @@ export function runSeed() {
       'pp-1',
       provider1Id,
       'Adeleke Heritage Properties Ogbomoso',
-      'Plot 12, Stadium Road, Ogbomoso, Oyo State',
+      'Plot 12, Abaa Road, Ogbomoso, Oyo State',
       'HOSTEL_OWNER',
       'NIN_CARD',
       'Experienced accommodation provider with 12+ years serving LAUTECH students. We prioritize security, water pumping, and peaceful study environments.',
@@ -629,7 +630,7 @@ export function runSeed() {
       5,
       4,
       4,
-      'Stadium Road is super convenient for food and printing materials. Very safe compound gate locked at 10 PM.',
+      'Under G is super convenient for food and printing materials. Very safe compound gate locked at 10 PM.',
     );
 
     insertReview.run(

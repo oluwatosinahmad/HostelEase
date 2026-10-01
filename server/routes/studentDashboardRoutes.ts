@@ -427,7 +427,7 @@ router.get('/dashboard', authenticate, (req: AuthenticatedRequest, res: Response
         badge: 'START SEARCH',
         badgeColor: 'bg-emerald-600 text-white',
         title: 'Find Your Next LAUTECH Lodge',
-        message: 'Browse verified student hostels in Under-G, Adenike, Aroje, and Stadium.',
+        message: 'Browse verified student hostels in Under G, Abaa, Adenike, and Olubere.',
         actionLabel: 'Explore Verified Hostels',
         actionType: 'EXPLORE_HOSTELS'
       };
