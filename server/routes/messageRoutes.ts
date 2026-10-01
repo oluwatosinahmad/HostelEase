@@ -3,6 +3,7 @@ import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import db from '../db.js';
 import { authenticate, AuthenticatedRequest } from '../middleware/auth.js';
+import { notificationService } from '../services/notificationService.js';
 
 const JWT_SECRET = process.env.AUTH_JWT_SECRET || 'hostel-ease-jwt-secure-secret-key-2026';
 const router = Router();
@@ -895,22 +896,20 @@ function sendNotification(
   senderId?: string
 ) {
   try {
-    db.prepare(`
-      INSERT INTO notifications (id, user_id, title, message, type, is_read, link_url, conversation_id, message_id, sender_id)
-      VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?, ?)
-    `).run(
-      crypto.randomUUID(),
+    notificationService.createNotification({
       userId,
       title,
       message,
       type,
-      linkUrl || null,
-      conversationId || null,
-      messageId || null,
-      senderId || null
-    );
+      linkUrl: linkUrl || null,
+      conversationId: conversationId || null,
+      messageId: messageId || null,
+      senderId: senderId || null,
+      relatedEntityId: messageId || null,
+      relatedEntityType: 'MESSAGE'
+    });
   } catch (err) {
-    console.error('Failed to send notification:', err);
+    console.error('Failed to send notification via notificationService:', err);
   }
 }
 

@@ -179,7 +179,14 @@ export interface NotificationItem {
   message: string;
   type: string;
   isRead: boolean;
-  linkUrl?: string;
+  readAt?: string | null;
+  linkUrl?: string | null;
+  conversationId?: string | null;
+  messageId?: string | null;
+  senderId?: string | null;
+  relatedEntityId?: string | null;
+  relatedEntityType?: string | null;
+  metadata?: any;
   createdAt: string;
 }
 

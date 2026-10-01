@@ -95,19 +95,27 @@ export const MorePageView: React.FC<MorePageViewProps> = ({
 
     const fetchLiveCounts = () => {
       api.messages.getUnreadCount()
-        .then(res => setUnreadMsgCount(res.unreadCount || 0))
+        .then(res => setUnreadMsgCount(res?.unreadCount || 0))
         .catch(() => {});
 
-      api.notifications.getAll()
+      api.notifications.getUnreadCount()
         .then(res => {
-          setNotifications(res.notifications || []);
-          setUnreadNotifCount(res.unreadCount || 0);
+          setUnreadNotifCount(res?.unreadCount || 0);
         })
         .catch(() => {});
+
+      if (notifModalOpen) {
+        api.notifications.getAll()
+          .then(res => {
+            setNotifications(res.notifications || []);
+            setUnreadNotifCount(res.unreadCount || 0);
+          })
+          .catch(() => {});
+      }
     };
 
     fetchLiveCounts();
-    const interval = setInterval(fetchLiveCounts, 12000);
+    const interval = setInterval(fetchLiveCounts, 10000);
 
     const handleUpdate = () => fetchLiveCounts();
     window.addEventListener('hostel_ease_notification_updated', handleUpdate);
@@ -118,7 +126,19 @@ export const MorePageView: React.FC<MorePageViewProps> = ({
       window.removeEventListener('hostel_ease_notification_updated', handleUpdate);
       window.removeEventListener('hostel_ease_conversations_updated', handleUpdate);
     };
-  }, [isAuthenticated]);
+  }, [isAuthenticated, notifModalOpen]);
+
+  // Load complete notifications list when opening the modal
+  useEffect(() => {
+    if (notifModalOpen && isAuthenticated) {
+      api.notifications.getAll()
+        .then(res => {
+          setNotifications(res.notifications || []);
+          setUnreadNotifCount(res.unreadCount || 0);
+        })
+        .catch(() => {});
+    }
+  }, [notifModalOpen, isAuthenticated]);
 
   const handleMarkAllNotifsRead = async () => {
     try {
@@ -134,9 +154,13 @@ export const MorePageView: React.FC<MorePageViewProps> = ({
   const handleNotificationClick = async (notif: any) => {
     if (!notif.isRead) {
       try {
-        await api.notifications.markRead(notif.id);
+        const res = await api.notifications.markRead(notif.id);
         setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, isRead: true } : n));
-        setUnreadNotifCount(prev => Math.max(0, prev - 1));
+        if (typeof res?.unreadCount === 'number') {
+          setUnreadNotifCount(res.unreadCount);
+        } else {
+          setUnreadNotifCount(prev => Math.max(0, prev - 1));
+        }
       } catch {}
     }
 

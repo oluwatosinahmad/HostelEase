@@ -132,7 +132,16 @@ export const Navbar: React.FC<NavbarProps> = ({
     }
   };
 
-  const fetchNotifs = () => {
+  const fetchUnreadCount = () => {
+    if (!isAuthenticated) return;
+    api.notifications.getUnreadCount()
+      .then(res => {
+        setUnreadNotifCount(res?.unreadCount || 0);
+      })
+      .catch(() => {});
+  };
+
+  const fetchFullNotifs = () => {
     if (!isAuthenticated) return;
     api.notifications.getAll()
       .then(res => {
@@ -142,7 +151,14 @@ export const Navbar: React.FC<NavbarProps> = ({
       .catch(() => {});
   };
 
-  // Poll unread message & notification count when authenticated across devices
+  // Lazy-load notifications list when user opens the dropdown
+  useEffect(() => {
+    if (notifDropdownOpen && isAuthenticated) {
+      fetchFullNotifs();
+    }
+  }, [notifDropdownOpen, isAuthenticated]);
+
+  // Poll lightweight unread message & notification count across devices
   useEffect(() => {
     if (isAuthenticated) {
       const poll = () => {
@@ -150,15 +166,19 @@ export const Navbar: React.FC<NavbarProps> = ({
         api.messages.getUnreadCount()
           .then(res => setUnreadMsgCount(res?.unreadCount || 0))
           .catch(() => {});
-        fetchNotifs();
+        fetchUnreadCount();
       };
 
       poll();
 
-      // Active 3.5s cross-device synchronization
-      const interval = setInterval(poll, 3500);
+      // Active 4s cross-device synchronization
+      const interval = setInterval(poll, 4000);
 
-      const handleNotifEvent = () => fetchNotifs();
+      const handleNotifEvent = () => {
+        fetchUnreadCount();
+        if (notifDropdownOpen) fetchFullNotifs();
+      };
+
       window.addEventListener('hostel_ease_notification_updated', handleNotifEvent);
       window.addEventListener('hostel_ease_conversations_updated', handleNotifEvent);
 
@@ -172,14 +192,18 @@ export const Navbar: React.FC<NavbarProps> = ({
       setNotifications([]);
       setUnreadNotifCount(0);
     }
-  }, [isAuthenticated, activeView]);
+  }, [isAuthenticated, activeView, notifDropdownOpen]);
 
   const handleNotificationClick = async (n: any) => {
     setNotifDropdownOpen(false);
     try {
-      await api.notifications.markRead(n.id);
+      const res = await api.notifications.markRead(n.id);
       setNotifications(prev => prev.map(item => item.id === n.id ? { ...item, isRead: true } : item));
-      setUnreadNotifCount(prev => Math.max(0, prev - 1));
+      if (typeof res?.unreadCount === 'number') {
+        setUnreadNotifCount(res.unreadCount);
+      } else {
+        setUnreadNotifCount(prev => Math.max(0, prev - 1));
+      }
     } catch {}
 
     const link = n.linkUrl || '';

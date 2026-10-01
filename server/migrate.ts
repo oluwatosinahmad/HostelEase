@@ -399,11 +399,19 @@ export function runMigrations() {
         message TEXT NOT NULL,
         type TEXT NOT NULL,
         is_read INTEGER NOT NULL DEFAULT 0,
+        read_at TEXT,
         link_url TEXT,
+        conversation_id TEXT,
+        message_id TEXT,
+        sender_id TEXT,
+        related_entity_id TEXT,
+        related_entity_type TEXT,
+        metadata TEXT,
         created_at TEXT NOT NULL DEFAULT (datetime('now')),
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
       );
       CREATE INDEX IF NOT EXISTS idx_notifs_user ON notifications(user_id, is_read);
+      CREATE INDEX IF NOT EXISTS idx_notifs_user_type_created ON notifications(user_id, type, created_at);
     `);
 
     // 20. Audit Logs table
@@ -492,10 +500,17 @@ export function runMigrations() {
     addColumnIfMissing('audit_logs', 'actor_email', 'TEXT');
     addColumnIfMissing('audit_logs', 'user_agent', 'TEXT');
 
-    // Ensure notifications table supports direct conversation & message linking
+    // Ensure notifications table supports direct conversation & message linking and production notification tracking
+    addColumnIfMissing('notifications', 'read_at', 'TEXT');
     addColumnIfMissing('notifications', 'conversation_id', 'TEXT');
     addColumnIfMissing('notifications', 'message_id', 'TEXT');
     addColumnIfMissing('notifications', 'sender_id', 'TEXT');
+    addColumnIfMissing('notifications', 'related_entity_id', 'TEXT');
+    addColumnIfMissing('notifications', 'related_entity_type', 'TEXT');
+    addColumnIfMissing('notifications', 'metadata', 'TEXT');
+    try {
+      db.exec("CREATE INDEX IF NOT EXISTS idx_notifs_user_type_created ON notifications(user_id, type, created_at);");
+    } catch {}
     // 24. Conversations table (Phase 4)
     db.exec(`
       CREATE TABLE IF NOT EXISTS conversations (

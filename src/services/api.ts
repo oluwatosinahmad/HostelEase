@@ -269,33 +269,58 @@ export function saveLocalProperty(prop: Property) {
   }
 }
 
-export function addIsolatedNotification(notif: {
+// Production Cross-tab notification broadcast synchronization
+let notificationBroadcastChannel: BroadcastChannel | null = null;
+try {
+  if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+    notificationBroadcastChannel = new BroadcastChannel('hostel_ease_notifications');
+    notificationBroadcastChannel.onmessage = (event) => {
+      if (event.data?.type === 'NOTIFICATION_UPDATE') {
+        window.dispatchEvent(new CustomEvent('hostel_ease_notification_updated', { detail: event.data }));
+      }
+    };
+  }
+} catch {}
+
+export function notifyNotificationStateChanged(detail?: any) {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(new CustomEvent('hostel_ease_notification_updated', { detail }));
+  try {
+    if (notificationBroadcastChannel) {
+      notificationBroadcastChannel.postMessage({ type: 'NOTIFICATION_UPDATE', ...detail });
+    }
+  } catch {}
+}
+
+export async function addIsolatedNotification(notif: {
   userId: string;
   title: string;
   message: string;
   type?: string;
   linkUrl?: string;
   role?: string;
+  conversationId?: string;
+  messageId?: string;
+  senderId?: string;
+  relatedEntityId?: string;
+  relatedEntityType?: string;
+  metadata?: any;
 }) {
   try {
-    const newNotif = {
-      id: `notif-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
-      userId: notif.userId,
-      title: notif.title,
-      message: notif.message,
-      type: notif.type || 'SYSTEM',
-      linkUrl: notif.linkUrl || '/provider',
-      isRead: false,
-      createdAt: new Date().toISOString(),
-      role: notif.role
-    };
-
-    const existing: any[] = JSON.parse(localStorage.getItem('hostel_ease_notifications') || '[]');
-    const updated = [newNotif, ...existing.filter((n: any) => n.id !== newNotif.id)];
-    localStorage.setItem('hostel_ease_notifications', JSON.stringify(updated));
-    window.dispatchEvent(new CustomEvent('hostel_ease_notification_updated'));
+    const res = await fetch(`${API_BASE}/notifications`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...getAuthHeader()
+      },
+      body: JSON.stringify(notif)
+    });
+    if (res.ok) {
+      notifyNotificationStateChanged({ action: 'CREATED', notif });
+      return await res.json();
+    }
   } catch (err) {
-    console.error('Failed to add notification:', err);
+    console.error('Failed to add notification to backend:', err);
   }
 }
 
@@ -3775,91 +3800,114 @@ export const api = {
     }
   },
 
-  // In-App Notifications API
+  // In-App Notifications API (Pure Backend / Database Source of Truth)
   notifications: {
-    async getAll(): Promise<{ notifications: NotificationItem[]; unreadCount: number }> {
-      const currentUser = getCurrentUser();
-
+    /**
+     * Dedicated ultra-fast unread count endpoint (database backed)
+     */
+    async getUnreadCount(): Promise<{ unreadCount: number }> {
       try {
-        const res = await fetch(`${API_BASE}/notifications`, {
+        const res = await fetch(`${API_BASE}/notifications/unread-count`, {
           headers: { ...getAuthHeader() }
         });
         if (res.ok) {
           const data = await res.json();
-          if (data && Array.isArray(data.notifications)) return data;
+          return { unreadCount: typeof data.unreadCount === 'number' ? data.unreadCount : 0 };
         }
-      } catch {}
-
-      const localNotifs: any[] = JSON.parse(localStorage.getItem('hostel_ease_notifications') || '[]');
-      
-      let userNotifs: any[] = [];
-      if (currentUser) {
-        userNotifs = localNotifs.filter(n => {
-          if (n.userId && n.userId === currentUser.id) return true;
-          if (n.role && n.role === currentUser.role && !n.userId) return true;
-          return false;
-        });
-
-        // If newly registered user with 0 notifications, seed a clean welcome notification for THEM only
-        if (userNotifs.length === 0) {
-          const welcomeNotif = {
-            id: `notif-welcome-${currentUser.id}`,
-            userId: currentUser.id,
-            title: `Welcome to Hostel Ease, ${currentUser.fullName || 'Agent'}!`,
-            message: currentUser.role === 'PROVIDER'
-              ? 'Your Agent dashboard is ready. Add your first hostel accommodation to start receiving student inquiries and booking tours.'
-              : 'Your Student account is active. Explore verified hostels around LAUTECH with transparent pricing.',
-            type: 'WELCOME',
-            isRead: false,
-            createdAt: new Date().toISOString()
-          };
-          userNotifs = [welcomeNotif];
-          localStorage.setItem('hostel_ease_notifications', JSON.stringify([...userNotifs, ...localNotifs]));
-        }
-      } else {
-        userNotifs = localNotifs.filter(n => !n.userId);
+      } catch (err) {
+        console.warn('Failed to fetch unread notification count:', err);
       }
-
-      const unreadCount = userNotifs.filter(n => !n.isRead).length;
-      return { notifications: userNotifs, unreadCount };
+      return { unreadCount: 0 };
     },
 
-    async markRead(id: string): Promise<{ message: string }> {
+    /**
+     * Fetch user notifications list with pagination from database
+     */
+    async getAll(limit: number = 50, offset: number = 0): Promise<{ notifications: NotificationItem[]; unreadCount: number }> {
+      try {
+        const res = await fetch(`${API_BASE}/notifications?limit=${limit}&offset=${offset}`, {
+          headers: { ...getAuthHeader() }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data && Array.isArray(data.notifications)) {
+            return {
+              notifications: data.notifications,
+              unreadCount: typeof data.unreadCount === 'number' ? data.unreadCount : data.notifications.filter((n: any) => !n.isRead).length
+            };
+          }
+        }
+      } catch (err) {
+        console.warn('Failed to fetch notifications from backend:', err);
+      }
+      return { notifications: [], unreadCount: 0 };
+    },
+
+    /**
+     * Mark single notification as read in database
+     */
+    async markRead(id: string): Promise<{ success: boolean; unreadCount: number; message: string }> {
       try {
         const res = await fetch(`${API_BASE}/notifications/${id}/read`, {
           method: 'PATCH',
           headers: { ...getAuthHeader() }
         });
-        if (res.ok) return await res.json();
-      } catch {}
-
-      const localNotifs: any[] = JSON.parse(localStorage.getItem('hostel_ease_notifications') || '[]');
-      const updated = localNotifs.map(n => n.id === id ? { ...n, isRead: true } : n);
-      localStorage.setItem('hostel_ease_notifications', JSON.stringify(updated));
-      window.dispatchEvent(new CustomEvent('hostel_ease_notification_updated'));
-      return { message: 'Notification marked as read' };
+        const data = await res.json().catch(() => ({}));
+        notifyNotificationStateChanged({ id, action: 'MARK_READ', unreadCount: data.unreadCount });
+        return {
+          success: res.ok,
+          unreadCount: typeof data.unreadCount === 'number' ? data.unreadCount : 0,
+          message: data.message || 'Notification marked as read'
+        };
+      } catch (err) {
+        console.error('Failed to mark notification as read:', err);
+        notifyNotificationStateChanged({ id, action: 'MARK_READ' });
+        return { success: false, unreadCount: 0, message: 'Failed to update notification' };
+      }
     },
 
-    async markAllRead(): Promise<{ message: string }> {
-      const currentUser = getCurrentUser();
+    /**
+     * Mark all notifications as read in database
+     */
+    async markAllRead(): Promise<{ success: boolean; unreadCount: number; message: string }> {
       try {
         const res = await fetch(`${API_BASE}/notifications/read-all`, {
           method: 'PATCH',
           headers: { ...getAuthHeader() }
         });
-        if (res.ok) return await res.json();
-      } catch {}
+        const data = await res.json().catch(() => ({}));
+        notifyNotificationStateChanged({ action: 'MARK_ALL_READ', unreadCount: 0 });
+        return {
+          success: res.ok,
+          unreadCount: 0,
+          message: data.message || 'All notifications marked as read'
+        };
+      } catch (err) {
+        console.error('Failed to mark all notifications as read:', err);
+        notifyNotificationStateChanged({ action: 'MARK_ALL_READ', unreadCount: 0 });
+        return { success: false, unreadCount: 0, message: 'Failed to mark all notifications as read' };
+      }
+    },
 
-      const localNotifs: any[] = JSON.parse(localStorage.getItem('hostel_ease_notifications') || '[]');
-      const updated = localNotifs.map(n => {
-        if (!currentUser || n.userId === currentUser.id || (n.role === currentUser.role && !n.userId)) {
-          return { ...n, isRead: true };
-        }
-        return n;
-      });
-      localStorage.setItem('hostel_ease_notifications', JSON.stringify(updated));
-      window.dispatchEvent(new CustomEvent('hostel_ease_notification_updated'));
-      return { message: 'All notifications marked as read' };
+    /**
+     * Delete single notification from database
+     */
+    async delete(id: string): Promise<{ success: boolean; message: string }> {
+      try {
+        const res = await fetch(`${API_BASE}/notifications/${id}`, {
+          method: 'DELETE',
+          headers: { ...getAuthHeader() }
+        });
+        const data = await res.json().catch(() => ({}));
+        notifyNotificationStateChanged({ id, action: 'DELETE' });
+        return {
+          success: res.ok,
+          message: data.message || 'Notification deleted'
+        };
+      } catch (err) {
+        console.error('Failed to delete notification:', err);
+        return { success: false, message: 'Failed to delete notification' };
+      }
     }
   },
 

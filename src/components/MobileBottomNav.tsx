@@ -57,7 +57,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
         .then(res => setLiveUnreadMsg(res.unreadCount || 0))
         .catch(() => {});
 
-      api.notifications.getAll()
+      api.notifications.getUnreadCount()
         .then(res => setLiveUnreadNotif(res.unreadCount || 0))
         .catch(() => {});
 

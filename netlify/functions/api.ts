@@ -826,7 +826,7 @@ export default async (req: Request): Promise<Response> => {
       await saveCloudUser(newUser);
 
       const token = createAuthToken(newUser);
-      return new Response(JSON.stringify({
+      const registerResponse = new Response(JSON.stringify({
         message: 'Registration successful',
         token,
         user: {
@@ -842,6 +842,30 @@ export default async (req: Request): Promise<Response> => {
           level: newUser.level
         }
       }), { status: 201, headers: CORS_HEADERS });
+
+      // Seed real Welcome Notification for new user in Cloud/DB
+      try {
+        const firstName = newUser.fullName ? newUser.fullName.trim().split(' ')[0] : (newUser.role === 'PROVIDER' ? 'Agent' : 'Student');
+        const welcomeNotif = {
+          id: `notif-welcome-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+          userId: newUser.id,
+          userEmail: newUser.email?.toLowerCase().trim(),
+          title: newUser.role === 'PROVIDER' ? `Welcome to Hostel Ease Agent Portal, ${firstName}!` : `Welcome to Hostel Ease, ${firstName}!`,
+          message: newUser.role === 'PROVIDER'
+            ? 'Your Agent Dashboard is ready. Add your hostel accommodations to start receiving student inquiries, scheduling inspections, and booking tours.'
+            : 'Your student account is active! Browse verified hostels around LAUTECH with transparent pricing, schedule physical inspections, and message agents directly.',
+          type: 'WELCOME',
+          isRead: false,
+          readAt: null,
+          linkUrl: newUser.role === 'PROVIDER' ? '/provider' : '/home',
+          relatedEntityType: 'USER',
+          relatedEntityId: newUser.id,
+          createdAt: new Date().toISOString()
+        };
+        await saveCloudNotification(welcomeNotif);
+      } catch {}
+
+      return registerResponse;
     } catch (err: any) {
       return new Response(JSON.stringify({ error: err.message || 'Registration failed' }), { status: 400, headers: CORS_HEADERS });
     }
@@ -934,6 +958,38 @@ export default async (req: Request): Promise<Response> => {
       }
 
       const token = createAuthToken(matched);
+
+      // Trigger idempotent welcome notification on login (debounced against 6h)
+      try {
+        const hasRecentWelcome = memoryNotifications.some(n => 
+          (n.userId === matched.id || (matched.email && n.userEmail?.toLowerCase() === matched.email.toLowerCase())) &&
+          n.type === 'WELCOME' &&
+          (Date.now() - new Date(n.createdAt || 0).getTime()) < 6 * 3600 * 1000
+        );
+        if (!hasRecentWelcome) {
+          const firstName = matched.fullName ? matched.fullName.trim().split(' ')[0] : '';
+          const welcomeNotif = {
+            id: `notif-welcome-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+            userId: matched.id,
+            userEmail: matched.email?.toLowerCase().trim(),
+            title: firstName ? `Welcome back, ${firstName}!` : 'Welcome back!',
+            message: matched.role === 'PROVIDER'
+              ? 'Welcome back to your Agent Dashboard. Check your unread messages, pending reservations, and upcoming inspection tours.'
+              : matched.role === 'ADMIN'
+              ? 'Welcome back to Admin Control. Review pending listing approvals and active user safety reports.'
+              : 'Welcome back to Hostel Ease. Check your chat inquiries, scheduled inspections, and newly listed hostels near LAUTECH.',
+            type: 'WELCOME',
+            isRead: false,
+            readAt: null,
+            linkUrl: matched.role === 'PROVIDER' ? '/provider' : matched.role === 'ADMIN' ? '/admin' : '/home',
+            relatedEntityType: 'USER',
+            relatedEntityId: matched.id,
+            createdAt: new Date().toISOString()
+          };
+          await saveCloudNotification(welcomeNotif);
+        }
+      } catch {}
+
       return new Response(JSON.stringify({
         message: 'Authentication successful',
         token,
@@ -2533,6 +2589,22 @@ export default async (req: Request): Promise<Response> => {
   }
 
   // 15. In-App Notifications Endpoints
+  // 15a. Dedicated ultra-fast unread count endpoint
+  if (pathname === '/api/notifications/unread-count' && req.method === 'GET') {
+    const user = parseAuth(req);
+    if (!user) {
+      return new Response(JSON.stringify({ unreadCount: 0 }), { status: 200, headers: CORS_HEADERS });
+    }
+    const userId = user.id;
+    const userEmail = (user.email || '').toLowerCase().trim();
+    const count = memoryNotifications.filter(n => {
+      const belongs = (userId && n.userId === userId) || (userEmail && n.userEmail && n.userEmail.toLowerCase() === userEmail);
+      return belongs && !n.isRead;
+    }).length;
+    return new Response(JSON.stringify({ unreadCount: count }), { status: 200, headers: CORS_HEADERS });
+  }
+
+  // 15b. Get all notifications
   if (pathname === '/api/notifications' && req.method === 'GET') {
     const user = parseAuth(req);
     if (!user) {
@@ -2549,9 +2621,29 @@ export default async (req: Request): Promise<Response> => {
     }).sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
 
     const unreadCount = notifs.filter(n => !n.isRead).length;
-    return new Response(JSON.stringify({ notifications: notifs, unreadCount }), { status: 200, headers: CORS_HEADERS });
+    return new Response(JSON.stringify({
+      notifications: notifs.map(n => ({
+        id: n.id,
+        userId: n.userId,
+        title: n.title,
+        message: n.message,
+        type: n.type || 'INFO',
+        isRead: Boolean(n.isRead),
+        readAt: n.readAt || null,
+        linkUrl: n.linkUrl || null,
+        conversationId: n.conversationId || null,
+        messageId: n.messageId || null,
+        senderId: n.senderId || null,
+        relatedEntityId: n.relatedEntityId || null,
+        relatedEntityType: n.relatedEntityType || null,
+        metadata: n.metadata || null,
+        createdAt: n.createdAt
+      })),
+      unreadCount
+    }), { status: 200, headers: CORS_HEADERS });
   }
 
+  // 15c. Post new notification
   if (pathname === '/api/notifications' && req.method === 'POST') {
     try {
       const body = await req.json();
@@ -2563,7 +2655,14 @@ export default async (req: Request): Promise<Response> => {
         message: body.message,
         type: body.type || 'INFO',
         isRead: false,
-        linkUrl: body.linkUrl,
+        readAt: null,
+        linkUrl: body.linkUrl || null,
+        conversationId: body.conversationId || null,
+        messageId: body.messageId || null,
+        senderId: body.senderId || null,
+        relatedEntityId: body.relatedEntityId || null,
+        relatedEntityType: body.relatedEntityType || null,
+        metadata: body.metadata || null,
         createdAt: new Date().toISOString()
       };
       await saveCloudNotification(notif);
@@ -2573,25 +2672,56 @@ export default async (req: Request): Promise<Response> => {
     }
   }
 
-  if (pathname.startsWith('/api/notifications/') && pathname.endsWith('/read') && req.method === 'PATCH') {
+  // 15d. Mark single notification as read (supports PATCH, PUT, POST)
+  if (pathname.startsWith('/api/notifications/') && pathname.endsWith('/read') && ['PATCH', 'PUT', 'POST'].includes(req.method)) {
+    const user = parseAuth(req);
     const notifId = pathname.replace('/api/notifications/', '').replace('/read', '');
     const notif = memoryNotifications.find(n => n.id === notifId);
-    if (notif) notif.isRead = true;
-    return new Response(JSON.stringify({ success: true }), { status: 200, headers: CORS_HEADERS });
+    if (notif) {
+      notif.isRead = true;
+      notif.readAt = new Date().toISOString();
+      await saveCloudNotification(notif);
+    }
+    const userId = user?.id;
+    const userEmail = (user?.email || '').toLowerCase().trim();
+    const unreadCount = memoryNotifications.filter(n => {
+      const belongs = (userId && n.userId === userId) || (userEmail && n.userEmail && n.userEmail.toLowerCase() === userEmail);
+      return belongs && !n.isRead;
+    }).length;
+    return new Response(JSON.stringify({ success: true, message: 'Notification marked as read', unreadCount }), { status: 200, headers: CORS_HEADERS });
   }
 
-  if (pathname === '/api/notifications/read-all' && req.method === 'PATCH') {
+  // 15e. Mark all notifications as read (supports PATCH, PUT, POST)
+  if (pathname === '/api/notifications/read-all' && ['PATCH', 'PUT', 'POST'].includes(req.method)) {
     const user = parseAuth(req);
     const userId = user?.id || '';
     const userEmail = (user?.email || '').toLowerCase().trim();
+    const nowIso = new Date().toISOString();
 
-    memoryNotifications.forEach(n => {
-      if ((userId && n.userId === userId) || (userEmail && n.userEmail && n.userEmail.toLowerCase() === userEmail)) {
+    const userNotifs = memoryNotifications.filter(n =>
+      (userId && n.userId === userId) || (userEmail && n.userEmail && n.userEmail.toLowerCase() === userEmail)
+    );
+
+    for (const n of userNotifs) {
+      if (!n.isRead) {
         n.isRead = true;
+        n.readAt = nowIso;
+        await saveCloudNotification(n);
       }
-    });
+    }
 
-    return new Response(JSON.stringify({ success: true }), { status: 200, headers: CORS_HEADERS });
+    return new Response(JSON.stringify({ success: true, message: 'All notifications marked as read', unreadCount: 0 }), { status: 200, headers: CORS_HEADERS });
+  }
+
+  // 15f. Delete notification
+  if (pathname.startsWith('/api/notifications/') && req.method === 'DELETE' && !pathname.endsWith('/read')) {
+    const notifId = pathname.replace('/api/notifications/', '');
+    memoryNotifications = memoryNotifications.filter(n => n.id !== notifId);
+    try {
+      const store = getBlobsStore('notifications');
+      if (store) await store.delete(notifId);
+    } catch {}
+    return new Response(JSON.stringify({ success: true, message: 'Notification deleted' }), { status: 200, headers: CORS_HEADERS });
   }
 
   // 16. In-App Messaging Endpoints

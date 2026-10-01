@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import db from '../db';
 import { authenticate, generateToken, AuthenticatedRequest } from '../middleware/auth';
+import { notificationService } from '../services/notificationService.js';
 
 const router = Router();
 
@@ -89,6 +90,13 @@ router.post('/register', (req, res: Response) => {
     };
 
     const token = generateToken(userRecord as any);
+
+    // Create real welcome notification in database for new user
+    try {
+      notificationService.createWelcomeNotificationOnSignup(userId, role, fullName);
+    } catch (notifErr) {
+      console.warn('Failed to seed welcome notification on signup:', notifErr);
+    }
 
     return res.status(201).json({
       message: 'Registration successful',
@@ -230,6 +238,11 @@ router.post('/login', (req, res: Response) => {
     profile = db.prepare('SELECT * FROM admin_profiles WHERE user_id = ?').get(user.id);
   }
 
+  // Trigger non-blocking idempotent welcome notification on login (debounced against rapid refreshes)
+  try {
+    notificationService.createWelcomeNotificationOnLogin(userPayload.id, userPayload.role, userPayload.fullName);
+  } catch {}
+
   return res.json({
     message: 'Login successful',
     token,
@@ -255,6 +268,11 @@ router.post('/login-demo', (req, res: Response) => {
   } else if (user.role === 'PROVIDER') {
     profile = db.prepare('SELECT * FROM provider_profiles WHERE user_id = ?').get(user.id);
   }
+
+  // Trigger non-blocking idempotent welcome notification on demo login
+  try {
+    notificationService.createWelcomeNotificationOnLogin(user.id, user.role, user.fullName);
+  } catch {}
 
   return res.json({
     message: 'Demo login successful',
