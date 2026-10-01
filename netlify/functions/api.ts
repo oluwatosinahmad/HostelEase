@@ -1655,6 +1655,21 @@ export default async (req: Request): Promise<Response> => {
     return new Response(JSON.stringify({ property: formattedProperty }), { status: 200, headers: CORS_HEADERS });
   }
 
+  // Strict Serverless Role Authorization Guard: All /api/admin/* endpoints require ADMIN role
+  if (pathname.startsWith('/api/admin')) {
+    const caller = parseAuth(req);
+    if (!caller || (caller.role !== 'ADMIN' && caller.role !== 'SUPER_ADMIN')) {
+      return new Response(JSON.stringify({ 
+        error: 'ACCESS_RESTRICTED',
+        code: 'UNAUTHORIZED_ADMIN_ACCESS',
+        message: 'Access denied: Requires administrator privileges' 
+      }), {
+        status: 403,
+        headers: CORS_HEADERS
+      });
+    }
+  }
+
   // 6c. Admin 8-Point Physical Inspection Verification Review
   if (pathname.startsWith('/api/admin/verification/properties/') && pathname.endsWith('/review') && req.method === 'POST') {
     try {

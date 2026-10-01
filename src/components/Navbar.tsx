@@ -713,7 +713,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                           </button>
                         )}
 
-                        {isAdmin ? (
+                        {isAdmin && (
                           <button
                             onClick={() => {
                               onNavigate('admin-portal');
@@ -723,17 +723,6 @@ export const Navbar: React.FC<NavbarProps> = ({
                           >
                             <ShieldCheck className="w-4 h-4 text-purple-600 dark:text-purple-400" />
                             <span>Admin Command Portal</span>
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => {
-                              onNavigate('admin-portal');
-                              setProfileDropdownOpen(false);
-                            }}
-                            className="w-full text-left px-4 py-2 hover:bg-purple-50 dark:hover:bg-purple-950/40 flex items-center gap-2.5 text-purple-700 dark:text-purple-400 font-medium"
-                          >
-                            <ShieldCheck className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-                            <span>Switch to Admin Portal</span>
                           </button>
                         )}
                       </div>

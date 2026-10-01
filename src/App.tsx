@@ -702,6 +702,25 @@ function MainApp() {
     };
   }, []);
 
+  // Strict Role Route Guards: Block Students & Agents from navigating to Admin Portal
+  useEffect(() => {
+    if (currentView === 'admin-portal') {
+      if (isAuthenticated && isStudent) {
+        setCurrentView('student-dashboard');
+        try {
+          window.history.replaceState({ view: 'student-dashboard' }, '', '#student-dashboard');
+        } catch {}
+        showToast('Access denied: Student accounts are not authorized to access the Admin Portal.', 'error');
+      } else if (isAuthenticated && isProvider) {
+        setCurrentView('provider-portal');
+        try {
+          window.history.replaceState({ view: 'provider-portal' }, '', '#provider-portal');
+        } catch {}
+        showToast('Access denied: Agent accounts are not authorized to access the Admin Portal.', 'error');
+      }
+    }
+  }, [currentView, isAuthenticated, isStudent, isProvider]);
+
   // Real-time Platform-wide authenticated presence heartbeat & connectivity tracker
   useEffect(() => {
     if (!isAuthenticated || !user) return;
@@ -1840,6 +1859,31 @@ function MainApp() {
                 onNavigateView={setCurrentView}
               />
             </ErrorBoundary>
+          ) : isAuthenticated && (isStudent || isProvider) ? (
+            <div className="max-w-md mx-auto my-20 p-8 bg-white dark:bg-slate-900 border border-rose-200 dark:border-rose-900 rounded-3xl shadow-xl text-center space-y-4 animate-in zoom-in-95 duration-150">
+              <div className="w-16 h-16 rounded-2xl bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center mx-auto border border-rose-200 dark:border-rose-800 shadow-inner">
+                <ShieldAlert className="w-8 h-8" />
+              </div>
+              <h2 className="text-xl font-black text-slate-900 dark:text-white">Access Denied</h2>
+              <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                {isStudent
+                  ? 'Student accounts are not authorized to access the Admin Portal. You have been redirected to your Student Dashboard.'
+                  : 'Agent accounts are not authorized to access the Admin Portal. You have been redirected to your Agent Portal.'}
+              </p>
+              <button
+                onClick={() => {
+                  const target = isStudent ? 'student-dashboard' : 'provider-portal';
+                  setCurrentView(target);
+                  try {
+                    window.history.replaceState({ view: target }, '', `#${target}`);
+                  } catch {}
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+                className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow transition-colors"
+              >
+                {isStudent ? 'Return to Student Dashboard' : 'Return to Agent Portal'}
+              </button>
+            </div>
           ) : (
             <div className="max-w-lg mx-auto my-12 p-8 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl text-center space-y-6 animate-in zoom-in-95 duration-150">
               <div className="w-16 h-16 rounded-2xl bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 flex items-center justify-center mx-auto border border-purple-200 dark:border-purple-800 shadow-inner">
@@ -1852,28 +1896,6 @@ function MainApp() {
                   Sign in with your platform administrator credentials to access the Admin Command Portal.
                 </p>
               </div>
-
-              {isAuthenticated && user && !isAdmin && (
-                <div className="p-3.5 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-2xl text-left text-xs space-y-2">
-                  <div className="flex items-center gap-2 text-amber-800 dark:text-amber-300 font-bold">
-                    <AlertCircle className="w-4 h-4 flex-shrink-0 text-amber-600" />
-                    <span>Currently signed in as:</span>
-                  </div>
-                  <p className="text-[11px] text-amber-900 dark:text-amber-200 font-medium pl-6">
-                    {user.fullName} ({user.email}) • Role: <strong className="uppercase">{user.role}</strong>
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      logout();
-                      showToast('Logged out of session. Please sign in with Admin credentials.', 'info');
-                    }}
-                    className="ml-6 text-[11px] font-bold text-amber-800 dark:text-amber-300 underline hover:text-amber-900 cursor-pointer"
-                  >
-                    Switch Account (Log Out Current Session) →
-                  </button>
-                </div>
-              )}
 
               {adminLoginError && (
                 <div className="p-3 bg-red-50 dark:bg-red-950/60 border border-red-200 dark:border-red-800 rounded-xl text-red-700 dark:text-red-300 text-xs flex items-center gap-2 text-left">
