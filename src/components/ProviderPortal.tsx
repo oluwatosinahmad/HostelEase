@@ -47,7 +47,8 @@ import {
   ArrowRight,
   KeyRound,
   MessageSquare,
-  Search
+  Search,
+  ChevronLeft
 } from 'lucide-react';
 import { Area, Property, VerificationDocument, PriceHistoryItem, ConversationItem, ConversationDetail, MessageItem } from '../types/hostelEase';
 import { DEFAULT_PROPERTIES } from '../services/offlineFallback';
@@ -482,16 +483,7 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
             status: itemHint.status || 'ACTIVE',
             createdAt: itemHint.createdAt || itemHint.lastMessageAt || new Date().toISOString()
           },
-          messages: itemHint.lastMessageText ? [{
-            id: `seed-${itemHint.id}`,
-            conversationId: itemHint.id,
-            senderId: itemHint.studentId,
-            senderRole: 'STUDENT',
-            content: itemHint.lastMessageText,
-            messageType: 'TEXT',
-            isRead: true,
-            createdAt: itemHint.lastMessageAt || new Date().toISOString()
-          }] : []
+          messages: []
         };
       });
     }
@@ -2718,7 +2710,7 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
             <div className="bg-white border border-gray-200 rounded-2xl shadow-xs overflow-hidden grid lg:grid-cols-12 min-h-[620px]">
               
               {/* Left Column: Student Conversations List */}
-              <div className="lg:col-span-4 border-r border-gray-200 flex flex-col bg-gray-50/50">
+              <div className={`lg:col-span-4 border-r border-gray-200 flex flex-col bg-gray-50/50 ${activeConversationId ? 'hidden lg:flex' : 'flex'}`}>
                 
                 {/* Search Bar */}
                 <div className="p-3.5 border-b border-gray-200 bg-white">
@@ -2840,7 +2832,7 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
               </div>
 
               {/* Right Column: Active Conversation & Reply Thread */}
-              <div className="lg:col-span-8 flex flex-col bg-white">
+              <div className={`lg:col-span-8 flex flex-col bg-white ${!activeConversationId ? 'hidden lg:flex' : 'flex'}`}>
                 {activeDetail ? (
                   <>
                     {/* Conversation Header */}
@@ -2855,6 +2847,18 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
                       return (
                         <div className="p-4 border-b border-gray-200 bg-white flex items-center justify-between gap-4">
                           <div className="flex items-center gap-3">
+                            {/* Mobile Back Button */}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setActiveConversationId(null);
+                                setActiveDetail(null);
+                              }}
+                              className="lg:hidden p-2 text-gray-500 hover:text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl cursor-pointer shrink-0"
+                              aria-label="Back to inquiries"
+                            >
+                              <ChevronLeft className="w-5 h-5" />
+                            </button>
                             <button
                               type="button"
                               onClick={() => {
@@ -2937,7 +2941,7 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
                       ) : (
                         activeDetail.messages.map((msg: MessageItem) => {
                           const isAutoReply = Boolean(msg.metadata?.isAutoReply || (msg as any).isAutoReply || msg.metadata?.automated);
-                          const isMe = !isAutoReply && (msg.senderId === user?.id || ['PROVIDER', 'LANDLORD', 'AGENT'].includes(msg.senderRole?.toUpperCase() || ''));
+                          const isMe = !isAutoReply && (Boolean(user?.id && msg.senderId === user.id) || Boolean(user?.email && (msg as any).senderEmail && (msg as any).senderEmail.toLowerCase() === user.email.toLowerCase()));
                           const senderLabel = isAutoReply
                             ? '🤖 Hostel Ease Automated Assistant'
                             : isMe

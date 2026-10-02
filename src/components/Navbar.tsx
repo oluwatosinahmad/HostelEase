@@ -701,16 +701,36 @@ export const Navbar: React.FC<NavbarProps> = ({
                         )}
 
                         {isProvider && (
-                          <button
-                            onClick={() => {
-                              onNavigate('provider-portal');
-                              setProfileDropdownOpen(false);
-                            }}
-                            className="w-full text-left px-4 py-2 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2.5"
-                          >
-                            <LayoutDashboard className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                            <span>Agent Management Center</span>
-                          </button>
+                          <>
+                            <button
+                              onClick={() => {
+                                onNavigate('provider-portal');
+                                setProfileDropdownOpen(false);
+                              }}
+                              className="w-full text-left px-4 py-2 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2.5 font-bold text-slate-900 dark:text-white"
+                            >
+                              <LayoutDashboard className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                              <span>Agent Management Center</span>
+                            </button>
+
+                            <button
+                              onClick={() => {
+                                onNavigate('messages');
+                                setProfileDropdownOpen(false);
+                              }}
+                              className="w-full text-left px-4 py-2 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center justify-between"
+                            >
+                              <div className="flex items-center gap-2.5">
+                                <MessageSquare className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                                <span>Messages & Inquiries</span>
+                              </div>
+                              {unreadMsgCount > 0 && (
+                                <span className="px-1.5 py-0.2 bg-rose-600 text-white text-[10px] font-bold rounded-full">
+                                  {unreadMsgCount}
+                                </span>
+                              )}
+                            </button>
+                          </>
                         )}
 
                         {isAdmin && (
