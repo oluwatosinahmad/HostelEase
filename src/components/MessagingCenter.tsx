@@ -114,6 +114,8 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
   const [sending, setSending] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [activeFilterTab, setActiveFilterTab] = useState<'all' | 'unread'>('all');
+  const [conversationsError, setConversationsError] = useState<boolean>(false);
+  const [activeThreadError, setActiveThreadError] = useState<boolean>(false);
 
   // Advanced Snapchat / iMessage Features
   const [isTyping, setIsTyping] = useState<boolean>(false);
@@ -357,6 +359,7 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
   // Fetch conversations and maintain accurate active conversation
   const loadConversations = async (preferredSelectId?: string) => {
     setLoading(true);
+    setConversationsError(false);
     try {
       const res = await api.messages.getConversations();
       const convs = res.conversations || [];
@@ -373,7 +376,8 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
         }
       }
     } catch (err) {
-      console.error('Failed to load conversations:', err);
+      console.error('[MessagingCenter] Failed to load conversations:', err);
+      setConversationsError(true);
     } finally {
       setLoading(false);
     }
@@ -391,6 +395,7 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
 
     setActiveConversationId(convId);
     setMessagesLoading(true);
+    setActiveThreadError(false);
 
     // Optimistically initialize activeDetail from conversation summary so UI opens instantly without blank screen
     if (currentItem && (!activeDetail || activeDetail.conversation.id !== convId)) {
@@ -444,7 +449,8 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
         window.dispatchEvent(new CustomEvent('hostel_ease_conversations_updated'));
       }).catch(() => {});
     } catch (err) {
-      console.error('Failed to load conversation messages:', err);
+      console.error('[MessagingCenter] Failed to load conversation messages:', err);
+      setActiveThreadError(true);
     } finally {
       setMessagesLoading(false);
     }
@@ -1153,6 +1159,23 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
                 <div className="w-6 h-6 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto" />
                 <p className="text-xs text-slate-400 font-bold">Syncing conversations...</p>
               </div>
+            ) : conversationsError && conversations.length === 0 ? (
+              <div className="py-16 px-4 text-center space-y-3">
+                <div className="w-12 h-12 bg-slate-800 text-slate-400 rounded-2xl flex items-center justify-center mx-auto">
+                  <MessageSquare className="w-6 h-6" />
+                </div>
+                <h4 className="text-xs font-black text-slate-200">Unable to load your messages right now</h4>
+                <p className="text-[11px] text-slate-400 max-w-xs mx-auto">
+                  Please check your connection and try again.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => loadConversations()}
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl transition-colors cursor-pointer"
+                >
+                  Try Again
+                </button>
+              </div>
             ) : filteredConversations.length === 0 ? (
               <div className="py-16 px-4 text-center space-y-3">
                 <div className="w-12 h-12 bg-slate-800 text-slate-500 rounded-2xl flex items-center justify-center mx-auto">
@@ -1318,22 +1341,23 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
                 <p className="text-xs text-slate-400">Loading verified inquiry history and messages</p>
               </div>
             </div>
-          ) : !activeDetail ? (
+          ) : (!activeDetail || activeThreadError) ? (
             <div className="flex-1 flex flex-col items-center justify-center p-8 text-center space-y-4">
-              <div className="w-16 h-16 bg-slate-900 text-amber-400 rounded-3xl flex items-center justify-center shadow-inner border border-slate-800">
-                <MessageSquare className="w-8 h-8" />
+              <div className="w-14 h-14 bg-slate-900 text-slate-400 rounded-3xl flex items-center justify-center shadow-inner border border-slate-800">
+                <MessageSquare className="w-7 h-7" />
               </div>
               <div className="space-y-1">
-                <h3 className="font-black text-base text-white">Conversation Not Available</h3>
+                <h3 className="font-black text-base text-white">Unable to load messages</h3>
                 <p className="text-xs text-slate-400 max-w-sm">
-                  Could not load messages for this conversation. Please select another conversation or retry.
+                  We couldn't load this conversation right now. Please try again.
                 </p>
               </div>
               <button
+                type="button"
                 onClick={() => activeConversationId && selectAndLoadConversation(activeConversationId, true)}
-                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs rounded-2xl shadow-lg cursor-pointer transition-all"
+                className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-md cursor-pointer transition-colors"
               >
-                Retry Loading
+                Try Again
               </button>
             </div>
           ) : (

@@ -1509,7 +1509,7 @@ function MainApp() {
                         </p>
                       </div>
 
-                      {/* Diagnostic Quick Fix Action Buttons */}
+                      {/* Search Filter Quick Fix Action Buttons */}
                       <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
                         {filters.maxPrice && (
                           <button
@@ -1592,25 +1592,37 @@ function MainApp() {
 
         {/* VIEW 3: SAVED HOSTELS */}
         {currentView === 'saved' && (
-          <SavedHostelsView
-            onViewDetails={(p) => setSelectedPropertyId(p.id)}
-            onNavigateToSearch={() => {
-              setCurrentView('search');
-              window.scrollTo({ top: 0, behavior: 'smooth' });
-            }}
-            onToggleCompare={handleToggleCompare}
-            comparedIds={comparedPropertyIds}
-            onShowToast={showToast}
-            savedHostels={savedProperties}
-            loading={loadingSaved}
-            onRefreshSaved={fetchSavedProperties}
-            onUnsave={(propertyId) => handleToggleSave(propertyId, false)}
-          />
+          <ErrorBoundary
+            isolated
+            title="Saved Hostels"
+            message="Unable to load your saved hostels right now. Please try again."
+            onReturnHome={() => setCurrentView('home')}
+          >
+            <SavedHostelsView
+              onViewDetails={(p) => setSelectedPropertyId(p.id)}
+              onNavigateToSearch={() => {
+                setCurrentView('search');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+              onToggleCompare={handleToggleCompare}
+              comparedIds={comparedPropertyIds}
+              onShowToast={showToast}
+              savedHostels={savedProperties}
+              loading={loadingSaved}
+              onRefreshSaved={fetchSavedProperties}
+              onUnsave={(propertyId) => handleToggleSave(propertyId, false)}
+            />
+          </ErrorBoundary>
         )}
 
         {/* VIEW: COMMUNITY & ROOMMATES (Phase 14) */}
         {currentView === 'community' && (
-          <ErrorBoundary>
+          <ErrorBoundary
+            isolated
+            title="Community Hub"
+            message="Unable to load the student community right now. Please try again."
+            onReturnHome={() => setCurrentView('home')}
+          >
             <CommunityHub
               isAuthenticated={isAuthenticated}
               onShowToast={showToast}
@@ -1621,41 +1633,55 @@ function MainApp() {
 
         {/* VIEW 4: STUDENT INSPECTION CENTER (Phase 4) */}
         {currentView === 'inspections' && (
-          <StudentInspectionCenter
-            onOpenConversation={(propId) => {
-              setMessagingTargetPropertyId(propId);
-              setCurrentView('messages');
-              window.scrollTo({ top: 0, behavior: 'smooth' });
-            }}
-            onNavigateToSearch={() => {
-              setCurrentView('search');
-              window.scrollTo({ top: 0, behavior: 'smooth' });
-            }}
-            onReserveHostel={(propId) => handleReservePropertyById(propId)}
-            onShowToast={showToast}
-          />
+          <ErrorBoundary
+            isolated
+            title="Scheduled Inspections"
+            message="Unable to load your inspection appointments right now. Please try again."
+            onReturnHome={() => setCurrentView('home')}
+          >
+            <StudentInspectionCenter
+              onOpenConversation={(propId) => {
+                setMessagingTargetPropertyId(propId);
+                setCurrentView('messages');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+              onNavigateToSearch={() => {
+                setCurrentView('search');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+              onReserveHostel={(propId) => handleReservePropertyById(propId)}
+              onShowToast={showToast}
+            />
+          </ErrorBoundary>
         )}
 
         {/* VIEW 5: IN-APP MESSAGING CENTER (Phase 4) */}
         {currentView === 'messages' && (
-          <MessagingCenter
-            initialPropertyId={messagingTargetPropertyId}
-            initialConversationId={messagingTargetConversationId}
-            onSelectProperty={(id) => setSelectedPropertyId(id)}
-            onRequestInspection={(id) => {
-              setSelectedPropertyId(id);
-            }}
-            onShowToast={showToast}
-            onViewOnMap={(address) => {
-              setCurrentView('search');
-              setSearchViewMode('map');
-              setTargetMapAddress(address);
-              setTimeout(() => {
-                const mapEl = document.querySelector('input[placeholder*="Search house address"]');
-                mapEl?.scrollIntoView({ behavior: 'smooth' });
-              }, 150);
-            }}
-          />
+          <ErrorBoundary
+            isolated
+            title="Messages"
+            message="Unable to load your messages right now. Please try again."
+            onReturnHome={() => setCurrentView('home')}
+          >
+            <MessagingCenter
+              initialPropertyId={messagingTargetPropertyId}
+              initialConversationId={messagingTargetConversationId}
+              onSelectProperty={(id) => setSelectedPropertyId(id)}
+              onRequestInspection={(id) => {
+                setSelectedPropertyId(id);
+              }}
+              onShowToast={showToast}
+              onViewOnMap={(address) => {
+                setCurrentView('search');
+                setSearchViewMode('map');
+                setTargetMapAddress(address);
+                setTimeout(() => {
+                  const mapEl = document.querySelector('input[placeholder*="Search house address"]');
+                  mapEl?.scrollIntoView({ behavior: 'smooth' });
+                }, 150);
+              }}
+            />
+          </ErrorBoundary>
         )}
 
         {/* VIEW: BOOKINGS & RESERVATIONS (Phase 5) */}
@@ -1730,7 +1756,12 @@ function MainApp() {
               </button>
             </div>
           ) : (
-            <ErrorBoundary>
+            <ErrorBoundary
+              isolated
+              title="Student Dashboard"
+              message="Unable to load your student dashboard right now. Please try again."
+              onReturnHome={() => setCurrentView('home')}
+            >
               <StudentDashboard
                 areas={areas}
                 initialTab={studentDashboardTab}
@@ -1804,19 +1835,31 @@ function MainApp() {
 
         {/* VIEW: STUDENT PAYMENTS & RECEIPTS (Phase 6) */}
         {currentView === 'payments' && (
-          <StudentPaymentHistory
-            onNavigateToBookings={() => {
-              setCurrentView('bookings');
-              window.scrollTo({ top: 0, behavior: 'smooth' });
-            }}
-            onShowToast={showToast}
-          />
+          <ErrorBoundary
+            isolated
+            title="Payments & Receipts"
+            message="Unable to load your payment history right now. Please try again."
+            onReturnHome={() => setCurrentView('home')}
+          >
+            <StudentPaymentHistory
+              onNavigateToBookings={() => {
+                setCurrentView('bookings');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+              onShowToast={showToast}
+            />
+          </ErrorBoundary>
         )}
 
         {/* VIEW 7: PROVIDER / AGENT PORTAL */}
         {currentView === 'provider-portal' && (
           isProvider ? (
-            <ErrorBoundary>
+            <ErrorBoundary
+              isolated
+              title="Agent Management Center"
+              message="Unable to load your agent portal right now. Please try again."
+              onReturnHome={() => setCurrentView('home')}
+            >
               <ProviderPortal
                 areas={areas}
                 onOpenConversation={(propId, studentId) => {
@@ -1852,7 +1895,12 @@ function MainApp() {
         {/* VIEW 8: ADMIN PORTAL */}
         {currentView === 'admin-portal' && (
           isAdmin ? (
-            <ErrorBoundary>
+            <ErrorBoundary
+              isolated
+              title="Admin Command Portal"
+              message="Unable to load the admin portal right now. Please try again."
+              onReturnHome={() => setCurrentView('home')}
+            >
               <AdminPortal
                 areas={areas}
                 onShowToast={showToast}
@@ -1983,58 +2031,79 @@ function MainApp() {
 
         {/* VIEW 9: MOVE-IN & POST-BOOKING CENTER (Phase 12) */}
         {currentView === 'move-in' && (
-          <MoveInCenter
-            onNavigate={(v) => {
-              setCurrentView(v);
-              window.scrollTo({ top: 0, behavior: 'smooth' });
-            }}
-            onOpenConversation={(propId, studentId) => {
-              setMessagingTargetPropertyId(propId);
-              setCurrentView('messages');
-              window.scrollTo({ top: 0, behavior: 'smooth' });
-            }}
-            onShowToast={showToast}
-            onOpenAI={handleOpenAI}
-          />
+          <ErrorBoundary
+            isolated
+            title="Move-In Hub"
+            message="Unable to load the move-in hub right now. Please try again."
+            onReturnHome={() => setCurrentView('home')}
+          >
+            <MoveInCenter
+              onNavigate={(v) => {
+                setCurrentView(v);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+              onOpenConversation={(propId, studentId) => {
+                setMessagingTargetPropertyId(propId);
+                setCurrentView('messages');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+              onShowToast={showToast}
+              onOpenAI={handleOpenAI}
+            />
+          </ErrorBoundary>
         )}
 
         {/* VIEW 10: ACCOMMODATION HISTORY (Phase 12) */}
         {currentView === 'history' && (
-          <AccommodationHistory
-            onNavigate={(v) => {
-              setCurrentView(v);
-              window.scrollTo({ top: 0, behavior: 'smooth' });
-            }}
-            onOpenConversation={(propId, studentId) => {
-              setMessagingTargetPropertyId(propId);
-              setCurrentView('messages');
-              window.scrollTo({ top: 0, behavior: 'smooth' });
-            }}
-            onShowToast={showToast}
-          />
+          <ErrorBoundary
+            isolated
+            title="Accommodation History"
+            message="Unable to load your past stays and history right now. Please try again."
+            onReturnHome={() => setCurrentView('home')}
+          >
+            <AccommodationHistory
+              onNavigate={(v) => {
+                setCurrentView(v);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+              onOpenConversation={(propId, studentId) => {
+                setMessagingTargetPropertyId(propId);
+                setCurrentView('messages');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+              onShowToast={showToast}
+            />
+          </ErrorBoundary>
         )}
 
         {/* VIEW 11: MORE FULL-PAGE VIEW */}
         {currentView === 'more' && (
-          <MorePageView
-            onNavigate={(v) => {
-              setCurrentView(v);
-              window.scrollTo({ top: 0, behavior: 'smooth' });
-            }}
-            onNavigateToDashboardTab={(tab) => {
-              setStudentDashboardTab(tab);
-              setCurrentView('student-dashboard');
-              window.scrollTo({ top: 0, behavior: 'smooth' });
-            }}
-            onOpenAuth={handleOpenAuth}
-            savedCount={savedProperties.length}
-            onOpenAI={handleOpenAI}
-            onOpenUtilityRadar={() => setUtilityRadarOpen(true)}
-            onOpenSafeWalk={() => setSafeWalkOpen(true)}
-            onOpenUtilityCalculator={() => setUtilityCalcOpen(true)}
-            onOpenWomenSection={() => setWomensLivingOpen(true)}
-            onShowToast={showToast}
-          />
+          <ErrorBoundary
+            isolated
+            title="Account & Navigation Hub"
+            message="Unable to load this section right now. Please try again."
+            onReturnHome={() => setCurrentView('home')}
+          >
+            <MorePageView
+              onNavigate={(v) => {
+                setCurrentView(v);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+              onNavigateToDashboardTab={(tab) => {
+                setStudentDashboardTab(tab);
+                setCurrentView('student-dashboard');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+              onOpenAuth={handleOpenAuth}
+              savedCount={savedProperties.length}
+              onOpenAI={handleOpenAI}
+              onOpenUtilityRadar={() => setUtilityRadarOpen(true)}
+              onOpenSafeWalk={() => setSafeWalkOpen(true)}
+              onOpenUtilityCalculator={() => setUtilityCalcOpen(true)}
+              onOpenWomenSection={() => setWomensLivingOpen(true)}
+              onShowToast={showToast}
+            />
+          </ErrorBoundary>
         )}
       </main>
       </Suspense>
