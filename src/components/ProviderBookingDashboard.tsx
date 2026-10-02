@@ -278,10 +278,12 @@ export const ProviderBookingDashboard: React.FC<ProviderBookingDashboardProps> =
                     <span className="font-mono font-black text-xs text-slate-900 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
                       {b.bookingReference}
                     </span>
-                    <span className="bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-black px-2 py-0.5 rounded-full flex items-center gap-1">
-                      <GraduationCap className="w-3 h-3 text-emerald-600" />
-                      <span>Matric: {b.studentMatricNumber || b.studentMatricNo || '2024/04812'}</span>
-                    </span>
+                    {(b.studentMatricNumber || b.studentMatricNo) ? (
+                      <span className="bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-black px-2 py-0.5 rounded-full flex items-center gap-1">
+                        <GraduationCap className="w-3 h-3 text-emerald-600" />
+                        <span>Matric: {b.studentMatricNumber || b.studentMatricNo}</span>
+                      </span>
+                    ) : null}
                     {getStatusBadge(b.status)}
                   </div>
 
@@ -290,7 +292,7 @@ export const ProviderBookingDashboard: React.FC<ProviderBookingDashboardProps> =
                   </h3>
 
                   <p className="text-xs text-slate-600">
-                    🎓 Student: <strong>{b.studentName}</strong> ({b.studentDepartment || 'Computer Science'}{b.studentLevel ? ` • ${b.studentLevel}` : ''}) • 📅 Move-in: <strong>{b.moveInDate}</strong>
+                    🎓 Student: <strong>{b.studentName}</strong> {b.studentDepartment ? `(${b.studentDepartment}${b.studentLevel ? ` • ${b.studentLevel}` : ''})` : (b.studentLevel ? `(${b.studentLevel})` : '')} • 📅 Move-in: <strong>{b.moveInDate}</strong>
                   </p>
 
                   <div className="pt-1.5 flex items-center gap-2 flex-wrap text-xs">

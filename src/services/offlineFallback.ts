@@ -1240,17 +1240,17 @@ export const DEFAULT_OPERATIONS_DASHBOARD = {
 };
 
 export const DEFAULT_STUDENT_PREFERENCES: StudentPreferences = {
-  minBudget: 120000,
-  maxBudget: 350000,
-  preferredAreas: ['Under G', 'Adenike Area', 'Stadium Road'],
-  preferredRoomTypes: ['SELF_CONTAIN', 'SINGLE_ROOM', 'FLAT'],
-  preferredFacilities: ['Borehole Water', 'Backup Generator / Solar', 'Fenced & Gated', 'Prepaid Meter'],
+  minBudget: 100000,
+  maxBudget: 250000,
+  preferredAreas: [],
+  preferredRoomTypes: ['SELF_CONTAIN', 'SINGLE_ROOM'],
+  preferredFacilities: ['water', 'electricity'],
   maxDistanceKm: 2.5,
   genderPreference: 'ANY',
-  preferredMoveInDate: '2026-09-01',
+  preferredMoveInDate: null,
   isMoveInFlexible: true,
   academicSession: '2026/2027',
-  onboardingCompleted: true
+  onboardingCompleted: false
 };
 
 export const DEFAULT_STUDENT_DASHBOARD: StudentDashboardData = {
@@ -1282,8 +1282,8 @@ export const DEFAULT_STUDENT_DASHBOARD: StudentDashboardData = {
   })),
   preferences: DEFAULT_STUDENT_PREFERENCES,
   profileCompleteness: {
-    score: 100,
-    missingFields: []
+    score: 0,
+    missingFields: ['Full Name', 'Phone Number', 'Matric / JAMB No', 'Department', 'Level of Study', 'Housing Preferences']
   },
   user: {
     id: '',

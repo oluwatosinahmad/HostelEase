@@ -795,18 +795,38 @@ async function loadCloudData(force = false) {
   } catch {}
 }
 
+let memoryStudentPreferences = new Map<string, any>();
+
+async function saveCloudStudentPreferences(userId: string, prefs: any) {
+  if (!userId || !prefs) return;
+  memoryStudentPreferences.set(userId, prefs);
+  try {
+    const store = getBlobsStore('preferences');
+    if (store) {
+      await store.setJSON(`pref_${userId}`, prefs);
+    }
+  } catch {}
+}
+
 function createAuthToken(user: any): string {
   const payload = {
     id: user.id,
     email: user.email,
     role: user.role,
     fullName: user.fullName || user.full_name || '',
+    phone: user.phone || '',
+    department: user.department || user.studentDetails?.department || '',
+    level: user.level || user.studentDetails?.level || '',
+    matricNo: user.matricNo || user.studentDetails?.matricNo || user.studentDetails?.matricNumber || '',
+    gender: user.gender || 'ANY',
+    avatarUrl: user.avatarUrl || '',
+    businessName: user.businessName || user.providerDetails?.businessName || '',
     iat: Math.floor(Date.now() / 1000)
   };
   return `hl_${Buffer.from(JSON.stringify(payload)).toString('base64url')}`;
 }
 
-// Helper to extract bearer token or user info
+// Helper to extract bearer token or user info with strict UID identity isolation
 function parseAuth(req: Request): any | null {
   const authHeader = req.headers.get('authorization') || '';
   if (authHeader.startsWith('Bearer ')) {
@@ -822,8 +842,32 @@ function parseAuth(req: Request): any | null {
               return null;
             }
             const inMem = memoryUsers.find(u => u.id === payload.id || (u.email && pEmail && u.email.toLowerCase().trim() === pEmail));
-            if (!inMem) return null;
-            return { ...inMem, role: payload.role || inMem.role };
+            if (inMem) {
+              return {
+                ...inMem,
+                role: payload.role || inMem.role,
+                department: inMem.department || payload.department || '',
+                level: inMem.level || payload.level || '',
+                matricNo: inMem.matricNo || payload.matricNo || '',
+                phone: inMem.phone || payload.phone || ''
+              };
+            }
+            // Token is verified: construct authenticated session directly from verified claims
+            const userFromToken = {
+              id: payload.id,
+              email: payload.email,
+              role: payload.role || 'STUDENT',
+              fullName: payload.fullName || 'Student',
+              phone: payload.phone || '',
+              department: payload.department || '',
+              level: payload.level || '',
+              matricNo: payload.matricNo || '',
+              gender: payload.gender || 'ANY',
+              avatarUrl: payload.avatarUrl || '',
+              businessName: payload.businessName || ''
+            };
+            memoryUsers.push(userFromToken);
+            return userFromToken;
           }
         } catch {}
       }
@@ -838,8 +882,31 @@ function parseAuth(req: Request): any | null {
               return null;
             }
             const inMem = memoryUsers.find(u => u.id === payload.id || (u.email && pEmail && u.email.toLowerCase().trim() === pEmail));
-            if (!inMem) return null;
-            return { ...inMem, role: payload.role || inMem.role };
+            if (inMem) {
+              return {
+                ...inMem,
+                role: payload.role || inMem.role,
+                department: inMem.department || payload.department || '',
+                level: inMem.level || payload.level || '',
+                matricNo: inMem.matricNo || payload.matricNo || '',
+                phone: inMem.phone || payload.phone || ''
+              };
+            }
+            const userFromToken = {
+              id: payload.id,
+              email: payload.email,
+              role: payload.role || 'STUDENT',
+              fullName: payload.fullName || payload.full_name || 'Student',
+              phone: payload.phone || '',
+              department: payload.department || '',
+              level: payload.level || '',
+              matricNo: payload.matricNo || payload.matric_no || '',
+              gender: payload.gender || 'ANY',
+              avatarUrl: payload.avatarUrl || payload.avatar_url || '',
+              businessName: payload.businessName || ''
+            };
+            memoryUsers.push(userFromToken);
+            return userFromToken;
           }
         }
       } catch {}
@@ -859,12 +926,15 @@ function parseAuth(req: Request): any | null {
     }
     let matched = memoryUsers.find(u => u.email.toLowerCase() === headerEmail);
     if (matched) return matched;
-    const cleanRole = (headerRole || 'PROVIDER').toUpperCase();
+    const cleanRole = (headerRole || 'STUDENT').toUpperCase();
     const newUser = {
       id: headerId || `user-${Date.now()}`,
       email: headerEmail,
       fullName: 'HostelEase User',
-      phone: '08012345678',
+      phone: '',
+      department: '',
+      level: '',
+      matricNo: '',
       role: cleanRole === 'LANDLORD' ? 'PROVIDER' : cleanRole
     };
     memoryUsers.push(newUser);
@@ -873,6 +943,7 @@ function parseAuth(req: Request): any | null {
 
   return null;
 }
+
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -960,13 +1031,14 @@ export default async (req: Request): Promise<Response> => {
         email,
         password: body.password,
         fullName: body.fullName || (role === 'PROVIDER' ? 'Hostel Agent' : 'Student User'),
-        phone: body.phone || '08012345678',
+        phone: body.phone || '',
         role,
         avatarUrl: body.avatarUrl || (role === 'PROVIDER' ? 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=300&q=80' : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80'),
         businessName: body.businessName || body.providerDetails?.businessName || (role === 'PROVIDER' ? 'LAUTECH Accommodation' : undefined),
-        matricNo: body.matricNo || body.studentDetails?.matricNo || undefined,
-        department: body.department || body.studentDetails?.department || undefined,
-        level: body.level || body.studentDetails?.level || undefined,
+        matricNo: body.matricNo || body.studentDetails?.matricNo || body.studentDetails?.matricNumber || '',
+        department: body.department || body.studentDetails?.department || '',
+        level: body.level || body.studentDetails?.level || '',
+        gender: body.gender || 'ANY',
         createdAt: new Date().toISOString()
       };
 
@@ -1158,7 +1230,29 @@ export default async (req: Request): Promise<Response> => {
     }
   }
 
-  // 4b. Profile Updates (Auth Profile & Student Profile)
+  // 4b. Student Profile Retrieval (Strict UID Scoped)
+  if (pathname === '/api/student/profile' && req.method === 'GET') {
+    const user = parseAuth(req);
+    if (!user) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: CORS_HEADERS });
+    }
+    return new Response(JSON.stringify({
+      profile: {
+        id: user.id,
+        email: user.email,
+        fullName: user.fullName || '',
+        phone: user.phone || '',
+        role: 'STUDENT',
+        department: user.department || (user as any).studentDetails?.department || '',
+        level: user.level || (user as any).studentDetails?.level || '',
+        matricNo: user.matricNo || (user as any).studentDetails?.matricNo || (user as any).studentDetails?.matricNumber || '',
+        gender: user.gender || 'ANY',
+        avatarUrl: user.avatarUrl || ''
+      }
+    }), { status: 200, headers: CORS_HEADERS });
+  }
+
+  // 4c. Profile Updates (Auth Profile & Student Profile)
   if ((pathname === '/api/auth/profile' || pathname === '/api/student/profile') && (req.method === 'PUT' || req.method === 'PATCH')) {
     try {
       const user = parseAuth(req);
@@ -1198,6 +1292,45 @@ export default async (req: Request): Promise<Response> => {
       return new Response(JSON.stringify({ error: err.message || 'Failed to update profile' }), { status: 400, headers: CORS_HEADERS });
     }
   }
+
+  // 4d. Student Preferences (GET & PUT)
+  if (pathname === '/api/student/preferences' && req.method === 'GET') {
+    const user = parseAuth(req);
+    if (!user) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: CORS_HEADERS });
+    }
+    const prefs = memoryStudentPreferences.get(user.id) || {
+      minBudget: 100000,
+      maxBudget: 250000,
+      preferredAreas: [],
+      preferredRoomTypes: ['SELF_CONTAIN', 'SINGLE_ROOM'],
+      preferredFacilities: ['water', 'electricity'],
+      maxDistanceKm: 2.5,
+      genderPreference: 'ANY',
+      preferredMoveInDate: null,
+      isMoveInFlexible: true,
+      academicSession: '2026/2027',
+      onboardingCompleted: false
+    };
+    return new Response(JSON.stringify({ preferences: prefs }), { status: 200, headers: CORS_HEADERS });
+  }
+
+  if ((pathname === '/api/student/preferences' || pathname === '/api/student/dashboard/preferences') && (req.method === 'PUT' || req.method === 'POST')) {
+    const user = parseAuth(req);
+    if (!user) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: CORS_HEADERS });
+    }
+    try {
+      const body = await req.json();
+      const current = memoryStudentPreferences.get(user.id) || {};
+      const updatedPrefs = { ...current, ...body, onboardingCompleted: true };
+      await saveCloudStudentPreferences(user.id, updatedPrefs);
+      return new Response(JSON.stringify({ success: true, message: 'Preferences updated successfully', preferences: updatedPrefs }), { status: 200, headers: CORS_HEADERS });
+    } catch (err: any) {
+      return new Response(JSON.stringify({ error: err.message || 'Failed to update preferences' }), { status: 400, headers: CORS_HEADERS });
+    }
+  }
+
 
   // 4c. Media Serving (GET /api/media/:id or GET /api/uploads/:id with byte ranges and caching)
   if ((pathname.startsWith('/api/media/') || pathname.startsWith('/api/uploads/')) && req.method === 'GET') {
@@ -2543,13 +2676,16 @@ export default async (req: Request): Promise<Response> => {
     }
   }
 
-  // 11. Student Dashboard (Clean 0-State Isolation for New Accounts)
+  // 11. Student Dashboard (Strict Authenticated UID Isolation)
   if (pathname === '/api/student/dashboard' && req.method === 'GET') {
-    const user = parseAuth(req) || memoryUsers.find(u => u.role === 'STUDENT') || memoryUsers[2];
-    const userId = user?.id || '';
-    const userEmail = (user?.email || '').toLowerCase().trim();
+    const user = parseAuth(req);
+    if (!user) {
+      return new Response(JSON.stringify({ error: 'Authentication required' }), { status: 401, headers: CORS_HEADERS });
+    }
+    const userId = user.id;
+    const userEmail = (user.email || '').toLowerCase().trim();
 
-    // Isolated saved hostels: new users get 0!
+    // Isolated saved hostels: only hostels shortlisted by THIS student UID
     const userSaved = memorySavedProperties.filter(sp => {
       if (userId && sp.userId === userId) return true;
       if (userEmail && sp.userEmail && sp.userEmail.toLowerCase() === userEmail) return true;
@@ -2569,61 +2705,95 @@ export default async (req: Request): Promise<Response> => {
 
     const userBookings = memoryBookings.filter(b => b.studentId === userId || (userEmail && b.studentEmail && b.studentEmail.toLowerCase() === userEmail));
     const userInspections = memoryInspections.filter(i => i.studentId === userId || (userEmail && i.studentEmail && i.studentEmail.toLowerCase() === userEmail));
-    const unreadMsgs = memoryMessages.filter(m => m.senderId !== userId && !m.isRead && memoryConversations.some(c => c.id === m.conversationId && c.studentId === userId)).length;
+    const unreadMsgs = memoryMessages.filter(m => m.senderId !== userId && !m.isRead && memoryConversations.some(c => c.id === m.conversationId && (c.studentId === userId || (userEmail && c.studentEmail && c.studentEmail.toLowerCase() === userEmail)))).length;
+
+    // Student preferences (isolated per student UID)
+    let userPrefs = memoryStudentPreferences.get(userId);
+    if (!userPrefs) {
+      userPrefs = {
+        minBudget: 100000,
+        maxBudget: 250000,
+        preferredAreas: [],
+        preferredRoomTypes: ['SELF_CONTAIN', 'SINGLE_ROOM'],
+        preferredFacilities: ['water', 'electricity'],
+        maxDistanceKm: 2.5,
+        genderPreference: 'ANY',
+        preferredMoveInDate: null,
+        isMoveInFlexible: true,
+        academicSession: '2026/2027',
+        onboardingCompleted: false
+      };
+    }
 
     const recProps = memoryProperties.slice(0, 6).map(p => ({
       ...p,
       area: p.area || { id: 'area-under-g', name: 'Under G', slug: 'under-g' },
-      explanationReasons: ['Matches your budget preference', 'Verified borehole water', 'Under 1km to campus'],
+      explanationReasons: ['Verified accommodation near LAUTECH', 'Audited electricity and water supply', 'Direct agent contact with escrow protection'],
       priceChanged: false,
       availabilityChanged: false
     }));
 
+    // Dynamic completeness score based on this student's actual profile fields
+    let completenessScore = 0;
+    const missingFields: string[] = [];
+    if (user.fullName) completenessScore += 20; else missingFields.push('Full Name');
+    if (user.phone) completenessScore += 20; else missingFields.push('Phone Number');
+    if (user.matricNo || (user as any).studentDetails?.matricNo || (user as any).studentDetails?.matricNumber) completenessScore += 15; else missingFields.push('Matric / JAMB No');
+    if (user.department || (user as any).studentDetails?.department) completenessScore += 15; else missingFields.push('Department');
+    if (user.level || (user as any).studentDetails?.level) completenessScore += 15; else missingFields.push('Level of Study');
+    if (userPrefs.onboardingCompleted) completenessScore += 15; else missingFields.push('Housing Preferences');
+
+    let journeyStage: 'PREFERENCES' | 'SEARCHING' | 'SHORTLISTED' | 'INSPECTION' | 'BOOKING' | 'PAYMENT' | 'MOVE_IN' = 'PREFERENCES';
+    if (userBookings.some(b => b.status === 'CONFIRMED' || b.paymentStatus === 'PAID')) {
+      journeyStage = 'PAYMENT';
+    } else if (userBookings.some(b => b.status === 'PENDING')) {
+      journeyStage = 'BOOKING';
+    } else if (userInspections.length > 0) {
+      journeyStage = 'INSPECTION';
+    } else if (savedProps.length > 0) {
+      journeyStage = 'SHORTLISTED';
+    } else if (userPrefs.onboardingCompleted) {
+      journeyStage = 'SEARCHING';
+    } else {
+      journeyStage = 'PREFERENCES';
+    }
+
+    const activeBooking = userBookings.find(b => b.status === 'CONFIRMED' || b.status === 'PENDING') || null;
+
     return new Response(JSON.stringify({
       user: {
-        id: user.id || 'usr-student-1',
-        fullName: user.fullName || 'Student User',
-        email: user.email || 'student@lautech.edu.ng',
-        phone: user.phone || '08098765432',
+        id: user.id,
+        fullName: user.fullName || '',
+        email: user.email || '',
+        phone: user.phone || '',
         role: 'STUDENT',
-        department: user.department || 'Computer Science',
-        level: user.level || '300L',
-        matricNo: user.matricNo || '2024/04812',
+        department: user.department || (user as any).studentDetails?.department || '',
+        level: user.level || (user as any).studentDetails?.level || '',
+        matricNo: user.matricNo || (user as any).studentDetails?.matricNo || (user as any).studentDetails?.matricNumber || '',
         gender: user.gender || 'ANY',
-        avatarUrl: user.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80'
+        avatarUrl: user.avatarUrl || ''
       },
       profileCompleteness: {
-        score: 100,
-        missingFields: []
+        score: completenessScore,
+        missingFields
       },
       summary: {
-        activeBookingsCount: userBookings.filter(b => b.status === 'CONFIRMED').length,
+        activeBookingsCount: userBookings.filter(b => b.status === 'CONFIRMED' || b.status === 'PENDING').length,
         pendingInspectionsCount: userInspections.filter(i => i.status === 'PENDING').length,
         savedCount: savedProps.length,
         unreadMessagesCount: unreadMsgs,
-        pendingPaymentsCount: 0
+        pendingPaymentsCount: userBookings.filter(b => b.status === 'PENDING_PAYMENT').length
       },
       urgentAction: null,
-      preferences: {
-        minBudget: 120000,
-        maxBudget: 280000,
-        preferredAreas: ['Under G', 'Adenike'],
-        preferredRoomTypes: ['SELF_CONTAIN'],
-        preferredFacilities: ['water', 'electricity'],
-        maxDistanceKm: 2.0,
-        genderPreference: 'ANY',
-        preferredMoveInDate: '2026-09-01',
-        isMoveInFlexible: true,
-        onboardingCompleted: true
-      },
+      preferences: userPrefs,
       savedHostels: savedProps,
       recommendedHostels: recProps,
       recommendations: recProps,
-      recentlyViewed: recProps.slice(0, 4),
+      recentlyViewed: [],
       recentInspections: userInspections.slice(0, 5),
-      pendingBookings: userBookings.slice(0, 5),
-      activeBooking: userBookings.find(b => b.status === 'CONFIRMED') || null,
-      journeyStage: 'SEARCHING'
+      pendingBookings: userBookings.filter(b => b.status === 'PENDING').slice(0, 5),
+      activeBooking,
+      journeyStage
     }), { status: 200, headers: CORS_HEADERS });
   }
 

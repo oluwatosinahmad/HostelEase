@@ -902,10 +902,12 @@ export const LandlordPortal: React.FC<LandlordPortalProps> = ({
                               <h4 className="font-black text-base text-slate-900">
                                 {bk.studentName}
                               </h4>
-                              <span className="bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-black px-2 py-0.5 rounded-full flex items-center gap-1">
-                                <GraduationCap className="w-3 h-3 text-emerald-600" />
-                                <span>Matric: {bk.studentMatricNumber || bk.studentMatricNo || '2024/04812'}</span>
-                              </span>
+                              {(bk.studentMatricNumber || bk.studentMatricNo) ? (
+                                <span className="bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-black px-2 py-0.5 rounded-full flex items-center gap-1">
+                                  <GraduationCap className="w-3 h-3 text-emerald-600" />
+                                  <span>Matric: {bk.studentMatricNumber || bk.studentMatricNo}</span>
+                                </span>
+                              ) : null}
                             </div>
 
                             <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500 font-medium">

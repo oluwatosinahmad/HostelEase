@@ -315,14 +315,35 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
   };
 
   useEffect(() => {
+    // When authenticated student changes (login, switch, or new registration):
+    // 1. Immediately wipe previous user's data to prevent any data retention
+    setDashboardData(null);
+    setAllStudentBookings([]);
+    setAllStudentInspections([]);
+    if (user) {
+      setProfileFullName(user.fullName || '');
+      setProfilePhone(user.phone || '');
+      setProfileDepartment((user as any)?.department || (user as any)?.studentDetails?.department || '');
+      setProfileLevel((user as any)?.level || (user as any)?.studentDetails?.level || '');
+      setProfileMatricNo((user as any)?.matricNo || (user as any)?.matricNumber || (user as any)?.studentDetails?.matricNo || (user as any)?.studentDetails?.matricNumber || '');
+      setProfileGender((user as any)?.gender || 'ANY');
+      setProfileAvatarUrl(user.avatarUrl || '');
+    }
     loadDashboard();
   }, [user?.id, user?.email]);
 
   useEffect(() => {
     const handleLogout = () => {
-      setDashboardData(DEFAULT_STUDENT_DASHBOARD);
+      setDashboardData(null);
       setAllStudentBookings([]);
       setAllStudentInspections([]);
+      setProfileFullName('');
+      setProfilePhone('');
+      setProfileDepartment('');
+      setProfileLevel('');
+      setProfileMatricNo('');
+      setProfileGender('ANY');
+      setProfileAvatarUrl('');
     };
     const handleUpdates = () => {
       api.bookings.getAll().then(r => setAllStudentBookings(r.bookings || [])).catch(() => {});

@@ -848,12 +848,12 @@ function generateOfflineFallbackResponse(url?: string): any {
           distanceFromCampusKm: 0.3
         },
         student: {
-          id: 'usr-stud-1',
-          name: 'LAUTECH Student',
-          email: 'student@lautech.edu.ng',
-          phone: '08012345678',
-          matricNo: '2024/04812',
-          department: 'Computer Science'
+          id: getCurrentUser()?.id || 'usr-stud-1',
+          name: getCurrentUser()?.fullName || 'LAUTECH Student',
+          email: getCurrentUser()?.email || 'student@lautech.edu.ng',
+          phone: getCurrentUser()?.phone || '',
+          matricNo: getCurrentUser()?.matricNo || (getCurrentUser() as any)?.studentDetails?.matricNo || '',
+          department: getCurrentUser()?.department || (getCurrentUser() as any)?.studentDetails?.department || ''
         },
         provider: {
           id: 'usr-prov-1',
@@ -1860,16 +1860,16 @@ export const api = {
             fullName: data.fullName || (fallbackRole === 'PROVIDER' ? 'Hostel Agent' : 'Student User'),
             email: data.email,
             role: fallbackRole,
-            phone: data.phone || '08012345678',
+            phone: data.phone || '',
             avatarUrl: data.avatarUrl || defaultAvatar,
             isActive: 1,
             accountStatus: 'ACTIVE',
             providerDetails: fallbackRole === 'PROVIDER' ? { businessName: data.providerDetails?.businessName || data.businessName || `${data.fullName || 'Agent'} Properties` } : undefined,
             studentDetails: fallbackRole === 'STUDENT' ? { 
-              matricNo: data.studentDetails?.matricNo || data.matricNo || data.studentDetails?.matricNumber || '2024/04812',
-              matricNumber: data.studentDetails?.matricNo || data.matricNo || data.studentDetails?.matricNumber || '2024/04812',
-              department: data.studentDetails?.department || data.department || 'Computer Science',
-              level: data.studentDetails?.level || data.level || '300L'
+              matricNo: data.studentDetails?.matricNo || data.matricNo || data.studentDetails?.matricNumber || '',
+              matricNumber: data.studentDetails?.matricNo || data.matricNo || data.studentDetails?.matricNumber || '',
+              department: data.studentDetails?.department || data.department || '',
+              level: data.studentDetails?.level || data.level || ''
             } : undefined
           };
           const mockToken = `he_token_${Date.now()}`;
@@ -1916,16 +1916,16 @@ export const api = {
             fullName: data.fullName || (fallbackRole === 'PROVIDER' ? 'Hostel Agent' : 'Student User'),
             email: cleanEmail,
             role: fallbackRole,
-            phone: data.phone || '08012345678',
+            phone: data.phone || '',
             avatarUrl: data.avatarUrl || defaultAvatar,
             isActive: 1,
             accountStatus: 'ACTIVE',
             providerDetails: fallbackRole === 'PROVIDER' ? { businessName: data.providerDetails?.businessName || `${data.fullName || 'Agent'} Accommodations` } : undefined,
             studentDetails: fallbackRole === 'STUDENT' ? { 
-              matricNo: data.studentDetails?.matricNo || data.studentDetails?.matricNumber || '2024/04812',
-              matricNumber: data.studentDetails?.matricNo || data.studentDetails?.matricNumber || '2024/04812',
-              department: data.studentDetails?.department || 'Computer Science',
-              level: data.studentDetails?.level || '300L'
+              matricNo: data.studentDetails?.matricNo || data.studentDetails?.matricNumber || '',
+              matricNumber: data.studentDetails?.matricNo || data.studentDetails?.matricNumber || '',
+              department: data.studentDetails?.department || '',
+              level: data.studentDetails?.level || ''
             } : undefined
           };
 
@@ -5982,28 +5982,49 @@ Hello Agent, a student has booked your accommodation under our standard 5% commi
 
       // Populate user info from auth storage if present
       const storedUser = localStorage.getItem('hostel_ease_user');
-      let currentUser = DEFAULT_STUDENT_DASHBOARD.user;
+      let currentUser = {
+        id: '',
+        fullName: '',
+        email: '',
+        phone: '',
+        department: '',
+        level: '',
+        matricNo: '',
+        gender: 'ANY',
+        avatarUrl: ''
+      };
       if (storedUser) {
         try {
           const parsed = JSON.parse(storedUser);
           currentUser = {
-            ...currentUser,
-            id: parsed.id || currentUser.id,
-            fullName: parsed.fullName || currentUser.fullName,
-            email: parsed.email || currentUser.email,
-            phone: parsed.phone || currentUser.phone,
-            department: parsed.department || currentUser.department,
-            level: parsed.level || currentUser.level,
-            matricNo: parsed.matricNo || currentUser.matricNo,
-            gender: parsed.gender || currentUser.gender,
-            avatarUrl: parsed.avatarUrl || currentUser.avatarUrl
+            id: parsed.id || '',
+            fullName: parsed.fullName || '',
+            email: parsed.email || '',
+            phone: parsed.phone || '',
+            department: parsed.department || parsed.studentDetails?.department || '',
+            level: parsed.level || parsed.studentDetails?.level || '',
+            matricNo: parsed.matricNo || parsed.matricNumber || parsed.studentDetails?.matricNo || parsed.studentDetails?.matricNumber || '',
+            gender: parsed.gender || 'ANY',
+            avatarUrl: parsed.avatarUrl || ''
           };
         } catch {}
       }
 
       // Pull saved preferences from user-scoped localStorage
       const prefKey = getUserScopedKey('hostel_ease_preferences');
-      let currentPrefs = DEFAULT_STUDENT_DASHBOARD.preferences;
+      let currentPrefs: any = {
+        minBudget: 100000,
+        maxBudget: 250000,
+        preferredAreas: [],
+        preferredRoomTypes: ['SELF_CONTAIN', 'SINGLE_ROOM'],
+        preferredFacilities: ['water', 'electricity'],
+        maxDistanceKm: 2.5,
+        genderPreference: 'ANY',
+        preferredMoveInDate: null,
+        isMoveInFlexible: true,
+        academicSession: '2026/2027',
+        onboardingCompleted: false
+      };
       const storedPrefs = localStorage.getItem(prefKey);
       if (storedPrefs) {
         try {
@@ -6011,9 +6032,19 @@ Hello Agent, a student has booked your accommodation under our standard 5% commi
         } catch {}
       }
 
+      // Dynamic completeness score based on genuine values
+      let completenessScore = 0;
+      const missingFields: string[] = [];
+      if (currentUser.fullName) completenessScore += 20; else missingFields.push('Full Name');
+      if (currentUser.phone) completenessScore += 20; else missingFields.push('Phone Number');
+      if (currentUser.matricNo) completenessScore += 15; else missingFields.push('Matric / JAMB No');
+      if (currentUser.department) completenessScore += 15; else missingFields.push('Department');
+      if (currentUser.level) completenessScore += 15; else missingFields.push('Level of Study');
+      if (currentPrefs.onboardingCompleted) completenessScore += 15; else missingFields.push('Housing Preferences');
+
       // Fetch user-isolated bookings and inspections
-      const allBookings = (await api.bookings.getAll()).bookings;
-      const allInspections = (await api.inspections.getAll()).inspections;
+      const allBookings = (await api.bookings.getAll()).bookings || [];
+      const allInspections = (await api.inspections.getAll()).inspections || [];
       const savedResult = await api.properties.getSaved();
       const userSavedHostels = savedResult.savedProperties || [];
       const unreadRes = await api.messages.getUnreadCount();
@@ -6022,10 +6053,29 @@ Hello Agent, a student has booked your accommodation under our standard 5% commi
       const pendingBookings = allBookings.filter(b => b.status === 'PENDING');
       const firstInsp = allInspections.find(i => i.status === 'CONFIRMED' || i.status === 'PENDING');
 
+      let journeyStage: 'PREFERENCES' | 'SEARCHING' | 'SHORTLISTED' | 'INSPECTION' | 'BOOKING' | 'PAYMENT' | 'MOVE_IN' = 'PREFERENCES';
+      if (allBookings.some(b => b.status === 'CONFIRMED' || b.paymentStatus === 'PAID')) {
+        journeyStage = 'PAYMENT';
+      } else if (allBookings.some(b => b.status === 'PENDING')) {
+        journeyStage = 'BOOKING';
+      } else if (allInspections.length > 0) {
+        journeyStage = 'INSPECTION';
+      } else if (userSavedHostels.length > 0) {
+        journeyStage = 'SHORTLISTED';
+      } else if (currentPrefs.onboardingCompleted) {
+        journeyStage = 'SEARCHING';
+      } else {
+        journeyStage = 'PREFERENCES';
+      }
+
       return {
         ...DEFAULT_STUDENT_DASHBOARD,
         user: currentUser,
         preferences: currentPrefs,
+        profileCompleteness: {
+          score: completenessScore,
+          missingFields
+        },
         savedHostels: userSavedHostels.map(p => ({
           ...p,
           savedId: `saved-${p.id}`,
@@ -6038,11 +6088,13 @@ Hello Agent, a student has booked your accommodation under our standard 5% commi
         recentInspections: allInspections.slice(0, 5),
         summary: {
           ...DEFAULT_STUDENT_DASHBOARD.summary,
-          activeBookingsCount: allBookings.length,
+          activeBookingsCount: allBookings.filter(b => b.status === 'CONFIRMED' || b.status === 'PENDING').length,
           pendingInspectionsCount: allInspections.filter(i => i.status === 'PENDING').length,
           savedCount: userSavedHostels.length,
-          unreadMessagesCount: unreadRes.unreadCount
+          unreadMessagesCount: unreadRes.unreadCount,
+          pendingPaymentsCount: allBookings.filter(b => (b.paymentStatus as any) === 'PENDING_PAYMENT' || (b.paymentStatus as any) === 'UNPAID').length
         },
+        journeyStage,
         activeBooking: firstActive ? {
           id: firstActive.id,
           bookingReference: firstActive.bookingReference,
