@@ -397,7 +397,7 @@ router.get('/conversations/:id', authenticate, (req: AuthenticatedRequest, res: 
              metadata_json, is_read, read_at, created_at
       FROM messages
       WHERE conversation_id = ?
-      ORDER BY created_at ASC
+      ORDER BY created_at ASC, rowid ASC
     `).all(id) as any[];
 
     // Mark unread messages sent by opposite party as read
@@ -589,7 +589,7 @@ router.post('/conversations/:id/messages', authenticate, (req: AuthenticatedRequ
 
           db.prepare(`
             INSERT INTO messages (id, conversation_id, sender_id, sender_role, message_type, content, metadata_json, is_read, created_at)
-            VALUES (?, ?, ?, 'PROVIDER', 'TEXT', ?, ?, 0, datetime('now', '+1 second'))
+            VALUES (?, ?, ?, 'PROVIDER', 'TEXT', ?, ?, 0, datetime('now'))
           `).run(
             autoReplyId,
             id,
@@ -601,7 +601,7 @@ router.post('/conversations/:id/messages', authenticate, (req: AuthenticatedRequ
           // Update conversation last message to reflect the auto reply
           db.prepare(`
             UPDATE conversations
-            SET last_message_text = ?, last_message_at = datetime('now', '+1 second'), updated_at = datetime('now', '+1 second')
+            SET last_message_text = ?, last_message_at = datetime('now'), updated_at = datetime('now')
             WHERE id = ?
           `).run(autoReplyContent, id);
 
@@ -614,7 +614,7 @@ router.post('/conversations/:id/messages', authenticate, (req: AuthenticatedRequ
             content: autoReplyContent,
             metadata: autoMeta,
             isRead: false,
-            createdAt: new Date(Date.now() + 1000).toISOString()
+            createdAt: new Date().toISOString()
           };
 
           // Send notification to student about receipt
@@ -815,7 +815,7 @@ router.delete('/conversations/:conversationId/messages/:messageId', authenticate
     db.prepare('DELETE FROM messages WHERE id = ? AND conversation_id = ?').run(messageId, conversationId);
 
     // Update last message in conversation if necessary
-    const latest = db.prepare('SELECT content, created_at FROM messages WHERE conversation_id = ? ORDER BY created_at DESC LIMIT 1').get(conversationId) as any;
+    const latest = db.prepare('SELECT content, created_at FROM messages WHERE conversation_id = ? ORDER BY created_at DESC, rowid DESC LIMIT 1').get(conversationId) as any;
     if (latest) {
       db.prepare('UPDATE conversations SET last_message_text = ?, last_message_at = ? WHERE id = ?')
         .run(latest.content, latest.created_at, conversationId);

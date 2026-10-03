@@ -155,7 +155,9 @@ async function runE2ETests() {
     assert(editRes.ok, 'Test 3a: Laptop updates Hostel A rent and title via PUT API');
 
     // Phone fetches public/landlord hostel details
-    const phoneDetailRes = await fetch(`${BASE_URL}/api/properties/${hostelA_Id}`);
+    const phoneDetailRes = await fetch(`${BASE_URL}/api/properties/${hostelA_Id}`, {
+      headers: { Authorization: `Bearer ${tokenLandlordB}` }
+    });
     const phoneDetailData = await phoneDetailRes.json();
     const propA = phoneDetailData.property || phoneDetailData;
     const rentAmount = propA.prices?.[0]?.rentAmount || propA.prices?.[0]?.rent_amount || propA.basePrice;
@@ -211,7 +213,9 @@ async function runE2ETests() {
     assert(attachRes.ok, 'Test 4c: Phone attaches mediaItems array to Hostel A in SQLite DB');
 
     // 4d. Laptop checks media
-    const laptopDetailRes = await fetch(`${BASE_URL}/api/properties/${hostelA_Id}`);
+    const laptopDetailRes = await fetch(`${BASE_URL}/api/properties/${hostelA_Id}`, {
+      headers: { Authorization: `Bearer ${tokenLandlordA}` }
+    });
     const laptopDetailData = await laptopDetailRes.json();
     const laptopProp = laptopDetailData.property || laptopDetailData;
     const hasMedia = Array.isArray(laptopProp.media) && laptopProp.media.length >= 2;
@@ -240,6 +244,17 @@ async function runE2ETests() {
     // TEST 6: Student Portal retrieves Hostel A with playable video & photos
     // -------------------------------------------------------------
     console.log('\n--- Test 6: Student Portal fetches Hostel A with verified video walkthrough ---');
+    // Admin approves property so it is publicly verified and accessible to students
+    const adminSession = await login('admin@hostelease.ng', 'Admin123!');
+    const adminRevRes = await fetch(`${BASE_URL}/api/admin/verification/properties/${hostelA_Id}/review`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${adminSession.token}`
+      },
+      body: JSON.stringify({ decision: 'APPROVED', notes: 'Approved for testing' })
+    });
+
     const studentPropRes = await fetch(`${BASE_URL}/api/properties/${hostelA_Id}`, {
       headers: { Authorization: `Bearer ${tokenStudent}` }
     });

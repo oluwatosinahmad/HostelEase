@@ -164,7 +164,7 @@ export const StudentBookingDashboard: React.FC<StudentBookingDashboardProps> = (
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-500/20 text-emerald-300 uppercase tracking-wider border border-emerald-500/30">
-              Hostel Ease Phase 5
+              Escrow Protected
             </span>
           </div>
           <h1 className="text-xl sm:text-2xl font-black flex items-center gap-2">

@@ -331,8 +331,8 @@ export const BookingModal: React.FC<BookingModalProps> = ({
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <span className="px-2 py-0.2 rounded text-[9px] font-black bg-emerald-400 text-slate-950 uppercase tracking-wider">
-                  Hostel Ease Phase 5
+                <span className="px-2 py-0.5 rounded text-[9px] font-black bg-emerald-400 text-slate-950 uppercase tracking-wider">
+                  Verified Booking
                 </span>
                 <span className="text-[10px] text-slate-300">LAUTECH Accommodation</span>
               </div>

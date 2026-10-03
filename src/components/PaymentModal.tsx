@@ -360,16 +360,16 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
         return;
       }
 
-      // 5. If Paystack test keys are not yet configured in environment variables
+      // 5. Fallback if gateway is not reachable directly
       setLoading(false);
       setPaymentError(
-        'Paystack Test Mode Configuration: Please provide your Paystack test secret key (sk_test_...) and public key (pk_test_...) in the environment variables to activate live test transactions.'
+        'Unable to initialize card checkout at this moment. You can pay seamlessly via Remita RRR or Direct Bank Transfer.'
       );
     } catch (err: any) {
       console.error('Payment initialization error:', err);
       setLoading(false);
       setVerifying(false);
-      const msg = err.message || 'Failed to initialize Paystack checkout';
+      const msg = err.message || 'Unable to connect to payment gateway. Please try another payment method or retry shortly.';
       setPaymentError(msg);
       onShowToast(msg, 'error');
     }

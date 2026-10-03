@@ -3468,13 +3468,13 @@ export default async (req: Request): Promise<Response> => {
                 content: autoReplyContent,
                 metadata: autoMeta,
                 isRead: false,
-                createdAt: new Date(Date.now() + 1000).toISOString()
+                createdAt: new Date().toISOString()
               };
 
               await saveCloudMessage(autoReplyMsg);
 
               conv.lastMessageText = autoReplyContent;
-              conv.lastMessageAt = new Date(Date.now() + 1000).toISOString();
+              conv.lastMessageAt = new Date().toISOString();
               await saveCloudConversation(conv);
 
               await saveCloudNotification({
@@ -3486,7 +3486,7 @@ export default async (req: Request): Promise<Response> => {
                 type: 'NEW_MESSAGE',
                 isRead: false,
                 linkUrl: `/messages?conversationId=${convId}&propertyId=${conv.propertyId || ''}`,
-                createdAt: new Date(Date.now() + 1000).toISOString()
+                createdAt: new Date().toISOString()
               });
             }
           } catch (autoErr) {

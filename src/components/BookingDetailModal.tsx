@@ -99,7 +99,7 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({
                 <span className="px-2 py-0.2 rounded text-[9px] font-black bg-emerald-400 text-slate-950 uppercase tracking-wider">
                   Hostel Ease Voucher
                 </span>
-                <span className="text-[10px] text-slate-300">Phase 5 Reservation</span>
+                <span className="text-[10px] text-slate-300">Verified Reservation</span>
               </div>
               <h2 className="text-base sm:text-lg font-black text-white truncate">
                 {detail?.booking.bookingReference || 'Booking Voucher'}
@@ -151,7 +151,7 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({
                     Reservation Confirmed by Agent!
                   </div>
                   <p className="text-[11px] text-emerald-800">
-                    Your space has been locked. In Phase 6, secure online payment will be completed. Contact the agent directly to prepare for move-in.
+                    Your space has been locked. Proceed to secure online payment to confirm your booking and prepare for move-in.
                   </p>
                 </div>
               )}
