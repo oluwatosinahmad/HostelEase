@@ -131,7 +131,26 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
   // Active Tab
   const [activeTab, setActiveTab] = useState<
     'dashboard' | 'listings' | 'drafts' | 'videos' | 'rooms' | 'availability' | 'bookings' | 'move_ins' | 'inspections' | 'financials' | 'messages' | 'performance' | 'profile_team' | 'wizard'
-  >('dashboard');
+  >(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const tabParam = params.get('tab');
+      if (tabParam === 'inspections') return 'inspections';
+      if (tabParam === 'bookings') return 'bookings';
+      if (tabParam === 'messages') return 'messages';
+      if (tabParam === 'financials') return 'financials';
+      if (tabParam === 'listings') return 'listings';
+    }
+    return 'dashboard';
+  });
+
+  const [targetInspectionId, setTargetInspectionId] = useState<string | null>(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      return params.get('inspectionId') || null;
+    }
+    return null;
+  });
   
   // Property Switcher: 'all' or propertyId
   const [selectedPropertyId, setSelectedPropertyId] = useState<string>('all');
@@ -726,6 +745,10 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
       if (e.detail) {
         let tab = typeof e.detail === 'string' ? e.detail : e.detail.tab;
         const convId = typeof e.detail === 'object' ? e.detail.conversationId : undefined;
+        const inspId = typeof e.detail === 'object' ? (e.detail.inspectionId || null) : null;
+        if (inspId) {
+          setTargetInspectionId(inspId);
+        }
         if (tab === 'movein') tab = 'move_ins';
         if (tab === 'finance') tab = 'financials';
         if (tab === 'documents') tab = 'profile_team';
@@ -2652,7 +2675,11 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
 
         {/* TAB 6: INSPECTIONS */}
         {activeTab === 'inspections' && (
-          <ProviderInspectionDashboard onShowToast={onShowToast} onOpenConversation={onOpenConversation || (() => {})} />
+          <ProviderInspectionDashboard
+            targetInspectionId={targetInspectionId}
+            onShowToast={onShowToast}
+            onOpenConversation={onOpenConversation || (() => {})}
+          />
         )}
 
         {/* TAB 7: FINANCIALS & REVENUE */}

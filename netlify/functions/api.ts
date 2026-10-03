@@ -3605,14 +3605,75 @@ export default async (req: Request): Promise<Response> => {
     const user = parseAuth(req);
     const userId = user?.id || '';
     const userEmail = (user?.email || '').toLowerCase().trim();
+    const userRole = (user?.role || '').toUpperCase();
+    const isAgent = userRole === 'PROVIDER' || userRole === 'LANDLORD' || userRole === 'AGENT';
 
-    const insps = memoryInspections.filter(i => {
-      if (user?.role === 'ADMIN') return true;
-      if (user?.role === 'PROVIDER') return i.providerId === userId || (userEmail && i.providerEmail === userEmail);
-      return i.studentId === userId || (userEmail && i.studentEmail === userEmail);
+    const urlObj = new URL(req.url);
+    const statusFilter = urlObj.searchParams.get('status');
+    const typeFilter = urlObj.searchParams.get('type');
+
+    let insps = memoryInspections.filter(i => {
+      if (userRole === 'ADMIN') return true;
+      if (isAgent) {
+        return i.providerId === userId || (userEmail && (i as any).providerEmail === userEmail);
+      }
+      return i.studentId === userId || (userEmail && (i as any).studentEmail === userEmail);
     });
 
+    if (statusFilter && statusFilter !== 'ALL') {
+      insps = insps.filter(i => i.status === statusFilter);
+    }
+    if (typeFilter && typeFilter !== 'ALL') {
+      insps = insps.filter(i => i.inspectionType === typeFilter);
+    }
+
     return new Response(JSON.stringify({ inspections: insps }), { status: 200, headers: CORS_HEADERS });
+  }
+
+  // 17b-1. Inspection Calendar Dashboard Summary
+  if (pathname === '/api/inspections/calendar' && req.method === 'GET') {
+    const user = parseAuth(req);
+    if (!user) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: CORS_HEADERS });
+
+    const userRole = (user.role || '').toUpperCase();
+    const isAgent = userRole === 'PROVIDER' || userRole === 'LANDLORD' || userRole === 'AGENT';
+    const isAdmin = userRole === 'ADMIN';
+
+    if (!isAgent && !isAdmin) {
+      return new Response(JSON.stringify({ error: 'Provider authorization required' }), { status: 403, headers: CORS_HEADERS });
+    }
+
+    const userId = user.id;
+    const userEmail = (user.email || '').toLowerCase().trim();
+
+    const providerInsps = memoryInspections.filter(i => {
+      if (isAdmin) return true;
+      return i.providerId === userId || (userEmail && (i as any).providerEmail === userEmail);
+    });
+
+    const todayStr = new Date().toISOString().split('T')[0];
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const tomorrowStr = tomorrow.toISOString().split('T')[0];
+
+    const todayList = providerInsps.filter(i => i.preferredDate === todayStr && i.status === 'CONFIRMED');
+    const tomorrowList = providerInsps.filter(i => i.preferredDate === tomorrowStr && i.status === 'CONFIRMED');
+    const upcomingList = providerInsps.filter(i => i.preferredDate > tomorrowStr && i.status === 'CONFIRMED');
+    const pendingList = providerInsps.filter(i => i.status === 'PENDING' || i.status === 'RESCHEDULE_REQUESTED');
+    const completedList = providerInsps.filter(i => i.status === 'COMPLETED');
+
+    return new Response(JSON.stringify({
+      totalCount: providerInsps.length,
+      todayCount: todayList.length,
+      tomorrowCount: tomorrowList.length,
+      upcomingCount: upcomingList.length,
+      pendingCount: pendingList.length,
+      today: todayList,
+      tomorrow: tomorrowList,
+      upcoming: upcomingList,
+      pending: pendingList,
+      completed: completedList
+    }), { status: 200, headers: CORS_HEADERS });
   }
 
   // 17b. Available Inspection Time Slots
@@ -3674,8 +3735,9 @@ export default async (req: Request): Promise<Response> => {
         roomId: body.roomId || null,
         roomName: body.roomId ? prop.rooms?.find((r: any) => r.id === body.roomId)?.name || null : null,
         providerId: prop.providerId || (prop.provider as any)?.id || 'user-provider-default',
-        providerName: prop.provider?.name || 'Verified Agent',
+        providerName: prop.provider?.name || (prop as any).providerName || 'Verified Agent',
         providerEmail: (prop as any).providerEmail || prop.provider?.email || 'landlord@hostelease.ng',
+        providerPhone: (prop as any).providerPhone || prop.provider?.phone || '+2348039876543',
         inspectionType: inspType,
         preferredDate: prefDate,
         preferredTime: prefTime,
@@ -3687,7 +3749,7 @@ export default async (req: Request): Promise<Response> => {
 
       await saveCloudInspection(insp);
 
-      // Notify Provider
+      // Notify Provider with direct inspectionId deep-link
       await saveCloudNotification({
         id: `notif-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
         userId: insp.providerId,
@@ -3696,7 +3758,9 @@ export default async (req: Request): Promise<Response> => {
         message: `${insp.studentName} requested a ${inspType === 'VIRTUAL' ? 'Virtual Tour' : 'Physical Visit'} for "${insp.propertyTitle}" on ${prefDate} at ${prefTime}.`,
         type: 'INSPECTION_REQUEST',
         isRead: false,
-        linkUrl: '/provider?tab=inspections',
+        linkUrl: `/provider-portal?tab=inspections&inspectionId=${inspId}`,
+        relatedEntityId: inspId,
+        relatedEntityType: 'INSPECTION',
         createdAt: new Date().toISOString()
       });
 
@@ -3810,11 +3874,13 @@ export default async (req: Request): Promise<Response> => {
     }), { status: 200, headers: CORS_HEADERS });
   }
 
-  if (pathname.startsWith('/api/inspections/') && pathname.endsWith('/accept') && req.method === 'PATCH') {
-    const inspId = pathname.replace('/api/inspections/', '').replace('/accept', '');
+  if (pathname.startsWith('/api/inspections/') && (pathname.endsWith('/accept') || pathname.endsWith('/confirm')) && (req.method === 'PATCH' || req.method === 'POST')) {
+    const inspId = pathname.replace('/api/inspections/', '').replace('/accept', '').replace('/confirm', '');
     const insp = memoryInspections.find(i => i.id === inspId);
     if (insp) {
+      const body = await req.json().catch(() => ({}));
       insp.status = 'CONFIRMED';
+      insp.providerResponse = body.message || body.providerResponse || 'Confirmed by agent';
       if (!insp.virtualMeetingUrl && (insp.inspectionType === 'VIRTUAL' || insp.inspectionType === undefined)) {
         insp.virtualMeetingUrl = `https://meet.hostelease.ng/room/he-${Date.now().toString(36)}`;
       }
@@ -3829,17 +3895,20 @@ export default async (req: Request): Promise<Response> => {
         message: `Agent accepted your ${insp.inspectionType === 'VIRTUAL' ? 'Virtual Tour' : 'Inspection'} for "${insp.propertyTitle}".`,
         type: 'INSPECTION_CONFIRMED',
         isRead: false,
-        linkUrl: '/student?tab=inspections',
+        linkUrl: `/student-dashboard?tab=inspections`,
+        relatedEntityId: inspId,
+        relatedEntityType: 'INSPECTION',
         createdAt: new Date().toISOString()
       });
       return new Response(JSON.stringify({ 
         success: true, 
         message: 'Inspection accepted and confirmed successfully',
         status: 'CONFIRMED',
-        virtualMeetingUrl: insp.virtualMeetingUrl 
+        virtualMeetingUrl: insp.virtualMeetingUrl,
+        inspection: insp
       }), { status: 200, headers: CORS_HEADERS });
     }
-    return new Response(JSON.stringify({ success: true }), { status: 200, headers: CORS_HEADERS });
+    return new Response(JSON.stringify({ error: 'Inspection request not found' }), { status: 404, headers: CORS_HEADERS });
   }
 
   if (pathname.startsWith('/api/inspections/') && pathname.endsWith('/decline') && req.method === 'PATCH') {
@@ -3862,7 +3931,164 @@ export default async (req: Request): Promise<Response> => {
         createdAt: new Date().toISOString()
       });
     }
-    return new Response(JSON.stringify({ success: true }), { status: 200, headers: CORS_HEADERS });
+    return new Response(JSON.stringify({ success: true, message: 'Inspection request declined' }), { status: 200, headers: CORS_HEADERS });
+  }
+
+  // 17e. Propose Reschedule (PATCH /api/inspections/:id/reschedule)
+  if (pathname.startsWith('/api/inspections/') && pathname.endsWith('/reschedule') && req.method === 'PATCH') {
+    const inspId = pathname.replace('/api/inspections/', '').replace('/reschedule', '');
+    const insp = memoryInspections.find(i => i.id === inspId);
+    if (!insp) return new Response(JSON.stringify({ error: 'Inspection request not found' }), { status: 404, headers: CORS_HEADERS });
+
+    const body = await req.json();
+    insp.status = 'RESCHEDULE_REQUESTED';
+    insp.proposedAlternativeDate = body.alternativeDate;
+    insp.proposedAlternativeTime = body.alternativeTime;
+    insp.rescheduleReason = body.message || 'Provider suggested alternative slot';
+    insp.providerResponse = body.message || null;
+    await saveCloudInspection(insp);
+
+    // Notify Student
+    await saveCloudNotification({
+      id: `notif-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      userId: insp.studentId,
+      userEmail: insp.studentEmail,
+      title: 'New Inspection Time Proposed 📅',
+      message: `The provider for "${insp.propertyTitle}" suggested rescheduling your inspection to ${body.alternativeDate} at ${body.alternativeTime}.`,
+      type: 'INSPECTION_RESCHEDULE',
+      isRead: false,
+      linkUrl: '/student?tab=inspections',
+      relatedEntityId: inspId,
+      relatedEntityType: 'INSPECTION',
+      createdAt: new Date().toISOString()
+    });
+
+    return new Response(JSON.stringify({ success: true, message: 'Reschedule proposal sent to student' }), { status: 200, headers: CORS_HEADERS });
+  }
+
+  // 17f. Confirm Reschedule (PATCH /api/inspections/:id/confirm-reschedule)
+  if (pathname.startsWith('/api/inspections/') && pathname.endsWith('/confirm-reschedule') && req.method === 'PATCH') {
+    const inspId = pathname.replace('/api/inspections/', '').replace('/confirm-reschedule', '');
+    const insp = memoryInspections.find(i => i.id === inspId);
+    if (!insp) return new Response(JSON.stringify({ error: 'Inspection request not found' }), { status: 404, headers: CORS_HEADERS });
+
+    insp.status = 'CONFIRMED';
+    insp.preferredDate = insp.proposedAlternativeDate || insp.preferredDate;
+    insp.preferredTime = insp.proposedAlternativeTime || insp.preferredTime;
+    insp.proposedAlternativeDate = undefined;
+    insp.proposedAlternativeTime = undefined;
+    await saveCloudInspection(insp);
+
+    // Notify Provider
+    await saveCloudNotification({
+      id: `notif-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      userId: insp.providerId,
+      userEmail: insp.providerEmail,
+      title: 'Reschedule Confirmed by Student',
+      message: `Student confirmed inspection for "${insp.propertyTitle}" on ${insp.preferredDate} at ${insp.preferredTime}.`,
+      type: 'INSPECTION_CONFIRMED',
+      isRead: false,
+      linkUrl: `/provider-portal?tab=inspections&inspectionId=${inspId}`,
+      relatedEntityId: inspId,
+      relatedEntityType: 'INSPECTION',
+      createdAt: new Date().toISOString()
+    });
+
+    return new Response(JSON.stringify({ success: true, message: 'Reschedule confirmed successfully' }), { status: 200, headers: CORS_HEADERS });
+  }
+
+  // 17g. Cancel Inspection (PATCH /api/inspections/:id/cancel)
+  if (pathname.startsWith('/api/inspections/') && pathname.endsWith('/cancel') && req.method === 'PATCH') {
+    const inspId = pathname.replace('/api/inspections/', '').replace('/cancel', '');
+    const insp = memoryInspections.find(i => i.id === inspId);
+    if (!insp) return new Response(JSON.stringify({ error: 'Inspection request not found' }), { status: 404, headers: CORS_HEADERS });
+
+    const body = await req.json().catch(() => ({}));
+    insp.status = 'CANCELLED';
+    insp.cancellationReason = body.reason || 'Cancelled';
+    await saveCloudInspection(insp);
+
+    return new Response(JSON.stringify({ success: true, message: 'Inspection cancelled successfully' }), { status: 200, headers: CORS_HEADERS });
+  }
+
+  // 17h. Mark Completed (PATCH/POST /api/inspections/:id/complete)
+  if (pathname.startsWith('/api/inspections/') && pathname.endsWith('/complete') && (req.method === 'PATCH' || req.method === 'POST')) {
+    const inspId = pathname.replace('/api/inspections/', '').replace('/complete', '');
+    const insp = memoryInspections.find(i => i.id === inspId);
+    if (!insp) return new Response(JSON.stringify({ error: 'Inspection request not found' }), { status: 404, headers: CORS_HEADERS });
+
+    insp.status = 'COMPLETED';
+    await saveCloudInspection(insp);
+
+    // Notify Student
+    await saveCloudNotification({
+      id: `notif-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      userId: insp.studentId,
+      userEmail: insp.studentEmail,
+      title: 'Inspection Completed — How Was It?',
+      message: `Your inspection for "${insp.propertyTitle}" is complete. Leave feedback or add private notes!`,
+      type: 'INSPECTION_COMPLETED',
+      isRead: false,
+      linkUrl: '/student-dashboard?tab=inspections',
+      relatedEntityId: inspId,
+      relatedEntityType: 'INSPECTION',
+      createdAt: new Date().toISOString()
+    });
+
+    return new Response(JSON.stringify({ success: true, message: 'Inspection marked as completed', inspection: insp }), { status: 200, headers: CORS_HEADERS });
+  }
+
+  // 17i. Mark No-Show (PATCH/POST /api/inspections/:id/no-show)
+  if (pathname.startsWith('/api/inspections/') && pathname.endsWith('/no-show') && (req.method === 'PATCH' || req.method === 'POST')) {
+    const inspId = pathname.replace('/api/inspections/', '').replace('/no-show', '');
+    const insp = memoryInspections.find(i => i.id === inspId);
+    if (!insp) return new Response(JSON.stringify({ error: 'Inspection request not found' }), { status: 404, headers: CORS_HEADERS });
+
+    insp.status = 'NO_SHOW';
+    await saveCloudInspection(insp);
+
+    return new Response(JSON.stringify({ success: true, message: 'Inspection marked as no-show', inspection: insp }), { status: 200, headers: CORS_HEADERS });
+  }
+
+  // 17j. Private Student Notes (POST/PATCH /api/inspections/:id/private-notes)
+  if (pathname.startsWith('/api/inspections/') && pathname.endsWith('/private-notes') && (req.method === 'POST' || req.method === 'PATCH')) {
+    const inspId = pathname.replace('/api/inspections/', '').replace('/private-notes', '');
+    const insp = memoryInspections.find(i => i.id === inspId);
+    if (!insp) return new Response(JSON.stringify({ error: 'Inspection request not found' }), { status: 404, headers: CORS_HEADERS });
+
+    const body = await req.json().catch(() => ({}));
+    insp.privateStudentNotes = body.notes !== undefined ? body.notes : (body.privateNotes || '');
+    await saveCloudInspection(insp);
+
+    return new Response(JSON.stringify({ success: true, message: 'Private inspection notes saved successfully', inspection: insp }), { status: 200, headers: CORS_HEADERS });
+  }
+
+  // 17k. Inspection Feedback (POST/PATCH /api/inspections/:id/feedback)
+  if (pathname.startsWith('/api/inspections/') && pathname.endsWith('/feedback') && (req.method === 'POST' || req.method === 'PATCH')) {
+    const inspId = pathname.replace('/api/inspections/', '').replace('/feedback', '');
+    const insp = memoryInspections.find(i => i.id === inspId);
+    if (!insp) return new Response(JSON.stringify({ error: 'Inspection request not found' }), { status: 404, headers: CORS_HEADERS });
+
+    const body = await req.json().catch(() => ({}));
+    insp.feedbackRating = body.rating || 5;
+    insp.feedbackComment = body.comment || '';
+    await saveCloudInspection(insp);
+
+    return new Response(JSON.stringify({ success: true, message: 'Thank you for your inspection feedback!', inspection: insp }), { status: 200, headers: CORS_HEADERS });
+  }
+
+  // 17l. Virtual Link (GET /api/inspections/:id/virtual-link)
+  if (pathname.startsWith('/api/inspections/') && pathname.endsWith('/virtual-link') && req.method === 'GET') {
+    const inspId = pathname.replace('/api/inspections/', '').replace('/virtual-link', '');
+    const insp = memoryInspections.find(i => i.id === inspId);
+    if (!insp) return new Response(JSON.stringify({ error: 'Inspection request not found' }), { status: 404, headers: CORS_HEADERS });
+
+    return new Response(JSON.stringify({
+      virtualMeetingUrl: insp.virtualMeetingUrl || `https://meet.hostelease.ng/room/he-${insp.id}`,
+      inspectionType: insp.inspectionType || 'VIRTUAL',
+      preferredDate: insp.preferredDate,
+      preferredTime: insp.preferredTime
+    }), { status: 200, headers: CORS_HEADERS });
   }
 
   // 18. Bookings Endpoints

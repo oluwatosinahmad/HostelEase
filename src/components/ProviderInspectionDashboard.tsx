@@ -26,11 +26,13 @@ import { api } from '../services/api';
 import { LiveVirtualTourModal } from './LiveVirtualTourModal';
 
 interface ProviderInspectionDashboardProps {
+  targetInspectionId?: string | null;
   onOpenConversation: (propertyId: string, studentId?: string) => void;
   onShowToast: (message: string, type?: 'success' | 'info' | 'error') => void;
 }
 
 export const ProviderInspectionDashboard: React.FC<ProviderInspectionDashboardProps> = ({
+  targetInspectionId,
   onOpenConversation,
   onShowToast
 }) => {
@@ -39,6 +41,7 @@ export const ProviderInspectionDashboard: React.FC<ProviderInspectionDashboardPr
   const [calendarData, setCalendarData] = useState<ProviderCalendarData | null>(null);
   const [activeFilter, setActiveFilter] = useState<string>('ALL');
   const [loading, setLoading] = useState<boolean>(true);
+  const [highlightedId, setHighlightedId] = useState<string | null>(targetInspectionId || null);
 
   // Action Modals
   const [acceptModalId, setAcceptModalId] = useState<string | null>(null);
@@ -78,6 +81,41 @@ export const ProviderInspectionDashboard: React.FC<ProviderInspectionDashboardPr
     window.addEventListener('hostel_ease_inspections_updated', handleUpdate);
     return () => window.removeEventListener('hostel_ease_inspections_updated', handleUpdate);
   }, [activeFilter]);
+
+  // Deep-linking from notification or route
+  useEffect(() => {
+    if (targetInspectionId) {
+      setHighlightedId(targetInspectionId);
+      setActiveFilter('ALL');
+      setViewMode('list');
+    }
+  }, [targetInspectionId]);
+
+  useEffect(() => {
+    const handleTargetEvent = (e: any) => {
+      const id = typeof e.detail === 'object' ? e.detail?.inspectionId : e.detail;
+      if (id) {
+        setHighlightedId(id);
+        setActiveFilter('ALL');
+        setViewMode('list');
+      }
+    };
+    window.addEventListener('hostel_ease_target_inspection', handleTargetEvent);
+    return () => window.removeEventListener('hostel_ease_target_inspection', handleTargetEvent);
+  }, []);
+
+  // Smooth scroll highlighted inspection card into view
+  useEffect(() => {
+    if (highlightedId && inspections.length > 0) {
+      const timer = setTimeout(() => {
+        const el = document.getElementById(`inspection-card-${highlightedId}`);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 200);
+      return () => clearTimeout(timer);
+    }
+  }, [highlightedId, inspections]);
 
   const handleAccept = async () => {
     if (!acceptModalId) return;
@@ -316,12 +354,28 @@ export const ProviderInspectionDashboard: React.FC<ProviderInspectionDashboardPr
                 const isConfirmed = insp.status === 'CONFIRMED';
                 const isReschedule = insp.status === 'RESCHEDULE_REQUESTED';
                 const isCompleted = insp.status === 'COMPLETED';
+                const isHighlighted = highlightedId === insp.id;
 
                 return (
                   <div
                     key={insp.id}
-                    className="bg-white rounded-3xl border border-slate-200 shadow-sm p-4 sm:p-5 space-y-3.5"
+                    id={`inspection-card-${insp.id}`}
+                    className={`rounded-3xl p-4 sm:p-5 space-y-3.5 transition-all duration-300 ${
+                      isHighlighted
+                        ? 'bg-gradient-to-br from-emerald-50/40 via-white to-white border-2 border-emerald-500 shadow-xl ring-4 ring-emerald-500/20'
+                        : 'bg-white border border-slate-200 shadow-sm'
+                    }`}
                   >
+                    {isHighlighted && (
+                      <div className="flex items-center justify-between pb-1 border-b border-emerald-100">
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-600 text-white shadow-xs">
+                          <CheckCircle2 className="w-3 h-3" />
+                          <span>Selected Inspection</span>
+                        </span>
+                        <span className="text-[10px] text-emerald-700 font-bold">From Notification</span>
+                      </div>
+                    )}
+
                     {/* Header */}
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                       <div className="flex items-center gap-3">

@@ -224,11 +224,20 @@ export const Navbar: React.FC<NavbarProps> = ({
           }));
         }, 120);
       }
-    } else if (link.includes('inspections') || n.type.includes('INSPECTION')) {
+    } else if (link.includes('inspections') || n.type.includes('INSPECTION') || (n as any).relatedEntityType === 'INSPECTION' || (n as any).data?.inspectionId) {
+      const inspMatch = link.match(/inspectionId=([^&]+)/);
+      const inspectionId = (n as any).relatedEntityId || (n as any).data?.inspectionId || (inspMatch ? inspMatch[1] : undefined);
       if (isProvider) {
         onNavigate('provider-portal');
         setTimeout(() => {
-          window.dispatchEvent(new CustomEvent('hostel_ease_provider_tab', { detail: 'inspections' }));
+          window.dispatchEvent(new CustomEvent('hostel_ease_provider_tab', { 
+            detail: { tab: 'inspections', inspectionId } 
+          }));
+          if (inspectionId) {
+            window.dispatchEvent(new CustomEvent('hostel_ease_target_inspection', {
+              detail: { inspectionId }
+            }));
+          }
         }, 100);
       } else {
         if (onNavigateToDashboardTab) {
@@ -236,6 +245,13 @@ export const Navbar: React.FC<NavbarProps> = ({
           onNavigateToDashboardTab('inspections');
         } else {
           onNavigate('inspections');
+        }
+        if (inspectionId) {
+          setTimeout(() => {
+            window.dispatchEvent(new CustomEvent('hostel_ease_target_inspection', {
+              detail: { inspectionId }
+            }));
+          }, 100);
         }
       }
     } else if (link.includes('bookings') || n.type.includes('BOOKING')) {

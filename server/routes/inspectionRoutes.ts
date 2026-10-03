@@ -26,12 +26,33 @@ function logStatusTransition(inspectionId: string, actorId: string, actorRole: s
 }
 
 // Helper: Send in-app notification
-function sendNotification(userId: string, title: string, message: string, type: string, linkUrl?: string) {
+function sendNotification(
+  userId: string,
+  title: string,
+  message: string,
+  type: string,
+  linkUrl?: string,
+  relatedEntityId?: string,
+  relatedEntityType?: string,
+  metadata?: any
+) {
   try {
     db.prepare(`
-      INSERT INTO notifications (id, user_id, title, message, type, is_read, link_url)
-      VALUES (?, ?, ?, ?, ?, 0, ?)
-    `).run(crypto.randomUUID(), userId, title, message, type, linkUrl || null);
+      INSERT INTO notifications (
+        id, user_id, title, message, type, is_read, link_url,
+        related_entity_id, related_entity_type, metadata
+      ) VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?, ?)
+    `).run(
+      crypto.randomUUID(),
+      userId,
+      title,
+      message,
+      type,
+      linkUrl || null,
+      relatedEntityId || null,
+      relatedEntityType || null,
+      metadata ? JSON.stringify(metadata) : null
+    );
   } catch (err) {
     console.error('Failed to send notification:', err);
   }
@@ -72,6 +93,45 @@ function postSystemMessage(propertyId: string, studentId: string, providerId: st
   } catch (err) {
     console.error('Failed to post system message:', err);
   }
+}
+
+// Helper: Normalize inspection database row into canonical camelCase InspectionRequest
+function formatInspectionRow(r: any, currentRole?: string) {
+  return {
+    id: r.id,
+    propertyId: r.property_id,
+    propertyTitle: r.property_title,
+    propertyAddress: r.property_address,
+    nearbyLandmark: r.nearby_landmark,
+    areaName: r.area_name,
+    coverImage: r.cover_image || 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=600&q=80',
+    roomId: r.room_id,
+    roomName: r.room_name,
+    inspectionType: r.inspection_type,
+    preferredDate: r.preferred_date,
+    preferredTime: r.preferred_time,
+    proposedAlternativeDate: r.proposed_alternative_date,
+    proposedAlternativeTime: r.proposed_alternative_time,
+    studentId: r.student_id,
+    studentPhone: r.student_phone || r.student_account_phone,
+    notes: r.notes,
+    status: r.status,
+    providerResponse: r.provider_response,
+    rescheduleReason: r.reschedule_reason,
+    cancellationReason: r.cancellation_reason,
+    virtualMeetingUrl: (r.status === 'CONFIRMED' || r.status === 'COMPLETED') ? r.virtual_meeting_url : null,
+    privateStudentNotes: currentRole === 'STUDENT' ? r.private_student_notes : null,
+    feedbackRating: r.feedback_rating,
+    feedbackComment: r.feedback_comment,
+    studentName: r.student_name,
+    studentEmail: r.student_email,
+    providerId: r.provider_id,
+    providerName: r.provider_name,
+    providerEmail: r.provider_email,
+    providerPhone: r.provider_phone,
+    createdAt: r.created_at,
+    updatedAt: r.updated_at
+  };
 }
 
 // ----------------------------------------------------
@@ -191,13 +251,16 @@ router.post('/properties/:propertyId', authenticate, (req: AuthenticatedRequest,
     const roomInfo = roomId ? (db.prepare('SELECT room_name FROM rooms WHERE id = ?').get(roomId) as any)?.room_name : null;
     const studentContact = studentPhone || req.user.phone || 'Phone upon confirmation';
 
-    // Notify provider with complete details
+    // Notify provider with complete details and direct deep-link to the exact inspection record
     sendNotification(
       property.provider_id,
       `New ${inspectionType === 'VIRTUAL' ? 'Virtual Tour' : 'Inspection'} Request`,
       `Student: ${req.user.fullName || 'Student'} (${studentContact}) • Property: ${property.title}${roomInfo ? ` • Room: ${roomInfo}` : ''} • Date: ${preferredDate} at ${preferredTime} • Mode: ${inspectionType === 'VIRTUAL' ? 'Virtual Tour' : 'Physical Visit'}${notes ? ` • Questions: "${notes}"` : ''}`,
       'INSPECTION_REQUEST',
-      `/provider/inspections`
+      `/provider-portal?tab=inspections&inspectionId=${inspectionId}`,
+      inspectionId,
+      'INSPECTION',
+      { inspectionId, propertyId, preferredDate, preferredTime, inspectionType }
     );
 
     // Notify student confirmation
@@ -206,7 +269,10 @@ router.post('/properties/:propertyId', authenticate, (req: AuthenticatedRequest,
       'Inspection Request Submitted',
       `Your ${inspectionType.toLowerCase()} inspection request for ${property.title} on ${preferredDate} at ${preferredTime} was submitted to the agent.`,
       'INSPECTION_SUBMITTED',
-      `/student/inspections`
+      `/student/inspections`,
+      inspectionId,
+      'INSPECTION',
+      { inspectionId, propertyId, preferredDate, preferredTime, inspectionType }
     );
 
     // Create system card in chat
@@ -218,9 +284,30 @@ router.post('/properties/:propertyId', authenticate, (req: AuthenticatedRequest,
       { inspectionId, status: 'PENDING', preferredDate, preferredTime, inspectionType }
     );
 
+    // Fetch the newly created record with full provider and student relations
+    const createdRow = db.prepare(`
+      SELECT ir.*, p.title as property_title, p.address as property_address,
+             p.nearby_landmark, a.name as area_name,
+             p.provider_id,
+             u_p.full_name as provider_name, u_p.email as provider_email, u_p.phone as provider_phone,
+             u_s.full_name as student_name, u_s.email as student_email,
+             (SELECT url FROM property_media WHERE property_id = p.id AND is_cover = 1 LIMIT 1) as cover_image,
+             r.room_name
+      FROM inspection_requests ir
+      JOIN properties p ON ir.property_id = p.id
+      JOIN areas a ON p.area_id = a.id
+      JOIN users u_p ON p.provider_id = u_p.id
+      JOIN users u_s ON ir.student_id = u_s.id
+      LEFT JOIN rooms r ON ir.room_id = r.id
+      WHERE ir.id = ?
+    `).get(inspectionId);
+
+    const createdInspection = createdRow ? formatInspectionRow(createdRow, req.user.role) : undefined;
+
     return res.status(201).json({
       message: `Inspection request submitted for ${property.title}. The provider will review and confirm your slot.`,
-      inspectionId
+      inspectionId,
+      inspection: createdInspection
     });
   } catch (err: any) {
     console.error('Request inspection error:', err);
@@ -240,41 +327,54 @@ router.get(['/', '/my-inspections', '/my'], authenticate, (req: AuthenticatedReq
     let query = '';
     const params: any[] = [];
 
-    if (req.user.role === 'STUDENT') {
+    const userRole = (req.user.role || '').toUpperCase();
+    const isAgent = userRole === 'PROVIDER' || userRole === 'LANDLORD' || userRole === 'AGENT';
+    const isStudent = userRole === 'STUDENT';
+    const isAdmin = userRole === 'ADMIN';
+
+    if (isStudent) {
       query = `
         SELECT ir.*, p.title as property_title, p.address as property_address,
-               p.nearby_landmark, a.name as area_name, u.full_name as provider_name,
-               u.phone as provider_phone,
+               p.nearby_landmark, a.name as area_name,
+               p.provider_id,
+               u_p.full_name as provider_name, u_p.phone as provider_phone, u_p.email as provider_email,
+               u_s.full_name as student_name, u_s.email as student_email, u_s.phone as student_account_phone,
                (SELECT url FROM property_media WHERE property_id = p.id AND is_cover = 1 LIMIT 1) as cover_image,
                r.room_name
         FROM inspection_requests ir
         JOIN properties p ON ir.property_id = p.id
         JOIN areas a ON p.area_id = a.id
-        JOIN users u ON p.provider_id = u.id
+        JOIN users u_p ON p.provider_id = u_p.id
+        JOIN users u_s ON ir.student_id = u_s.id
         LEFT JOIN rooms r ON ir.room_id = r.id
         WHERE ir.student_id = ?
       `;
       params.push(req.user.id);
-    } else if (req.user.role === 'PROVIDER') {
+    } else if (isAgent) {
       query = `
         SELECT ir.*, p.title as property_title, p.address as property_address,
-               a.name as area_name, u.full_name as student_name, u.email as student_email,
-               u.phone as student_account_phone,
+               p.nearby_landmark, a.name as area_name,
+               p.provider_id,
+               u_p.full_name as provider_name, u_p.phone as provider_phone, u_p.email as provider_email,
+               u_s.full_name as student_name, u_s.email as student_email, u_s.phone as student_account_phone,
                (SELECT url FROM property_media WHERE property_id = p.id AND is_cover = 1 LIMIT 1) as cover_image,
                r.room_name
         FROM inspection_requests ir
         JOIN properties p ON ir.property_id = p.id
         JOIN areas a ON p.area_id = a.id
-        JOIN users u ON ir.student_id = u.id
+        JOIN users u_p ON p.provider_id = u_p.id
+        JOIN users u_s ON ir.student_id = u_s.id
         LEFT JOIN rooms r ON ir.room_id = r.id
         WHERE p.provider_id = ?
       `;
       params.push(req.user.id);
-    } else if (req.user.role === 'ADMIN') {
+    } else if (isAdmin) {
       query = `
         SELECT ir.*, p.title as property_title, p.address as property_address,
-               a.name as area_name, u_s.full_name as student_name, u_s.email as student_email,
-               u_p.full_name as provider_name, u_p.phone as provider_phone,
+               p.nearby_landmark, a.name as area_name,
+               p.provider_id,
+               u_p.full_name as provider_name, u_p.phone as provider_phone, u_p.email as provider_email,
+               u_s.full_name as student_name, u_s.email as student_email, u_s.phone as student_account_phone,
                (SELECT url FROM property_media WHERE property_id = p.id AND is_cover = 1 LIMIT 1) as cover_image,
                r.room_name
         FROM inspection_requests ir
@@ -302,38 +402,7 @@ router.get(['/', '/my-inspections', '/my'], authenticate, (req: AuthenticatedReq
     const requests = db.prepare(query).all(...params) as any[];
 
     return res.json({
-      inspections: requests.map((r: any) => ({
-        id: r.id,
-        propertyId: r.property_id,
-        propertyTitle: r.property_title,
-        propertyAddress: r.property_address,
-        nearbyLandmark: r.nearby_landmark,
-        areaName: r.area_name,
-        coverImage: r.cover_image || 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=600&q=80',
-        roomId: r.room_id,
-        roomName: r.room_name,
-        inspectionType: r.inspection_type,
-        preferredDate: r.preferred_date,
-        preferredTime: r.preferred_time,
-        proposedAlternativeDate: r.proposed_alternative_date,
-        proposedAlternativeTime: r.proposed_alternative_time,
-        studentPhone: r.student_phone || r.student_account_phone,
-        notes: r.notes,
-        status: r.status,
-        providerResponse: r.provider_response,
-        rescheduleReason: r.reschedule_reason,
-        cancellationReason: r.cancellation_reason,
-        virtualMeetingUrl: (r.status === 'CONFIRMED' || r.status === 'COMPLETED') ? r.virtual_meeting_url : null,
-        privateStudentNotes: req.user!.role === 'STUDENT' ? r.private_student_notes : null,
-        feedbackRating: r.feedback_rating,
-        feedbackComment: r.feedback_comment,
-        studentName: r.student_name,
-        studentEmail: r.student_email,
-        providerName: r.provider_name,
-        providerPhone: r.provider_phone,
-        createdAt: r.created_at,
-        updatedAt: r.updated_at
-      }))
+      inspections: requests.map((r: any) => formatInspectionRow(r, req.user!.role))
     });
   } catch (err: any) {
     console.error('Fetch inspections error:', err);
@@ -344,10 +413,13 @@ router.get(['/', '/my-inspections', '/my'], authenticate, (req: AuthenticatedReq
 // ----------------------------------------------------
 // 3. PROVIDER ACCEPT INSPECTION
 // ----------------------------------------------------
-router.patch('/:id/accept', authenticate, (req: AuthenticatedRequest, res: Response) => {
+// 3. PROVIDER ACCEPT / CONFIRM INSPECTION
+// ----------------------------------------------------
+const handleAcceptInspection = (req: AuthenticatedRequest, res: Response) => {
   if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
   const { id } = req.params;
-  const { message } = req.body;
+  const { message, providerResponse } = req.body;
+  const responseMsg = message || providerResponse;
 
   try {
     const inspection = db.prepare(`
@@ -359,11 +431,15 @@ router.patch('/:id/accept', authenticate, (req: AuthenticatedRequest, res: Respo
 
     if (!inspection) return res.status(404).json({ error: 'Inspection request not found' });
 
-    if (req.user.role !== 'PROVIDER' && req.user.role !== 'ADMIN') {
+    const userRole = (req.user.role || '').toUpperCase();
+    const isAgent = userRole === 'PROVIDER' || userRole === 'LANDLORD' || userRole === 'AGENT';
+    const isAdmin = userRole === 'ADMIN';
+
+    if (!isAgent && !isAdmin) {
       return res.status(403).json({ error: 'Only accommodation providers can accept inspection requests' });
     }
 
-    if (req.user.role === 'PROVIDER' && inspection.provider_id !== req.user.id) {
+    if (isAgent && inspection.provider_id !== req.user.id) {
       return res.status(403).json({ error: 'You do not have permission to manage this hostel inspection' });
     }
 
@@ -384,9 +460,9 @@ router.patch('/:id/accept', authenticate, (req: AuthenticatedRequest, res: Respo
           provider_response = COALESCE(?, provider_response),
           updated_at = datetime('now')
       WHERE id = ?
-    `).run(virtualUrl, message || 'Inspection slot confirmed by agent', id);
+    `).run(virtualUrl, responseMsg || 'Inspection slot confirmed by agent', id);
 
-    logStatusTransition(id, req.user.id, req.user.role, inspection.status, 'CONFIRMED', message || 'Accepted');
+    logStatusTransition(id, req.user.id, req.user.role, inspection.status, 'CONFIRMED', responseMsg || 'Accepted');
 
     // Notify student
     sendNotification(
@@ -394,7 +470,10 @@ router.patch('/:id/accept', authenticate, (req: AuthenticatedRequest, res: Respo
       'Inspection Request Confirmed! 🎉',
       `Your ${inspection.inspection_type.toLowerCase()} inspection for ${inspection.property_title} on ${inspection.preferred_date} at ${inspection.preferred_time} has been accepted.`,
       'INSPECTION_CONFIRMED',
-      `/student/inspections`
+      `/student-dashboard?tab=inspections`,
+      id,
+      'INSPECTION',
+      { inspectionId: id, propertyId: inspection.property_id, status: 'CONFIRMED' }
     );
 
     // Post in conversation
@@ -406,16 +485,39 @@ router.patch('/:id/accept', authenticate, (req: AuthenticatedRequest, res: Respo
       { inspectionId: id, status: 'CONFIRMED', virtualMeetingUrl: virtualUrl }
     );
 
+    const updatedRow = db.prepare(`
+      SELECT ir.*, p.title as property_title, p.address as property_address,
+             p.nearby_landmark, a.name as area_name,
+             p.provider_id,
+             u_p.full_name as provider_name, u_p.phone as provider_phone, u_p.email as provider_email,
+             u_s.full_name as student_name, u_s.email as student_email, u_s.phone as student_account_phone,
+             (SELECT url FROM property_media WHERE property_id = p.id AND is_cover = 1 LIMIT 1) as cover_image,
+             r.room_name
+      FROM inspection_requests ir
+      JOIN properties p ON ir.property_id = p.id
+      JOIN areas a ON p.area_id = a.id
+      JOIN users u_p ON p.provider_id = u_p.id
+      JOIN users u_s ON ir.student_id = u_s.id
+      LEFT JOIN rooms r ON ir.room_id = r.id
+      WHERE ir.id = ?
+    `).get(id) as any;
+
+    const formattedInspection = updatedRow ? formatInspectionRow(updatedRow, req.user.role) : undefined;
+
     return res.json({ 
       message: 'Inspection accepted and confirmed successfully', 
       virtualMeetingUrl: virtualUrl,
-      status: 'CONFIRMED'
+      status: 'CONFIRMED',
+      inspection: formattedInspection
     });
   } catch (err: any) {
     console.error('Accept inspection error:', err);
     return res.status(500).json({ error: err.message || 'Failed to accept inspection' });
   }
-});
+};
+
+router.patch(['/:id/accept', '/:id/confirm'], authenticate, handleAcceptInspection);
+router.post(['/:id/accept', '/:id/confirm'], authenticate, handleAcceptInspection);
 
 // ----------------------------------------------------
 // 4. PROVIDER DECLINE INSPECTION
@@ -686,7 +788,7 @@ router.patch('/:id/cancel', authenticate, (req: AuthenticatedRequest, res: Respo
 // ----------------------------------------------------
 // 8. MARK INSPECTION COMPLETED
 // ----------------------------------------------------
-router.patch('/:id/complete', authenticate, (req: AuthenticatedRequest, res: Response) => {
+const handleCompleteInspection = (req: AuthenticatedRequest, res: Response) => {
   if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
   const { id } = req.params;
 
@@ -727,7 +829,10 @@ router.patch('/:id/complete', authenticate, (req: AuthenticatedRequest, res: Res
       'Inspection Completed — How Was It?',
       `Your inspection for ${inspection.property_title} is marked complete. You can add private notes to remember key details.`,
       'INSPECTION_COMPLETED',
-      `/student/inspections`
+      `/student-dashboard?tab=inspections`,
+      id,
+      'INSPECTION',
+      { inspectionId: id, status: 'COMPLETED' }
     );
 
     // Post in conversation
@@ -739,17 +844,40 @@ router.patch('/:id/complete', authenticate, (req: AuthenticatedRequest, res: Res
       { inspectionId: id, status: 'COMPLETED' }
     );
 
-    return res.json({ message: 'Inspection marked as completed' });
+    const updatedRow = db.prepare(`
+      SELECT ir.*, p.title as property_title, p.address as property_address,
+             p.nearby_landmark, a.name as area_name,
+             p.provider_id,
+             u_p.full_name as provider_name, u_p.phone as provider_phone, u_p.email as provider_email,
+             u_s.full_name as student_name, u_s.email as student_email, u_s.phone as student_account_phone,
+             (SELECT url FROM property_media WHERE property_id = p.id AND is_cover = 1 LIMIT 1) as cover_image,
+             r.room_name
+      FROM inspection_requests ir
+      JOIN properties p ON ir.property_id = p.id
+      JOIN areas a ON p.area_id = a.id
+      JOIN users u_p ON p.provider_id = u_p.id
+      JOIN users u_s ON ir.student_id = u_s.id
+      LEFT JOIN rooms r ON ir.room_id = r.id
+      WHERE ir.id = ?
+    `).get(id) as any;
+
+    return res.json({ 
+      message: 'Inspection marked as completed',
+      inspection: updatedRow ? formatInspectionRow(updatedRow, req.user.role) : undefined
+    });
   } catch (err: any) {
     console.error('Complete inspection error:', err);
     return res.status(500).json({ error: err.message || 'Failed to complete inspection' });
   }
-});
+};
+
+router.patch('/:id/complete', authenticate, handleCompleteInspection);
+router.post('/:id/complete', authenticate, handleCompleteInspection);
 
 // ----------------------------------------------------
 // 9. MARK NO-SHOW
 // ----------------------------------------------------
-router.patch('/:id/no-show', authenticate, (req: AuthenticatedRequest, res: Response) => {
+const handleNoShowInspection = (req: AuthenticatedRequest, res: Response) => {
   if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
   const { id } = req.params;
 
@@ -784,20 +912,44 @@ router.patch('/:id/no-show', authenticate, (req: AuthenticatedRequest, res: Resp
 
     logStatusTransition(id, req.user.id, req.user.role, 'CONFIRMED', 'NO_SHOW', 'Marked as no-show');
 
-    return res.json({ message: 'Inspection marked as no-show' });
+    const updatedRow = db.prepare(`
+      SELECT ir.*, p.title as property_title, p.address as property_address,
+             p.nearby_landmark, a.name as area_name,
+             p.provider_id,
+             u_p.full_name as provider_name, u_p.phone as provider_phone, u_p.email as provider_email,
+             u_s.full_name as student_name, u_s.email as student_email, u_s.phone as student_account_phone,
+             (SELECT url FROM property_media WHERE property_id = p.id AND is_cover = 1 LIMIT 1) as cover_image,
+             r.room_name
+      FROM inspection_requests ir
+      JOIN properties p ON ir.property_id = p.id
+      JOIN areas a ON p.area_id = a.id
+      JOIN users u_p ON p.provider_id = u_p.id
+      JOIN users u_s ON ir.student_id = u_s.id
+      LEFT JOIN rooms r ON ir.room_id = r.id
+      WHERE ir.id = ?
+    `).get(id) as any;
+
+    return res.json({ 
+      message: 'Inspection marked as no-show',
+      inspection: updatedRow ? formatInspectionRow(updatedRow, req.user.role) : undefined
+    });
   } catch (err: any) {
     console.error('No-show inspection error:', err);
     return res.status(500).json({ error: err.message || 'Failed to mark no-show' });
   }
-});
+};
+
+router.patch('/:id/no-show', authenticate, handleNoShowInspection);
+router.post('/:id/no-show', authenticate, handleNoShowInspection);
 
 // ----------------------------------------------------
 // 10. PRIVATE STUDENT NOTES
 // ----------------------------------------------------
-router.post('/:id/private-notes', authenticate, (req: AuthenticatedRequest, res: Response) => {
+const handlePrivateNotes = (req: AuthenticatedRequest, res: Response) => {
   if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
   const { id } = req.params;
-  const { notes } = req.body;
+  const { notes, privateNotes } = req.body;
+  const noteContent = notes !== undefined ? notes : privateNotes;
 
   try {
     const inspection = db.prepare('SELECT student_id FROM inspection_requests WHERE id = ?').get(id) as any;
@@ -812,19 +964,42 @@ router.post('/:id/private-notes', authenticate, (req: AuthenticatedRequest, res:
       SET private_student_notes = ?,
           updated_at = datetime('now')
       WHERE id = ?
-    `).run(notes || null, id);
+    `).run(noteContent || null, id);
 
-    return res.json({ message: 'Private inspection notes saved successfully' });
+    const updatedRow = db.prepare(`
+      SELECT ir.*, p.title as property_title, p.address as property_address,
+             p.nearby_landmark, a.name as area_name,
+             p.provider_id,
+             u_p.full_name as provider_name, u_p.phone as provider_phone, u_p.email as provider_email,
+             u_s.full_name as student_name, u_s.email as student_email, u_s.phone as student_account_phone,
+             (SELECT url FROM property_media WHERE property_id = p.id AND is_cover = 1 LIMIT 1) as cover_image,
+             r.room_name
+      FROM inspection_requests ir
+      JOIN properties p ON ir.property_id = p.id
+      JOIN areas a ON p.area_id = a.id
+      JOIN users u_p ON p.provider_id = u_p.id
+      JOIN users u_s ON ir.student_id = u_s.id
+      LEFT JOIN rooms r ON ir.room_id = r.id
+      WHERE ir.id = ?
+    `).get(id) as any;
+
+    return res.json({ 
+      message: 'Private inspection notes saved successfully',
+      inspection: updatedRow ? formatInspectionRow(updatedRow, req.user.role) : undefined
+    });
   } catch (err: any) {
     console.error('Save private notes error:', err);
     return res.status(500).json({ error: err.message || 'Failed to save private notes' });
   }
-});
+};
+
+router.post('/:id/private-notes', authenticate, handlePrivateNotes);
+router.patch('/:id/private-notes', authenticate, handlePrivateNotes);
 
 // ----------------------------------------------------
 // 11. INSPECTION FEEDBACK (1-5 Experience Rating)
 // ----------------------------------------------------
-router.post('/:id/feedback', authenticate, (req: AuthenticatedRequest, res: Response) => {
+const handleInspectionFeedback = (req: AuthenticatedRequest, res: Response) => {
   if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
   const { id } = req.params;
   const { rating, comment } = req.body;
@@ -853,12 +1028,35 @@ router.post('/:id/feedback', authenticate, (req: AuthenticatedRequest, res: Resp
       WHERE id = ?
     `).run(rating, comment || null, id);
 
-    return res.json({ message: 'Thank you for your inspection feedback!' });
+    const updatedRow = db.prepare(`
+      SELECT ir.*, p.title as property_title, p.address as property_address,
+             p.nearby_landmark, a.name as area_name,
+             p.provider_id,
+             u_p.full_name as provider_name, u_p.phone as provider_phone, u_p.email as provider_email,
+             u_s.full_name as student_name, u_s.email as student_email, u_s.phone as student_account_phone,
+             (SELECT url FROM property_media WHERE property_id = p.id AND is_cover = 1 LIMIT 1) as cover_image,
+             r.room_name
+      FROM inspection_requests ir
+      JOIN properties p ON ir.property_id = p.id
+      JOIN areas a ON p.area_id = a.id
+      JOIN users u_p ON p.provider_id = u_p.id
+      JOIN users u_s ON ir.student_id = u_s.id
+      LEFT JOIN rooms r ON ir.room_id = r.id
+      WHERE ir.id = ?
+    `).get(id) as any;
+
+    return res.json({ 
+      message: 'Thank you for your inspection feedback!',
+      inspection: updatedRow ? formatInspectionRow(updatedRow, req.user.role) : undefined
+    });
   } catch (err: any) {
     console.error('Submit feedback error:', err);
     return res.status(500).json({ error: err.message || 'Failed to submit feedback' });
   }
-});
+};
+
+router.post('/:id/feedback', authenticate, handleInspectionFeedback);
+router.patch('/:id/feedback', authenticate, handleInspectionFeedback);
 
 // ----------------------------------------------------
 // 12. SECURE VIRTUAL MEETING LINK ACCESS
@@ -983,7 +1181,15 @@ router.get('/:id/session', authenticate, (req: AuthenticatedRequest, res: Respon
 // 13. PROVIDER CALENDAR GROUPING
 // ----------------------------------------------------
 router.get('/calendar', authenticate, (req: AuthenticatedRequest, res: Response) => {
-  if (!req.user || (req.user.role !== 'PROVIDER' && req.user.role !== 'ADMIN')) {
+  if (!req.user) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  const userRole = (req.user.role || '').toUpperCase();
+  const isAgent = userRole === 'PROVIDER' || userRole === 'LANDLORD' || userRole === 'AGENT';
+  const isAdmin = userRole === 'ADMIN';
+
+  if (!isAgent && !isAdmin) {
     return res.status(403).json({ error: 'Provider authorization required' });
   }
 
@@ -995,27 +1201,33 @@ router.get('/calendar', authenticate, (req: AuthenticatedRequest, res: Response)
 
     const sql = `
       SELECT ir.*, p.title as property_title, p.address as property_address,
-             a.name as area_name, u.full_name as student_name, u.phone as student_account_phone,
+             p.nearby_landmark, a.name as area_name,
+             p.provider_id,
+             u_p.full_name as provider_name, u_p.phone as provider_phone, u_p.email as provider_email,
+             u_s.full_name as student_name, u_s.email as student_email, u_s.phone as student_account_phone,
              (SELECT url FROM property_media WHERE property_id = p.id AND is_cover = 1 LIMIT 1) as cover_image,
              r.room_name
       FROM inspection_requests ir
       JOIN properties p ON ir.property_id = p.id
       JOIN areas a ON p.area_id = a.id
-      JOIN users u ON ir.student_id = u.id
+      JOIN users u_s ON ir.student_id = u_s.id
+      JOIN users u_p ON p.provider_id = u_p.id
       LEFT JOIN rooms r ON ir.room_id = r.id
-      WHERE p.provider_id = ?
+      WHERE (p.provider_id = ? OR ? = 1)
       ORDER BY ir.preferred_date ASC, ir.preferred_time ASC
     `;
 
-    const allInspections = db.prepare(sql).all(req.user.id) as any[];
+    const allRows = db.prepare(sql).all(req.user.id, isAdmin ? 1 : 0) as any[];
+    const allInspections = allRows.map((r: any) => formatInspectionRow(r, req.user!.role));
 
-    const todayList = allInspections.filter(i => i.preferred_date === todayStr && i.status === 'CONFIRMED');
-    const tomorrowList = allInspections.filter(i => i.preferred_date === tomorrowStr && i.status === 'CONFIRMED');
-    const upcomingList = allInspections.filter(i => i.preferred_date > tomorrowStr && i.status === 'CONFIRMED');
+    const todayList = allInspections.filter(i => i.preferredDate === todayStr && i.status === 'CONFIRMED');
+    const tomorrowList = allInspections.filter(i => i.preferredDate === tomorrowStr && i.status === 'CONFIRMED');
+    const upcomingList = allInspections.filter(i => i.preferredDate > tomorrowStr && i.status === 'CONFIRMED');
     const pendingList = allInspections.filter(i => i.status === 'PENDING' || i.status === 'RESCHEDULE_REQUESTED');
     const completedList = allInspections.filter(i => i.status === 'COMPLETED');
 
     return res.json({
+      totalCount: allInspections.length,
       todayCount: todayList.length,
       tomorrowCount: tomorrowList.length,
       upcomingCount: upcomingList.length,

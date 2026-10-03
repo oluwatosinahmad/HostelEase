@@ -57,6 +57,7 @@ export const StudentInspectionCenter: React.FC<StudentInspectionCenterProps> = (
 
   const [virtualLinkModal, setVirtualLinkModal] = useState<{ isOpen: boolean; url: string; title: string } | null>(null);
   const [activeLiveTourId, setActiveLiveTourId] = useState<string | null>(null);
+  const [highlightedId, setHighlightedId] = useState<string | null>(null);
 
   const fetchInspections = () => {
     setLoading(true);
@@ -74,8 +75,26 @@ export const StudentInspectionCenter: React.FC<StudentInspectionCenterProps> = (
   useEffect(() => {
     fetchInspections();
     const handleUpdate = () => fetchInspections();
+    const handleTargetInspection = (e: any) => {
+      const id = e.detail?.inspectionId;
+      if (id) {
+        setHighlightedId(id);
+        setActiveTab('ALL');
+        setTimeout(() => {
+          const el = document.getElementById(`student-inspection-card-${id}`);
+          if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+        }, 350);
+      }
+    };
+
     window.addEventListener('hostel_ease_inspections_updated', handleUpdate);
-    return () => window.removeEventListener('hostel_ease_inspections_updated', handleUpdate);
+    window.addEventListener('hostel_ease_target_inspection', handleTargetInspection);
+    return () => {
+      window.removeEventListener('hostel_ease_inspections_updated', handleUpdate);
+      window.removeEventListener('hostel_ease_target_inspection', handleTargetInspection);
+    };
   }, [activeTab]);
 
   const handleConfirmReschedule = async (id: string) => {
@@ -222,11 +241,23 @@ export const StudentInspectionCenter: React.FC<StudentInspectionCenterProps> = (
             const isCompleted = insp.status === 'COMPLETED';
             const isCancelled = insp.status === 'CANCELLED' || insp.status === 'NO_SHOW';
 
+            const isHighlighted = highlightedId === insp.id;
+
             return (
               <div
                 key={insp.id}
-                className="bg-white rounded-3xl border border-slate-200 shadow-sm hover:shadow-md transition-all p-4 sm:p-6 space-y-4"
+                id={`student-inspection-card-${insp.id}`}
+                className={`bg-white rounded-3xl border transition-all p-4 sm:p-6 space-y-4 ${
+                  isHighlighted 
+                    ? 'border-emerald-500 ring-4 ring-emerald-500/20 shadow-xl' 
+                    : 'border-slate-200 shadow-sm hover:shadow-md'
+                }`}
               >
+                {isHighlighted && (
+                  <div className="bg-emerald-50 text-emerald-800 text-xs font-black px-3 py-1 rounded-xl w-fit flex items-center gap-1.5 border border-emerald-200">
+                    <span>🎯</span> Selected Inspection Request
+                  </div>
+                )}
                 {/* Top Row: Cover, Title & Status Pill */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div className="flex items-center gap-3">

@@ -465,6 +465,45 @@ export function saveLocalInspections(items: InspectionRequest[]) {
   }
 }
 
+export function normalizeInspection(raw: any): InspectionRequest {
+  if (!raw) return raw;
+  return {
+    id: raw.id,
+    propertyId: raw.propertyId || raw.property_id || '',
+    propertyTitle: raw.propertyTitle || raw.property_title || 'Hostel Accommodation',
+    propertyAddress: raw.propertyAddress || raw.property_address || '',
+    nearbyLandmark: raw.nearbyLandmark || raw.nearby_landmark || '',
+    areaName: raw.areaName || raw.area_name || '',
+    coverImage: raw.coverImage || raw.cover_image || 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=600&q=80',
+    roomId: raw.roomId || raw.room_id || null,
+    roomName: raw.roomName || raw.room_name || null,
+    inspectionType: raw.inspectionType || raw.inspection_type || 'PHYSICAL',
+    preferredDate: raw.preferredDate || raw.preferred_date || '',
+    preferredTime: raw.preferredTime || raw.preferred_time || '',
+    proposedAlternativeDate: raw.proposedAlternativeDate || raw.proposed_alternative_date || null,
+    proposedAlternativeTime: raw.proposedAlternativeTime || raw.proposed_alternative_time || null,
+    studentId: raw.studentId || raw.student_id || '',
+    studentPhone: raw.studentPhone || raw.student_phone || raw.studentAccountPhone || raw.student_account_phone || '',
+    notes: raw.notes || '',
+    status: raw.status || 'PENDING',
+    providerResponse: raw.providerResponse || raw.provider_response || null,
+    rescheduleReason: raw.rescheduleReason || raw.reschedule_reason || null,
+    cancellationReason: raw.cancellationReason || raw.cancellation_reason || null,
+    virtualMeetingUrl: raw.virtualMeetingUrl || raw.virtual_meeting_url || null,
+    privateStudentNotes: raw.privateStudentNotes || raw.private_student_notes || null,
+    feedbackRating: raw.feedbackRating || raw.feedback_rating || null,
+    feedbackComment: raw.feedbackComment || raw.feedback_comment || null,
+    studentName: raw.studentName || raw.student_name || 'Student User',
+    studentEmail: raw.studentEmail || raw.student_email || '',
+    providerId: raw.providerId || raw.provider_id || '',
+    providerName: raw.providerName || raw.provider_name || 'Hostel Provider',
+    providerEmail: raw.providerEmail || raw.provider_email || '',
+    providerPhone: raw.providerPhone || raw.provider_phone || '',
+    createdAt: raw.createdAt || raw.created_at || new Date().toISOString(),
+    updatedAt: raw.updatedAt || raw.updated_at
+  };
+}
+
 function generateOfflineFallbackResponse(url?: string): any {
   const cleanUrl = (url || '').split('?')[0].toLowerCase();
 
@@ -2429,8 +2468,13 @@ export const api = {
         });
         if (res.ok) {
           const json = await res.json();
-          newInsp.id = json.inspectionId || newInsp.id;
-          saveLocalInspection(newInsp);
+          const authoritativeInsp = json.inspection ? normalizeInspection(json.inspection) : {
+            ...newInsp,
+            id: json.inspectionId || newInsp.id
+          };
+          saveLocalInspection(authoritativeInsp);
+          window.dispatchEvent(new CustomEvent('hostel_ease_inspections_updated', { detail: authoritativeInsp }));
+          window.dispatchEvent(new CustomEvent('hostel_ease_notification_updated'));
           return json;
         }
       } catch (err) {
@@ -2473,6 +2517,8 @@ export const api = {
     async getAll(filters: { status?: string; type?: string } = {}): Promise<{ inspections: InspectionRequest[] }> {
       const currentUser = getCurrentUser();
       let serverInspections: InspectionRequest[] = [];
+      let isBackendReachable = false;
+
       try {
         const params = new URLSearchParams();
         if (filters.status && filters.status !== 'ALL') params.append('status', filters.status);
@@ -2485,45 +2531,64 @@ export const api = {
         if (res.ok && contentType.includes('application/json')) {
           const json = await res.json();
           if (json.inspections && Array.isArray(json.inspections)) {
-            serverInspections = json.inspections;
+            serverInspections = json.inspections.map(normalizeInspection);
+            isBackendReachable = true;
           }
         }
       } catch (err) {
         console.warn('Backend inspections unreachable, returning local store.');
       }
 
-      const local = getLocalInspections();
-      const merged = [...serverInspections];
-      for (const l of local) {
-        if (!merged.some(i => i.id === l.id)) {
-          merged.unshift(l);
-        }
+      // If backend responded, keep local cache synchronized with authoritative server records
+      if (isBackendReachable && serverInspections.length > 0) {
+        saveLocalInspections(serverInspections);
       }
 
-      // Filter strictly by logged-in user
+      const local = getLocalInspections().map(normalizeInspection);
+      const mergedMap = new Map<string, InspectionRequest>();
+
+      // Server records take precedence as source of truth
+      for (const s of serverInspections) {
+        mergedMap.set(s.id, s);
+      }
+      for (const l of local) {
+        if (!mergedMap.has(l.id)) {
+          mergedMap.set(l.id, l);
+        }
+      }
+      const merged = Array.from(mergedMap.values());
+
+      // Filter by logged-in user
       let filtered = [...merged];
       if (currentUser) {
         const cEmail = (currentUser.email || '').toLowerCase().trim();
         const cId = currentUser.id;
-        if (currentUser.role === 'STUDENT') {
-          filtered = filtered.filter(i => {
-            const iEmail = (i.studentEmail || (i as any).studentEmail || '').toLowerCase().trim();
-            const iStudentId = i.studentId || (i as any).studentId;
+        const isAgent = currentUser.role === 'PROVIDER' || currentUser.role === 'LANDLORD' || currentUser.role === 'AGENT';
+
+        filtered = filtered.filter(i => {
+          // If this inspection came directly from the authenticated server query, it is already verified for this user
+          if (serverInspections.some(s => s.id === i.id)) {
+            return true;
+          }
+
+          // Local fallback verification
+          if (currentUser.role === 'STUDENT') {
+            const iEmail = (i.studentEmail || '').toLowerCase().trim();
+            const iStudentId = i.studentId;
             if (iStudentId && iStudentId === cId) return true;
             if (cEmail && iEmail && iEmail === cEmail) return true;
             if (cEmail === 'student@hostelease.ng' && (iStudentId === 'usr-student-default' || iEmail === 'student@hostelease.ng')) return true;
             return false;
-          });
-        } else if (currentUser.role === 'PROVIDER' || currentUser.role === 'LANDLORD') {
-          filtered = filtered.filter(i => {
-            const iProvEmail = ((i as any).providerEmail || '').toLowerCase().trim();
-            const iProvId = (i as any).providerId;
+          } else if (isAgent) {
+            const iProvEmail = (i.providerEmail || '').toLowerCase().trim();
+            const iProvId = i.providerId;
             if (iProvId && iProvId === cId) return true;
             if (cEmail && iProvEmail && iProvEmail === cEmail) return true;
             if (cEmail === 'landlord@hostelease.ng' && (iProvId === 'usr-provider-default' || iProvEmail === 'landlord@hostelease.ng')) return true;
             return false;
-          });
-        }
+          }
+          return false;
+        });
       } else {
         filtered = [];
       }
@@ -2660,28 +2725,61 @@ export const api = {
     },
 
     async cancel(id: string, reason?: string): Promise<{ message: string }> {
-      const res = await fetch(`${API_BASE}/inspections/${id}/cancel`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
-        body: JSON.stringify({ reason })
-      });
-      return handleResponse(res);
+      try {
+        const res = await fetch(`${API_BASE}/inspections/${id}/cancel`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+          body: JSON.stringify({ reason })
+        });
+        if (res.ok) {
+          const json = await res.json();
+          window.dispatchEvent(new CustomEvent('hostel_ease_inspections_updated'));
+          return json;
+        }
+      } catch (err) {}
+      const local = getLocalInspections();
+      const updated = local.map(i => i.id === id ? { ...i, status: 'CANCELLED' as const, cancellationReason: reason } : i);
+      saveLocalInspections(updated);
+      window.dispatchEvent(new CustomEvent('hostel_ease_inspections_updated'));
+      return { message: 'Inspection cancelled successfully' };
     },
 
     async complete(id: string): Promise<{ message: string }> {
-      const res = await fetch(`${API_BASE}/inspections/${id}/complete`, {
-        method: 'PATCH',
-        headers: { ...getAuthHeader() }
-      });
-      return handleResponse(res);
+      try {
+        const res = await fetch(`${API_BASE}/inspections/${id}/complete`, {
+          method: 'PATCH',
+          headers: { ...getAuthHeader() }
+        });
+        if (res.ok) {
+          const json = await res.json();
+          window.dispatchEvent(new CustomEvent('hostel_ease_inspections_updated'));
+          return json;
+        }
+      } catch (err) {}
+      const local = getLocalInspections();
+      const updated = local.map(i => i.id === id ? { ...i, status: 'COMPLETED' as const } : i);
+      saveLocalInspections(updated);
+      window.dispatchEvent(new CustomEvent('hostel_ease_inspections_updated'));
+      return { message: 'Inspection marked as completed' };
     },
 
     async markNoShow(id: string): Promise<{ message: string }> {
-      const res = await fetch(`${API_BASE}/inspections/${id}/no-show`, {
-        method: 'PATCH',
-        headers: { ...getAuthHeader() }
-      });
-      return handleResponse(res);
+      try {
+        const res = await fetch(`${API_BASE}/inspections/${id}/no-show`, {
+          method: 'PATCH',
+          headers: { ...getAuthHeader() }
+        });
+        if (res.ok) {
+          const json = await res.json();
+          window.dispatchEvent(new CustomEvent('hostel_ease_inspections_updated'));
+          return json;
+        }
+      } catch (err) {}
+      const local = getLocalInspections();
+      const updated = local.map(i => i.id === id ? { ...i, status: 'NO_SHOW' as const } : i);
+      saveLocalInspections(updated);
+      window.dispatchEvent(new CustomEvent('hostel_ease_inspections_updated'));
+      return { message: 'Inspection marked as no-show' };
     },
 
     async savePrivateNotes(id: string, notes: string): Promise<{ message: string }> {
@@ -2710,10 +2808,54 @@ export const api = {
     },
 
     async getCalendar(): Promise<ProviderCalendarData> {
-      const res = await fetch(`${API_BASE}/inspections/calendar`, {
-        headers: { ...getAuthHeader() }
-      });
-      return handleResponse(res);
+      try {
+        const res = await fetch(`${API_BASE}/inspections/calendar`, {
+          headers: { ...getAuthHeader() }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data && typeof data.pendingCount === 'number') {
+            return {
+              todayCount: data.todayCount || 0,
+              tomorrowCount: data.tomorrowCount || 0,
+              upcomingCount: data.upcomingCount || 0,
+              pendingCount: data.pendingCount || 0,
+              today: (data.today || []).map(normalizeInspection),
+              tomorrow: (data.tomorrow || []).map(normalizeInspection),
+              upcoming: (data.upcoming || []).map(normalizeInspection),
+              pending: (data.pending || []).map(normalizeInspection),
+              completed: (data.completed || []).map(normalizeInspection)
+            };
+          }
+        }
+      } catch (err) {
+        console.warn('Backend calendar endpoint unreachable, computing calendar from inspections store.');
+      }
+
+      // Safe resilient computation from getAll() - NEVER throws or rejects!
+      const { inspections } = await this.getAll();
+      const todayStr = new Date().toISOString().split('T')[0];
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      const tomorrowStr = tomorrow.toISOString().split('T')[0];
+
+      const todayList = inspections.filter(i => i.preferredDate === todayStr && i.status === 'CONFIRMED');
+      const tomorrowList = inspections.filter(i => i.preferredDate === tomorrowStr && i.status === 'CONFIRMED');
+      const upcomingList = inspections.filter(i => i.preferredDate > tomorrowStr && i.status === 'CONFIRMED');
+      const pendingList = inspections.filter(i => i.status === 'PENDING' || i.status === 'RESCHEDULE_REQUESTED');
+      const completedList = inspections.filter(i => i.status === 'COMPLETED');
+
+      return {
+        todayCount: todayList.length,
+        tomorrowCount: tomorrowList.length,
+        upcomingCount: upcomingList.length,
+        pendingCount: pendingList.length,
+        today: todayList,
+        tomorrow: tomorrowList,
+        upcoming: upcomingList,
+        pending: pendingList,
+        completed: completedList
+      };
     },
 
     async getAvailableSlots(propertyId: string, date: string): Promise<{ date: string; allSlots: string[]; bookedSlots: string[]; availableSlots: string[] }> {

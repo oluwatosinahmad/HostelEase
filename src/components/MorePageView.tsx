@@ -181,6 +181,36 @@ export const MorePageView: React.FC<MorePageViewProps> = ({
           }));
         }, 100);
       }
+    } else if (link.includes('inspections') || notif.type?.includes('INSPECTION') || notif.relatedEntityType === 'INSPECTION' || notif.data?.inspectionId) {
+      const inspMatch = link.match(/inspectionId=([^&]+)/);
+      const inspectionId = notif.relatedEntityId || notif.data?.inspectionId || (inspMatch ? inspMatch[1] : undefined);
+      if (isProvider) {
+        onNavigate('provider-portal');
+        setTimeout(() => {
+          window.dispatchEvent(new CustomEvent('hostel_ease_provider_tab', { 
+            detail: { tab: 'inspections', inspectionId } 
+          }));
+          if (inspectionId) {
+            window.dispatchEvent(new CustomEvent('hostel_ease_target_inspection', {
+              detail: { inspectionId }
+            }));
+          }
+        }, 100);
+      } else {
+        if (onNavigateToDashboardTab) {
+          onNavigate('student-dashboard');
+          onNavigateToDashboardTab('inspections');
+        } else {
+          onNavigate('inspections');
+        }
+        if (inspectionId) {
+          setTimeout(() => {
+            window.dispatchEvent(new CustomEvent('hostel_ease_target_inspection', {
+              detail: { inspectionId }
+            }));
+          }, 100);
+        }
+      }
     } else if (notif.data?.bookingId || link.includes('bookings')) {
       onNavigate('bookings');
     } else if (notif.data?.propertyId) {
