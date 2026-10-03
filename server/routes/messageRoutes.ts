@@ -56,7 +56,7 @@ router.post('/conversations', authenticate, (req: AuthenticatedRequest, res: Res
     updateUserPresence(req.user.id);
 
     const property = db.prepare(`
-      SELECT p.id, p.title, p.provider_id,
+      SELECT p.id, p.title, p.address, p.provider_id,
              COALESCE(u.full_name, 'Verified Agent') as provider_name,
              u.avatar_url as provider_avatar,
              COALESCE(
@@ -94,11 +94,13 @@ router.post('/conversations', authenticate, (req: AuthenticatedRequest, res: Res
       return res.status(400).json({ error: 'You cannot initiate a conversation with your own hostel listing' });
     }
 
-    // Check if conversation already exists
+    // Check if conversation already exists for this student and property (enforce single active thread)
     let conv = db.prepare(`
       SELECT * FROM conversations 
-      WHERE property_id = ? AND student_id = ? AND provider_id = ?
-    `).get(propertyId, studentId, providerId) as any;
+      WHERE property_id = ? AND student_id = ?
+      ORDER BY last_message_at DESC
+      LIMIT 1
+    `).get(propertyId, studentId) as any;
 
     if (!conv) {
       const convId = `conv-${crypto.randomUUID()}`;
@@ -171,16 +173,23 @@ router.post('/conversations', authenticate, (req: AuthenticatedRequest, res: Res
         id: conv.id,
         propertyId: property.id,
         propertyTitle: property.title,
+        propertyAddress: property.address || 'LAUTECH Area, Ogbomoso',
         propertyCoverImage: coverImage,
         areaName: property.area_name,
         providerId: property.provider_id,
         providerName: property.provider_name,
+        avatarUrl: property.provider_avatar || coverImage,
         providerAvatarUrl: property.provider_avatar || coverImage,
         providerIsOnline: providerPresence.isOnline,
         providerLastSeenAt: providerPresence.lastSeenAt,
         studentId: conv.student_id,
+        studentName: req.user.role === 'STUDENT' ? (req.user.fullName || 'Student') : 'Student',
         studentIsOnline: studentPresence.isOnline,
         studentLastSeenAt: studentPresence.lastSeenAt,
+        lastMessageText: conv.last_message_text || 'No messages yet',
+        lastMessageAt: conv.last_message_at || conv.created_at,
+        unreadCount: 0,
+        status: conv.status || 'ACTIVE',
         createdAt: conv.created_at
       }
     });

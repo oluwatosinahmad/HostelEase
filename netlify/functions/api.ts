@@ -3136,18 +3136,21 @@ export default async (req: Request): Promise<Response> => {
 
       const body = await req.json();
       const { propertyId, initialMessage } = body;
-      const prop = memoryProperties.find(p => p.id === propertyId);
+      const prop = memoryProperties.find(p => p.id === propertyId || String(p.id) === String(propertyId));
       
       const sId = user.role === 'STUDENT' ? user.id : (body.studentId || 'usr-student-1');
-      const sName = user.role === 'STUDENT' ? user.fullName : 'Student User';
-      const sEmail = user.role === 'STUDENT' ? user.email : 'student@lautech.edu.ng';
+      const sName = user.role === 'STUDENT' ? (user.fullName || 'Student User') : 'Student User';
+      const sEmail = user.role === 'STUDENT' ? (user.email || 'student@lautech.edu.ng') : 'student@lautech.edu.ng';
 
       const pId = prop?.providerId || (prop?.provider as any)?.id || 'user-provider-default';
       const pName = prop?.provider?.name || 'Verified Agent';
       const pEmail = (prop as any)?.providerEmail || prop?.provider?.email || 'landlord@hostelease.ng';
 
       const convId = `conv_${sId}_${propertyId || 'general'}`;
-      let conv = memoryConversations.find(c => c.id === convId);
+      let conv = memoryConversations.find(c => 
+        c.id === convId || 
+        (propertyId && c.propertyId === propertyId && (c.studentId === sId || (sEmail && c.studentEmail && c.studentEmail.toLowerCase() === sEmail.toLowerCase())))
+      );
 
       if (!conv) {
         conv = {
@@ -3156,13 +3159,14 @@ export default async (req: Request): Promise<Response> => {
           propertyTitle: prop?.title || 'Hostel Accommodation',
           propertyAddress: prop?.address || 'LAUTECH Area, Ogbomoso',
           propertyCoverImage: prop?.coverImage || 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=1200&q=80',
-          areaName: prop?.area?.name || 'Under G',
+          areaName: prop?.area?.name || prop?.areaName || 'Under G',
           studentId: sId,
           studentName: sName,
           studentEmail: sEmail,
           providerId: pId,
           providerName: pName,
           providerEmail: pEmail,
+          avatarUrl: prop?.coverImage || 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=1200&q=80',
           lastMessageText: initialMessage || 'No messages yet',
           lastMessageAt: new Date().toISOString(),
           status: 'ACTIVE',
@@ -3209,7 +3213,16 @@ export default async (req: Request): Promise<Response> => {
         });
       }
 
-      return new Response(JSON.stringify({ conversationId: conv.id, conversation: conv }), { status: 201, headers: CORS_HEADERS });
+      const otherUserId = user.role === 'STUDENT' ? conv.providerId : conv.studentId;
+      const presence = getMemoryPresence(otherUserId);
+      const enrichedConv = {
+        ...conv,
+        avatarUrl: conv.avatarUrl || prop?.coverImage || 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=1200&q=80',
+        isOnline: presence.isOnline,
+        lastSeenAt: presence.lastSeenAt
+      };
+
+      return new Response(JSON.stringify({ conversationId: conv.id, conversation: enrichedConv }), { status: 201, headers: CORS_HEADERS });
     } catch (err: any) {
       return new Response(JSON.stringify({ error: err.message || 'Failed to start conversation' }), { status: 400, headers: CORS_HEADERS });
     }

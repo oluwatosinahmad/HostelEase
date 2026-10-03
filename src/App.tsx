@@ -156,6 +156,55 @@ function MainApp() {
     hasHistoryPushed: boolean;
   } | null>(null);
 
+  // Messaging Target Navigation State (Phase 4)
+  const [messagingTargetPropertyId, setMessagingTargetPropertyId] = useState<string | null>(() => {
+    try {
+      const hash = window.location.hash;
+      const propMatch = hash.match(/[?&]propertyId=([^&]+)/);
+      if (propMatch) return decodeURIComponent(propMatch[1]);
+      const search = new URLSearchParams(window.location.search);
+      return search.get('propertyId');
+    } catch {
+      return null;
+    }
+  });
+  const [messagingTargetConversationId, setMessagingTargetConversationId] = useState<string | null>(() => {
+    try {
+      const hash = window.location.hash;
+      const convMatch = hash.match(/[?&]conversationId=([^&]+)/);
+      if (convMatch) return decodeURIComponent(convMatch[1]);
+      const search = new URLSearchParams(window.location.search);
+      return search.get('conversationId');
+    } catch {
+      return null;
+    }
+  });
+
+  // Centralized, robust navigation handler to open conversation for a property
+  const handleOpenConversation = (propId?: string, studentId?: string) => {
+    if (propId && propId.trim()) {
+      const cleanPropId = propId.trim();
+      setMessagingTargetPropertyId(cleanPropId);
+      setMessagingTargetConversationId(null);
+      setCurrentView('messages');
+      try {
+        window.history.pushState({ view: 'messages', propertyId: cleanPropId }, '', `#messages?propertyId=${encodeURIComponent(cleanPropId)}`);
+      } catch {}
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent('hostel_ease_open_conversation', { detail: { propertyId: cleanPropId, studentId } }));
+      }, 25);
+    } else {
+      setMessagingTargetPropertyId(null);
+      setMessagingTargetConversationId(null);
+      setCurrentView('messages');
+      try {
+        window.history.pushState({ view: 'messages' }, '', '#messages');
+      } catch {}
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
   // Modals
   const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null);
   const [bookingModalOpen, setBookingModalOpen] = useState<boolean>(false);
@@ -177,13 +226,16 @@ function MainApp() {
     try {
       if (!selectedVideoTourProperty) {
         const currentHash = window.location.hash;
-        const expectedHash = currentView === 'home' ? '' : `#${currentView}`;
-        if (window.history.state?.view !== currentView || currentHash !== expectedHash) {
-          window.history.pushState({ view: currentView }, '', currentView === 'home' ? '/' : `#${currentView}`);
+        let expectedHash = currentView === 'home' ? '' : `#${currentView}`;
+        if (currentView === 'messages' && messagingTargetPropertyId) {
+          expectedHash = `#messages?propertyId=${encodeURIComponent(messagingTargetPropertyId)}`;
+        }
+        if (window.history.state?.view !== currentView || (!currentHash.startsWith(expectedHash) && currentHash !== expectedHash)) {
+          window.history.pushState({ view: currentView, propertyId: messagingTargetPropertyId }, '', currentView === 'home' ? '/' : expectedHash);
         }
       }
     } catch {}
-  }, [currentView, selectedVideoTourProperty]);
+  }, [currentView, selectedVideoTourProperty, messagingTargetPropertyId]);
 
   // Open 4K video tour and push history entry so browser/mobile Back button navigates back cleanly
   const handleOpenVideoTour = (property: Property) => {
@@ -289,8 +341,12 @@ function MainApp() {
       // 3. Normal view navigation
       if (state && state.view) {
         setCurrentView(state.view);
+        if (state.view === 'messages') {
+          if (state.propertyId) setMessagingTargetPropertyId(state.propertyId);
+          if (state.conversationId) setMessagingTargetConversationId(state.conversationId);
+        }
       } else if (hash) {
-        const cleanHash = hash.replace('#', '').split('/')[0] as AppView;
+        const cleanHash = hash.replace('#', '').split('?')[0].split('/')[0] as AppView;
         const validViews: AppView[] = [
           'home', 'search', 'saved', 'community', 'student-dashboard', 
           'provider-portal', 'admin-portal', 'messages', 'inspections', 
@@ -298,6 +354,12 @@ function MainApp() {
         ];
         if (validViews.includes(cleanHash)) {
           setCurrentView(cleanHash);
+          if (cleanHash === 'messages') {
+            const propMatch = hash.match(/[?&]propertyId=([^&]+)/);
+            if (propMatch) setMessagingTargetPropertyId(decodeURIComponent(propMatch[1]));
+            const convMatch = hash.match(/[?&]conversationId=([^&]+)/);
+            if (convMatch) setMessagingTargetConversationId(decodeURIComponent(convMatch[1]));
+          }
         } else {
           setCurrentView('home');
         }
@@ -311,8 +373,6 @@ function MainApp() {
   }, [selectedVideoTourProperty, properties, featuredProperties, currentView]);
 
   const [searchViewMode, setSearchViewMode] = useState<'list' | 'map'>('list');
-  const [messagingTargetPropertyId, setMessagingTargetPropertyId] = useState<string | null>(null);
-  const [messagingTargetConversationId, setMessagingTargetConversationId] = useState<string | null>(null);
   const [targetMapAddress, setTargetMapAddress] = useState<string>('');
 
   // Admin Direct Login State
@@ -1137,11 +1197,7 @@ function MainApp() {
                           onViewDetails={(p) => setSelectedPropertyId(p.id)}
                           onToggleSave={handleToggleSave}
                           onToggleCompare={handleToggleCompare}
-                          onOpenConversation={(propId) => {
-                            setMessagingTargetPropertyId(propId);
-                            setCurrentView('messages');
-                            window.scrollTo({ top: 0, behavior: 'smooth' });
-                          }}
+                          onOpenConversation={handleOpenConversation}
                           onOpenBookingModal={(prop) => handleOpenBookingModal(prop)}
                           onOpenInspectionModal={(prop) => handleOpenInspectionModal(prop)}
                           onOpenVideoTour={(prop) => handleOpenVideoTour(prop)}
@@ -1475,11 +1531,7 @@ function MainApp() {
                   areas={areas}
                   onSelectProperty={(id) => setSelectedPropertyId(id)}
                   onToggleCompare={handleToggleCompare}
-                  onOpenConversation={(propId) => {
-                    setMessagingTargetPropertyId(propId);
-                    setCurrentView('messages');
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                  }}
+                  onOpenConversation={handleOpenConversation}
                   comparedIds={comparedPropertyIds}
                   onShowToast={showToast}
                   targetAddress={targetMapAddress}
@@ -1572,11 +1624,7 @@ function MainApp() {
                           onViewDetails={(p) => setSelectedPropertyId(p.id)}
                           onToggleSave={handleToggleSave}
                           onToggleCompare={handleToggleCompare}
-                          onOpenConversation={(propId) => {
-                            setMessagingTargetPropertyId(propId);
-                            setCurrentView('messages');
-                            window.scrollTo({ top: 0, behavior: 'smooth' });
-                          }}
+                          onOpenConversation={handleOpenConversation}
                           onOpenBookingModal={(prop) => handleOpenBookingModal(prop)}
                           onOpenInspectionModal={(prop) => handleOpenInspectionModal(prop)}
                           onOpenVideoTour={(prop) => handleOpenVideoTour(prop)}
@@ -1657,11 +1705,7 @@ function MainApp() {
             onReturnHome={() => setCurrentView('home')}
           >
             <StudentInspectionCenter
-              onOpenConversation={(propId) => {
-                setMessagingTargetPropertyId(propId);
-                setCurrentView('messages');
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-              }}
+              onOpenConversation={handleOpenConversation}
               onNavigateToSearch={() => {
                 setCurrentView('search');
                 window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -1722,22 +1766,14 @@ function MainApp() {
                 </div>
               </div>
               <ProviderBookingDashboard
-                onOpenConversation={(propId) => {
-                  setMessagingTargetPropertyId(propId);
-                  setCurrentView('messages');
-                  window.scrollTo({ top: 0, behavior: 'smooth' });
-                }}
+                onOpenConversation={handleOpenConversation}
                 onShowToast={showToast}
               />
             </div>
           ) : (
             <StudentBookingDashboard
               onSelectProperty={(id) => setSelectedPropertyId(id)}
-              onOpenConversation={(propId) => {
-                setMessagingTargetPropertyId(propId);
-                setCurrentView('messages');
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-              }}
+              onOpenConversation={handleOpenConversation}
               onBrowseHostels={() => {
                 setCurrentView('search');
                 window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -1818,11 +1854,7 @@ function MainApp() {
                   setCurrentView('community');
                   window.scrollTo({ top: 0, behavior: 'smooth' });
                 }}
-                onOpenConversation={(propId) => {
-                  setMessagingTargetPropertyId(propId);
-                  setCurrentView('messages');
-                  window.scrollTo({ top: 0, behavior: 'smooth' });
-                }}
+                onOpenConversation={handleOpenConversation}
                 onSelectProperty={(id) => setSelectedPropertyId(id)}
                 onApplyPreferencesToSearch={(prefs) => {
                   setFilters(prev => ({
@@ -1879,11 +1911,7 @@ function MainApp() {
             >
               <ProviderPortal
                 areas={areas}
-                onOpenConversation={(propId, studentId) => {
-                  setMessagingTargetPropertyId(propId);
-                  setCurrentView('messages');
-                  window.scrollTo({ top: 0, behavior: 'smooth' });
-                }}
+                onOpenConversation={handleOpenConversation}
                 onShowToast={showToast}
               />
             </ErrorBoundary>
@@ -2059,11 +2087,7 @@ function MainApp() {
                 setCurrentView(v);
                 window.scrollTo({ top: 0, behavior: 'smooth' });
               }}
-              onOpenConversation={(propId, studentId) => {
-                setMessagingTargetPropertyId(propId);
-                setCurrentView('messages');
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-              }}
+              onOpenConversation={handleOpenConversation}
               onShowToast={showToast}
               onOpenAI={handleOpenAI}
             />
@@ -2083,11 +2107,7 @@ function MainApp() {
                 setCurrentView(v);
                 window.scrollTo({ top: 0, behavior: 'smooth' });
               }}
-              onOpenConversation={(propId, studentId) => {
-                setMessagingTargetPropertyId(propId);
-                setCurrentView('messages');
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-              }}
+              onOpenConversation={handleOpenConversation}
               onShowToast={showToast}
             />
           </ErrorBoundary>
@@ -2166,11 +2186,7 @@ function MainApp() {
             onClose={() => setSelectedPropertyId(null)}
             onToggleSave={handleToggleSave}
             onToggleCompare={handleToggleCompare}
-            onOpenConversation={(propId) => {
-              setMessagingTargetPropertyId(propId);
-              setCurrentView('messages');
-              window.scrollTo({ top: 0, behavior: 'smooth' });
-            }}
+            onOpenConversation={handleOpenConversation}
             onOpenBookingModal={(prop) => handleOpenBookingModal(prop)}
             onRequestInspection={(prop, type, roomId) => handleOpenInspectionModal(prop, type, roomId)}
             onOpenAuth={handleOpenAuth}
@@ -2209,11 +2225,7 @@ function MainApp() {
             setCurrentView('bookings');
             window.scrollTo({ top: 0, behavior: 'smooth' });
           }}
-          onOpenConversation={(propId) => {
-            setMessagingTargetPropertyId(propId);
-            setCurrentView('messages');
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-          }}
+          onOpenConversation={handleOpenConversation}
           onShowToast={showToast}
         />
       )}
@@ -2235,9 +2247,7 @@ function MainApp() {
             setStandaloneInspectionModalOpen(false);
             setInspectionTargetProperty(null);
             setInspectionInitialRoomId(undefined);
-            setMessagingTargetPropertyId(propId);
-            setCurrentView('messages');
-            window.scrollTo({ top: 0, behavior: 'smooth' });
+            handleOpenConversation(propId);
           }}
         />
       )}
@@ -2271,9 +2281,7 @@ function MainApp() {
           }}
           onOpenConversation={(propId) => {
             handleCloseVideoTour();
-            setMessagingTargetPropertyId(propId);
-            setCurrentView('messages');
-            window.scrollTo({ top: 0, behavior: 'smooth' });
+            handleOpenConversation(propId);
           }}
         />
       )}

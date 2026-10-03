@@ -106,6 +106,8 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
   const [conversations, setConversations] = useState<ConversationItem[]>([]);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [activeDetail, setActiveDetail] = useState<ConversationDetail | null>(null);
+  const [resolvingPropertyId, setResolvingPropertyId] = useState<string | null>(initialPropertyId || null);
+  const resolvingPropertyRef = useRef<string | null>(null);
   
   // UI states
   const [messageInput, setMessageInput] = useState<string>('');
@@ -456,21 +458,115 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
     }
   };
 
+  // Open and foreground conversation for a specific hostel property
+  const openPropertyConversation = async (propertyId: string, studentId?: string) => {
+    if (!propertyId || !propertyId.trim()) return;
+    const cleanPropId = propertyId.trim();
+
+    // Prevent duplicate in-flight requests
+    if (resolvingPropertyRef.current === cleanPropId) {
+      return;
+    }
+
+    // If conversation is already active and matches this property, keep it
+    if (activeDetail && activeDetail.conversation?.property?.id === cleanPropId) {
+      return;
+    }
+
+    resolvingPropertyRef.current = cleanPropId;
+    setResolvingPropertyId(cleanPropId);
+    setMessagesLoading(true);
+    setActiveThreadError(false);
+
+    try {
+      // 1. Check if we already have this conversation loaded in memory list
+      const existingConv = conversations.find(c => c.propertyId === cleanPropId && (!studentId || c.studentId === studentId));
+      if (existingConv) {
+        setActiveConversationId(existingConv.id);
+        await selectAndLoadConversation(existingConv.id, true, existingConv);
+        return;
+      }
+
+      // 2. Resolve or create on backend (single source of truth with deduplication)
+      const res = await api.messages.startConversation(cleanPropId, undefined, studentId);
+      if (res && res.conversationId) {
+        setActiveConversationId(res.conversationId);
+
+        // Optimistically set activeDetail from returned conversation so the header, avatar, and input are visible instantly!
+        if (res.conversation) {
+          const c = res.conversation;
+          setActiveDetail({
+            conversation: {
+              id: res.conversationId,
+              property: {
+                id: c.propertyId || cleanPropId,
+                title: c.propertyTitle || 'Hostel Accommodation',
+                address: c.propertyAddress || 'LAUTECH Area, Ogbomoso',
+                areaName: c.areaName || 'Under G',
+                propertyType: 'SELF_CONTAIN',
+                distanceFromCampusKm: 0.5,
+                rentAmount: 0,
+                totalMandatoryCost: 0,
+                coverImage: c.propertyCoverImage || c.avatarUrl || 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=1200&q=85'
+              },
+              student: {
+                id: c.studentId || user?.id || 'student',
+                name: (c as any).studentName || user?.fullName || 'Student',
+                avatarUrl: user?.avatarUrl || null,
+                isOnline: Boolean(c.isOnline),
+                lastSeenAt: c.lastSeenAt || null
+              },
+              provider: {
+                id: c.providerId || 'provider',
+                name: c.providerName || 'Verified Agent',
+                avatarUrl: c.avatarUrl || (c as any).providerAvatarUrl || c.propertyCoverImage || null,
+                isOnline: Boolean(c.isOnline),
+                lastSeenAt: c.lastSeenAt || null
+              },
+              status: c.status || 'ACTIVE',
+              createdAt: c.createdAt || new Date().toISOString()
+            },
+            messages: [],
+            typingUser: null
+          });
+        }
+
+        // 3. Concurrently load full message history
+        try {
+          const detailRes = await api.messages.getConversation(res.conversationId);
+          if (detailRes) {
+            setActiveDetail(detailRes);
+            setTimeout(() => scrollToBottom('auto'), 50);
+          }
+        } catch (detailErr) {
+          console.error('[MessagingCenter] Could not load message history:', detailErr);
+        }
+
+        // 4. Update conversations list in background so sidebar stays in sync
+        api.messages.getConversations().then(listRes => {
+          if (listRes?.conversations) {
+            setConversations(listRes.conversations);
+          }
+        }).catch(() => {});
+      }
+    } catch (err: any) {
+      console.error('[MessagingCenter] Failed to start/open conversation for property:', err);
+      setActiveThreadError(true);
+      onShowToast(err.message || 'Could not connect to hostel agent', 'error');
+    } finally {
+      resolvingPropertyRef.current = null;
+      setResolvingPropertyId(null);
+      setMessagesLoading(false);
+    }
+  };
+
   // If initialConversationId or initialPropertyId is provided from a hostel card or inspection click, open that exact conversation
   useEffect(() => {
     if (initialConversationId) {
       setActiveConversationId(initialConversationId);
       loadConversations(initialConversationId);
     } else if (initialPropertyId) {
-      api.messages.startConversation(initialPropertyId)
-        .then(res => {
-          setActiveConversationId(res.conversationId);
-          loadConversations(res.conversationId);
-        })
-        .catch(err => {
-          console.error('Failed to start conversation for property:', err);
-          loadConversations();
-        });
+      openPropertyConversation(initialPropertyId);
     } else {
       loadConversations();
     }
@@ -481,21 +577,33 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
     const handleOpenConv = (e: any) => {
       const convId = e.detail?.conversationId;
       const propId = e.detail?.propertyId;
+      const studentId = e.detail?.studentId;
       if (convId) {
         setActiveConversationId(convId);
         loadConversations(convId);
       } else if (propId) {
-        api.messages.startConversation(propId)
-          .then(res => {
-            setActiveConversationId(res.conversationId);
-            loadConversations(res.conversationId);
-          })
-          .catch(() => loadConversations());
+        openPropertyConversation(propId, studentId);
       }
     };
     window.addEventListener('hostel_ease_open_conversation', handleOpenConv);
     return () => window.removeEventListener('hostel_ease_open_conversation', handleOpenConv);
   }, []);
+
+  // Synchronize URL hash with active conversation for persistence on refresh
+  useEffect(() => {
+    if (activeConversationId) {
+      try {
+        const expectedHash = `#messages?conversationId=${encodeURIComponent(activeConversationId)}`;
+        if (window.location.hash !== expectedHash) {
+          window.history.replaceState(
+            { view: 'messages', conversationId: activeConversationId },
+            '',
+            expectedHash
+          );
+        }
+      } catch {}
+    }
+  }, [activeConversationId]);
 
   // Active cross-device real-time sync (poll every 2.5 seconds when document is visible)
   useEffect(() => {
@@ -1071,7 +1179,7 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
         {/* ========================================================================= */}
         {/* LEFT COLUMN: CONVERSATION HUB (SLACK / SNAPCHAT STYLE CHAT LIST)           */}
         {/* ========================================================================= */}
-        <div className={`md:col-span-4 border-r border-slate-800 flex flex-col bg-slate-950/90 ${activeConversationId ? 'hidden md:flex' : 'flex'}`}>
+        <div className={`md:col-span-4 border-r border-slate-800 flex flex-col bg-slate-950/90 ${(activeConversationId || resolvingPropertyId) ? 'hidden md:flex' : 'flex'}`}>
           
           {/* Header */}
           <div className="p-4 border-b border-slate-800/80 bg-slate-900/60 space-y-3">
@@ -1312,8 +1420,16 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
         {/* ========================================================================= */}
         {/* RIGHT COLUMN: ADVANCED CHAT STREAM (SNAPCHAT / iMESSAGE GRADIENT CANVAS)   */}
         {/* ========================================================================= */}
-        <div className={`md:col-span-8 flex flex-col bg-slate-950/95 relative overflow-hidden ${!activeConversationId ? 'hidden md:flex' : 'flex'}`}>
-          {!activeConversationId ? (
+        <div className={`md:col-span-8 flex flex-col bg-slate-950/95 relative overflow-hidden ${(!activeConversationId && !resolvingPropertyId) ? 'hidden md:flex' : 'flex'}`}>
+          {resolvingPropertyId ? (
+            <div className="flex-1 flex flex-col items-center justify-center p-8 text-center space-y-4">
+              <div className="w-10 h-10 border-3 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto" />
+              <div className="space-y-1">
+                <h4 className="font-bold text-base text-white">Connecting with Verified Agent...</h4>
+                <p className="text-xs text-slate-400">Loading conversation and accommodation inquiry thread</p>
+              </div>
+            </div>
+          ) : !activeConversationId ? (
             <div className="flex-1 flex flex-col items-center justify-center p-8 text-center space-y-4">
               <div className="w-16 h-16 bg-slate-900 text-emerald-400 rounded-3xl flex items-center justify-center shadow-inner border border-slate-800">
                 <MessageSquare className="w-8 h-8" />
@@ -1388,6 +1504,11 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
                           onClick={() => {
                             setActiveConversationId(null);
                             setActiveDetail(null);
+                            setResolvingPropertyId(null);
+                            resolvingPropertyRef.current = null;
+                            try {
+                              window.history.replaceState({ view: 'messages' }, '', '#messages');
+                            } catch {}
                           }}
                           className="md:hidden p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center text-slate-300 hover:text-white bg-slate-800 active:bg-slate-700 rounded-xl cursor-pointer shrink-0"
                           aria-label="Back to conversations"
