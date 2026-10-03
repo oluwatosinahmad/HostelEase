@@ -40,6 +40,7 @@ import { api } from './services/api';
 import { Navbar } from './components/Navbar';
 import { HeroSection } from './components/HeroSection';
 import { HostelCard } from './components/HostelCard';
+import { PremiumCarouselPagination } from './components/PremiumCarouselPagination';
 import { HostelSearchFilters, ActiveFilterChips } from './components/HostelSearchFilters';
 import { SmartSearchBar } from './components/SmartSearchBar';
 import { SavedHostelsView } from './components/SavedHostelsView';
@@ -337,8 +338,10 @@ function MainApp() {
   // Modals & Sliders
   const [videoSliderIndex, setVideoSliderIndex] = useState<number>(0);
   const [isVideoSliderHovered, setIsVideoSliderHovered] = useState<boolean>(false);
+  const [videoTouchStart, setVideoTouchStart] = useState<number | null>(null);
   const [featuredSliderIndex, setFeaturedSliderIndex] = useState<number>(0);
   const [isFeaturedSliderHovered, setIsFeaturedSliderHovered] = useState<boolean>(false);
+  const [featuredTouchStart, setFeaturedTouchStart] = useState<number | null>(null);
   const [authModalOpen, setAuthModalOpen] = useState<boolean>(false);
   const [authModalDefaultRole, setAuthModalDefaultRole] = useState<UserRole>('STUDENT');
   const [aiModalOpen, setAiModalOpen] = useState<boolean>(false);
@@ -1102,10 +1105,22 @@ function MainApp() {
                 </div>
               </div>
 
-              {/* Rolling Carousel Container with Hover-Pause */}
+              {/* Rolling Carousel Container with Hover-Pause & Mobile Touch Swipe */}
               <div 
                 onMouseEnter={() => setIsFeaturedSliderHovered(true)}
                 onMouseLeave={() => setIsFeaturedSliderHovered(false)}
+                onTouchStart={(e) => setFeaturedTouchStart(e.targetTouches[0].clientX)}
+                onTouchEnd={(e) => {
+                  if (featuredTouchStart === null) return;
+                  const touchEnd = e.changedTouches[0].clientX;
+                  const diff = featuredTouchStart - touchEnd;
+                  if (diff > 40) {
+                    setFeaturedSliderIndex(prev => (featuredRollList.length > 0 ? (prev + 1) % featuredRollList.length : 0));
+                  } else if (diff < -40) {
+                    setFeaturedSliderIndex(prev => (featuredRollList.length > 0 ? (prev > 0 ? prev - 1 : featuredRollList.length - 1) : 0));
+                  }
+                  setFeaturedTouchStart(null);
+                }}
                 className="space-y-4"
               >
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -1142,21 +1157,16 @@ function MainApp() {
                   )}
                 </div>
 
-                {/* Bottom Pagination Dots */}
-                <div className="flex items-center justify-center gap-1.5 pt-2">
-                  {featuredRollList.map((_, dotIdx) => (
-                    <button
-                      key={`feat-dot-${dotIdx}`}
-                      type="button"
-                      onClick={() => setFeaturedSliderIndex(dotIdx)}
-                      className={`h-1.5 rounded-full transition-all cursor-pointer ${
-                        dotIdx === featuredSliderIndex
-                          ? 'w-6 bg-emerald-600 dark:bg-emerald-400'
-                          : 'w-2 bg-slate-300 dark:bg-slate-700 hover:bg-slate-400'
-                      }`}
-                      title={`Jump to hostel ${dotIdx + 1}`}
-                    />
-                  ))}
+                {/* Bottom Windowed Pagination Indicator */}
+                <div className="pt-2">
+                  <PremiumCarouselPagination
+                    totalItems={featuredRollList.length}
+                    currentIndex={featuredSliderIndex}
+                    onSelectIndex={(idx) => setFeaturedSliderIndex(idx)}
+                    maxVisible={5}
+                    variant="emerald"
+                    itemLabelPrefix="Jump to hostel"
+                  />
                 </div>
               </div>
             </section>
@@ -1210,10 +1220,22 @@ function MainApp() {
                 </div>
               </div>
 
-              {/* Rolling Carousel Container */}
+              {/* Rolling Carousel Container with Hover-Pause & Mobile Touch Swipe */}
               <div 
                 onMouseEnter={() => setIsVideoSliderHovered(true)}
                 onMouseLeave={() => setIsVideoSliderHovered(false)}
+                onTouchStart={(e) => setVideoTouchStart(e.targetTouches[0].clientX)}
+                onTouchEnd={(e) => {
+                  if (videoTouchStart === null) return;
+                  const touchEnd = e.changedTouches[0].clientX;
+                  const diff = videoTouchStart - touchEnd;
+                  if (diff > 40) {
+                    setVideoSliderIndex(prev => (rollingVideoList.length > 0 ? (prev + 1) % rollingVideoList.length : 0));
+                  } else if (diff < -40) {
+                    setVideoSliderIndex(prev => (rollingVideoList.length > 0 ? (prev > 0 ? prev - 1 : rollingVideoList.length - 1) : 0));
+                  }
+                  setVideoTouchStart(null);
+                }}
                 className="space-y-4"
               >
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -1314,21 +1336,16 @@ function MainApp() {
                   )}
                 </div>
 
-                {/* Bottom Slide Pagination Dots */}
-                <div className="flex items-center justify-center gap-1.5 pt-2">
-                  {rollingVideoList.map((_, dotIdx) => (
-                    <button
-                      key={`dot-${dotIdx}`}
-                      type="button"
-                      onClick={() => setVideoSliderIndex(dotIdx)}
-                      className={`h-1.5 rounded-full transition-all cursor-pointer ${
-                        dotIdx === videoSliderIndex
-                          ? 'w-6 bg-emerald-600 dark:bg-emerald-400'
-                          : 'w-2 bg-slate-300 dark:bg-slate-700 hover:bg-slate-400'
-                      }`}
-                      title={`Jump to video ${dotIdx + 1}`}
-                    />
-                  ))}
+                {/* Bottom Slide Windowed Pagination Indicator */}
+                <div className="pt-2">
+                  <PremiumCarouselPagination
+                    totalItems={rollingVideoList.length}
+                    currentIndex={videoSliderIndex}
+                    onSelectIndex={(idx) => setVideoSliderIndex(idx)}
+                    maxVisible={5}
+                    variant="emerald"
+                    itemLabelPrefix="Jump to video"
+                  />
                 </div>
               </div>
             </section>

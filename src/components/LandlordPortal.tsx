@@ -520,19 +520,6 @@ export const LandlordPortal: React.FC<LandlordPortalProps> = ({
               <PlusCircle className="w-4 h-4" />
               <span>Add New Property</span>
             </button>
-
-            <button
-              onClick={() => setActiveTab('notifications')}
-              className="p-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 relative transition-colors"
-              title="Notifications"
-            >
-              <Bell className="w-4 h-4" />
-              {unreadNotifsCount > 0 && (
-                <span className="absolute -top-1 -right-1 bg-rose-500 text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
-                  {unreadNotifsCount}
-                </span>
-              )}
-            </button>
           </div>
         </div>
 

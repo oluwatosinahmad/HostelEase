@@ -28,6 +28,7 @@ import {
 import { Property } from '../types/hostelEase';
 import { formatNaira, formatDistance, getAvailabilityBadgeInfo, getPropertyTypeLabel } from '../utils/formatters';
 import { OptimizedImage } from './OptimizedImage';
+import { PremiumCarouselPagination } from './PremiumCarouselPagination';
 
 interface HostelCardProps {
   property: Property;
@@ -89,15 +90,17 @@ export const HostelCard: React.FC<HostelCardProps> = ({
   const propIdStr = String(property?.id || 'hostel');
   const liveViewers = Math.abs(propIdStr.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0) % 5) + 2;
 
-  const handlePrevImage = (e: React.MouseEvent) => {
-    e.stopPropagation();
+  const [touchStartX, setTouchStartX] = useState<number | null>(null);
+
+  const handlePrevImage = (e?: React.SyntheticEvent) => {
+    if (e) e.stopPropagation();
     setIsSliding(true);
     setCurrentImageIdx(prev => (prev === 0 ? images.length - 1 : prev - 1));
     setTimeout(() => setIsSliding(false), 250);
   };
 
-  const handleNextImage = (e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handleNextImage = (e?: React.SyntheticEvent) => {
+    if (e) e.stopPropagation();
     setIsSliding(true);
     setCurrentImageIdx(prev => (prev === images.length - 1 ? 0 : prev + 1));
     setTimeout(() => setIsSliding(false), 250);
@@ -155,7 +158,21 @@ export const HostelCard: React.FC<HostelCardProps> = ({
       }`}
     >
       {/* Property Cover Image with Slide Carousel & Badges */}
-      <div className="relative aspect-[16/10] bg-slate-100 dark:bg-slate-800 overflow-hidden select-none">
+      <div 
+        className="relative aspect-[16/10] bg-slate-100 dark:bg-slate-800 overflow-hidden select-none"
+        onTouchStart={(e) => setTouchStartX(e.targetTouches[0].clientX)}
+        onTouchEnd={(e) => {
+          if (touchStartX === null) return;
+          const touchEndX = e.changedTouches[0].clientX;
+          const diff = touchStartX - touchEndX;
+          if (diff > 40) {
+            handleNextImage();
+          } else if (diff < -40) {
+            handlePrevImage();
+          }
+          setTouchStartX(null);
+        }}
+      >
         <OptimizedImage 
           src={images[currentImageIdx] || property.coverImage || 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=800&q=80'} 
           alt={`${property.title} - Photo ${currentImageIdx + 1}`}
@@ -273,21 +290,15 @@ export const HostelCard: React.FC<HostelCardProps> = ({
 
         {/* Carousel Slide Indicator Dots */}
         {hasMultipleImages && (
-          <div className="absolute bottom-2.5 inset-x-0 flex items-center justify-center gap-1.5 z-10 pointer-events-auto">
-            {images.map((_, dotIdx) => (
-              <button
-                key={dotIdx}
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setCurrentImageIdx(dotIdx);
-                }}
-                className={`h-1.5 rounded-full transition-all duration-300 cursor-pointer ${
-                  currentImageIdx === dotIdx ? 'w-5 bg-emerald-400 shadow-md' : 'w-1.5 bg-white/60 hover:bg-white'
-                }`}
-                title={`Photo ${dotIdx + 1} of ${images.length}`}
-              />
-            ))}
+          <div className="absolute bottom-2.5 inset-x-0 flex items-center justify-center z-10 pointer-events-auto">
+            <PremiumCarouselPagination
+              totalItems={images.length}
+              currentIndex={currentImageIdx}
+              onSelectIndex={(idx) => setCurrentImageIdx(idx)}
+              maxVisible={5}
+              variant="glass"
+              itemLabelPrefix="Photo"
+            />
           </div>
         )}
 
