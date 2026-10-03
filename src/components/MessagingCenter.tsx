@@ -1720,10 +1720,17 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
                   }
 
                   if (filteredMessages.length === 0) {
+                    const peerName = isStudent 
+                      ? (activeDetail.conversation?.provider?.name || 'Agent') 
+                      : (activeDetail.conversation?.student?.name || 'Student');
                     return (
                       <div className="py-20 text-center space-y-2">
-                        <p className="text-xs font-bold text-slate-300">Start the conversation with {activeDetail.conversation?.provider?.name || 'Agent'}</p>
-                        <p className="text-[11px] text-slate-500">Pick a quick inquiry chip below or send a photo snap.</p>
+                        <p className="text-xs font-bold text-slate-300">Start the conversation with {peerName}</p>
+                        <p className="text-[11px] text-slate-500">
+                          {isStudent 
+                            ? 'Pick a quick inquiry chip below, ask a question, or send a photo snap.' 
+                            : 'Reply to this student inquiry or send photos and details about the hostel.'}
+                        </p>
                       </div>
                     );
                   }

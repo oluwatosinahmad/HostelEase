@@ -75,6 +75,19 @@ function getMemoryPresence(userId: string): { isOnline: boolean; lastSeenAt: str
   return { isOnline, lastSeenAt: ts };
 }
 
+let memoryTyping = new Map<string, { userId: string; userName: string; expiresAt: number }>();
+
+function getTypingUser(conversationId: string): { userId: string; userName: string } | null {
+  const entry = memoryTyping.get(conversationId);
+  if (!entry) return null;
+  if (Date.now() > entry.expiresAt) {
+    memoryTyping.delete(conversationId);
+    return null;
+  }
+  return { userId: entry.userId, userName: entry.userName };
+}
+
+
 let memoryProperties: any[] = [
   ...(seedPropertiesData as any[]),
   {
@@ -3150,7 +3163,7 @@ export default async (req: Request): Promise<Response> => {
           providerId: pId,
           providerName: pName,
           providerEmail: pEmail,
-          lastMessageText: initialMessage || `Inquiry for ${prop?.title || 'Hostel'}`,
+          lastMessageText: initialMessage || 'No messages yet',
           lastMessageAt: new Date().toISOString(),
           status: 'ACTIVE',
           createdAt: new Date().toISOString(),
@@ -3250,37 +3263,70 @@ export default async (req: Request): Promise<Response> => {
 
     const userId = user.id;
     const userEmail = (user.email || '').toLowerCase().trim();
+    const userRole = (user.role || '').toUpperCase();
+    const isStudentRole = userRole === 'STUDENT';
+    const isProviderRole = userRole === 'PROVIDER' || userRole === 'LANDLORD' || userRole === 'AGENT';
+    const isAdminRole = userRole === 'ADMIN' || userRole === 'OWNER';
 
     const userConvs = memoryConversations.filter(c => {
-      if (user.role === 'ADMIN') return true;
-      if (user.role === 'STUDENT') {
+      if (isAdminRole) return true;
+      if (isStudentRole || !isProviderRole) {
         return c.studentId === userId || (userEmail && c.studentEmail && c.studentEmail.toLowerCase() === userEmail);
       } else {
-        return c.providerId === userId || (userEmail && c.providerEmail && c.providerEmail.toLowerCase() === userEmail);
+        const prop = memoryProperties.find(p => p.id === c.propertyId);
+        const propProviderId = prop?.providerId || (prop?.provider as any)?.id;
+        const propProviderEmail = (prop as any)?.providerEmail || prop?.provider?.email;
+        return c.providerId === userId ||
+          (propProviderId === userId) ||
+          (userEmail && c.providerEmail && c.providerEmail.toLowerCase() === userEmail) ||
+          (userEmail && propProviderEmail && propProviderEmail.toLowerCase() === userEmail);
       }
     });
 
     const enriched = userConvs.map(c => {
-      const otherUserId = user.role === 'STUDENT' ? c.providerId : c.studentId;
+      const otherUserId = isStudentRole ? c.providerId : c.studentId;
       const presence = getMemoryPresence(otherUserId);
       const otherUserObj = memoryUsers.find(u => u.id === otherUserId);
       const prop = memoryProperties.find(p => p.id === c.propertyId);
       const coverImg = prop?.coverImage || c.propertyCoverImage || 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=1200&q=85';
       const bestAvatar = otherUserObj?.avatarUrl || coverImg;
 
+      // Dynamically calculate latest message and time from memoryMessages
+      const convMsgs = memoryMessages
+        .filter(m => m.conversationId === c.id)
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+      const lastMsg = convMsgs[0];
+      let displayLastMessageText = 'No messages yet';
+      let displayLastMessageAt = c.lastMessageAt || c.createdAt;
+
+      if (lastMsg) {
+        displayLastMessageText = lastMsg.content || (lastMsg.messageType === 'IMAGE' ? '📷 Photo' : 'Message');
+        displayLastMessageAt = lastMsg.createdAt;
+      } else if (c.lastMessageText && !c.lastMessageText.startsWith('Inquiry for ') && c.lastMessageText !== 'Conversation started') {
+        displayLastMessageText = c.lastMessageText;
+      }
+
+      const unreadCount = convMsgs.filter(m => m.senderId !== user.id && !m.isRead).length;
+
       return {
         ...c,
         propertyCoverImage: coverImg,
         avatarUrl: bestAvatar,
         isOnline: presence.isOnline,
-        lastSeenAt: presence.lastSeenAt
+        lastSeenAt: presence.lastSeenAt,
+        lastMessageText: displayLastMessageText,
+        lastMessageAt: displayLastMessageAt,
+        unreadCount
       };
-    });
+    }).sort((a, b) => new Date(b.lastMessageAt || 0).getTime() - new Date(a.lastMessageAt || 0).getTime());
 
     return new Response(JSON.stringify({ conversations: enriched }), { status: 200, headers: CORS_HEADERS });
   }
 
-  if (pathname.startsWith('/api/messages/conversations/') && !pathname.includes('/messages') && !pathname.includes('/read') && req.method === 'GET') {
+  // Conversation Detail Endpoint (Fixed: matches /api/messages/conversations/:id without matching sub-routes)
+  const isMessageSubroute = pathname.endsWith('/messages') || pathname.endsWith('/read') || pathname.endsWith('/typing');
+  if (pathname.startsWith('/api/messages/conversations/') && !isMessageSubroute && req.method === 'GET') {
     const user = parseAuth(req);
     if (!user) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: CORS_HEADERS });
@@ -3344,6 +3390,9 @@ export default async (req: Request): Promise<Response> => {
     const studentName = conv.studentName || studentObj?.fullName || 'Student';
     const providerName = conv.providerName || providerObj?.fullName || prop?.provider?.name || 'Verified Agent';
 
+    const typing = getTypingUser(convId);
+    const typingInfo = (typing && typing.userId !== user.id) ? typing : null;
+
     return new Response(JSON.stringify({
       conversation: {
         id: conv.id,
@@ -3374,8 +3423,41 @@ export default async (req: Request): Promise<Response> => {
         status: conv.status || 'ACTIVE',
         createdAt: conv.createdAt
       },
+      typingUser: typingInfo,
       messages: msgs
     }), { status: 200, headers: CORS_HEADERS });
+  }
+
+  // Real-Time Typing Indicator Endpoints for Netlify Functions
+  if (pathname.includes('/api/messages/conversations/') && pathname.endsWith('/typing') && req.method === 'POST') {
+    const user = parseAuth(req);
+    if (!user) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: CORS_HEADERS });
+    const convId = pathname.replace('/api/messages/conversations/', '').replace('/typing', '');
+    const body = await req.json().catch(() => ({}));
+    const isTyping = Boolean(body.isTyping);
+    if (isTyping) {
+      memoryTyping.set(convId, {
+        userId: user.id,
+        userName: user.fullName || (user.role === 'STUDENT' ? 'Student' : 'Agent'),
+        expiresAt: Date.now() + 5000
+      });
+    } else {
+      const existing = memoryTyping.get(convId);
+      if (existing && existing.userId === user.id) {
+        memoryTyping.delete(convId);
+      }
+    }
+    return new Response(JSON.stringify({ success: true, conversationId: convId, isTyping }), { status: 200, headers: CORS_HEADERS });
+  }
+
+  if (pathname.includes('/api/messages/conversations/') && pathname.endsWith('/typing') && req.method === 'GET') {
+    const user = parseAuth(req);
+    const convId = pathname.replace('/api/messages/conversations/', '').replace('/typing', '');
+    const typing = getTypingUser(convId);
+    if (typing && typing.userId !== user?.id) {
+      return new Response(JSON.stringify({ typing: true, isTyping: true, user: typing, typingUser: typing }), { status: 200, headers: CORS_HEADERS });
+    }
+    return new Response(JSON.stringify({ typing: false, isTyping: false, user: null, typingUser: null }), { status: 200, headers: CORS_HEADERS });
   }
 
   if (pathname.includes('/api/messages/conversations/') && pathname.endsWith('/messages') && req.method === 'POST') {
@@ -3418,6 +3500,12 @@ export default async (req: Request): Promise<Response> => {
       };
 
       await saveCloudMessage(newMsg);
+
+      // Clear typing indicator for sender upon message dispatch
+      const existingTyping = memoryTyping.get(convId);
+      if (existingTyping && existingTyping.userId === user.id) {
+        memoryTyping.delete(convId);
+      }
 
       if (conv) {
         conv.lastMessageText = body.content.trim();

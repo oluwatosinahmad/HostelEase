@@ -105,7 +105,7 @@ router.post('/conversations', authenticate, (req: AuthenticatedRequest, res: Res
       db.prepare(`
         INSERT INTO conversations (id, property_id, student_id, provider_id, last_message_text, last_message_at)
         VALUES (?, ?, ?, ?, ?, datetime('now'))
-      `).run(convId, propertyId, studentId, providerId, initialMessage || 'Conversation started');
+      `).run(convId, propertyId, studentId, providerId, initialMessage || 'No messages yet');
 
       conv = db.prepare('SELECT * FROM conversations WHERE id = ?').get(convId);
 
@@ -208,7 +208,20 @@ router.get('/conversations', authenticate, (req: AuthenticatedRequest, res: Resp
 
     if (isStudent || (!isProvider && !isAdmin)) {
       sql = `
-        SELECT c.*, p.title as property_title, p.address as property_address,
+        SELECT c.id, c.property_id, c.student_id, c.provider_id, c.status, c.created_at, c.updated_at,
+               COALESCE(
+                 (SELECT content FROM messages WHERE conversation_id = c.id ORDER BY created_at DESC, rowid DESC LIMIT 1),
+                 CASE 
+                   WHEN c.last_message_text LIKE 'Inquiry for %' OR c.last_message_text = 'Conversation started' THEN 'No messages yet'
+                   ELSE COALESCE(c.last_message_text, 'No messages yet')
+                 END
+               ) as last_message_text,
+               COALESCE(
+                 (SELECT created_at FROM messages WHERE conversation_id = c.id ORDER BY created_at DESC, rowid DESC LIMIT 1),
+                 c.last_message_at,
+                 c.created_at
+               ) as last_message_at,
+               p.title as property_title, p.address as property_address,
                COALESCE(a.name, 'Under G') as area_name,
                COALESCE(u.full_name, 'Verified Agent') as provider_name,
                COALESCE(u_s.full_name, 'Student') as student_name,
@@ -227,12 +240,25 @@ router.get('/conversations', authenticate, (req: AuthenticatedRequest, res: Resp
         LEFT JOIN users u_s ON c.student_id = u_s.id
         LEFT JOIN user_presence up ON up.user_id = c.provider_id
         WHERE c.student_id = ? OR c.student_id IN (SELECT id FROM users WHERE LOWER(email) = LOWER(?))
-        ORDER BY c.last_message_at DESC
+        ORDER BY last_message_at DESC
       `;
       params.push(req.user.id, req.user.id, req.user.email || '');
     } else if (isProvider) {
       sql = `
-        SELECT c.*, p.title as property_title, p.address as property_address,
+        SELECT c.id, c.property_id, c.student_id, c.provider_id, c.status, c.created_at, c.updated_at,
+               COALESCE(
+                 (SELECT content FROM messages WHERE conversation_id = c.id ORDER BY created_at DESC, rowid DESC LIMIT 1),
+                 CASE 
+                   WHEN c.last_message_text LIKE 'Inquiry for %' OR c.last_message_text = 'Conversation started' THEN 'No messages yet'
+                   ELSE COALESCE(c.last_message_text, 'No messages yet')
+                 END
+               ) as last_message_text,
+               COALESCE(
+                 (SELECT created_at FROM messages WHERE conversation_id = c.id ORDER BY created_at DESC, rowid DESC LIMIT 1),
+                 c.last_message_at,
+                 c.created_at
+               ) as last_message_at,
+               p.title as property_title, p.address as property_address,
                COALESCE(a.name, 'Under G') as area_name,
                COALESCE(u.full_name, 'Student') as student_name,
                COALESCE(u_p.full_name, 'Verified Agent') as provider_name,
@@ -253,12 +279,25 @@ router.get('/conversations', authenticate, (req: AuthenticatedRequest, res: Resp
         WHERE c.provider_id = ?
            OR c.provider_id IN (SELECT id FROM users WHERE LOWER(email) = LOWER(?))
            OR c.property_id IN (SELECT id FROM properties WHERE provider_id = ? OR provider_id IN (SELECT id FROM users WHERE LOWER(email) = LOWER(?)))
-        ORDER BY c.last_message_at DESC
+        ORDER BY last_message_at DESC
       `;
       params.push(req.user.id, req.user.id, req.user.email || '', req.user.id, req.user.email || '');
     } else if (isAdmin) {
       sql = `
-        SELECT c.*, p.title as property_title, p.address as property_address,
+        SELECT c.id, c.property_id, c.student_id, c.provider_id, c.status, c.created_at, c.updated_at,
+               COALESCE(
+                 (SELECT content FROM messages WHERE conversation_id = c.id ORDER BY created_at DESC, rowid DESC LIMIT 1),
+                 CASE 
+                   WHEN c.last_message_text LIKE 'Inquiry for %' OR c.last_message_text = 'Conversation started' THEN 'No messages yet'
+                   ELSE COALESCE(c.last_message_text, 'No messages yet')
+                 END
+               ) as last_message_text,
+               COALESCE(
+                 (SELECT created_at FROM messages WHERE conversation_id = c.id ORDER BY created_at DESC, rowid DESC LIMIT 1),
+                 c.last_message_at,
+                 c.created_at
+               ) as last_message_at,
+               p.title as property_title, p.address as property_address,
                COALESCE(a.name, 'Under G') as area_name,
                COALESCE(u_s.full_name, 'Student') as student_name,
                u_s.avatar_url as student_avatar_url,
@@ -279,7 +318,7 @@ router.get('/conversations', authenticate, (req: AuthenticatedRequest, res: Resp
         LEFT JOIN users u_p ON c.provider_id = u_p.id
         LEFT JOIN user_presence up_s ON up_s.user_id = c.student_id
         LEFT JOIN user_presence up_p ON up_p.user_id = c.provider_id
-        ORDER BY c.last_message_at DESC
+        ORDER BY last_message_at DESC
       `;
     }
 
