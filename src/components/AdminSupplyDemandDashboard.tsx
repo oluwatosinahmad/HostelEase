@@ -3,6 +3,7 @@ import {
   TrendingUp, AlertTriangle, Search, ShieldCheck, Activity, 
   MapPin, CheckCircle2, RefreshCw, Layers, Users
 } from 'lucide-react';
+import { safeStorage } from '../utils/safeStorage';
 
 export const AdminSupplyDemandDashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
@@ -16,7 +17,7 @@ export const AdminSupplyDemandDashboard: React.FC = () => {
   const fetchDashboardData = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('hostel_ease_token') || localStorage.getItem('token');
+      const token = safeStorage.getItem('hostel_ease_token') || safeStorage.getItem('token');
       const [sdRes, dupRes] = await Promise.all([
         fetch('/api/intelligence/admin/supply-demand', {
           headers: { Authorization: `Bearer ${token}` }

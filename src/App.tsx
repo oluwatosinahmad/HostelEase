@@ -61,6 +61,7 @@ import { AIAccommodationAssistantModal } from './components/AIAccommodationAssis
 import { AIAgentAssistantModal } from './components/AILandlordAssistantModal';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { MorePageView } from './components/MorePageView';
+import { safeStorage } from './utils/safeStorage';
 
 // Dynamic Code Splitting for heavy portals & views (Slashes initial bundle by ~70%!)
 const AdminPortal = lazy(() => import('./components/AdminPortal').then(m => ({ default: m.AdminPortal })));
@@ -2347,7 +2348,7 @@ function MainApp() {
           const userName = authedUser?.fullName || authedUser?.name || (authedUser?.email ? authedUser.email.split('@')[0] : '');
           const welcomeMsg = userName ? `Welcome to HostelEase, ${userName}!` : 'Welcome to HostelEase!';
           showToast(welcomeMsg, 'success');
-          const targetRole = authedUser?.role || (localStorage.getItem('hostel_ease_user') ? JSON.parse(localStorage.getItem('hostel_ease_user') || '{}')?.role : 'STUDENT');
+          const targetRole = authedUser?.role || (safeStorage.getJSON<any | null>('hostel_ease_user', null)?.role || 'STUDENT');
           if (targetRole === 'ADMIN') {
             setCurrentView('admin-portal');
           } else if (targetRole === 'PROVIDER') {

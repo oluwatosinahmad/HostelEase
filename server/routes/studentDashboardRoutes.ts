@@ -67,10 +67,20 @@ router.get('/dashboard', authenticate, (req: AuthenticatedRequest, res: Response
   try {
     // 1. User Profile & Completion
     const user = db.prepare(`
-      SELECT id, email, full_name, phone, role, is_active, avatar_url,
-             department, level, matric_no, gender, created_at
-      FROM users WHERE id = ?
+      SELECT u.id, u.email, u.full_name, u.phone, u.role, u.is_active, u.avatar_url,
+             COALESCE(u.department, sp.department, '') as department,
+             COALESCE(u.level, sp.level, '') as level,
+             COALESCE(u.matric_no, sp.matric_no, '') as matric_no,
+             COALESCE(u.gender, sp.gender, 'ANY') as gender,
+             u.created_at
+      FROM users u
+      LEFT JOIN student_profiles sp ON sp.user_id = u.id
+      WHERE u.id = ?
     `).get(studentId) as any;
+
+    if (!user) {
+      return res.status(404).json({ error: 'Student account not found' });
+    }
 
     let completenessScore = 0;
     const missingFields: string[] = [];
@@ -834,9 +844,15 @@ router.get('/profile', authenticate, (req: AuthenticatedRequest, res: Response) 
 
   try {
     const user = db.prepare(`
-      SELECT id, email, full_name, phone, role, avatar_url,
-             department, level, matric_no, gender, created_at
-      FROM users WHERE id = ?
+      SELECT u.id, u.email, u.full_name as fullName, u.phone, u.role, u.avatar_url as avatarUrl,
+             COALESCE(u.department, sp.department, '') as department,
+             COALESCE(u.level, sp.level, '') as level,
+             COALESCE(u.matric_no, sp.matric_no, '') as matricNo,
+             COALESCE(u.gender, sp.gender, 'ANY') as gender,
+             u.created_at as createdAt
+      FROM users u
+      LEFT JOIN student_profiles sp ON sp.user_id = u.id
+      WHERE u.id = ?
     `).get(req.user.id) as any;
 
     if (!user) return res.status(404).json({ error: 'Student profile not found' });
@@ -855,29 +871,71 @@ router.put('/profile', authenticate, (req: AuthenticatedRequest, res: Response) 
   }
 
   try {
-    db.prepare(`
-      UPDATE users
-      SET full_name = ?,
-          phone = COALESCE(?, phone),
-          department = COALESCE(?, department),
-          level = COALESCE(?, level),
-          matric_no = COALESCE(?, matric_no),
-          gender = COALESCE(?, gender),
-          avatar_url = COALESCE(?, avatar_url),
-          updated_at = datetime('now')
-      WHERE id = ?
-    `).run(
-      fullName.trim(),
-      phone ? phone.trim() : null,
-      department ? department.trim() : null,
-      level ? level.trim() : null,
-      matricNo ? matricNo.trim() : null,
-      gender || 'ANY',
-      avatarUrl || null,
-      req.user.id
-    );
+    db.transaction(() => {
+      db.prepare(`
+        UPDATE users
+        SET full_name = ?,
+            phone = COALESCE(?, phone),
+            department = COALESCE(?, department),
+            level = COALESCE(?, level),
+            matric_no = COALESCE(?, matric_no),
+            gender = COALESCE(?, gender),
+            avatar_url = COALESCE(?, avatar_url),
+            updated_at = datetime('now')
+        WHERE id = ?
+      `).run(
+        fullName.trim(),
+        phone ? phone.trim() : null,
+        department ? department.trim() : null,
+        level ? level.trim() : null,
+        matricNo ? matricNo.trim() : null,
+        gender || 'ANY',
+        avatarUrl || null,
+        req.user!.id
+      );
 
-    return res.json({ success: true, message: 'Profile updated successfully' });
+      db.prepare(`
+        UPDATE student_profiles
+        SET department = COALESCE(?, department),
+            level = COALESCE(?, level),
+            matric_no = COALESCE(?, matric_no),
+            gender = COALESCE(?, gender),
+            updated_at = datetime('now')
+        WHERE user_id = ?
+      `).run(
+        department ? department.trim() : null,
+        level ? level.trim() : null,
+        matricNo ? matricNo.trim() : null,
+        gender || 'ANY',
+        req.user!.id
+      );
+    })();
+
+    const updatedUser = db.prepare(`
+      SELECT u.id, u.email, u.full_name as fullName, u.phone, u.role, u.avatar_url as avatarUrl,
+             COALESCE(u.department, sp.department, '') as department,
+             COALESCE(u.level, sp.level, '') as level,
+             COALESCE(u.matric_no, sp.matric_no, '') as matricNo,
+             COALESCE(u.gender, sp.gender, 'ANY') as gender
+      FROM users u
+      LEFT JOIN student_profiles sp ON sp.user_id = u.id
+      WHERE u.id = ?
+    `).get(req.user!.id) as any;
+
+    return res.json({ 
+      success: true, 
+      message: 'Profile updated successfully',
+      user: {
+        ...updatedUser,
+        studentDetails: {
+          matricNo: updatedUser.matricNo,
+          matricNumber: updatedUser.matricNo,
+          department: updatedUser.department,
+          level: updatedUser.level,
+          gender: updatedUser.gender
+        }
+      }
+    });
   } catch (err: any) {
     return res.status(500).json({ error: 'Failed to update profile: ' + err.message });
   }

@@ -112,8 +112,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const logout = () => {
     api.presence.setOffline().catch(() => {});
-    safeStorage.removeItem('hostel_ease_token');
-    safeStorage.removeItem('hostel_ease_user');
+    safeStorage.purgeUserSessionData();
     setToken(null);
     setUser(null);
     window.dispatchEvent(new CustomEvent('hostel_ease_user_logged_out'));
@@ -123,12 +122,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     try {
       await api.student.updateProfile(data);
     } catch {}
-    const stored = localStorage.getItem('hostel_ease_user');
+    const stored = safeStorage.getJSON<User | null>('hostel_ease_user', null);
     if (stored) {
-      try {
-        const u = JSON.parse(stored);
-        setUser(u);
-      } catch {}
+      setUser(stored);
     }
   };
 

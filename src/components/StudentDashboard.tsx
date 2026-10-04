@@ -66,6 +66,7 @@ import { SmartShortlistManager } from './SmartShortlistManager';
 import { AccommodationProgressTracker } from './AccommodationProgressTracker';
 import { UserAvatar } from './UserAvatar';
 import { DEFAULT_STUDENT_DASHBOARD } from '../services/offlineFallback';
+import { safeStorage } from '../utils/safeStorage';
 
 interface StudentDashboardProps {
   areas?: Area[];
@@ -181,18 +182,17 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
       }).catch(() => null);
 
       // 4. Update local user state safely
-      const stored = localStorage.getItem('hostel_ease_user');
+      const stored = safeStorage.getJSON<any | null>('hostel_ease_user', null);
       if (stored) {
-        const parsed = JSON.parse(stored);
-        const updatedUser = { ...parsed, avatarUrl: finalUrl };
-        localStorage.setItem('hostel_ease_user', JSON.stringify(updatedUser));
+        const updatedUser = { ...stored, avatarUrl: finalUrl };
+        safeStorage.setJSON('hostel_ease_user', updatedUser);
 
         try {
-          const registered = JSON.parse(localStorage.getItem('hostel_ease_registered_users') || '[]');
+          const registered = safeStorage.getJSON<any[]>('hostel_ease_registered_users', []);
           const idx = registered.findIndex((u: any) => u.email?.toLowerCase() === updatedUser.email?.toLowerCase());
           if (idx >= 0) {
             registered[idx] = { ...registered[idx], avatarUrl: finalUrl };
-            localStorage.setItem('hostel_ease_registered_users', JSON.stringify(registered));
+            safeStorage.setJSON('hostel_ease_registered_users', registered);
           }
         } catch {}
 

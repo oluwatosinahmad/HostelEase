@@ -5,6 +5,7 @@ import {
   HelpCircle, ChevronRight
 } from 'lucide-react';
 import { TrueCostEstimatorModal } from './TrueCostEstimatorModal';
+import { safeStorage } from '../utils/safeStorage';
 
 interface SmartMatchItem {
   propertyId: string;
@@ -74,7 +75,7 @@ export const SmartMatchFeed: React.FC<SmartMatchFeedProps> = ({
   const fetchRecommendations = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('hostel_ease_token') || localStorage.getItem('token');
+      const token = safeStorage.getItem('hostel_ease_token') || safeStorage.getItem('token');
       const res = await fetch('/api/intelligence/smart-match', {
         method: 'POST',
         headers: {

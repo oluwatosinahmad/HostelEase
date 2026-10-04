@@ -177,15 +177,14 @@ export const HostelDetailModal: React.FC<HostelDetailModalProps> = ({
     }
   };
 
-  const handleOpenWhatsApp = () => {
+  const handleOpenDirectChat = () => {
     if (!property) return;
-    const rawPhone = property.provider?.phone || '08039876543';
-    let cleanPhone = rawPhone.replace(/[^0-9]/g, '');
-    if (cleanPhone.startsWith('0')) {
-      cleanPhone = '234' + cleanPhone.substring(1);
+    onClose();
+    if (onOpenConversation) {
+      onOpenConversation(property.id);
+    } else {
+      window.dispatchEvent(new CustomEvent('hostel_ease_open_conversation', { detail: { propertyId: property.id } }));
     }
-    const message = encodeURIComponent(`Hello ${property.provider?.name || 'Agent'}, I am inquiring about "${property.title}" listed on Hostel Ease. Is it currently available for inspection / rent?`);
-    window.open(`https://wa.me/${cleanPhone}?text=${message}`, '_blank');
   };
 
   useEffect(() => {
@@ -847,11 +846,11 @@ export const HostelDetailModal: React.FC<HostelDetailModalProps> = ({
                           <div className="flex items-center justify-between gap-2 flex-wrap">
                             <button
                               type="button"
-                              onClick={handleOpenWhatsApp}
-                              className="px-3.5 py-2 bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 text-emerald-800 dark:text-emerald-300 text-xs font-bold rounded-xl border border-emerald-300 dark:border-emerald-800 flex items-center gap-1.5 transition-colors"
+                              onClick={handleOpenDirectChat}
+                              className="px-3.5 py-2 bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 text-emerald-800 dark:text-emerald-300 text-xs font-bold rounded-xl border border-emerald-300 dark:border-emerald-800 flex items-center gap-1.5 transition-colors cursor-pointer"
                             >
                               <MessageCircle className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                              WhatsApp Agent
+                              Open Direct Chat
                             </button>
 
                             <button

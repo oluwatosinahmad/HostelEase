@@ -171,5 +171,76 @@ export const safeStorage = {
     } catch {
       return false;
     }
+  },
+
+  /**
+   * Completely purges all user-scoped session data, tokens, caches, and private message threads.
+   * Ensures 100% strict isolation so another user logging in on the same browser/device
+   * never inherits the previous user's profile, photos, bookings, or messages.
+   */
+  purgeUserSessionData(): void {
+    const userKeysToPurge = [
+      'hostel_ease_token',
+      'hostel_ease_user',
+      'hostel_ease_impersonator_admin',
+      'hostel_ease_preferences',
+      'hostel_ease_student_preferences',
+      'hostel_ease_roommate_profile',
+      'hostel_ease_saved_hostels',
+      'hostel_ease_saved_properties',
+      'hostel_ease_bookings',
+      'hostel_ease_inspections',
+      'hostel_ease_notifications',
+      'hostel_ease_search_history',
+      'hostel_ease_current_conversation',
+      'hostel_ease_target_conversation_id',
+      'hostel_ease_utility_radar_data',
+      'hostel_ease_user_utility_votes'
+    ];
+
+    // 1. Remove explicit known user keys
+    for (const key of userKeysToPurge) {
+      this.removeItem(key);
+    }
+
+    // 2. Scan and remove any user-scoped or thread-scoped keys from localStorage
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        const dynamicKeysToRemove: string[] = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (k && (
+            k.startsWith('hostel_ease_conversations_') ||
+            k.startsWith('hostel_ease_msgs_') ||
+            k.startsWith('hostel_ease_preferences_') ||
+            k.startsWith('hostelease_movein_chk_') ||
+            k.startsWith('hostel_ease_user_')
+          )) {
+            dynamicKeysToRemove.push(k);
+          }
+        }
+        for (const k of dynamicKeysToRemove) {
+          try { localStorage.removeItem(k); } catch {}
+          memoryFallback.delete(k);
+        }
+      } catch (err) {
+        console.warn('[safeStorage] Error during session purge:', err);
+      }
+    }
+
+    // 3. Clear memory fallback keys matching patterns
+    for (const k of Array.from(memoryFallback.keys())) {
+      if (
+        userKeysToPurge.includes(k) ||
+        k.startsWith('hostel_ease_conversations_') ||
+        k.startsWith('hostel_ease_msgs_') ||
+        k.startsWith('hostel_ease_preferences_') ||
+        k.startsWith('hostelease_movein_chk_') ||
+        k.startsWith('hostel_ease_user_')
+      ) {
+        memoryFallback.delete(k);
+      }
+    }
   }
 };
+

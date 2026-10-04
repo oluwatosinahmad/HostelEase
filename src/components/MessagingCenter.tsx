@@ -1709,7 +1709,7 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
                               setConfirmDeleteModal({
                                 type: 'DELETE_CONVERSATION',
                                 conversationId: activeConversationId,
-                                targetName: isStudent ? activeDetail.conversation.provider.name : activeDetail.conversation.student.name
+                                targetName: isStudent ? (activeDetail.conversation?.provider?.name || 'Agent') : (activeDetail.conversation?.student?.name || 'Student')
                               });
                               setShowChatMenu(false);
                             }}

@@ -754,32 +754,18 @@ export const BookingModal: React.FC<BookingModalProps> = ({
                 <button
                   type="button"
                   onClick={() => {
-                    const rawPhone = property.provider?.phone || '08039876543';
-                    let cleanPhone = rawPhone.replace(/[^0-9]/g, '');
-                    if (cleanPhone.startsWith('0')) {
-                      cleanPhone = '234' + cleanPhone.substring(1);
+                    onClose();
+                    if (onOpenConversation) {
+                      onOpenConversation(property.id);
+                    } else {
+                      window.dispatchEvent(new CustomEvent('hostel_ease_open_conversation', { detail: { propertyId: property.id } }));
                     }
-                    const msg = encodeURIComponent(`Hello ${property.provider?.name || 'Agent'}, I have just placed a space reservation for "${property.title}" (Ref: ${createdBooking?.bookingReference || 'HE-BK'}) on Hostel Ease. Looking forward to your confirmation!`);
-                    window.open(`https://wa.me/${cleanPhone}?text=${msg}`, '_blank');
                   }}
                   className="w-full sm:w-auto px-5 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
                 >
                   <MessageCircle className="w-4 h-4" />
-                  <span>WhatsApp Agent</span>
+                  <span>Direct Chat with Agent</span>
                 </button>
-
-                {onOpenConversation && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onClose();
-                      onOpenConversation(property.id);
-                    }}
-                    className="w-full sm:w-auto px-5 py-3 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl shadow transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
-                  >
-                    <span>💬 In-App DM</span>
-                  </button>
-                )}
 
                 <button
                   type="button"

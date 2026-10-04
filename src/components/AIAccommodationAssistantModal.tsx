@@ -39,6 +39,7 @@ import {
 import { AIMessage, AIStructuredData, AIConversation, Property } from '../types/hostelEase';
 import { api } from '../services/api';
 import { formatNaira, formatDistance } from '../utils/formatters';
+import { safeStorage } from '../utils/safeStorage';
 
 interface AIAccommodationAssistantModalProps {
   isOpen: boolean;
@@ -262,7 +263,7 @@ export const AIAccommodationAssistantModal: React.FC<AIAccommodationAssistantMod
   }, [isOpen, initialPropertyContext]);
 
   const loadConversations = async () => {
-    const token = localStorage.getItem('hostel_ease_token');
+    const token = safeStorage.getItem('hostel_ease_token');
     if (!token) return; // Prevent 401 for unauthenticated visitors
     try {
       const res = await api.ai.getConversations();

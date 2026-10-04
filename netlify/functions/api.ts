@@ -40,7 +40,7 @@ let memoryUsers: any[] = [
     id: 'user-student-1',
     email: 'student@lautech.edu.ng',
     password: 'Student123!',
-    fullName: 'Babatunde Adeleke',
+    fullName: 'Demo Student',
     phone: '08098765432',
     role: 'STUDENT'
   },
@@ -1046,7 +1046,7 @@ export default async (req: Request): Promise<Response> => {
         fullName: body.fullName || (role === 'PROVIDER' ? 'Hostel Agent' : 'Student User'),
         phone: body.phone || '',
         role,
-        avatarUrl: body.avatarUrl || (role === 'PROVIDER' ? 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=300&q=80' : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80'),
+        avatarUrl: body.avatarUrl || body.avatar_url || body.studentDetails?.avatarUrl || null,
         businessName: body.businessName || body.providerDetails?.businessName || (role === 'PROVIDER' ? 'LAUTECH Accommodation' : undefined),
         matricNo: body.matricNo || body.studentDetails?.matricNo || body.studentDetails?.matricNumber || '',
         department: body.department || body.studentDetails?.department || '',

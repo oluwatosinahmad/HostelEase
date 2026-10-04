@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Sparkles, AlertCircle, ArrowRight, X, Filter, CheckCircle2 } from 'lucide-react';
 import { filterFallbackProperties } from '../services/offlineFallback';
+import { safeStorage } from '../utils/safeStorage';
 
 export interface SmartSearchBarProps {
   value?: string;
@@ -72,7 +73,7 @@ export const SmartSearchBar: React.FC<SmartSearchBarProps> = ({
     }
 
     try {
-      const token = localStorage.getItem('hostel_ease_token') || localStorage.getItem('token');
+      const token = safeStorage.getItem('hostel_ease_token') || safeStorage.getItem('token');
       const res = await fetch('/api/intelligence/nl-search', {
         method: 'POST',
         headers: {

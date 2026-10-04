@@ -169,7 +169,7 @@ export async function fetchWithTimeout(url: string, options: RequestInit = {}, t
 }
 
 function getAuthHeader(): Record<string, string> {
-  const token = localStorage.getItem('hostel_ease_token');
+  const token = safeStorage.getItem('hostel_ease_token');
   const user = getCurrentUser();
   const headers: Record<string, string> = {};
   if (token) headers['Authorization'] = `Bearer ${token}`;
@@ -180,11 +180,7 @@ function getAuthHeader(): Record<string, string> {
 }
 
 export function getCurrentUser(): any {
-  try {
-    const raw = localStorage.getItem('hostel_ease_user');
-    if (raw) return JSON.parse(raw);
-  } catch {}
-  return null;
+  return safeStorage.getJSON<any | null>('hostel_ease_user', null);
 }
 
 export function getUserScopedKey(baseKey: string): string {
@@ -2044,22 +2040,29 @@ export const api = {
 
     async getMe(): Promise<{ user: any }> {
       try {
+        const token = safeStorage.getItem('hostel_ease_token');
+        if (!token) return { user: null };
+
         const res = await fetch(`${API_BASE}/auth/me`, {
           headers: { ...getAuthHeader() }
         });
         if (res.ok) {
           const json = await res.json();
           if (json.user) {
-            localStorage.setItem('hostel_ease_user', JSON.stringify(json.user));
+            safeStorage.setJSON('hostel_ease_user', json.user, true);
           }
           return json;
         }
+        if (res.status === 401 || res.status === 403) {
+          // Token is invalid/expired; immediately purge rejected credentials
+          safeStorage.removeItem('hostel_ease_token');
+          safeStorage.removeItem('hostel_ease_user');
+          return { user: null };
+        }
       } catch (err) {
-        // Silent fallback
-      }
-      const stored = localStorage.getItem('hostel_ease_user');
-      if (stored) {
-        try { return { user: JSON.parse(stored) }; } catch {}
+        // In offline network mode, return stored user if token exists
+        const stored = safeStorage.getJSON<any | null>('hostel_ease_user', null);
+        if (stored) return { user: stored };
       }
       return { user: null };
     },
@@ -2381,7 +2384,7 @@ export const api = {
 
     async getSaved(): Promise<{ savedProperties: Property[] }> {
       const user = getCurrentUser();
-      const token = localStorage.getItem('hostel_ease_token');
+      const token = safeStorage.getItem('hostel_ease_token');
 
       // If not authenticated, return empty
       if (!token && !user) {
@@ -3916,7 +3919,7 @@ export const api = {
   // Private Verification Documents API
   verification: {
     async uploadDocument(formData: FormData): Promise<{ message: string; document: VerificationDocument }> {
-      const token = localStorage.getItem('hostel_ease_token');
+      const token = safeStorage.getItem('hostel_ease_token');
       const res = await fetch(`${API_BASE}/verification/documents`, {
         method: 'POST',
         headers: token ? { Authorization: `Bearer ${token}` } : {},
@@ -4142,56 +4145,8 @@ export const api = {
           };
         });
 
-        // Default mock users to merge in offline fallback
-        const defaultUsers: AdminUserItem[] = [
-          {
-            id: 'user-admin-1',
-            fullName: 'Oluwatosin Ahmad',
-            email: 'admin@hostelease.ng',
-            role: 'ADMIN',
-            isActive: true,
-            accountStatus: 'ACTIVE',
-            phone: '+2348039876543',
-            createdAt: '2026-08-01T00:00:00Z',
-            studentBookingsCount: 0,
-            studentInspectionsCount: 0,
-            providerHostelsCount: 0
-          },
-          {
-            id: 'usr-student-1',
-            fullName: 'Babatunde Adeleke',
-            email: 'student@lautech.edu.ng',
-            role: 'STUDENT',
-            isActive: true,
-            accountStatus: 'ACTIVE',
-            phone: '+2348123456789',
-            createdAt: '2026-08-10T00:00:00Z',
-            studentBookingsCount: 2,
-            studentInspectionsCount: 1,
-            providerHostelsCount: 0,
-            department: 'Computer Science',
-            matricNo: '20/47CS/0118',
-            matricNumber: '20/47CS/0118',
-            level: '400L',
-            avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80'
-          },
-          {
-            id: 'usr-provider-1',
-            fullName: 'Chief (Alhaji) G. O. Adeleke',
-            email: 'landlord@hostelease.ng',
-            role: 'PROVIDER',
-            isActive: true,
-            accountStatus: 'ACTIVE',
-            phone: '+2348039876543',
-            createdAt: '2026-08-05T00:00:00Z',
-            studentBookingsCount: 0,
-            studentInspectionsCount: 0,
-            providerHostelsCount: 3,
-            businessName: 'Adeleke Heritage Properties Ogbomoso',
-            verificationStatus: 'VERIFIED',
-            avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=400&q=80'
-          }
-        ];
+        // No hardcoded production users - only actual registered users
+        const defaultUsers: AdminUserItem[] = [];
 
         const userMap = new Map<string, AdminUserItem>();
         [...convertedLocalUsers, ...defaultUsers].forEach(u => {
@@ -5180,7 +5135,7 @@ export const api = {
         const formData = new FormData();
         formData.append('file', file);
 
-        const token = localStorage.getItem('hostel_ease_token');
+        const token = safeStorage.getItem('hostel_ease_token');
         const res = await fetch(`${API_BASE}/upload`, {
           method: 'POST',
           headers: token ? { Authorization: `Bearer ${token}` } : {},
@@ -5224,7 +5179,7 @@ export const api = {
         const formData = new FormData();
         files.forEach(f => formData.append('files', f));
 
-        const token = localStorage.getItem('hostel_ease_token');
+        const token = safeStorage.getItem('hostel_ease_token');
         const res = await fetch(`${API_BASE}/upload/multiple`, {
           method: 'POST',
           headers: token ? { Authorization: `Bearer ${token}` } : {},
@@ -5282,7 +5237,7 @@ export const api = {
       const CHUNK_SIZE = 2 * 1024 * 1024; // 2MB chunk size
       const totalChunks = Math.max(1, Math.ceil(file.size / CHUNK_SIZE));
       const uploadId = `upload_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-      const token = localStorage.getItem('hostel_ease_token');
+      const token = safeStorage.getItem('hostel_ease_token');
 
       try {
         let lastResult: any = null;
@@ -6139,34 +6094,18 @@ Hello Agent, a student has booked your accommodation under our standard 5% commi
       }
 
       // Populate user info from auth storage if present
-      const storedUser = localStorage.getItem('hostel_ease_user');
+      const storedUser = safeStorage.getJSON<any | null>('hostel_ease_user', null);
       let currentUser = {
-        id: '',
-        fullName: '',
-        email: '',
-        phone: '',
-        department: '',
-        level: '',
-        matricNo: '',
-        gender: 'ANY',
-        avatarUrl: ''
+        id: storedUser?.id || '',
+        fullName: storedUser?.fullName || '',
+        email: storedUser?.email || '',
+        phone: storedUser?.phone || '',
+        department: storedUser?.department || storedUser?.studentDetails?.department || '',
+        level: storedUser?.level || storedUser?.studentDetails?.level || '',
+        matricNo: storedUser?.matricNo || storedUser?.matricNumber || storedUser?.studentDetails?.matricNo || storedUser?.studentDetails?.matricNumber || '',
+        gender: storedUser?.gender || 'ANY',
+        avatarUrl: storedUser?.avatarUrl || ''
       };
-      if (storedUser) {
-        try {
-          const parsed = JSON.parse(storedUser);
-          currentUser = {
-            id: parsed.id || '',
-            fullName: parsed.fullName || '',
-            email: parsed.email || '',
-            phone: parsed.phone || '',
-            department: parsed.department || parsed.studentDetails?.department || '',
-            level: parsed.level || parsed.studentDetails?.level || '',
-            matricNo: parsed.matricNo || parsed.matricNumber || parsed.studentDetails?.matricNo || parsed.studentDetails?.matricNumber || '',
-            gender: parsed.gender || 'ANY',
-            avatarUrl: parsed.avatarUrl || ''
-          };
-        } catch {}
-      }
 
       // Pull saved preferences from user-scoped localStorage
       const prefKey = getUserScopedKey('hostel_ease_preferences');
@@ -6183,11 +6122,9 @@ Hello Agent, a student has booked your accommodation under our standard 5% commi
         academicSession: '2026/2027',
         onboardingCompleted: false
       };
-      const storedPrefs = localStorage.getItem(prefKey);
+      const storedPrefs = safeStorage.getJSON<any | null>(prefKey, null);
       if (storedPrefs) {
-        try {
-          currentPrefs = { ...currentPrefs, ...JSON.parse(storedPrefs) };
-        } catch {}
+        currentPrefs = { ...currentPrefs, ...storedPrefs };
       }
 
       // Dynamic completeness score based on genuine values
@@ -6200,12 +6137,12 @@ Hello Agent, a student has booked your accommodation under our standard 5% commi
       if (currentUser.level) completenessScore += 15; else missingFields.push('Level of Study');
       if (currentPrefs.onboardingCompleted) completenessScore += 15; else missingFields.push('Housing Preferences');
 
-      // Fetch user-isolated bookings and inspections
-      const allBookings = (await api.bookings.getAll()).bookings || [];
-      const allInspections = (await api.inspections.getAll()).inspections || [];
-      const savedResult = await api.properties.getSaved();
+      // Fetch user-isolated bookings and inspections safely
+      const allBookings = (await api.bookings.getAll().catch(() => ({ bookings: [] }))).bookings || [];
+      const allInspections = (await api.inspections.getAll().catch(() => ({ inspections: [] }))).inspections || [];
+      const savedResult = await api.properties.getSaved().catch(() => ({ savedProperties: [] }));
       const userSavedHostels = savedResult.savedProperties || [];
-      const unreadRes = await api.messages.getUnreadCount();
+      const unreadRes = await api.messages.getUnreadCount().catch(() => ({ unreadCount: 0 }));
 
       const firstActive = allBookings.find(b => b.status === 'CONFIRMED' || b.status === 'PENDING');
       const pendingBookings = allBookings.filter(b => b.status === 'PENDING');
@@ -6348,8 +6285,7 @@ Hello Agent, a student has booked your accommodation under our standard 5% commi
         console.warn('Preferences endpoint unreachable, using local preferences.');
       }
       const prefKey = getUserScopedKey('hostel_ease_preferences');
-      const stored = localStorage.getItem(prefKey);
-      const prefs = stored ? JSON.parse(stored) : DEFAULT_STUDENT_PREFERENCES;
+      const prefs = safeStorage.getJSON<StudentPreferences>(prefKey, DEFAULT_STUDENT_PREFERENCES);
       return { preferences: prefs };
     },
 
@@ -6368,9 +6304,9 @@ Hello Agent, a student has booked your accommodation under our standard 5% commi
         console.warn('Backend save preferences unreachable, storing locally.');
       }
       const prefKey = getUserScopedKey('hostel_ease_preferences');
-      const current = localStorage.getItem(prefKey);
-      const merged = current ? { ...JSON.parse(current), ...preferences } : { ...DEFAULT_STUDENT_PREFERENCES, ...preferences };
-      localStorage.setItem(prefKey, JSON.stringify(merged));
+      const current = safeStorage.getJSON<StudentPreferences>(prefKey, DEFAULT_STUDENT_PREFERENCES);
+      const merged = { ...current, ...preferences };
+      safeStorage.setJSON(prefKey, merged);
       return { success: true, message: 'Housing preferences saved successfully.' };
     },
 
@@ -6469,8 +6405,8 @@ Hello Agent, a student has booked your accommodation under our standard 5% commi
           return await res.json();
         }
       } catch {}
-      const stored = localStorage.getItem('hostel_ease_user');
-      return { profile: stored ? JSON.parse(stored) : DEFAULT_STUDENT_DASHBOARD.user };
+      const stored = safeStorage.getJSON<any | null>('hostel_ease_user', null);
+      return { profile: stored || DEFAULT_STUDENT_DASHBOARD.user };
     },
 
     async updateProfile(data: {
@@ -6492,7 +6428,7 @@ Hello Agent, a student has booked your accommodation under our standard 5% commi
         if (res.ok && contentType.includes('application/json')) {
           const json = await res.json();
           if (json.user) {
-            localStorage.setItem('hostel_ease_user', JSON.stringify(json.user));
+            safeStorage.setJSON('hostel_ease_user', json.user);
             window.dispatchEvent(new CustomEvent('hostel_ease_user_updated', { detail: json.user }));
             return json;
           }
@@ -6500,19 +6436,18 @@ Hello Agent, a student has booked your accommodation under our standard 5% commi
       } catch (err) {
         console.warn('Backend update profile unreachable, updating local storage.');
       }
-      const stored = localStorage.getItem('hostel_ease_user');
-      const userObj = stored ? { ...JSON.parse(stored), ...data } : { ...DEFAULT_STUDENT_DASHBOARD.user, ...data };
-      localStorage.setItem('hostel_ease_user', JSON.stringify(userObj));
+      const stored = safeStorage.getJSON<any | null>('hostel_ease_user', null);
+      const userObj = stored ? { ...stored, ...data } : { ...DEFAULT_STUDENT_DASHBOARD.user, ...data };
+      safeStorage.setJSON('hostel_ease_user', userObj);
 
       // Update registered users registry for login persistence
       try {
-        const regRaw = localStorage.getItem('hostel_ease_registered_users');
-        if (regRaw) {
-          const regList = JSON.parse(regRaw);
+        const regList = safeStorage.getJSON<any[]>('hostel_ease_registered_users', []);
+        if (regList && regList.length > 0) {
           const idx = regList.findIndex((u: any) => u.email?.toLowerCase() === userObj.email?.toLowerCase() || u.id === userObj.id);
           if (idx >= 0) {
             regList[idx] = { ...regList[idx], ...userObj, studentDetails: { ...regList[idx].studentDetails, matricNo: data.matricNo, matricNumber: data.matricNo, department: data.department, level: data.level, avatarUrl: data.avatarUrl } };
-            localStorage.setItem('hostel_ease_registered_users', JSON.stringify(regList));
+            safeStorage.setJSON('hostel_ease_registered_users', regList);
           }
         }
       } catch {}
@@ -7360,11 +7295,12 @@ Hello Agent, a student has booked your accommodation under our standard 5% commi
       } catch (err) {
         // Fallback
       }
-      const stored = localStorage.getItem('hostel_ease_roommate_profile');
+      const scopedKey = getUserScopedKey('hostel_ease_roommate_profile');
+      const stored = safeStorage.getJSON<any | null>(scopedKey, null);
       if (stored) {
-        try { return { profile: JSON.parse(stored) }; } catch {}
+        return { profile: stored };
       }
-      return { profile: DEFAULT_ROOMMATE_PROFILES[0] };
+      return { profile: null };
     },
 
     async upsertProfile(data: any): Promise<{ profile: any; message: string }> {
@@ -7374,12 +7310,19 @@ Hello Agent, a student has booked your accommodation under our standard 5% commi
           headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
           body: JSON.stringify(data)
         });
-        if (res.ok) return await res.json();
+        if (res.ok) {
+          const json = await res.json();
+          if (json.profile) {
+            safeStorage.setJSON(getUserScopedKey('hostel_ease_roommate_profile'), json.profile, false);
+          }
+          return json;
+        }
       } catch (err) {
         // Fallback
       }
-      localStorage.setItem('hostel_ease_roommate_profile', JSON.stringify(data));
-      return { profile: data, message: 'Roommate preferences saved successfully!' };
+      const scopedKey = getUserScopedKey('hostel_ease_roommate_profile');
+      safeStorage.setJSON(scopedKey, data, false);
+      return { profile: data, message: 'Roommate profile updated successfully' };
     },
 
     async discover(): Promise<{ matches: any[]; total: number }> {

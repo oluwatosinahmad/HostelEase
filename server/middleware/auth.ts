@@ -10,6 +10,11 @@ export interface AuthenticatedUser {
   fullName: string;
   role: 'STUDENT' | 'PROVIDER' | 'ADMIN';
   phone?: string;
+  avatarUrl?: string;
+  department?: string;
+  level?: string;
+  matricNo?: string;
+  gender?: string;
   isActive: number;
 }
 
@@ -40,8 +45,18 @@ export function authenticate(req: AuthenticatedRequest, res: Response, next: Nex
   try {
     const decoded = jwt.verify(token, JWT_SECRET) as AuthenticatedUser;
     
-    // Check if user still exists and is active
-    let user = db.prepare('SELECT id, email, full_name as fullName, role, phone, is_active as isActive FROM users WHERE id = ?').get(decoded.id) as AuthenticatedUser | undefined;
+    // Check if user still exists and is active, fetching academic details if student
+    let user = db.prepare(`
+      SELECT u.id, u.email, u.full_name as fullName, u.role, u.phone, u.avatar_url as avatarUrl,
+             COALESCE(u.department, sp.department, '') as department,
+             COALESCE(u.level, sp.level, '') as level,
+             COALESCE(u.matric_no, sp.matric_no, '') as matricNo,
+             COALESCE(u.gender, sp.gender, 'ANY') as gender,
+             u.is_active as isActive 
+      FROM users u
+      LEFT JOIN student_profiles sp ON sp.user_id = u.id
+      WHERE u.id = ?
+    `).get(decoded.id) as AuthenticatedUser | undefined;
     
     if (!user && (decoded.id === 'usr-admin-master' || decoded.role === 'ADMIN')) {
       user = db.prepare("SELECT id, email, full_name as fullName, role, phone, is_active as isActive FROM users WHERE role = 'ADMIN' OR id = 'user-admin-1' OR LOWER(email) = 'admin@hostelease.ng' LIMIT 1").get() as AuthenticatedUser | undefined;

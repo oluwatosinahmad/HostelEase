@@ -66,7 +66,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [department, setDepartment] = useState('');
   const [matricNo, setMatricNo] = useState('');
   const [level, setLevel] = useState('100L');
-  const [avatarUrl, setAvatarUrl] = useState('https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80');
+  const [avatarUrl, setAvatarUrl] = useState('');
   const [customAvatarInput, setCustomAvatarInput] = useState(false);
   const [businessName, setBusinessName] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -160,11 +160,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     setError(null);
     setAccessRestricted(false);
     
-    // Switch default avatar if needed
-    if (newRole === 'PROVIDER' && avatarUrl === PRESET_STUDENT_AVATARS[0].url) {
-      setAvatarUrl(PRESET_LANDLORD_AVATARS[0].url);
-    } else if (newRole === 'STUDENT' && avatarUrl === PRESET_LANDLORD_AVATARS[0].url) {
-      setAvatarUrl(PRESET_STUDENT_AVATARS[0].url);
+    // Clear avatar preset if switching roles and preset belongs to previous role
+    if (newRole === 'ADMIN') {
+      setMode('login');
+      setEmail('');
+      setPassword('');
     }
 
     if (fullName && (!emailManuallyEdited || email.endsWith('@lautech.edu.ng') || email.endsWith('@hostelease.ng'))) {
@@ -664,14 +664,22 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     <div className="flex items-center gap-3.5">
                       {/* Avatar Preview */}
                       <div className="relative flex-shrink-0">
-                        <img
-                          src={avatarUrl || (role === 'PROVIDER' ? PRESET_LANDLORD_AVATARS[0].url : PRESET_STUDENT_AVATARS[0].url)}
-                          alt="Profile Preview"
-                          className="w-14 h-14 rounded-full object-cover ring-2 ring-emerald-500 shadow-md"
-                        />
-                        <div className="absolute -bottom-1 -right-1 bg-emerald-600 text-white rounded-full p-1 shadow">
-                          <Check className="w-2.5 h-2.5" />
-                        </div>
+                        {avatarUrl ? (
+                          <img
+                            src={avatarUrl}
+                            alt="Profile Preview"
+                            className="w-14 h-14 rounded-full object-cover ring-2 ring-emerald-500 shadow-md"
+                          />
+                        ) : (
+                          <div className="w-14 h-14 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center ring-2 ring-slate-300 dark:ring-slate-600 shadow-inner text-slate-500 dark:text-slate-400">
+                            <UserIcon className="w-7 h-7" />
+                          </div>
+                        )}
+                        {avatarUrl && (
+                          <div className="absolute -bottom-1 -right-1 bg-emerald-600 text-white rounded-full p-1 shadow">
+                            <Check className="w-2.5 h-2.5" />
+                          </div>
+                        )}
                       </div>
 
                       {/* Upload CTA and Actions */}
@@ -689,16 +697,16 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                           {avatarUrl && (
                             <button
                               type="button"
-                              onClick={() => setAvatarUrl(role === 'PROVIDER' ? PRESET_LANDLORD_AVATARS[0].url : PRESET_STUDENT_AVATARS[0].url)}
+                              onClick={() => setAvatarUrl('')}
                               className="p-1.5 text-slate-400 hover:text-rose-500 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors cursor-pointer"
-                              title="Reset to default avatar"
+                              title="Remove selected photo"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
                           )}
                         </div>
                         <p className="text-[10px] text-slate-500 dark:text-slate-400">
-                          Supports camera selfies, JPG, PNG & WebP (Max 8MB)
+                          {avatarUrl ? 'Photo selected. Click presets below to change.' : 'Optional. Supports camera selfies, JPG, PNG & WebP (Max 8MB)'}
                         </p>
                       </div>
                     </div>

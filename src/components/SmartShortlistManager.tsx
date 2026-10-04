@@ -3,6 +3,7 @@ import {
   Bookmark, Sparkles, Tag, CheckCircle2, Zap, MapPin, 
   Trash2, FileText, ArrowRight, Eye, RefreshCw, Star
 } from 'lucide-react';
+import { safeStorage } from '../utils/safeStorage';
 
 interface ShortlistTagItem {
   propertyId: string;
@@ -47,7 +48,7 @@ export const SmartShortlistManager: React.FC<SmartShortlistManagerProps> = ({
   const fetchShortlist = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('hostel_ease_token') || localStorage.getItem('token');
+      const token = safeStorage.getItem('hostel_ease_token') || safeStorage.getItem('token');
       const res = await fetch('/api/intelligence/shortlist/smart-compare', {
         method: 'POST',
         headers: {

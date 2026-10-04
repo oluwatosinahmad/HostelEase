@@ -12,6 +12,7 @@ interface BookingConfirmationModalProps {
   onClose: () => void;
   onViewVoucher?: (bookingId: string) => void;
   onOpenDispute?: (bookingId: string) => void;
+  onOpenConversation?: (propertyId: string) => void;
 }
 
 export const BookingConfirmationModal: React.FC<BookingConfirmationModalProps> = ({
@@ -19,7 +20,8 @@ export const BookingConfirmationModal: React.FC<BookingConfirmationModalProps> =
   bookingId,
   onClose,
   onViewVoucher,
-  onOpenDispute
+  onOpenDispute,
+  onOpenConversation
 }) => {
   const [checklistData, setChecklistData] = useState<MoveInChecklistData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -173,17 +175,25 @@ export const BookingConfirmationModal: React.FC<BookingConfirmationModalProps> =
 
           {/* Quick Communication Actions */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {checklistData?.providerPhone && (
-              <a
-                href={`https://wa.me/234${checklistData.providerPhone.replace(/^0+/, '')}?text=Hello,%20I%20just%20booked%20on%20Hostel%20Ease!%20Ref:%20${encodeURIComponent(checklistData.bookingReference)}`}
-                target="_blank"
-                rel="noreferrer"
-                className="flex items-center justify-center gap-2 p-3.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-sm transition-colors shadow-sm"
-              >
-                <MessageSquare className="w-4 h-4" />
-                <span>Chat Host on WhatsApp</span>
-              </a>
-            )}
+            <button
+              onClick={() => {
+                onClose();
+                const targetPropId = (checklistData as any)?.propertyId || (checklistData as any)?.property_id;
+                if (targetPropId) {
+                  if (onOpenConversation) {
+                    onOpenConversation(targetPropId);
+                  } else {
+                    window.dispatchEvent(new CustomEvent('hostel_ease_open_conversation', { detail: { propertyId: targetPropId } }));
+                  }
+                } else {
+                  window.dispatchEvent(new CustomEvent('hostel_ease_open_conversation'));
+                }
+              }}
+              className="flex items-center justify-center gap-2 p-3.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-sm transition-colors shadow-sm cursor-pointer"
+            >
+              <MessageSquare className="w-4 h-4" />
+              <span>Direct Chat with Agent</span>
+            </button>
 
             <button
               onClick={() => onViewVoucher && onViewVoucher(bookingId)}

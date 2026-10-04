@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Shield, Flag, CheckCircle2, EyeOff, MessageSquare, AlertTriangle, RefreshCw, X, HelpCircle } from 'lucide-react';
 import { api } from '../services/api';
+import { safeStorage } from '../utils/safeStorage';
 
 export const AdminCommunityModeration: React.FC = () => {
   const [reports, setReports] = useState<any[]>([]);
@@ -14,7 +15,7 @@ export const AdminCommunityModeration: React.FC = () => {
   const fetchModerationData = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('hostel_ease_token') || localStorage.getItem('token');
+      const token = safeStorage.getItem('hostel_ease_token') || safeStorage.getItem('token');
       const [rRes, uRes] = await Promise.all([
         fetch('/api/community/admin/reports', {
           headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) }

@@ -42,12 +42,17 @@ router.post('/register', (req, res: Response) => {
   const avatarUrl = req.body.avatarUrl || req.body.avatar_url || studentDetails?.avatarUrl || null;
 
   try {
+    const studentDept = studentDetails?.department || null;
+    const studentLvl = studentDetails?.level || null;
+    const studentMatric = studentDetails?.matricNo || studentDetails?.matricNumber || null;
+    const studentGender = studentDetails?.gender || null;
+
     db.transaction(() => {
-      // Insert user with verified role
+      // Insert user with verified role and academic fields
       db.prepare(`
-        INSERT INTO users (id, email, password_hash, full_name, phone, role, avatar_url, is_active)
-        VALUES (?, ?, ?, ?, ?, ?, ?, 1)
-      `).run(userId, email.toLowerCase().trim(), passwordHash, fullName.trim(), phone || null, role, avatarUrl);
+        INSERT INTO users (id, email, password_hash, full_name, phone, role, avatar_url, department, level, matric_no, gender, is_active)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+      `).run(userId, email.toLowerCase().trim(), passwordHash, fullName.trim(), phone || null, role, avatarUrl, studentDept, studentLvl, studentMatric, studentGender);
 
       // Create role profile
       if (role === 'STUDENT') {
@@ -60,10 +65,10 @@ router.post('/register', (req, res: Response) => {
           profileId,
           userId,
           studentDetails?.universityId || defaultUni?.id || 'uni-lautech-ogbomoso',
-          studentDetails?.matricNo || studentDetails?.matricNumber || null,
-          studentDetails?.department || null,
-          studentDetails?.level || null,
-          studentDetails?.gender || null
+          studentMatric,
+          studentDept,
+          studentLvl,
+          studentGender
         );
       } else if (role === 'PROVIDER') {
         const profileId = `profile-${crypto.randomUUID()}`;
@@ -86,7 +91,22 @@ router.post('/register', (req, res: Response) => {
       fullName: fullName.trim(),
       phone: phone || undefined,
       role: role as 'STUDENT' | 'PROVIDER',
-      isActive: 1
+      avatarUrl: avatarUrl || undefined,
+      department: studentDept || undefined,
+      level: studentLvl || undefined,
+      matricNo: studentMatric || undefined,
+      gender: studentGender || 'ANY',
+      isActive: 1,
+      studentDetails: role === 'STUDENT' ? {
+        matricNo: studentMatric,
+        matricNumber: studentMatric,
+        department: studentDept,
+        level: studentLvl,
+        gender: studentGender
+      } : undefined,
+      providerDetails: role === 'PROVIDER' ? {
+        businessName: providerDetails?.businessName || null
+      } : undefined
     };
 
     const token = generateToken(userRecord as any);
@@ -152,11 +172,17 @@ router.post('/login', (req, res: Response) => {
     }
   } else {
     user = db.prepare(`
-      SELECT id, email, password_hash as passwordHash, full_name as fullName, phone, role, is_active as isActive
-      FROM users
-      WHERE LOWER(email) = LOWER(?)
-         OR (LOWER(?) IN ('provider@hostelease.ng', 'landlord@hostelease.ng') AND LOWER(email) IN ('provider@hostelease.ng', 'landlord@hostelease.ng'))
-      ORDER BY id ASC LIMIT 1
+      SELECT u.id, u.email, u.password_hash as passwordHash, u.full_name as fullName, u.phone, u.role, u.avatar_url as avatarUrl,
+             COALESCE(u.department, sp.department, '') as department,
+             COALESCE(u.level, sp.level, '') as level,
+             COALESCE(u.matric_no, sp.matric_no, '') as matricNo,
+             COALESCE(u.gender, sp.gender, 'ANY') as gender,
+             u.is_active as isActive
+      FROM users u
+      LEFT JOIN student_profiles sp ON sp.user_id = u.id
+      WHERE LOWER(u.email) = LOWER(?)
+         OR (LOWER(?) IN ('provider@hostelease.ng', 'landlord@hostelease.ng') AND LOWER(u.email) IN ('provider@hostelease.ng', 'landlord@hostelease.ng'))
+      ORDER BY u.id ASC LIMIT 1
     `).get(identifier, identifier) as any;
   }
 
@@ -217,19 +243,6 @@ router.post('/login', (req, res: Response) => {
     }
   }
 
-  // Build authenticated user payload strictly with the database role (user.role)
-  const userPayload = {
-    id: user.role === 'ADMIN' ? 'usr-admin-master' : user.id,
-    username: user.role === 'ADMIN' ? 'admin' : undefined,
-    email: user.email,
-    fullName: user.fullName,
-    phone: user.phone,
-    role: user.role,
-    isActive: user.isActive
-  };
-
-  const token = generateToken(userPayload);
-
   // Fetch role-specific details
   let profile = null;
   if (user.role === 'STUDENT') {
@@ -239,6 +252,36 @@ router.post('/login', (req, res: Response) => {
   } else if (user.role === 'ADMIN' || user.role === 'OWNER') {
     profile = db.prepare('SELECT * FROM admin_profiles WHERE user_id = ?').get(user.id);
   }
+
+  const dept = user.department || (profile as any)?.department || undefined;
+  const lvl = user.level || (profile as any)?.level || undefined;
+  const mat = user.matricNo || (profile as any)?.matric_no || undefined;
+  const gen = user.gender || (profile as any)?.gender || 'ANY';
+
+  // Build authenticated user payload strictly with the database role (user.role)
+  const userPayload = {
+    id: user.role === 'ADMIN' ? 'usr-admin-master' : user.id,
+    username: user.role === 'ADMIN' ? 'admin' : undefined,
+    email: user.email,
+    fullName: user.fullName,
+    phone: user.phone,
+    role: user.role,
+    avatarUrl: user.avatarUrl || null,
+    department: dept,
+    level: lvl,
+    matricNo: mat,
+    gender: gen,
+    isActive: user.isActive,
+    studentDetails: user.role === 'STUDENT' ? {
+      matricNo: mat,
+      matricNumber: mat,
+      department: dept,
+      level: lvl,
+      gender: gen
+    } : undefined
+  };
+
+  const token = generateToken(userPayload as any);
 
   // Trigger non-blocking idempotent welcome notification on login (debounced against rapid refreshes)
   try {
@@ -304,9 +347,25 @@ router.get('/me', authenticate, (req: AuthenticatedRequest, res: Response) => {
     profile = db.prepare('SELECT * FROM admin_profiles WHERE user_id = ?').get(req.user.id);
   }
 
+  const dept = req.user.department || (profile as any)?.department || undefined;
+  const lvl = req.user.level || (profile as any)?.level || undefined;
+  const mat = req.user.matricNo || (profile as any)?.matric_no || undefined;
+  const gen = req.user.gender || (profile as any)?.gender || 'ANY';
+
   return res.json({
     user: {
       ...req.user,
+      department: dept,
+      level: lvl,
+      matricNo: mat,
+      gender: gen,
+      studentDetails: req.user.role === 'STUDENT' ? {
+        matricNo: mat,
+        matricNumber: mat,
+        department: dept,
+        level: lvl,
+        gender: gen
+      } : undefined,
       profile
     }
   });

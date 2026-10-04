@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ShieldCheck, Award, AlertCircle, CheckCircle2, ArrowUpRight, Sparkles, Lightbulb } from 'lucide-react';
+import { safeStorage } from '../utils/safeStorage';
 
 interface ListingQualityCardProps {
   propertyId: string;
@@ -22,7 +23,7 @@ export const ListingQualityCard: React.FC<ListingQualityCardProps> = ({
   const fetchQuality = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('hostel_ease_token') || localStorage.getItem('token');
+      const token = safeStorage.getItem('hostel_ease_token') || safeStorage.getItem('token');
       const res = await fetch(`/api/intelligence/provider/quality/${propertyId}`, {
         headers: {
           'Content-Type': 'application/json',
