@@ -176,6 +176,9 @@ export const Navbar: React.FC<NavbarProps> = ({
 
       const handleNotifEvent = () => {
         fetchUnreadCount();
+        api.messages.getUnreadCount()
+          .then(res => setUnreadMsgCount(res?.unreadCount || 0))
+          .catch(() => {});
         if (notifDropdownOpen) fetchFullNotifs();
       };
 

@@ -3064,10 +3064,26 @@ export const api = {
         });
         if (res.ok) {
           window.dispatchEvent(new CustomEvent('hostel_ease_notification_updated'));
+          window.dispatchEvent(new CustomEvent('hostel_ease_conversations_updated'));
           return await res.json();
         }
       } catch {}
       return { message: 'Conversation marked as read' };
+    },
+
+    async markAllAsRead(): Promise<{ success: boolean; unreadCount: number; message: string }> {
+      try {
+        const res = await fetch(`${API_BASE}/messages/conversations/read-all`, {
+          method: 'POST',
+          headers: { ...getAuthHeader() }
+        });
+        if (res.ok) {
+          window.dispatchEvent(new CustomEvent('hostel_ease_notification_updated'));
+          window.dispatchEvent(new CustomEvent('hostel_ease_conversations_updated'));
+          return await res.json();
+        }
+      } catch {}
+      return { success: true, unreadCount: 0, message: 'All conversations marked as read' };
     },
 
     async getUnreadCount(): Promise<{ unreadCount: number }> {

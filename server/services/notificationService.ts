@@ -229,6 +229,16 @@ export const notificationService = {
       `).run(userId);
 
       try {
+        db.prepare(`
+          UPDATE messages
+          SET is_read = 1, read_at = datetime('now')
+          WHERE sender_id != ? AND is_read = 0 AND conversation_id IN (
+            SELECT id FROM conversations WHERE student_id = ? OR provider_id = ?
+          )
+        `).run(userId, userId, userId);
+      } catch {}
+
+      try {
         notificationEvents.emit('notifications_all_read', {
           userId,
           unreadCount: 0

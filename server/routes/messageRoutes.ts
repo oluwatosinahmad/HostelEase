@@ -241,7 +241,13 @@ router.get('/conversations', authenticate, (req: AuthenticatedRequest, res: Resp
                  (SELECT url FROM property_media WHERE property_id = p.id LIMIT 1)
                ) as property_cover,
                up.last_seen_at as other_last_seen_at,
-               (SELECT COUNT(*) FROM messages m WHERE m.conversation_id = c.id AND m.sender_id != ? AND m.is_read = 0) as unread_count
+               (SELECT COUNT(*) FROM messages m 
+                 WHERE m.conversation_id = c.id 
+                   AND m.sender_id != ? 
+                   AND m.is_read = 0 
+                   AND m.message_type != 'AUTOMATED_ACKNOWLEDGEMENT' 
+                   AND (m.metadata_json IS NULL OR m.metadata_json NOT LIKE '%"isAutoReply":true%')
+                ) as unread_count
         FROM conversations c
         LEFT JOIN properties p ON c.property_id = p.id
         LEFT JOIN areas a ON p.area_id = a.id
@@ -278,7 +284,13 @@ router.get('/conversations', authenticate, (req: AuthenticatedRequest, res: Resp
                  (SELECT url FROM property_media WHERE property_id = p.id LIMIT 1)
                ) as property_cover,
                up.last_seen_at as other_last_seen_at,
-               (SELECT COUNT(*) FROM messages m WHERE m.conversation_id = c.id AND m.sender_id != ? AND m.is_read = 0) as unread_count
+               (SELECT COUNT(*) FROM messages m 
+                 WHERE m.conversation_id = c.id 
+                   AND m.sender_id != ? 
+                   AND m.is_read = 0 
+                   AND m.message_type != 'AUTOMATED_ACKNOWLEDGEMENT' 
+                   AND (m.metadata_json IS NULL OR m.metadata_json NOT LIKE '%"isAutoReply":true%')
+                ) as unread_count
         FROM conversations c
         LEFT JOIN properties p ON c.property_id = p.id
         LEFT JOIN areas a ON p.area_id = a.id
@@ -439,7 +451,21 @@ router.get('/conversations/:id', authenticate, (req: AuthenticatedRequest, res: 
       return res.status(403).json({ error: 'Access denied: You are not authorized to view this conversation' });
     }
 
-    // Fetch message history
+    // Mark unread messages sent by opposite party as read FIRST before SELECT
+    db.prepare(`
+      UPDATE messages
+      SET is_read = 1, read_at = datetime('now')
+      WHERE conversation_id = ? AND sender_id != ? AND is_read = 0
+    `).run(id, req.user.id);
+
+    // Also mark notifications for this conversation as read
+    db.prepare(`
+      UPDATE notifications
+      SET is_read = 1, read_at = datetime('now')
+      WHERE user_id = ? AND conversation_id = ? AND is_read = 0
+    `).run(req.user.id, id);
+
+    // Fetch message history - now all messages returned have is_read = 1
     let messages = db.prepare(`
       SELECT id, conversation_id, sender_id, sender_role, message_type, content,
              metadata_json, is_read, read_at, created_at
@@ -447,13 +473,6 @@ router.get('/conversations/:id', authenticate, (req: AuthenticatedRequest, res: 
       WHERE conversation_id = ?
       ORDER BY created_at ASC, rowid ASC
     `).all(id) as any[];
-
-    // Mark unread messages sent by opposite party as read
-    db.prepare(`
-      UPDATE messages
-      SET is_read = 1, read_at = datetime('now')
-      WHERE conversation_id = ? AND sender_id != ? AND is_read = 0
-    `).run(id, req.user.id);
 
     const now = Date.now();
     const studentLastSeenRaw = conv.student_last_seen_at;
@@ -579,93 +598,123 @@ router.post('/conversations/:id/messages', authenticate, (req: AuthenticatedRequ
     const messageId = `msg-${crypto.randomUUID()}`;
     const cleanContent = content.trim();
 
-    db.prepare(`
-      INSERT INTO messages (id, conversation_id, sender_id, sender_role, message_type, content, metadata_json, is_read)
-      VALUES (?, ?, ?, ?, ?, ?, ?, 0)
-    `).run(
-      messageId,
-      id,
-      req.user.id,
-      req.user.role,
-      messageType || 'TEXT',
-      cleanContent,
-      metadata ? JSON.stringify(metadata) : null
-    );
-
-    // Update conversation last message snippet and timestamp
-    db.prepare(`
-      UPDATE conversations
-      SET last_message_text = ?, last_message_at = datetime('now'), updated_at = datetime('now')
-      WHERE id = ?
-    `).run(cleanContent, id);
-
-    // Determine recipient
-    const recipientId = req.user.id === conv.student_id ? conv.provider_id : conv.student_id;
-
-    // Send in-app notification
-    const senderName = req.user.fullName || (req.user.role === 'STUDENT' ? 'Student' : 'Agent');
-    sendNotification(
-      recipientId,
-      `New message from ${senderName}`,
-      `"${cleanContent.substring(0, 60)}${cleanContent.length > 60 ? '...' : ''}"`,
-      'NEW_MESSAGE',
-      `/messages?conversationId=${id}&propertyId=${conv.property_id || ''}`,
-      id,
-      messageId,
-      req.user.id
-    );
-
     // Automated Acknowledgement Reply for Students:
-    // If sent by a student, check if this conversation has not had any agent response or auto-reply within the past 12 hours
     let autoReplyMessage: any = null;
-    if (isStudent && !metadata?.isAutoReply) {
+    let shouldGenerateAutoReply = false;
+    let autoReplyId = '';
+    const autoReplyContent = `Hi! Thanks for reaching out. Your message has been received. The verified agent has been notified and will respond as soon as possible.`;
+    const autoMeta = {
+      isAutoReply: true,
+      automated: true,
+      senderTag: 'Hostel Ease Automated Assistant'
+    };
+
+    if (isStudent && !metadata?.isAutoReply && (messageType || 'TEXT') !== 'AUTOMATED_ACKNOWLEDGEMENT') {
       try {
+        // 1. Did provider send a manual message in the last 15 minutes?
         const recentProviderMsg = db.prepare(`
           SELECT id FROM messages 
-          WHERE conversation_id = ? AND sender_id != ? AND created_at > datetime('now', '-12 hours')
+          WHERE conversation_id = ? AND sender_id != ? 
+            AND (metadata_json IS NULL OR metadata_json NOT LIKE '%"automated":true%')
+            AND created_at > datetime('now', '-15 minutes')
           LIMIT 1
         `).get(id, req.user.id) as any;
 
-        if (!recentProviderMsg) {
-          const autoReplyId = `msg-auto-${crypto.randomUUID()}`;
-          const autoReplyContent = `Hi! Thanks for reaching out. Your message has been received. The verified agent has been notified and will respond as soon as possible.`;
-          const autoMeta = {
-            isAutoReply: true,
-            automated: true,
-            senderTag: 'Hostel Ease Automated Assistant'
-          };
+        // 2. Was an automated assistant acknowledgement sent in this conversation within the last 10 minutes?
+        const recentAutoReply = db.prepare(`
+          SELECT id FROM messages 
+          WHERE conversation_id = ? 
+            AND (message_type = 'AUTOMATED_ACKNOWLEDGEMENT' OR metadata_json LIKE '%"isAutoReply":true%')
+            AND created_at > datetime('now', '-10 minutes')
+          LIMIT 1
+        `).get(id) as any;
 
-          db.prepare(`
-            INSERT INTO messages (id, conversation_id, sender_id, sender_role, message_type, content, metadata_json, is_read, created_at)
-            VALUES (?, ?, ?, 'PROVIDER', 'TEXT', ?, ?, 0, datetime('now'))
-          `).run(
-            autoReplyId,
-            id,
-            conv.provider_id,
-            autoReplyContent,
-            JSON.stringify(autoMeta)
-          );
-
-          // Update conversation last message to reflect the auto reply
-          db.prepare(`
-            UPDATE conversations
-            SET last_message_text = ?, last_message_at = datetime('now'), updated_at = datetime('now')
-            WHERE id = ?
-          `).run(autoReplyContent, id);
-
+        if (!recentProviderMsg && !recentAutoReply) {
+          shouldGenerateAutoReply = true;
+          autoReplyId = `msg-auto-${crypto.randomUUID()}`;
           autoReplyMessage = {
             id: autoReplyId,
             conversationId: id,
             senderId: conv.provider_id,
             senderRole: 'PROVIDER',
-            messageType: 'TEXT',
+            messageType: 'AUTOMATED_ACKNOWLEDGEMENT',
             content: autoReplyContent,
             metadata: autoMeta,
-            isRead: false,
+            isRead: true, // Marked as read for the active chatting student
             createdAt: new Date().toISOString()
           };
+        }
+      } catch (autoErr) {
+        console.warn('Auto-reply check warning:', autoErr);
+      }
+    }
 
-          // Send notification to student about receipt
+    // Atomic SQLite transaction for instant execution (<15ms)
+    const sendTx = db.transaction(() => {
+      db.prepare(`
+        INSERT INTO messages (id, conversation_id, sender_id, sender_role, message_type, content, metadata_json, is_read)
+        VALUES (?, ?, ?, ?, ?, ?, ?, 0)
+      `).run(
+        messageId,
+        id,
+        req.user.id,
+        req.user.role,
+        messageType || 'TEXT',
+        cleanContent,
+        metadata ? JSON.stringify(metadata) : null
+      );
+
+      if (shouldGenerateAutoReply && autoReplyMessage) {
+        db.prepare(`
+          INSERT INTO messages (id, conversation_id, sender_id, sender_role, message_type, content, metadata_json, is_read, read_at, created_at)
+          VALUES (?, ?, ?, 'PROVIDER', 'AUTOMATED_ACKNOWLEDGEMENT', ?, ?, 1, datetime('now'), datetime('now'))
+        `).run(
+          autoReplyId,
+          id,
+          conv.provider_id,
+          autoReplyContent,
+          JSON.stringify(autoMeta)
+        );
+
+        db.prepare(`
+          UPDATE conversations
+          SET last_message_text = ?, last_message_at = datetime('now'), updated_at = datetime('now')
+          WHERE id = ?
+        `).run(autoReplyContent, id);
+      } else {
+        db.prepare(`
+          UPDATE conversations
+          SET last_message_text = ?, last_message_at = datetime('now'), updated_at = datetime('now')
+          WHERE id = ?
+        `).run(cleanContent, id);
+      }
+    });
+    sendTx();
+
+    // Clear typing indicator for sender upon message dispatch
+    const existingTyping = conversationTypingMap.get(id);
+    if (existingTyping && existingTyping.userId === req.user.id) {
+      conversationTypingMap.delete(id);
+    }
+
+    // Determine recipient & dispatch in-app notifications asynchronously
+    const recipientId = req.user.id === conv.student_id ? conv.provider_id : conv.student_id;
+    const senderName = req.user.fullName || (req.user.role === 'STUDENT' ? 'Student' : 'Agent');
+
+    setImmediate(() => {
+      try {
+        sendNotification(
+          recipientId,
+          `New message from ${senderName}`,
+          `"${cleanContent.substring(0, 60)}${cleanContent.length > 60 ? '...' : ''}"`,
+          'NEW_MESSAGE',
+          `/messages?conversationId=${id}&propertyId=${conv.property_id || ''}`,
+          id,
+          messageId,
+          req.user.id
+        );
+
+        if (shouldGenerateAutoReply && autoReplyMessage) {
           sendNotification(
             req.user.id,
             'Hostel Ease Automated Assistant',
@@ -677,16 +726,10 @@ router.post('/conversations/:id/messages', authenticate, (req: AuthenticatedRequ
             conv.provider_id
           );
         }
-      } catch (autoErr) {
-        console.warn('Auto-reply trigger warning:', autoErr);
+      } catch (notifErr) {
+        console.warn('Async notification dispatch warning:', notifErr);
       }
-    }
-
-    // Clear typing indicator for sender upon message dispatch
-    const existingTyping = conversationTypingMap.get(id);
-    if (existingTyping && existingTyping.userId === req.user.id) {
-      conversationTypingMap.delete(id);
-    }
+    });
 
     return res.status(201).json({
       message: {
@@ -750,13 +793,22 @@ const handleMarkConversationRead = (req: AuthenticatedRequest, res: Response) =>
   const { id } = req.params;
 
   try {
-    db.prepare(`
-      UPDATE messages
-      SET is_read = 1, read_at = datetime('now')
-      WHERE conversation_id = ? AND sender_id != ? AND is_read = 0
-    `).run(id, req.user.id);
+    const markReadTx = db.transaction(() => {
+      db.prepare(`
+        UPDATE messages
+        SET is_read = 1, read_at = datetime('now')
+        WHERE conversation_id = ? AND sender_id != ? AND is_read = 0
+      `).run(id, req.user.id);
 
-    return res.json({ message: 'Conversation marked as read' });
+      db.prepare(`
+        UPDATE notifications
+        SET is_read = 1, read_at = datetime('now')
+        WHERE user_id = ? AND conversation_id = ? AND is_read = 0
+      `).run(req.user.id, id);
+    });
+    markReadTx();
+
+    return res.json({ success: true, message: 'Conversation marked as read' });
   } catch (err: any) {
     console.error('Mark read error:', err);
     return res.status(500).json({ error: 'Failed to mark messages as read' });
@@ -766,6 +818,39 @@ const handleMarkConversationRead = (req: AuthenticatedRequest, res: Response) =>
 router.patch('/conversations/:id/read', authenticate, handleMarkConversationRead);
 router.put('/conversations/:id/read', authenticate, handleMarkConversationRead);
 router.post('/conversations/:id/read', authenticate, handleMarkConversationRead);
+
+// 5b. MARK ALL CONVERSATIONS AS READ
+const handleMarkAllConversationsRead = (req: AuthenticatedRequest, res: Response) => {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+
+  try {
+    const markAllTx = db.transaction(() => {
+      db.prepare(`
+        UPDATE messages
+        SET is_read = 1, read_at = datetime('now')
+        WHERE sender_id != ? AND is_read = 0 AND conversation_id IN (
+          SELECT id FROM conversations WHERE student_id = ? OR provider_id = ?
+        )
+      `).run(req.user.id, req.user.id, req.user.id);
+
+      db.prepare(`
+        UPDATE notifications
+        SET is_read = 1, read_at = datetime('now')
+        WHERE user_id = ? AND is_read = 0
+      `).run(req.user.id);
+    });
+    markAllTx();
+
+    return res.json({ success: true, unreadCount: 0, message: 'All conversations marked as read' });
+  } catch (err: any) {
+    console.error('Mark all read error:', err);
+    return res.status(500).json({ error: 'Failed to mark all as read' });
+  }
+};
+
+router.post('/conversations/read-all', authenticate, handleMarkAllConversationsRead);
+router.patch('/conversations/read-all', authenticate, handleMarkAllConversationsRead);
+router.put('/conversations/read-all', authenticate, handleMarkAllConversationsRead);
 
 // ----------------------------------------------------
 // 6. GLOBAL UNREAD MESSAGES COUNT
@@ -787,6 +872,8 @@ router.get('/unread-count', authenticate, (req: AuthenticatedRequest, res: Respo
         JOIN conversations c ON m.conversation_id = c.id
         WHERE (c.student_id = ? OR c.student_id IN (SELECT id FROM users WHERE LOWER(email) = LOWER(?)))
           AND m.sender_id != ? AND m.is_read = 0
+          AND m.message_type != 'AUTOMATED_ACKNOWLEDGEMENT'
+          AND (m.metadata_json IS NULL OR m.metadata_json NOT LIKE '%"isAutoReply":true%')
       `;
       params.push(req.user.id, req.user.email || '', req.user.id);
     } else if (isProvider) {
@@ -796,6 +883,8 @@ router.get('/unread-count', authenticate, (req: AuthenticatedRequest, res: Respo
         JOIN conversations c ON m.conversation_id = c.id
         WHERE (c.provider_id = ? OR c.provider_id IN (SELECT id FROM users WHERE LOWER(email) = LOWER(?)))
           AND m.sender_id != ? AND m.is_read = 0
+          AND m.message_type != 'AUTOMATED_ACKNOWLEDGEMENT'
+          AND (m.metadata_json IS NULL OR m.metadata_json NOT LIKE '%"isAutoReply":true%')
       `;
       params.push(req.user.id, req.user.email || '', req.user.id);
     } else {

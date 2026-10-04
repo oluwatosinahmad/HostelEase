@@ -396,8 +396,16 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
     }
 
     setActiveConversationId(convId);
+    // Immediately clear unreadCount in local state so UI updates in 0ms without waiting for network
+    setConversations(prev => prev.map(c => c.id === convId ? { ...c, unreadCount: 0 } : c));
     setMessagesLoading(true);
     setActiveThreadError(false);
+
+    // Trigger backend mark-as-read immediately
+    api.messages.markAsRead(convId).then(() => {
+      window.dispatchEvent(new CustomEvent('hostel_ease_notification_updated'));
+      window.dispatchEvent(new CustomEvent('hostel_ease_conversations_updated'));
+    }).catch(() => {});
 
     // Optimistically initialize activeDetail from conversation summary so UI opens instantly without blank screen
     if (currentItem && (!activeDetail || activeDetail.conversation.id !== convId)) {
@@ -444,12 +452,8 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
         setTimeout(() => scrollToBottom('auto'), 50);
       }
 
-      // Mark as read in background
-      api.messages.markAsRead(convId).then(() => {
-        setConversations(prev => prev.map(c => c.id === convId ? { ...c, unreadCount: 0 } : c));
-        window.dispatchEvent(new CustomEvent('hostel_ease_notification_updated'));
-        window.dispatchEvent(new CustomEvent('hostel_ease_conversations_updated'));
-      }).catch(() => {});
+      // Re-confirm conversation unread badge cleared in local list
+      setConversations(prev => prev.map(c => c.id === convId ? { ...c, unreadCount: 0 } : c));
     } catch (err) {
       console.error('[MessagingCenter] Failed to load conversation messages:', err);
       setActiveThreadError(true);
@@ -619,7 +623,14 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
                 playMessageNotificationSound(`conv-notif-${c.id}-${c.lastMessageAt}`, c.studentId === user?.id ? c.providerId : c.studentId, user?.id);
               }
             });
-            setConversations(res.conversations);
+            // If the user currently has an active conversation open on screen, ensure its unread count stays 0
+            const sanitized = res.conversations.map(c => {
+              if (c.id === activeConversationId) {
+                return { ...c, unreadCount: 0 };
+              }
+              return c;
+            });
+            setConversations(sanitized);
           }
         }).catch(() => {});
 
@@ -671,6 +682,28 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
 
     return () => clearInterval(syncInterval);
   }, [activeConversationId, user?.id, conversations]);
+
+  // Synchronize read/unread state on tab focus & iOS Safari restore (pageshow)
+  useEffect(() => {
+    const handleSyncOnVisible = () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        loadConversations(activeConversationId || undefined);
+        if (activeConversationId) {
+          api.messages.getConversation(activeConversationId).then(res => {
+            if (res) setActiveDetail(res);
+          }).catch(() => {});
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleSyncOnVisible);
+    window.addEventListener('pageshow', handleSyncOnVisible);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleSyncOnVisible);
+      window.removeEventListener('pageshow', handleSyncOnVisible);
+    };
+  }, [activeConversationId]);
 
   // Handle immediate refresh when message shortcut icon is clicked in Navbar
   useEffect(() => {
@@ -784,7 +817,7 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
       const latestSnippet = res.autoReply ? res.autoReply.content : text;
       setConversations(prev => prev.map(c => {
         if (c.id === activeConversationId) {
-          return { ...c, lastMessageText: latestSnippet, lastMessageAt: new Date().toISOString() };
+          return { ...c, lastMessageText: latestSnippet, lastMessageAt: new Date().toISOString(), unreadCount: 0 };
         }
         return c;
       }));
