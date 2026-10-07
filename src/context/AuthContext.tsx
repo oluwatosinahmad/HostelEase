@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { User, UserRole } from '../types/hostelEase';
 import { api, setActiveAuthToken } from '../services/api';
 import { safeStorage } from '../utils/safeStorage';
+import { realtimeClient } from '../services/realtime';
 
 interface AuthContextType {
   user: User | null;
@@ -55,22 +56,39 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           setToken(savedToken);
           setActiveAuthToken(savedToken);
           safeStorage.setJSON('hostel_ease_user', userData, true);
+          realtimeClient.connect(savedToken);
         } else {
-          console.warn('[SESSION_SYNC] Backend returned null user profile for session token. Resetting state.');
-          safeStorage.removeItem('hostel_ease_token');
-          safeStorage.removeItem('hostel_ease_user');
-          setActiveAuthToken(null);
-          setToken(null);
-          setUser(null);
+          const storedUser = safeStorage.getJSON<User | null>('hostel_ease_user', null);
+          if (storedUser) {
+            console.log(`[SESSION_RESILIENCE] Maintaining authenticated session from cache: ${storedUser.email} (${storedUser.role})`);
+            setUser(storedUser);
+            setToken(savedToken);
+            setActiveAuthToken(savedToken);
+            realtimeClient.connect(savedToken);
+          } else {
+            console.warn('[SESSION_SYNC] No valid user profile found for session token. Resetting state.');
+            safeStorage.removeItem('hostel_ease_token');
+            safeStorage.removeItem('hostel_ease_user');
+            setActiveAuthToken(null);
+            setToken(null);
+            setUser(null);
+            realtimeClient.disconnect();
+          }
         }
       } catch (err) {
         console.warn('Session check warning:', err);
-        const stored = safeStorage.getItem('hostel_ease_user');
-        if (!stored) {
+        const storedUser = safeStorage.getJSON<User | null>('hostel_ease_user', null);
+        if (storedUser) {
+          setUser(storedUser);
+          setToken(savedToken);
+          setActiveAuthToken(savedToken);
+          realtimeClient.connect(savedToken);
+        } else {
           safeStorage.removeItem('hostel_ease_token');
           setActiveAuthToken(null);
           setToken(null);
           setUser(null);
+          realtimeClient.disconnect();
         }
       } finally {
         setIsLoading(false);
@@ -103,6 +121,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setActiveAuthToken(res.token);
       setToken(res.token);
       setUser(res.user);
+      realtimeClient.connect(res.token);
+
+      if (res.welcomeNotification) {
+        window.dispatchEvent(new CustomEvent('hostel_ease_notification_updated', {
+          detail: { action: 'CREATED', notification: res.welcomeNotification }
+        }));
+      }
+
       console.log(`[AUTH_SUCCESS] Logged in successfully: ${res.user.email} (${res.user.role})`);
       return res.user;
     } finally {
@@ -119,6 +145,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setActiveAuthToken(res.token);
       setToken(res.token);
       setUser(res.user);
+      realtimeClient.connect(res.token);
+
+      if (res.welcomeNotification) {
+        window.dispatchEvent(new CustomEvent('hostel_ease_notification_updated', {
+          detail: { action: 'CREATED', notification: res.welcomeNotification }
+        }));
+      }
+
       console.log(`[AUTH_SUCCESS] Registered and logged in: ${res.user.email} (${res.user.role})`);
       return res.user;
     } finally {
@@ -128,6 +162,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const logout = () => {
     api.presence.setOffline().catch(() => {});
+    realtimeClient.disconnect();
     safeStorage.purgeUserSessionData();
     setActiveAuthToken(null);
     setToken(null);

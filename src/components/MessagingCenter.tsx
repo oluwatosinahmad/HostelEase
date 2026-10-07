@@ -60,6 +60,7 @@ import { playMessageNotificationSound } from '../utils/sound';
 interface MessagingCenterProps {
   initialPropertyId?: string | null;
   initialConversationId?: string | null;
+  initialProperty?: Property | null;
   onSelectProperty?: (propertyId: string) => void;
   onRequestInspection?: (propertyId: string) => void;
   onShowToast: (message: string, type?: 'success' | 'info' | 'error') => void;
@@ -95,6 +96,7 @@ const TAPBACK_EMOJIS = ['❤️', '👍', '🔥', '😂', '⚡', '🤝', '📍']
 export const MessagingCenter: React.FC<MessagingCenterProps> = ({
   initialPropertyId,
   initialConversationId,
+  initialProperty,
   onSelectProperty,
   onRequestInspection,
   onShowToast,
@@ -109,6 +111,7 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
   const [activeDetail, setActiveDetail] = useState<ConversationDetail | null>(null);
   const [resolvingPropertyId, setResolvingPropertyId] = useState<string | null>(initialPropertyId || null);
   const resolvingPropertyRef = useRef<string | null>(null);
+  const prevUserIdRef = useRef<string | null>(user?.id || null);
   
   // UI states
   const [messageInput, setMessageInput] = useState<string>('');
@@ -370,8 +373,15 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
 
       const targetId = preferredSelectId || activeConversationId;
       if (targetId) {
-        const item = convs.find(c => c.id === targetId);
-        selectAndLoadConversation(targetId, false, item || convs[0]);
+        const item = convs.find(c => c.id === targetId || (resolvingPropertyRef.current && c.propertyId === resolvingPropertyRef.current));
+        if (item) {
+          selectAndLoadConversation(item.id, false, item);
+        } else if (!resolvingPropertyRef.current && !initialPropertyId) {
+          // Auto-select first conversation on wider desktop screens ONLY if not currently resolving a property chat
+          if (typeof window !== 'undefined' && window.innerWidth >= 768 && convs.length > 0) {
+            selectAndLoadConversation(convs[0].id, false, convs[0]);
+          }
+        }
       } else if (convs.length > 0 && !resolvingPropertyRef.current && !initialPropertyId) {
         // Auto-select first conversation on wider desktop screens ONLY if not currently resolving a property chat
         if (typeof window !== 'undefined' && window.innerWidth >= 768) {
@@ -451,26 +461,31 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
       if (res) {
         setActiveDetail(res);
         setTimeout(() => scrollToBottom('auto'), 50);
+        setTimeout(() => inputRef.current?.focus(), 100);
       }
 
       // Re-confirm conversation unread badge cleared in local list
       setConversations(prev => prev.map(c => c.id === convId ? { ...c, unreadCount: 0 } : c));
     } catch (err) {
       console.error('[MessagingCenter] Failed to load conversation messages:', err);
-      setActiveThreadError(true);
+      if (!activeDetail) {
+        setActiveThreadError(true);
+      }
     } finally {
       setMessagesLoading(false);
+      setTimeout(() => inputRef.current?.focus(), 100);
     }
   };
 
   // Open and foreground conversation for a specific hostel property
-  const openPropertyConversation = async (propertyId: string, studentId?: string) => {
+  const openPropertyConversation = async (propertyId: string, studentId?: string, initialPropData?: Property) => {
     if (!propertyId || !propertyId.trim()) return;
     if (!user) return;
     const cleanPropId = propertyId.trim();
 
     // Look up hostel and agent information immediately
-    const propertyInfo = availableHostels.find(p => p.id === cleanPropId || (p as any).slug === cleanPropId) ||
+    const propertyInfo = initialPropData || initialProperty ||
+      availableHostels.find(p => p.id === cleanPropId || (p as any).slug === cleanPropId) ||
       DEFAULT_PROPERTIES.find(p => p.id === cleanPropId || (p as any).slug === cleanPropId);
 
     // 1. Check if we already have this conversation loaded in memory list
@@ -480,6 +495,7 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
       await selectAndLoadConversation(existingConv.id, true, existingConv);
       resolvingPropertyRef.current = null;
       setResolvingPropertyId(null);
+      setTimeout(() => inputRef.current?.focus(), 100);
       return;
     }
 
@@ -537,18 +553,24 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
       typingUser: null
     });
 
+    // Auto-focus input box immediately so user can type
+    setTimeout(() => {
+      inputRef.current?.focus();
+    }, 100);
+
     try {
       // 2. Resolve or create on backend (single source of truth with deduplication)
-      const res = await api.messages.startConversation(cleanPropId, undefined, studentId);
+      const res = await api.messages.startConversation(cleanPropId, undefined, studentId, propertyInfo);
       if (res && res.conversationId) {
-        setActiveConversationId(res.conversationId);
+        const finalConvId = res.conversationId;
+        setActiveConversationId(finalConvId);
 
         // Update activeDetail from server returned conversation
         if (res.conversation) {
           const c = res.conversation;
           setActiveDetail(prev => ({
             conversation: {
-              id: res.conversationId,
+              id: finalConvId,
               property: {
                 id: c.propertyId || cleanPropId,
                 title: c.propertyTitle || pTitle,
@@ -584,7 +606,7 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
 
         // 3. Concurrently load full message history
         try {
-          const detailRes = await api.messages.getConversation(res.conversationId);
+          const detailRes = await api.messages.getConversation(finalConvId);
           if (detailRes && detailRes.messages) {
             setActiveDetail(detailRes);
             setTimeout(() => scrollToBottom('auto'), 50);
@@ -608,16 +630,20 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
       resolvingPropertyRef.current = null;
       setResolvingPropertyId(null);
       setMessagesLoading(false);
+      setTimeout(() => inputRef.current?.focus(), 100);
     }
   };
 
-  // Reset all conversation state when authenticated user changes or logs out (Strict Session Isolation)
+  // Reset all conversation state ONLY when authenticated user ID actually changes (Strict Session Isolation)
   useEffect(() => {
-    setConversations([]);
-    setActiveConversationId(null);
-    setActiveDetail(null);
-    setResolvingPropertyId(null);
-    resolvingPropertyRef.current = null;
+    if (prevUserIdRef.current && prevUserIdRef.current !== user?.id) {
+      setConversations([]);
+      setActiveConversationId(null);
+      setActiveDetail(null);
+      setResolvingPropertyId(null);
+      resolvingPropertyRef.current = null;
+    }
+    prevUserIdRef.current = user?.id || null;
   }, [user?.id]);
 
   // If initialConversationId or initialPropertyId is provided from a hostel card or inspection click, open that exact conversation
@@ -627,7 +653,7 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
       setActiveConversationId(initialConversationId);
       loadConversations(initialConversationId);
     } else if (initialPropertyId) {
-      openPropertyConversation(initialPropertyId);
+      openPropertyConversation(initialPropertyId, undefined, initialProperty || undefined);
     } else {
       loadConversations();
     }
@@ -639,11 +665,12 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
       const convId = e.detail?.conversationId;
       const propId = e.detail?.propertyId;
       const studentId = e.detail?.studentId;
+      const propData = e.detail?.property;
       if (convId) {
         setActiveConversationId(convId);
         loadConversations(convId);
       } else if (propId) {
-        openPropertyConversation(propId, studentId);
+        openPropertyConversation(propId, studentId, propData);
       }
     };
     window.addEventListener('hostel_ease_open_conversation', handleOpenConv);
@@ -884,6 +911,11 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
       }
 
       // Replace optimistic message with server-confirmed message
+      const confirmedConvId = res?.message?.conversationId || activeConversationId;
+      if (confirmedConvId && confirmedConvId !== activeConversationId) {
+        setActiveConversationId(confirmedConvId);
+      }
+
       setActiveDetail(prev => {
         if (!prev) return null;
         let updatedMsgs = prev.messages.map(m => m.id === tempId ? { ...res.message, isSending: false, isFailed: false } : m);
@@ -893,6 +925,10 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
         }
         return {
           ...prev,
+          conversation: {
+            ...prev.conversation,
+            id: confirmedConvId || prev.conversation.id
+          },
           messages: updatedMsgs
         };
       });
@@ -900,8 +936,8 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
       // Update last message preview in conversations list
       const latestSnippet = res.autoReply ? res.autoReply.content : text;
       setConversations(prev => prev.map(c => {
-        if (c.id === activeConversationId) {
-          return { ...c, lastMessageText: latestSnippet, lastMessageAt: new Date().toISOString(), unreadCount: 0 };
+        if (c.id === activeConversationId || c.id === confirmedConvId) {
+          return { ...c, id: confirmedConvId || c.id, lastMessageText: latestSnippet, lastMessageAt: new Date().toISOString(), unreadCount: 0 };
         }
         return c;
       }));
@@ -1569,8 +1605,8 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
         {/* ========================================================================= */}
         {/* RIGHT COLUMN: ADVANCED CHAT STREAM (SNAPCHAT / iMESSAGE GRADIENT CANVAS)   */}
         {/* ========================================================================= */}
-        <div className={`md:col-span-8 flex flex-col bg-slate-950/95 relative overflow-hidden ${(!activeConversationId && !resolvingPropertyId) ? 'hidden md:flex' : 'flex'}`}>
-          {resolvingPropertyId ? (
+        <div className={`md:col-span-8 flex flex-col bg-slate-950/95 relative overflow-hidden ${(!activeConversationId && !resolvingPropertyId && !activeDetail) ? 'hidden md:flex' : 'flex'}`}>
+          {(!activeDetail && resolvingPropertyId) ? (
             <div className="flex-1 flex flex-col items-center justify-center p-8 text-center space-y-4">
               <div className="w-10 h-10 border-3 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto" />
               <div className="space-y-1">
@@ -1578,7 +1614,7 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
                 <p className="text-xs text-slate-400">Loading conversation and accommodation inquiry thread</p>
               </div>
             </div>
-          ) : !activeConversationId ? (
+          ) : (!activeConversationId && !activeDetail) ? (
             <div className="flex-1 flex flex-col items-center justify-center p-8 text-center space-y-4">
               <div className="w-16 h-16 bg-slate-900 text-emerald-400 rounded-3xl flex items-center justify-center shadow-inner border border-slate-800">
                 <MessageSquare className="w-8 h-8" />
@@ -1808,7 +1844,7 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
                             onClick={() => {
                               setConfirmDeleteModal({
                                 type: 'CLEAR_CHAT',
-                                conversationId: activeConversationId
+                                conversationId: activeConversationId || undefined
                               });
                               setShowChatMenu(false);
                             }}
@@ -1824,7 +1860,7 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
                             onClick={() => {
                               setConfirmDeleteModal({
                                 type: 'DELETE_CONVERSATION',
-                                conversationId: activeConversationId,
+                                conversationId: activeConversationId || undefined,
                                 targetName: isStudent ? (activeDetail.conversation?.provider?.name || 'Agent') : (activeDetail.conversation?.student?.name || 'Student')
                               });
                               setShowChatMenu(false);

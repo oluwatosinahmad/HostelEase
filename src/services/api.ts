@@ -84,7 +84,7 @@ import {
 import { safeStorage } from '../utils/safeStorage';
 
 const RAW_API_URL = (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_API_URL || '').replace(/\/+$/, '');
-const API_BASE = RAW_API_URL ? `${RAW_API_URL}/api` : '/api';
+export const API_BASE = RAW_API_URL ? `${RAW_API_URL}/api` : '/api';
 
 export function getMediaUrl(url?: string | null): string {
   if (!url) return '';
@@ -191,9 +191,21 @@ export function createClientAuthToken(u: any): string {
     iat: Math.floor(Date.now() / 1000)
   };
   try {
-    return `hl_${btoa(unescape(encodeURIComponent(JSON.stringify(payload))))}`;
+    const jsonStr = JSON.stringify(payload);
+    let base64 = '';
+    if (typeof btoa !== 'undefined') {
+      base64 = btoa(unescape(encodeURIComponent(jsonStr)));
+    } else {
+      base64 = Buffer.from(jsonStr).toString('base64');
+    }
+    const base64url = base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    return `hl_${base64url}`;
   } catch {
-    return `hl_${btoa(JSON.stringify(payload))}`;
+    try {
+      return `hl_${btoa(JSON.stringify(payload)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')}`;
+    } catch {
+      return `hl_${JSON.stringify(payload)}`;
+    }
   }
 }
 
@@ -1904,7 +1916,7 @@ if (typeof window !== 'undefined') {
 export const api = {
   // Authentication & Session
   auth: {
-    async register(data: any): Promise<{ message: string; token: string; user: any }> {
+    async register(data: any): Promise<{ message: string; token: string; user: any; welcomeNotification?: any }> {
       try {
         const res = await fetch(`${API_BASE}/auth/register`, {
           method: 'POST',
@@ -2033,7 +2045,7 @@ export const api = {
       }
     },
 
-    async login(emailOrData: string | { email?: string; username?: string; password?: string; role?: string; requestedRole?: string }, maybePassword?: string, selectedRole?: string): Promise<{ message: string; token: string; user: any }> {
+    async login(emailOrData: string | { email?: string; username?: string; password?: string; role?: string; requestedRole?: string }, maybePassword?: string, selectedRole?: string): Promise<{ message: string; token: string; user: any; welcomeNotification?: any }> {
       const payload = typeof emailOrData === 'string'
         ? { username: emailOrData, email: emailOrData, password: maybePassword, requestedRole: selectedRole }
         : {
@@ -2089,10 +2101,36 @@ export const api = {
     },
 
     async getMe(): Promise<{ user: any }> {
-      try {
-        const token = safeStorage.getItem('hostel_ease_token') || activeInMemoryToken;
-        if (!token) return { user: null };
+      const token = safeStorage.getItem('hostel_ease_token') || activeInMemoryToken;
+      const stored = safeStorage.getJSON<any | null>('hostel_ease_user', null);
+      if (!token && !stored) return { user: null };
 
+      // Helper to extract verified user from client token directly
+      const decodeUserFromToken = (): any | null => {
+        if (!token) return null;
+        try {
+          if (token.startsWith('hl_')) {
+            const rawPart = token.substring(3).replace(/-/g, '+').replace(/_/g, '/');
+            const padded = rawPart + '='.repeat((4 - (rawPart.length % 4)) % 4);
+            const decodedStr = typeof atob !== 'undefined'
+              ? decodeURIComponent(escape(atob(padded)))
+              : Buffer.from(padded, 'base64').toString('utf8');
+            return JSON.parse(decodedStr);
+          }
+          const parts = token.split('.');
+          if (parts.length >= 2) {
+            const rawPart = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+            const padded = rawPart + '='.repeat((4 - (rawPart.length % 4)) % 4);
+            const decodedStr = typeof atob !== 'undefined'
+              ? decodeURIComponent(escape(atob(padded)))
+              : Buffer.from(padded, 'base64').toString('utf8');
+            return JSON.parse(decodedStr);
+          }
+        } catch {}
+        return null;
+      };
+
+      try {
         const res = await fetch(`${API_BASE}/auth/me`, {
           headers: { ...getAuthHeader() }
         });
@@ -2100,21 +2138,37 @@ export const api = {
           const json = await res.json();
           if (json.user) {
             safeStorage.setJSON('hostel_ease_user', json.user, true);
-            setActiveAuthToken(token);
+            if (token) setActiveAuthToken(token);
           }
           return json;
         }
+
+        // Only explicitly invalid/revoked tokens (where server confirms account does not exist AND no token fallback)
+        // should purge credentials. On 404, 500, 502, 503, 504, or cold starts, NEVER purge session!
         if (res.status === 401 || res.status === 403) {
-          // Token is invalid/expired; immediately purge rejected credentials
-          safeStorage.removeItem('hostel_ease_token');
-          safeStorage.removeItem('hostel_ease_user');
-          setActiveAuthToken(null);
-          return { user: null };
+          const errData = await res.json().catch(() => ({}));
+          const errMsg = errData.error || errData.message || '';
+          if (errMsg.includes('revoked') || errMsg.includes('disabled')) {
+            safeStorage.removeItem('hostel_ease_token');
+            safeStorage.removeItem('hostel_ease_user');
+            setActiveAuthToken(null);
+            return { user: null };
+          }
         }
       } catch (err) {
-        // In offline network mode, return stored user if token exists
-        const stored = safeStorage.getJSON<any | null>('hostel_ease_user', null);
-        if (stored) return { user: stored };
+        console.warn('[getMe] Network check note:', err);
+      }
+
+      // Resilient Fallback: If user profile exists in storage or token claims, keep user logged in!
+      if (stored) {
+        if (token) setActiveAuthToken(token);
+        return { user: stored };
+      }
+      const tokenUser = decodeUserFromToken();
+      if (tokenUser) {
+        safeStorage.setJSON('hostel_ease_user', tokenUser, true);
+        if (token) setActiveAuthToken(token);
+        return { user: tokenUser };
       }
       return { user: null };
     },
@@ -2984,9 +3038,21 @@ export const api = {
 
   // In-App Messaging API (Single Central Source of Truth: Backend Database)
   messages: {
-    async startConversation(propertyId: string, initialMessage?: string, studentId?: string): Promise<{ conversationId: string; conversation: ConversationItem }> {
+    async startConversation(propertyId: string, initialMessage?: string, studentId?: string, extraPropertyData?: any): Promise<{ conversationId: string; conversation: ConversationItem }> {
       const cleanPropId = propertyId ? propertyId.trim() : '';
-      const foundProp = DEFAULT_PROPERTIES.find(p => p.id === cleanPropId || (p as any).slug === cleanPropId);
+      let foundProp: any = (extraPropertyData && (extraPropertyData.id === cleanPropId || (extraPropertyData as any).slug === cleanPropId)) ? extraPropertyData : undefined;
+      if (!foundProp) {
+        foundProp = DEFAULT_PROPERTIES.find(p => p.id === cleanPropId || (p as any).slug === cleanPropId);
+      }
+      if (!foundProp && cleanPropId) {
+        try {
+          const res = await api.properties.getById(cleanPropId);
+          if (res?.property) {
+            foundProp = res.property;
+          }
+        } catch {}
+      }
+
       const payload: any = {
         propertyId: cleanPropId,
         initialMessage,
@@ -3169,8 +3235,20 @@ export const api = {
     },
 
     async toggleReaction(conversationId: string, messageId: string, emoji: string): Promise<{ success: boolean; reactions: Record<string, string[]> }> {
-      // Local optimistic reaction toggle
-      return { success: true, reactions: { [emoji]: ['me'] } };
+      try {
+        const res = await fetch(`${API_BASE}/messages/conversations/${encodeURIComponent(conversationId)}/messages/${encodeURIComponent(messageId)}/reactions`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+          body: JSON.stringify({ emoji })
+        });
+        if (res.ok) {
+          const data = await res.json();
+          return { success: true, reactions: data.reactions || {} };
+        }
+      } catch (err) {
+        console.warn('Failed to toggle reaction on server:', err);
+      }
+      return { success: false, reactions: {} };
     },
 
     async reportUser(data: { reportedUserId: string; conversationId?: string; reason: string; description: string }): Promise<{ message: string }> {

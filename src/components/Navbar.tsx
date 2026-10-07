@@ -171,14 +171,34 @@ export const Navbar: React.FC<NavbarProps> = ({
 
       poll();
 
-      // Active 4s cross-device synchronization
-      const interval = setInterval(poll, 4000);
+      // Background recovery sync fallback (30s interval instead of rapid polling)
+      const interval = setInterval(poll, 30000);
 
-      const handleNotifEvent = () => {
-        fetchUnreadCount();
+      const handleNotifEvent = (e?: any) => {
+        const detail = e?.detail;
+        if (detail?.unreadCount !== undefined) {
+          setUnreadNotifCount(detail.unreadCount);
+        } else {
+          fetchUnreadCount();
+        }
+
+        if (detail?.action === 'MARK_ALL_READ') {
+          setUnreadNotifCount(0);
+          setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+        } else if (detail?.action === 'MARK_READ' && detail?.notificationId) {
+          setNotifications(prev => prev.map(n => n.id === detail.notificationId ? { ...n, isRead: true } : n));
+        } else if (detail?.notification) {
+          setNotifications(prev => {
+            const newNotif = detail.notification;
+            if (prev.some(n => n.id === newNotif.id)) return prev;
+            return [newNotif, ...prev];
+          });
+        }
+
         api.messages.getUnreadCount()
           .then(res => setUnreadMsgCount(res?.unreadCount || 0))
           .catch(() => {});
+
         if (notifDropdownOpen) fetchFullNotifs();
       };
 

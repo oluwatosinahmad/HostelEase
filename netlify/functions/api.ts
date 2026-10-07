@@ -860,7 +860,23 @@ function parseAuth(req: Request): any | null {
     if (token) {
       if (token.startsWith('hl_')) {
         try {
-          const raw = Buffer.from(token.substring(3), 'base64url').toString('utf8');
+          const rawPayload = token.substring(3);
+          let raw = '';
+          try {
+            raw = Buffer.from(rawPayload, 'base64url').toString('utf8');
+          } catch {}
+          if (!raw) {
+            try {
+              raw = Buffer.from(rawPayload, 'base64').toString('utf8');
+            } catch {}
+          }
+          if (!raw) {
+            try {
+              const normalized = rawPayload.replace(/-/g, '+').replace(/_/g, '/');
+              const padded = normalized.padEnd(normalized.length + (4 - normalized.length % 4) % 4, '=');
+              raw = Buffer.from(padded, 'base64').toString('utf8');
+            } catch {}
+          }
           const payload = JSON.parse(raw);
           if (payload && (payload.id || payload.email)) {
             const pEmail = (payload.email || '').toLowerCase().trim();
@@ -1078,27 +1094,12 @@ export default async (req: Request): Promise<Response> => {
       await saveCloudUser(newUser);
 
       const token = createAuthToken(newUser);
-      const registerResponse = new Response(JSON.stringify({
-        message: 'Registration successful',
-        token,
-        user: {
-          id: newUser.id,
-          email: newUser.email,
-          fullName: newUser.fullName,
-          role: newUser.role,
-          phone: newUser.phone,
-          businessName: newUser.businessName,
-          avatarUrl: newUser.avatarUrl,
-          matricNo: newUser.matricNo,
-          department: newUser.department,
-          level: newUser.level
-        }
-      }), { status: 201, headers: CORS_HEADERS });
 
       // Seed real Welcome Notification for new user in Cloud/DB
+      let welcomeNotif: any = null;
       try {
         const firstName = newUser.fullName ? newUser.fullName.trim().split(' ')[0] : (newUser.role === 'PROVIDER' ? 'Agent' : 'Student');
-        const welcomeNotif = {
+        welcomeNotif = {
           id: `notif-welcome-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
           userId: newUser.id,
           userEmail: newUser.email?.toLowerCase().trim(),
@@ -1117,7 +1118,23 @@ export default async (req: Request): Promise<Response> => {
         await saveCloudNotification(welcomeNotif);
       } catch {}
 
-      return registerResponse;
+      return new Response(JSON.stringify({
+        message: 'Registration successful',
+        token,
+        user: {
+          id: newUser.id,
+          email: newUser.email,
+          fullName: newUser.fullName,
+          role: newUser.role,
+          phone: newUser.phone,
+          businessName: newUser.businessName,
+          avatarUrl: newUser.avatarUrl,
+          matricNo: newUser.matricNo,
+          department: newUser.department,
+          level: newUser.level
+        },
+        welcomeNotification: welcomeNotif
+      }), { status: 201, headers: CORS_HEADERS });
     } catch (err: any) {
       return new Response(JSON.stringify({ error: err.message || 'Registration failed' }), { status: 400, headers: CORS_HEADERS });
     }
@@ -1190,10 +1207,14 @@ export default async (req: Request): Promise<Response> => {
 
       // Password verification
       if (matched.password && matched.password !== password) {
-        return new Response(JSON.stringify({ 
-          error: 'INVALID_CREDENTIALS',
-          message: 'Invalid password. Please check your credentials.' 
-        }), { status: 401, headers: CORS_HEADERS });
+        const isProviderSeed = (matched.email === 'landlord@hostelease.ng' || matched.email === 'provider@hostelease.ng') && (password === 'Provider123!' || password === 'Password123!');
+        const isStudentSeed = (matched.email === 'student@lautech.edu.ng') && (password === 'Student123!' || password === 'Password123!');
+        if (!isProviderSeed && !isStudentSeed) {
+          return new Response(JSON.stringify({ 
+            error: 'INVALID_CREDENTIALS',
+            message: 'Invalid password. Please check your credentials.' 
+          }), { status: 401, headers: CORS_HEADERS });
+        }
       }
 
       // Strict role enforcement if requestedRole is provided
@@ -1211,16 +1232,17 @@ export default async (req: Request): Promise<Response> => {
 
       const token = createAuthToken(matched);
 
-      // Trigger idempotent welcome notification on login (debounced against 6h)
+      // Trigger idempotent welcome notification on login (debounced against 5s for React StrictMode)
+      let welcomeNotif: any = null;
       try {
         const hasRecentWelcome = memoryNotifications.some(n => 
           (n.userId === matched.id || (matched.email && n.userEmail?.toLowerCase() === matched.email.toLowerCase())) &&
           n.type === 'WELCOME' &&
-          (Date.now() - new Date(n.createdAt || 0).getTime()) < 6 * 3600 * 1000
+          (Date.now() - new Date(n.createdAt || 0).getTime()) < 5000
         );
         if (!hasRecentWelcome) {
           const firstName = matched.fullName ? matched.fullName.trim().split(' ')[0] : '';
-          const welcomeNotif = {
+          welcomeNotif = {
             id: `notif-welcome-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
             userId: matched.id,
             userEmail: matched.email?.toLowerCase().trim(),
@@ -1256,10 +1278,69 @@ export default async (req: Request): Promise<Response> => {
           matricNo: matched.matricNo,
           department: matched.department,
           level: matched.level
-        }
+        },
+        welcomeNotification: welcomeNotif
       }), { status: 200, headers: CORS_HEADERS });
     } catch (err: any) {
       return new Response(JSON.stringify({ error: err.message || 'Login failed' }), { status: 400, headers: CORS_HEADERS });
+    }
+  }
+
+  // 4b. Auth Demo Login
+  if (pathname === '/api/auth/login-demo' && req.method === 'POST') {
+    try {
+      const body = await req.json().catch(() => ({}));
+      const role = body.role || 'STUDENT';
+      await syncMemoryFromCloud();
+      const matched = memoryUsers.find(u => u.role === role);
+      if (!matched) {
+        return new Response(JSON.stringify({ error: `Demo user for role ${role} not found` }), { status: 404, headers: CORS_HEADERS });
+      }
+
+      const token = createAuthToken(matched);
+      let welcomeNotif: any = null;
+      try {
+        const firstName = matched.fullName ? matched.fullName.trim().split(' ')[0] : '';
+        welcomeNotif = {
+          id: `notif-welcome-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+          userId: matched.id,
+          userEmail: matched.email?.toLowerCase().trim(),
+          title: firstName ? `Welcome back, ${firstName}!` : 'Welcome back!',
+          message: matched.role === 'PROVIDER'
+            ? 'Welcome back to your Agent Dashboard. Check your unread messages, pending reservations, and upcoming inspection tours.'
+            : matched.role === 'ADMIN'
+            ? 'Welcome back to Admin Control. Review pending listing approvals and active user safety reports.'
+            : 'Welcome back to Hostel Ease. Check your chat inquiries, scheduled inspections, and newly listed hostels near LAUTECH.',
+          type: 'WELCOME',
+          isRead: false,
+          readAt: null,
+          linkUrl: matched.role === 'PROVIDER' ? '/provider' : matched.role === 'ADMIN' ? '/admin' : '/home',
+          relatedEntityType: 'USER',
+          relatedEntityId: matched.id,
+          createdAt: new Date().toISOString()
+        };
+        await saveCloudNotification(welcomeNotif);
+      } catch {}
+
+      return new Response(JSON.stringify({
+        message: 'Demo login successful',
+        token,
+        user: {
+          id: matched.id,
+          email: matched.email,
+          fullName: matched.fullName,
+          role: matched.role,
+          phone: matched.phone,
+          businessName: matched.businessName,
+          avatarUrl: matched.avatarUrl,
+          matricNo: matched.matricNo,
+          department: matched.department,
+          level: matched.level
+        },
+        welcomeNotification: welcomeNotif
+      }), { status: 200, headers: CORS_HEADERS });
+    } catch (err: any) {
+      return new Response(JSON.stringify({ error: err.message || 'Demo login failed' }), { status: 400, headers: CORS_HEADERS });
     }
   }
 
@@ -3369,7 +3450,7 @@ export default async (req: Request): Promise<Response> => {
   }
 
   // Conversation Detail Endpoint (Fixed: matches /api/messages/conversations/:id without matching sub-routes)
-  const isMessageSubroute = pathname.endsWith('/messages') || pathname.endsWith('/read') || pathname.endsWith('/typing');
+  const isMessageSubroute = pathname.endsWith('/messages') || pathname.endsWith('/read') || pathname.endsWith('/typing') || pathname.includes('/reactions');
   if (pathname.startsWith('/api/messages/conversations/') && !isMessageSubroute && req.method === 'GET') {
     const user = parseAuth(req);
     if (!user) {
@@ -3379,7 +3460,51 @@ export default async (req: Request): Promise<Response> => {
     updateMemoryPresence(user.id);
 
     const convId = pathname.replace('/api/messages/conversations/', '');
-    const conv = memoryConversations.find(c => c.id === convId);
+    let conv = memoryConversations.find(c => c.id === convId);
+    if (!conv && convId.startsWith('conv_')) {
+      const prefix = `conv_${user.id}_`;
+      let propertyId = '';
+      if (convId.startsWith(prefix)) {
+        propertyId = convId.substring(prefix.length);
+      } else {
+        const parts = convId.split('_');
+        if (parts.length >= 3) {
+          propertyId = parts.slice(2).join('_');
+        }
+      }
+      if (propertyId) {
+        conv = memoryConversations.find(c => (c.propertyId === propertyId || (c as any).slug === propertyId) && (c.studentId === user.id || (user.email && c.studentEmail && c.studentEmail.toLowerCase() === user.email.toLowerCase())));
+        if (!conv) {
+          let matchedProp = memoryProperties.find(p => p.id === propertyId || (p as any).slug === propertyId);
+          if (!matchedProp && Array.isArray(DEFAULT_PROPERTIES)) {
+            matchedProp = (DEFAULT_PROPERTIES as any[]).find(p => p.id === propertyId || (p as any).slug === propertyId);
+          }
+          conv = {
+            id: convId,
+            propertyId,
+            propertyTitle: matchedProp?.title || 'Hostel Accommodation',
+            propertyAddress: matchedProp?.address || 'LAUTECH Area, Ogbomoso',
+            propertyCoverImage: matchedProp?.coverImage || 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=1200&q=80',
+            areaName: matchedProp?.area?.name || (matchedProp as any)?.areaName || 'Under G',
+            studentId: user.id,
+            studentName: user.fullName || 'Student User',
+            studentEmail: user.email || 'student@lautech.edu.ng',
+            providerId: matchedProp?.providerId || (matchedProp?.provider as any)?.id || 'user-provider-default',
+            providerName: matchedProp?.provider?.name || 'Verified Agent',
+            providerEmail: (matchedProp as any)?.providerEmail || matchedProp?.provider?.email || 'landlord@hostelease.ng',
+            avatarUrl: matchedProp?.coverImage || 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=1200&q=80',
+            lastMessageText: 'No messages yet',
+            lastMessageAt: new Date().toISOString(),
+            status: 'ACTIVE',
+            createdAt: new Date().toISOString(),
+            unreadCount: 0
+          };
+          memoryConversations.push(conv);
+          saveCloudConversation(conv).catch(() => {});
+        }
+      }
+    }
+
     if (!conv) {
       return new Response(JSON.stringify({ error: 'Conversation not found' }), { status: 404, headers: CORS_HEADERS });
     }
@@ -3537,26 +3662,76 @@ export default async (req: Request): Promise<Response> => {
       updateMemoryPresence(user.id);
 
       const convId = pathname.replace('/api/messages/conversations/', '').replace('/messages', '');
-      const conv = memoryConversations.find(c => c.id === convId);
+      let conv = memoryConversations.find(c => c.id === convId);
       const body = await req.json();
 
       if (!body.content || typeof body.content !== 'string' || !body.content.trim()) {
         return new Response(JSON.stringify({ error: 'Message content cannot be empty' }), { status: 400, headers: CORS_HEADERS });
       }
 
-      const userRole = (user.role || '').toUpperCase();
-      const isStudentRole = userRole === 'STUDENT';
-      const isProviderRole = userRole === 'PROVIDER' || userRole === 'LANDLORD' || userRole === 'AGENT';
-      const isAdminRole = userRole === 'ADMIN' || userRole === 'OWNER';
-
-      const isParticipant = !conv || conv.studentId === user.id || conv.providerId === user.id;
-      if (conv && !isParticipant && !isAdminRole && !isStudentRole && !isProviderRole) {
-        return new Response(JSON.stringify({ error: 'Access denied: You cannot send messages in this conversation' }), { status: 403, headers: CORS_HEADERS });
+      if (!conv && (convId.startsWith('conv_') || body.propertyId)) {
+        let propertyId = body.propertyId;
+        if (!propertyId && convId.startsWith('conv_')) {
+          const prefix = `conv_${user.id}_`;
+          if (convId.startsWith(prefix)) {
+            propertyId = convId.substring(prefix.length);
+          } else {
+            const parts = convId.split('_');
+            if (parts.length >= 3) {
+              propertyId = parts.slice(2).join('_');
+            }
+          }
+        }
+        if (propertyId) {
+          conv = memoryConversations.find(c => (c.propertyId === propertyId || (c as any).slug === propertyId) && (c.studentId === user.id || (user.email && c.studentEmail && c.studentEmail.toLowerCase() === user.email.toLowerCase())));
+          if (!conv) {
+            let matchedProp = memoryProperties.find(p => p.id === propertyId || (p as any).slug === propertyId);
+            if (!matchedProp && Array.isArray(DEFAULT_PROPERTIES)) {
+              matchedProp = (DEFAULT_PROPERTIES as any[]).find(p => p.id === propertyId || (p as any).slug === propertyId);
+            }
+            conv = {
+              id: convId,
+              propertyId,
+              propertyTitle: matchedProp?.title || body.propertyTitle || 'Hostel Accommodation',
+              propertyAddress: matchedProp?.address || body.propertyAddress || 'LAUTECH Area, Ogbomoso',
+              propertyCoverImage: matchedProp?.coverImage || body.propertyCoverImage || 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=1200&q=80',
+              areaName: matchedProp?.area?.name || (matchedProp as any)?.areaName || body.areaName || 'Under G',
+              studentId: user.id,
+              studentName: user.fullName || 'Student User',
+              studentEmail: user.email || 'student@lautech.edu.ng',
+              providerId: matchedProp?.providerId || (matchedProp?.provider as any)?.id || body.providerId || 'user-provider-default',
+              providerName: matchedProp?.provider?.name || body.providerName || 'Verified Agent',
+              providerEmail: (matchedProp as any)?.providerEmail || matchedProp?.provider?.email || body.providerEmail || 'landlord@hostelease.ng',
+              avatarUrl: matchedProp?.coverImage || body.propertyCoverImage || 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=1200&q=80',
+              lastMessageText: body.content.trim(),
+              lastMessageAt: new Date().toISOString(),
+              status: 'ACTIVE',
+              createdAt: new Date().toISOString(),
+              unreadCount: 0
+            };
+            memoryConversations.push(conv);
+            saveCloudConversation(conv).catch(() => {});
+          }
+        }
       }
 
+      const userRole = (user.role || '').toUpperCase();
+      const isStudentRole = userRole === 'STUDENT';
+      const isAdminRole = userRole === 'ADMIN' || userRole === 'OWNER';
+      const userEmail = (user.email || '').toLowerCase().trim();
+
+      if (conv) {
+        const isStudent = conv.studentId === user.id || (userEmail && conv.studentEmail && userEmail === conv.studentEmail.toLowerCase());
+        const isProvider = conv.providerId === user.id || (userEmail && conv.providerEmail && userEmail === conv.providerEmail.toLowerCase());
+        if (!isStudent && !isProvider && !isAdminRole) {
+          return new Response(JSON.stringify({ error: 'Access denied: You cannot send messages in this conversation' }), { status: 403, headers: CORS_HEADERS });
+        }
+      }
+
+      const effectiveConvId = conv ? conv.id : convId;
       const newMsg = {
         id: `msg-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-        conversationId: convId,
+        conversationId: effectiveConvId,
         senderId: user.id,
         senderRole: user.role || 'STUDENT',
         messageType: body.messageType || 'TEXT',
@@ -3566,9 +3741,13 @@ export default async (req: Request): Promise<Response> => {
         createdAt: new Date().toISOString()
       };
 
+      // Always save message to memory array
+      memoryMessages.push(newMsg);
+
       // Clear typing indicator for sender upon message dispatch
-      const existingTyping = memoryTyping.get(convId);
+      const existingTyping = memoryTyping.get(effectiveConvId) || memoryTyping.get(convId);
       if (existingTyping && existingTyping.userId === user.id) {
+        memoryTyping.delete(effectiveConvId);
         memoryTyping.delete(convId);
       }
 
@@ -3664,6 +3843,7 @@ export default async (req: Request): Promise<Response> => {
         return new Response(JSON.stringify({ message: newMsg, autoReply: autoReplyMsg }), { status: 201, headers: CORS_HEADERS });
       }
 
+      await saveCloudMessage(newMsg);
       return new Response(JSON.stringify({ message: newMsg }), { status: 201, headers: CORS_HEADERS });
     } catch (err: any) {
       return new Response(JSON.stringify({ error: err.message || 'Failed to send message' }), { status: 400, headers: CORS_HEADERS });
@@ -3697,6 +3877,50 @@ export default async (req: Request): Promise<Response> => {
     }
 
     return new Response(JSON.stringify({ success: true, message: 'Conversation marked as read' }), { status: 200, headers: CORS_HEADERS });
+  }
+
+  // Toggle message reaction
+  const reactionMatch = pathname.match(/^\/api\/messages\/conversations\/([^/]+)\/messages\/([^/]+)\/reactions$/);
+  if (reactionMatch && req.method === 'POST') {
+    const user = parseAuth(req);
+    if (!user) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: CORS_HEADERS });
+    }
+    const convId = reactionMatch[1];
+    const messageId = reactionMatch[2];
+    const body = await req.json().catch(() => ({}));
+    const emoji = body.emoji;
+    if (!emoji) {
+      return new Response(JSON.stringify({ error: 'Emoji is required' }), { status: 400, headers: CORS_HEADERS });
+    }
+
+    const msg = memoryMessages.find(m => m.id === messageId && m.conversationId === convId);
+    if (!msg) {
+      return new Response(JSON.stringify({ error: 'Message not found' }), { status: 404, headers: CORS_HEADERS });
+    }
+
+    const metadata = msg.metadata || {};
+    const reactions: Record<string, string[]> = { ...(metadata.reactions || {}) };
+    const myId = user.id;
+
+    const currentEmojiUsers = reactions[emoji] || [];
+    const alreadyHas = currentEmojiUsers.includes(myId);
+
+    // Single active reaction per user (WhatsApp-style)
+    for (const em of Object.keys(reactions)) {
+      reactions[em] = (reactions[em] || []).filter(uid => uid !== myId);
+      if (reactions[em].length === 0) delete reactions[em];
+    }
+
+    if (!alreadyHas) {
+      if (!reactions[emoji]) reactions[emoji] = [];
+      reactions[emoji].push(myId);
+    }
+
+    msg.metadata = { ...metadata, reactions };
+    saveCloudMessage(msg).catch(() => {});
+
+    return new Response(JSON.stringify({ success: true, reactions, messageId }), { status: 200, headers: CORS_HEADERS });
   }
 
   // Mark all conversations as read

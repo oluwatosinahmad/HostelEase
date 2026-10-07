@@ -2,12 +2,12 @@ import React, { useEffect, useState } from 'react';
 import { ShieldCheck, Building2 } from 'lucide-react';
 
 interface HostelEaseBrandedLoaderProps {
-  isReady: boolean;
+  isReady?: boolean;
   onFinish?: () => void;
 }
 
 export const HostelEaseBrandedLoader: React.FC<HostelEaseBrandedLoaderProps> = ({
-  isReady,
+  isReady = false,
   onFinish
 }) => {
   const [isFadingOut, setIsFadingOut] = useState<boolean>(false);

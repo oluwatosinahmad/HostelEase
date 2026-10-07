@@ -311,57 +311,55 @@ export const notificationService = {
   },
 
   /**
-   * Create non-blocking idempotent welcome notification on existing user login.
-   * Debounced against rapid page refreshes and React 18 StrictMode duplicate mounts.
-   * Only generates if no WELCOME notification was sent within the past 6 hours.
+   * Create instant welcome notification on existing user login.
+   * Debounced against rapid multi-clicks / React 18 StrictMode double-mount within 5 seconds.
+   * Delivers immediately to database and streams to client in real-time.
    */
-  createWelcomeNotificationOnLogin(userId: string, role: string, fullName?: string): void {
-    // Run asynchronously to avoid delaying login response
-    setImmediate(() => {
-      try {
-        const recent = db.prepare(`
-          SELECT id FROM notifications
-          WHERE user_id = ? AND type = 'WELCOME'
-            AND datetime(created_at) > datetime('now', '-6 hours')
-          LIMIT 1
-        `).get(userId);
+  createWelcomeNotificationOnLogin(userId: string, role: string, fullName?: string): NotificationRecord | null {
+    try {
+      const recent = db.prepare(`
+        SELECT id FROM notifications
+        WHERE user_id = ? AND type = 'WELCOME'
+          AND datetime(created_at) > datetime('now', '-5 seconds')
+        LIMIT 1
+      `).get(userId);
 
-        if (recent) {
-          // Already welcomed recently (within 6 hours), avoid duplicate notification spam
-          return;
-        }
-
-        const normalizedRole = (role || 'STUDENT').toUpperCase();
-        const firstName = fullName ? fullName.trim().split(' ')[0] : '';
-        const greeting = firstName ? `Welcome back, ${firstName}!` : 'Welcome back!';
-
-        let message = '';
-        let linkUrl = '/home';
-
-        if (normalizedRole === 'PROVIDER' || normalizedRole === 'LANDLORD' || normalizedRole === 'AGENT') {
-          message = 'Welcome back to your Agent Dashboard. Check your unread messages, pending reservations, and upcoming inspection tours.';
-          linkUrl = '/provider';
-        } else if (normalizedRole === 'ADMIN' || normalizedRole === 'OWNER') {
-          message = 'Welcome back to Admin Control. Review pending listing approvals and active user safety reports.';
-          linkUrl = '/admin';
-        } else {
-          message = 'Welcome back to Hostel Ease. Check your chat inquiries, scheduled inspections, and newly listed hostels near LAUTECH.';
-          linkUrl = '/home';
-        }
-
-        this.createNotification({
-          userId,
-          title: greeting,
-          message,
-          type: 'WELCOME',
-          linkUrl,
-          relatedEntityType: 'USER',
-          relatedEntityId: userId
-        });
-      } catch (err) {
-        console.error('Failed to create welcome notification on login:', err);
+      if (recent) {
+        // Debounce only against rapid double-mount within 5 seconds
+        return null;
       }
-    });
+
+      const normalizedRole = (role || 'STUDENT').toUpperCase();
+      const firstName = fullName ? fullName.trim().split(' ')[0] : '';
+      const greeting = firstName ? `Welcome to Hostel Ease, ${firstName}!` : 'Welcome to Hostel Ease!';
+
+      let message = '';
+      let linkUrl = '/home';
+
+      if (normalizedRole === 'PROVIDER' || normalizedRole === 'LANDLORD' || normalizedRole === 'AGENT') {
+        message = 'Welcome to Hostel Ease Agent Dashboard. Check your student inquiries, pending reservations, and upcoming inspection tours.';
+        linkUrl = '/provider';
+      } else if (normalizedRole === 'ADMIN' || normalizedRole === 'OWNER') {
+        message = 'Welcome to Hostel Ease Admin Console. Review pending listing approvals and active user safety reports.';
+        linkUrl = '/admin';
+      } else {
+        message = 'Welcome to Hostel Ease. Check your chat inquiries, scheduled inspections, and newly listed hostels near LAUTECH.';
+        linkUrl = '/home';
+      }
+
+      return this.createNotification({
+        userId,
+        title: greeting,
+        message,
+        type: 'WELCOME',
+        linkUrl,
+        relatedEntityType: 'USER',
+        relatedEntityId: userId
+      });
+    } catch (err) {
+      console.error('Failed to create welcome notification on login:', err);
+      return null;
+    }
   }
 };
 

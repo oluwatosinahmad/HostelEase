@@ -111,9 +111,9 @@ router.post('/register', (req, res: Response) => {
 
     const token = generateToken(userRecord as any);
 
-    // Create real welcome notification in database for new user
+    let welcomeNotification = null;
     try {
-      notificationService.createWelcomeNotificationOnSignup(userId, role, fullName);
+      welcomeNotification = notificationService.createWelcomeNotificationOnSignup(userId, role, fullName);
     } catch (notifErr) {
       console.warn('Failed to seed welcome notification on signup:', notifErr);
     }
@@ -121,7 +121,8 @@ router.post('/register', (req, res: Response) => {
     return res.status(201).json({
       message: 'Registration successful',
       token,
-      user: userRecord
+      user: userRecord,
+      welcomeNotification
     });
   } catch (err: any) {
     console.error('Registration error:', err);
@@ -283,9 +284,9 @@ router.post('/login', (req, res: Response) => {
 
   const token = generateToken(userPayload as any);
 
-  // Trigger non-blocking idempotent welcome notification on login (debounced against rapid refreshes)
+  let welcomeNotification = null;
   try {
-    notificationService.createWelcomeNotificationOnLogin(userPayload.id, userPayload.role, userPayload.fullName);
+    welcomeNotification = notificationService.createWelcomeNotificationOnLogin(userPayload.id, userPayload.role, userPayload.fullName);
   } catch {}
 
   return res.json({
@@ -294,7 +295,8 @@ router.post('/login', (req, res: Response) => {
     user: {
       ...userPayload,
       profile
-    }
+    },
+    welcomeNotification
   });
 });
 
@@ -314,9 +316,9 @@ router.post('/login-demo', (req, res: Response) => {
     profile = db.prepare('SELECT * FROM provider_profiles WHERE user_id = ?').get(user.id);
   }
 
-  // Trigger non-blocking idempotent welcome notification on demo login
+  let welcomeNotification = null;
   try {
-    notificationService.createWelcomeNotificationOnLogin(user.id, user.role, user.fullName);
+    welcomeNotification = notificationService.createWelcomeNotificationOnLogin(user.id, user.role, user.fullName);
   } catch {}
 
   return res.json({
@@ -325,7 +327,8 @@ router.post('/login-demo', (req, res: Response) => {
     user: {
       ...user,
       profile
-    }
+    },
+    welcomeNotification
   });
 });
 

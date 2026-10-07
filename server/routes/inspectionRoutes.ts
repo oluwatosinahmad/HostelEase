@@ -2,6 +2,7 @@ import { Router, Response } from 'express';
 import crypto from 'crypto';
 import db from '../db.js';
 import { authenticate, AuthenticatedRequest } from '../middleware/auth.js';
+import { notificationService } from '../services/notificationService.js';
 
 const router = Router();
 
@@ -37,22 +38,16 @@ function sendNotification(
   metadata?: any
 ) {
   try {
-    db.prepare(`
-      INSERT INTO notifications (
-        id, user_id, title, message, type, is_read, link_url,
-        related_entity_id, related_entity_type, metadata
-      ) VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?, ?)
-    `).run(
-      crypto.randomUUID(),
+    notificationService.createNotification({
       userId,
       title,
       message,
-      type,
-      linkUrl || null,
-      relatedEntityId || null,
-      relatedEntityType || null,
-      metadata ? JSON.stringify(metadata) : null
-    );
+      type: type || 'INSPECTION',
+      linkUrl: linkUrl || null,
+      relatedEntityId: relatedEntityId || null,
+      relatedEntityType: relatedEntityType || 'INSPECTION',
+      metadata
+    });
   } catch (err) {
     console.error('Failed to send notification:', err);
   }

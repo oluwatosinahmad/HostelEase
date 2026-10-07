@@ -35,7 +35,7 @@ interface HostelCardProps {
   onViewDetails: (property: Property) => void;
   onToggleSave: (propertyId: string, isSaved: boolean) => void;
   onToggleCompare?: (propertyId: string) => void;
-  onOpenConversation?: (propertyId: string) => void;
+  onOpenConversation?: (propertyId: string, studentId?: string, property?: Property) => void;
   onOpenBookingModal?: (property: Property) => void;
   onOpenInspectionModal?: (property: Property) => void;
   onOpenVideoTour?: (property: Property) => void;
@@ -432,7 +432,7 @@ export const HostelCard: React.FC<HostelCardProps> = ({
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation();
-                  onOpenConversation(property.id);
+                  onOpenConversation(property.id, undefined, property);
                 }}
                 className="p-2 text-slate-600 dark:text-slate-300 hover:text-emerald-700 dark:hover:text-emerald-400 bg-slate-100 dark:bg-slate-800 hover:bg-emerald-50 dark:hover:bg-slate-700 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-emerald-200 transition-all flex items-center gap-1 cursor-pointer"
                 title="Chat Directly with Agent"

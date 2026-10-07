@@ -62,6 +62,7 @@ import { AIAgentAssistantModal } from './components/AILandlordAssistantModal';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { MorePageView } from './components/MorePageView';
 import { safeStorage } from './utils/safeStorage';
+import { DEFAULT_PROPERTIES } from './services/offlineFallback';
 
 // Dynamic Code Splitting for heavy portals & views (Slashes initial bundle by ~70%!)
 const AdminPortal = lazy(() => import('./components/AdminPortal').then(m => ({ default: m.AdminPortal })));
@@ -107,7 +108,7 @@ interface Toast {
 }
 
 function MainApp() {
-  const { user, isAuthenticated, isStudent, isProvider, isAdmin, login, logout, loginDemo, impersonateUser, exitImpersonation, isImpersonating } = useAuth();
+  const { user, isAuthenticated, isStudent, isProvider, isAdmin, login, logout, loginDemo, impersonateUser, exitImpersonation, isImpersonating, isLoading } = useAuth();
 
   // Navigation & View State
   // Navigation & View State with Hash Routing & History Synchronization
@@ -117,7 +118,7 @@ function MainApp() {
       if (hash) {
         const videoMatch = hash.match(/^#virtual-tours?\/([^/?#]+)/);
         if (videoMatch) return 'virtual-tours';
-        const cleanHash = hash.replace('#', '').split('/')[0] as AppView;
+        const cleanHash = hash.replace('#', '').split('?')[0].split('/')[0] as AppView;
         const validViews: AppView[] = [
           'home', 'search', 'saved', 'community', 'student-dashboard', 
           'provider-portal', 'admin-portal', 'messages', 'inspections', 
@@ -180,6 +181,7 @@ function MainApp() {
       return null;
     }
   });
+  const [messagingTargetProperty, setMessagingTargetProperty] = useState<Property | null>(null);
 
 
 
@@ -410,7 +412,7 @@ function MainApp() {
   };
 
   // Centralized, robust navigation handler to open conversation for a property
-  const handleOpenConversation = (propId?: string, studentId?: string) => {
+  const handleOpenConversation = (propId?: string, studentId?: string, propertyData?: Property) => {
     if (!isAuthenticated) {
       showToast('Please sign in or create an account to message the hostel agent.', 'info');
       setAuthModalDefaultRole('STUDENT');
@@ -422,17 +424,31 @@ function MainApp() {
       const cleanPropId = propId.trim();
       setMessagingTargetPropertyId(cleanPropId);
       setMessagingTargetConversationId(null);
+
+      const resolvedProp = propertyData || 
+        properties.find(p => p.id === cleanPropId || (p as any).slug === cleanPropId) ||
+        featuredProperties.find(p => p.id === cleanPropId || (p as any).slug === cleanPropId) ||
+        DEFAULT_PROPERTIES.find(p => p.id === cleanPropId || (p as any).slug === cleanPropId) || null;
+      setMessagingTargetProperty(resolvedProp);
+
       setCurrentView('messages');
       try {
         window.history.pushState({ view: 'messages', propertyId: cleanPropId }, '', `#messages?propertyId=${encodeURIComponent(cleanPropId)}`);
       } catch {}
       window.scrollTo({ top: 0, behavior: 'smooth' });
       setTimeout(() => {
-        window.dispatchEvent(new CustomEvent('hostel_ease_open_conversation', { detail: { propertyId: cleanPropId, studentId } }));
+        window.dispatchEvent(new CustomEvent('hostel_ease_open_conversation', { 
+          detail: { 
+            propertyId: cleanPropId, 
+            studentId,
+            property: resolvedProp
+          } 
+        }));
       }, 25);
     } else {
       setMessagingTargetPropertyId(null);
       setMessagingTargetConversationId(null);
+      setMessagingTargetProperty(null);
       setCurrentView('messages');
       try {
         window.history.pushState({ view: 'messages' }, '', '#messages');
@@ -446,6 +462,7 @@ function MainApp() {
     const handleLogoutClean = () => {
       setMessagingTargetPropertyId(null);
       setMessagingTargetConversationId(null);
+      setMessagingTargetProperty(null);
       setSelectedPropertyId(null);
       setBookingTargetProperty(null);
       setInspectionTargetProperty(null);
@@ -1754,6 +1771,7 @@ function MainApp() {
             <MessagingCenter
               initialPropertyId={messagingTargetPropertyId}
               initialConversationId={messagingTargetConversationId}
+              initialProperty={messagingTargetProperty}
               onSelectProperty={(id) => setSelectedPropertyId(id)}
               onRequestInspection={(id) => {
                 setSelectedPropertyId(id);
@@ -1834,6 +1852,11 @@ function MainApp() {
               >
                 Go to Agent Portal
               </button>
+            </div>
+          ) : isLoading && !user ? (
+            <div className="flex-1 flex flex-col items-center justify-center min-h-[50vh] p-8">
+              <HostelEaseBrandedLoader />
+              <p className="mt-4 text-xs font-bold text-slate-500 tracking-wider uppercase animate-pulse">Loading student dashboard...</p>
             </div>
           ) : (
             <ErrorBoundary
@@ -1942,6 +1965,11 @@ function MainApp() {
                 onShowToast={showToast}
               />
             </ErrorBoundary>
+          ) : isLoading ? (
+            <div className="flex-1 flex flex-col items-center justify-center min-h-[50vh] p-8">
+              <HostelEaseBrandedLoader />
+              <p className="mt-4 text-xs font-bold text-slate-500 tracking-wider uppercase animate-pulse">Verifying agent session...</p>
+            </div>
           ) : (
             <div className="max-w-md mx-auto my-20 p-8 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-xl text-center space-y-4">
               <div className="w-16 h-16 rounded-2xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center mx-auto border border-amber-200 dark:border-amber-800 shadow-inner">
@@ -1979,6 +2007,11 @@ function MainApp() {
                 onNavigateView={setCurrentView}
               />
             </ErrorBoundary>
+          ) : isLoading ? (
+            <div className="flex-1 flex flex-col items-center justify-center min-h-[50vh] p-8">
+              <HostelEaseBrandedLoader />
+              <p className="mt-4 text-xs font-bold text-slate-500 tracking-wider uppercase animate-pulse">Verifying admin session...</p>
+            </div>
           ) : isAuthenticated && (isStudent || isProvider) ? (
             <div className="max-w-md mx-auto my-20 p-8 bg-white dark:bg-slate-900 border border-rose-200 dark:border-rose-900 rounded-3xl shadow-xl text-center space-y-4 animate-in zoom-in-95 duration-150">
               <div className="w-16 h-16 rounded-2xl bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center mx-auto border border-rose-200 dark:border-rose-800 shadow-inner">

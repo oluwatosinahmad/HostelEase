@@ -54,7 +54,7 @@ interface HostelDetailModalProps {
   onClose: () => void;
   onToggleSave: (propertyId: string, isSaved: boolean) => void;
   onToggleCompare?: (propertyId: string) => void;
-  onOpenConversation?: (propertyId: string) => void;
+  onOpenConversation?: (propertyId: string, studentId?: string, property?: Property) => void;
   onOpenBookingModal?: (property: Property) => void;
   onRequestInspection?: (property: Property, type?: InspectionType, roomId?: string) => void;
   onOpenAuth?: (role: UserRole) => void;
@@ -165,10 +165,10 @@ export const HostelDetailModal: React.FC<HostelDetailModalProps> = ({
     setSendingInquiry(true);
     try {
       if (onOpenConversation) {
-        await api.messages.startConversation(property.id, textToSend);
+        await api.messages.startConversation(property.id, textToSend, undefined, property);
         onShowToast(`Enquiry sent directly to ${property.provider?.name || 'Agent'}'s DM!`, 'success');
         onClose();
-        onOpenConversation(property.id);
+        onOpenConversation(property.id, undefined, property);
       }
     } catch (err: any) {
       onShowToast(err.message || 'Could not send enquiry', 'error');
@@ -181,9 +181,9 @@ export const HostelDetailModal: React.FC<HostelDetailModalProps> = ({
     if (!property) return;
     onClose();
     if (onOpenConversation) {
-      onOpenConversation(property.id);
+      onOpenConversation(property.id, undefined, property);
     } else {
-      window.dispatchEvent(new CustomEvent('hostel_ease_open_conversation', { detail: { propertyId: property.id } }));
+      window.dispatchEvent(new CustomEvent('hostel_ease_open_conversation', { detail: { propertyId: property.id, property } }));
     }
   };
 
@@ -1041,7 +1041,7 @@ export const HostelDetailModal: React.FC<HostelDetailModalProps> = ({
                                 return;
                               }
                               onClose();
-                              onOpenConversation(property.id);
+                              onOpenConversation(property.id, undefined, property);
                             }}
                             className="w-full py-2.5 bg-slate-900 dark:bg-slate-800 hover:bg-slate-800 dark:hover:bg-slate-700 text-white rounded-2xl font-bold text-xs shadow transition-all flex items-center justify-center gap-1.5 border border-transparent dark:border-slate-700 cursor-pointer"
                           >

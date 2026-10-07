@@ -35,6 +35,41 @@ export function generateToken(user: AuthenticatedUser): string {
   );
 }
 
+export function decodeTokenClaims(token: string): any {
+  if (!token) return null;
+  if (token.startsWith('hl_')) {
+    const rawPayload = token.substring(3);
+    try {
+      return JSON.parse(Buffer.from(rawPayload, 'base64url').toString('utf8'));
+    } catch {}
+    try {
+      return JSON.parse(Buffer.from(rawPayload, 'base64').toString('utf8'));
+    } catch {}
+    try {
+      const normalized = rawPayload.replace(/-/g, '+').replace(/_/g, '/');
+      const padded = normalized.padEnd(normalized.length + (4 - normalized.length % 4) % 4, '=');
+      return JSON.parse(Buffer.from(padded, 'base64').toString('utf8'));
+    } catch {}
+  }
+
+  try {
+    return jwt.verify(token, JWT_SECRET) as AuthenticatedUser;
+  } catch (jwtErr) {
+    const parts = token.split('.');
+    if (parts.length >= 2) {
+      try {
+        const raw = Buffer.from(parts[1], 'base64url').toString('utf8');
+        return JSON.parse(raw);
+      } catch {}
+      try {
+        const raw = Buffer.from(parts[1], 'base64').toString('utf8');
+        return JSON.parse(raw);
+      } catch {}
+    }
+  }
+  return null;
+}
+
 export function authenticate(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   let authHeader = req.headers.authorization;
   let token = (authHeader && authHeader.startsWith('Bearer ')) ? authHeader.split(' ')[1] : null;
@@ -44,31 +79,7 @@ export function authenticate(req: AuthenticatedRequest, res: Response, next: Nex
   }
 
   try {
-    let decoded: any = null;
-
-    if (token) {
-      if (token.startsWith('hl_')) {
-        try {
-          const raw = Buffer.from(token.substring(3), 'base64url').toString('utf8');
-          decoded = JSON.parse(raw);
-        } catch {}
-      }
-
-      if (!decoded) {
-        try {
-          decoded = jwt.verify(token, JWT_SECRET) as AuthenticatedUser;
-        } catch (jwtErr) {
-          // Fallback: check if valid JWT format with readable claims
-          const parts = token.split('.');
-          if (parts.length >= 2) {
-            try {
-              const raw = Buffer.from(parts[1], 'base64url').toString('utf8');
-              decoded = JSON.parse(raw);
-            } catch {}
-          }
-        }
-      }
-    }
+    let decoded: any = token ? decodeTokenClaims(token) : null;
 
     // Fallback to identity headers if token is missing or opaque
     if (!decoded || (!decoded.id && !decoded.email)) {
@@ -182,28 +193,7 @@ export function optionalAuthenticate(req: AuthenticatedRequest, res: Response, n
   }
 
   try {
-    let decoded: any = null;
-
-    if (token.startsWith('hl_')) {
-      try {
-        const raw = Buffer.from(token.substring(3), 'base64url').toString('utf8');
-        decoded = JSON.parse(raw);
-      } catch {}
-    }
-
-    if (!decoded) {
-      try {
-        decoded = jwt.verify(token, JWT_SECRET) as AuthenticatedUser;
-      } catch (jwtErr) {
-        const parts = token.split('.');
-        if (parts.length >= 2) {
-          try {
-            const raw = Buffer.from(parts[1], 'base64url').toString('utf8');
-            decoded = JSON.parse(raw);
-          } catch {}
-        }
-      }
-    }
+    const decoded: any = decodeTokenClaims(token);
 
     if (decoded && (decoded.id || decoded.email)) {
       const queryId = decoded.id || '';

@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken';
 import db from '../db.js';
 import { authenticate, AuthenticatedRequest } from '../middleware/auth.js';
 import { notificationService } from '../services/notificationService.js';
+import { realtimeService } from '../services/realtimeService.js';
 
 const JWT_SECRET = process.env.AUTH_JWT_SECRET || 'hostel-ease-jwt-secure-secret-key-2026';
 const router = Router();
@@ -39,6 +40,191 @@ function checkRateLimit(userId: string): boolean {
   }
   entry.count++;
   return true;
+}
+
+export function isAuthorizedParticipant(conv: any, reqUser: any): boolean {
+  if (!conv || !reqUser) return false;
+  const userRole = (reqUser.role || '').toUpperCase();
+  const isAdminRole = userRole === 'ADMIN' || userRole === 'OWNER';
+  if (isAdminRole) return true;
+
+  const userEmail = (reqUser.email || '').toLowerCase().trim();
+  const userId = (reqUser.id || '').toLowerCase().trim();
+  const studentId = (conv.student_id || '').toLowerCase().trim();
+  const studentEmail = (conv.student_email || '').toLowerCase().trim();
+  const providerId = (conv.provider_id || '').toLowerCase().trim();
+  const propertyProviderId = (conv.property_provider_id || '').toLowerCase().trim();
+  const providerEmail = (conv.provider_email || '').toLowerCase().trim();
+
+  const isStudent = (
+    userId === studentId ||
+    (userEmail && userEmail === studentEmail) ||
+    (userEmail && userEmail === studentId) ||
+    (userId && userId === studentEmail)
+  );
+
+  const isProvider = (
+    userId === providerId ||
+    userId === propertyProviderId ||
+    (userEmail && userEmail === providerEmail) ||
+    (userEmail && userEmail === providerId) ||
+    (userId && userId === providerEmail)
+  );
+
+  return isStudent || isProvider;
+}
+
+export function findOrResolveConversation(id: string, reqUser: any, bodyPropertyId?: string): any {
+  if (!id && !bodyPropertyId) return null;
+
+  // 1. Direct match by conversation ID
+  let conv = db.prepare(`
+    SELECT c.*, COALESCE(p.title, 'Hostel Accommodation') as property_title,
+           COALESCE(p.address, 'LAUTECH Area, Ogbomoso') as property_address,
+           COALESCE(p.property_type, 'SELF_CONTAIN') as property_type,
+           COALESCE(p.distance_from_campus_km, 0.5) as distance_from_campus_km,
+           p.provider_id as property_provider_id,
+           pr.rent_amount, pr.total_mandatory_cost,
+           COALESCE(a.name, 'Under G') as area_name,
+           COALESCE(u_s.full_name, 'Student') as student_name,
+           u_s.avatar_url as student_avatar,
+           u_s.email as student_email,
+           u_p.email as provider_email,
+           COALESCE(u_p.full_name, 'Verified Agent') as provider_name,
+           u_p.avatar_url as provider_avatar,
+           COALESCE(
+             (SELECT url FROM property_media WHERE property_id = p.id AND is_cover = 1 LIMIT 1),
+             (SELECT url FROM property_media WHERE property_id = p.id ORDER BY display_order ASC LIMIT 1),
+             (SELECT url FROM property_media WHERE property_id = p.id LIMIT 1)
+           ) as property_cover,
+           up_s.last_seen_at as student_last_seen_at,
+           up_p.last_seen_at as provider_last_seen_at
+    FROM conversations c
+    LEFT JOIN properties p ON c.property_id = p.id
+    LEFT JOIN areas a ON p.area_id = a.id
+    LEFT JOIN prices pr ON pr.property_id = p.id
+    LEFT JOIN users u_s ON c.student_id = u_s.id
+    LEFT JOIN users u_p ON c.provider_id = u_p.id
+    LEFT JOIN user_presence up_s ON up_s.user_id = c.student_id
+    LEFT JOIN user_presence up_p ON up_p.user_id = c.provider_id
+    WHERE c.id = ?
+  `).get(id) as any;
+
+  if (conv) return conv;
+
+  // 2. Derive property ID if id is formatted as conv_${studentId}_${propertyId} or if bodyPropertyId passed
+  let propId = bodyPropertyId;
+  if (!propId && id && id.startsWith('conv_')) {
+    const prefix = `conv_${reqUser.id}_`;
+    if (id.startsWith(prefix)) {
+      propId = id.substring(prefix.length);
+    } else {
+      const parts = id.split('_');
+      if (parts.length >= 3) {
+        propId = parts.slice(2).join('_');
+      }
+    }
+  }
+
+  if (propId) {
+    // Check if conversation exists by property_id and user
+    conv = db.prepare(`
+      SELECT c.*, COALESCE(p.title, 'Hostel Accommodation') as property_title,
+             COALESCE(p.address, 'LAUTECH Area, Ogbomoso') as property_address,
+             COALESCE(p.property_type, 'SELF_CONTAIN') as property_type,
+             COALESCE(p.distance_from_campus_km, 0.5) as distance_from_campus_km,
+             p.provider_id as property_provider_id,
+             pr.rent_amount, pr.total_mandatory_cost,
+             COALESCE(a.name, 'Under G') as area_name,
+             COALESCE(u_s.full_name, 'Student') as student_name,
+             u_s.avatar_url as student_avatar,
+             u_s.email as student_email,
+             u_p.email as provider_email,
+             COALESCE(u_p.full_name, 'Verified Agent') as provider_name,
+             u_p.avatar_url as provider_avatar,
+             COALESCE(
+               (SELECT url FROM property_media WHERE property_id = p.id AND is_cover = 1 LIMIT 1),
+               (SELECT url FROM property_media WHERE property_id = p.id ORDER BY display_order ASC LIMIT 1),
+               (SELECT url FROM property_media WHERE property_id = p.id LIMIT 1)
+             ) as property_cover,
+             up_s.last_seen_at as student_last_seen_at,
+             up_p.last_seen_at as provider_last_seen_at
+      FROM conversations c
+      LEFT JOIN properties p ON c.property_id = p.id
+      LEFT JOIN areas a ON p.area_id = a.id
+      LEFT JOIN prices pr ON pr.property_id = p.id
+      LEFT JOIN users u_s ON c.student_id = u_s.id
+      LEFT JOIN users u_p ON c.provider_id = u_p.id
+      LEFT JOIN user_presence up_s ON up_s.user_id = c.student_id
+      LEFT JOIN user_presence up_p ON up_p.user_id = c.provider_id
+      WHERE (c.property_id = ? OR p.slug = ?)
+        AND (c.student_id = ? OR c.student_id IN (SELECT id FROM users WHERE LOWER(email) = LOWER(?)))
+      ORDER BY c.last_message_at DESC
+      LIMIT 1
+    `).get(propId, propId, reqUser.id, reqUser.email || '') as any;
+
+    if (conv) return conv;
+
+    // 3. Auto-create conversation if missing
+    let property = db.prepare('SELECT id, provider_id FROM properties WHERE id = ? OR slug = ?').get(propId, propId) as any;
+    let providerId = property?.provider_id || 'user-provider-1';
+    let studentId = reqUser.id;
+    if (reqUser.role === 'PROVIDER' || reqUser.role === 'LANDLORD' || reqUser.role === 'AGENT') {
+      providerId = reqUser.id;
+      studentId = 'user-student-1';
+    }
+
+    try {
+      if (!property) {
+        db.prepare(`
+          INSERT OR IGNORE INTO properties (id, title, address, provider_id, rent_amount, property_type, area_id)
+          VALUES (?, 'Hostel Accommodation', 'LAUTECH Area, Ogbomoso', ?, 150000, 'SELF_CONTAIN', 'area-under-g')
+        `).run(propId, providerId);
+      }
+
+      const targetId = (id && id.startsWith('conv_')) ? id : `conv_${studentId}_${propId}`;
+      db.prepare(`
+        INSERT OR IGNORE INTO conversations (id, property_id, student_id, provider_id, last_message_text, last_message_at)
+        VALUES (?, ?, ?, ?, 'Conversation started', datetime('now'))
+      `).run(targetId, propId, studentId, providerId);
+
+      return db.prepare(`
+        SELECT c.*, COALESCE(p.title, 'Hostel Accommodation') as property_title,
+               COALESCE(p.address, 'LAUTECH Area, Ogbomoso') as property_address,
+               COALESCE(p.property_type, 'SELF_CONTAIN') as property_type,
+               COALESCE(p.distance_from_campus_km, 0.5) as distance_from_campus_km,
+               p.provider_id as property_provider_id,
+               pr.rent_amount, pr.total_mandatory_cost,
+               COALESCE(a.name, 'Under G') as area_name,
+               COALESCE(u_s.full_name, 'Student') as student_name,
+               u_s.avatar_url as student_avatar,
+               u_s.email as student_email,
+               u_p.email as provider_email,
+               COALESCE(u_p.full_name, 'Verified Agent') as provider_name,
+               u_p.avatar_url as provider_avatar,
+               COALESCE(
+                 (SELECT url FROM property_media WHERE property_id = p.id AND is_cover = 1 LIMIT 1),
+                 (SELECT url FROM property_media WHERE property_id = p.id ORDER BY display_order ASC LIMIT 1),
+                 (SELECT url FROM property_media WHERE property_id = p.id LIMIT 1)
+               ) as property_cover,
+               up_s.last_seen_at as student_last_seen_at,
+               up_p.last_seen_at as provider_last_seen_at
+        FROM conversations c
+        LEFT JOIN properties p ON c.property_id = p.id
+        LEFT JOIN areas a ON p.area_id = a.id
+        LEFT JOIN prices pr ON pr.property_id = p.id
+        LEFT JOIN users u_s ON c.student_id = u_s.id
+        LEFT JOIN users u_p ON c.provider_id = u_p.id
+        LEFT JOIN user_presence up_s ON up_s.user_id = c.student_id
+        LEFT JOIN user_presence up_p ON up_p.user_id = c.provider_id
+        WHERE c.id = ?
+      `).get(targetId) as any;
+    } catch (createErr) {
+      console.warn('[MESSAGE_ROUTES] Auto-create conversation warning:', createErr);
+    }
+  }
+
+  return null;
 }
 
 // ----------------------------------------------------
@@ -126,19 +312,25 @@ router.post('/conversations', authenticate, (req: AuthenticatedRequest, res: Res
     // Check if conversation already exists for this student and property (enforce single active thread)
     let conv = db.prepare(`
       SELECT * FROM conversations 
-      WHERE property_id = ? AND student_id = ?
+      WHERE property_id = ? AND (student_id = ? OR student_id IN (SELECT id FROM users WHERE LOWER(email) = LOWER(?)))
       ORDER BY last_message_at DESC
       LIMIT 1
-    `).get(property.id, studentId) as any;
+    `).get(property.id, studentId, req.user.email || '') as any;
 
     if (!conv) {
-      const convId = `conv-${crypto.randomUUID()}`;
-      db.prepare(`
-        INSERT INTO conversations (id, property_id, student_id, provider_id, last_message_text, last_message_at)
-        VALUES (?, ?, ?, ?, ?, datetime('now'))
-      `).run(convId, property.id, studentId, providerId, initialMessage || 'No messages yet');
+      const convId = `conv_${studentId}_${property.id}`;
+      conv = db.prepare('SELECT * FROM conversations WHERE id = ?').get(convId) as any;
+      if (!conv) {
+        db.prepare(`
+          INSERT OR IGNORE INTO conversations (id, property_id, student_id, provider_id, last_message_text, last_message_at)
+          VALUES (?, ?, ?, ?, ?, datetime('now'))
+        `).run(convId, property.id, studentId, providerId, initialMessage || 'No messages yet');
 
-      conv = db.prepare('SELECT * FROM conversations WHERE id = ?').get(convId);
+        conv = db.prepare(`
+          SELECT * FROM conversations 
+          WHERE id = ? OR (property_id = ? AND student_id = ? AND provider_id = ?)
+        `).get(convId, property.id, studentId, providerId);
+      }
 
       // If initial message provided, save it
       if (initialMessage && typeof initialMessage === 'string' && initialMessage.trim()) {
@@ -147,7 +339,7 @@ router.post('/conversations', authenticate, (req: AuthenticatedRequest, res: Res
         db.prepare(`
           INSERT INTO messages (id, conversation_id, sender_id, sender_role, message_type, content, is_read)
           VALUES (?, ?, ?, ?, 'TEXT', ?, 0)
-        `).run(msgId, convId, req.user.id, req.user.role, cleanMsg);
+        `).run(msgId, conv.id, req.user.id, req.user.role, cleanMsg);
 
         // Notify recipient (provider if student sent, or student if provider sent)
         const recipientId = req.user.id === studentId ? providerId : studentId;
@@ -157,8 +349,8 @@ router.post('/conversations', authenticate, (req: AuthenticatedRequest, res: Res
           `New Message about ${property.title}`,
           `${senderName}: "${cleanMsg.substring(0, 60)}${cleanMsg.length > 60 ? '...' : ''}"`,
           'NEW_MESSAGE',
-          `/messages?conversationId=${convId}&propertyId=${property.id}`,
-          convId,
+          `/messages?conversationId=${conv.id}&propertyId=${property.id}`,
+          conv.id,
           msgId,
           req.user.id
         );
@@ -422,61 +614,13 @@ router.get('/conversations/:id', authenticate, (req: AuthenticatedRequest, res: 
   try {
     updateUserPresence(req.user.id);
 
-    const conv = db.prepare(`
-      SELECT c.*, COALESCE(p.title, 'Hostel Accommodation') as property_title,
-             COALESCE(p.address, 'LAUTECH Area, Ogbomoso') as property_address,
-             COALESCE(p.property_type, 'SELF_CONTAIN') as property_type,
-             COALESCE(p.distance_from_campus_km, 0.5) as distance_from_campus_km,
-             p.provider_id as property_provider_id,
-             pr.rent_amount, pr.total_mandatory_cost,
-             COALESCE(a.name, 'Under G') as area_name,
-             COALESCE(u_s.full_name, 'Student') as student_name,
-             u_s.avatar_url as student_avatar,
-             u_s.email as student_email,
-             u_p.email as provider_email,
-             COALESCE(u_p.full_name, 'Verified Agent') as provider_name,
-             u_p.avatar_url as provider_avatar,
-             COALESCE(
-               (SELECT url FROM property_media WHERE property_id = p.id AND is_cover = 1 LIMIT 1),
-               (SELECT url FROM property_media WHERE property_id = p.id ORDER BY display_order ASC LIMIT 1),
-               (SELECT url FROM property_media WHERE property_id = p.id LIMIT 1)
-             ) as property_cover,
-             up_s.last_seen_at as student_last_seen_at,
-             up_p.last_seen_at as provider_last_seen_at
-      FROM conversations c
-      LEFT JOIN properties p ON c.property_id = p.id
-      LEFT JOIN areas a ON p.area_id = a.id
-      LEFT JOIN prices pr ON pr.property_id = p.id
-      LEFT JOIN users u_s ON c.student_id = u_s.id
-      LEFT JOIN users u_p ON c.provider_id = u_p.id
-      LEFT JOIN user_presence up_s ON up_s.user_id = c.student_id
-      LEFT JOIN user_presence up_p ON up_p.user_id = c.provider_id
-      WHERE c.id = ?
-    `).get(id) as any;
+    const conv = findOrResolveConversation(id, req.user);
 
     if (!conv) {
       return res.status(404).json({ error: 'Conversation not found' });
     }
 
-    // Role Normalization & Authorization Check: participant student, provider, property owner, or admin
-    const userRole = (req.user.role || '').toUpperCase();
-    const isStudentRole = userRole === 'STUDENT';
-    const isProviderRole = userRole === 'PROVIDER' || userRole === 'LANDLORD' || userRole === 'AGENT';
-    const isAdminRole = userRole === 'ADMIN' || userRole === 'OWNER';
-
-    const isStudent = (isStudentRole || !isProviderRole) && (
-      conv.student_id === req.user.id || 
-      (req.user.email && conv.student_email && conv.student_email.toLowerCase() === req.user.email.toLowerCase())
-    );
-    const isProvider = isProviderRole && (
-      conv.provider_id === req.user.id || 
-      conv.property_provider_id === req.user.id ||
-      (req.user.email && conv.provider_email && conv.provider_email.toLowerCase() === req.user.email.toLowerCase())
-    );
-    const isParticipant = conv.student_id === req.user.id || conv.provider_id === req.user.id;
-    const isAdmin = isAdminRole;
-
-    if (!isStudent && !isProvider && !isAdmin && !isParticipant) {
+    if (!isAuthorizedParticipant(conv, req.user)) {
       return res.status(403).json({ error: 'Access denied: You are not authorized to view this conversation' });
     }
 
@@ -485,14 +629,38 @@ router.get('/conversations/:id', authenticate, (req: AuthenticatedRequest, res: 
       UPDATE messages
       SET is_read = 1, read_at = datetime('now')
       WHERE conversation_id = ? AND sender_id != ? AND is_read = 0
-    `).run(id, req.user.id);
+    `).run(conv.id, req.user.id);
 
     // Also mark notifications for this conversation as read
     db.prepare(`
       UPDATE notifications
       SET is_read = 1, read_at = datetime('now')
       WHERE user_id = ? AND conversation_id = ? AND is_read = 0
-    `).run(req.user.id, id);
+    `).run(req.user.id, conv.id);
+
+    // Instant real-time read receipt delivery to sender
+    const oppositePartyId = req.user.id === conv.student_id ? conv.provider_id : conv.student_id;
+    try {
+      realtimeService.sendToUser(oppositePartyId, 'message:read', {
+        conversationId: conv.id,
+        readBy: req.user.id,
+        readAt: new Date().toISOString()
+      });
+      if (conv.provider_email && conv.provider_email !== oppositePartyId) {
+        realtimeService.sendToUser(conv.provider_email, 'message:read', {
+          conversationId: conv.id,
+          readBy: req.user.id,
+          readAt: new Date().toISOString()
+        });
+      }
+      if (conv.student_email && conv.student_email !== oppositePartyId) {
+        realtimeService.sendToUser(conv.student_email, 'message:read', {
+          conversationId: conv.id,
+          readBy: req.user.id,
+          readAt: new Date().toISOString()
+        });
+      }
+    } catch {}
 
     // Fetch message history - now all messages returned have is_read = 1
     let messages = db.prepare(`
@@ -501,7 +669,7 @@ router.get('/conversations/:id', authenticate, (req: AuthenticatedRequest, res: 
       FROM messages
       WHERE conversation_id = ?
       ORDER BY created_at ASC, rowid ASC
-    `).all(id) as any[];
+    `).all(conv.id) as any[];
 
     const now = Date.now();
     const studentLastSeenRaw = conv.student_last_seen_at;
@@ -588,39 +756,13 @@ router.post('/conversations/:id/messages', authenticate, (req: AuthenticatedRequ
   }
 
   try {
-    const conv = db.prepare(`
-      SELECT c.*, p.title as property_title, p.provider_id as property_provider_id,
-             u_s.email as student_email, u_p.email as provider_email
-      FROM conversations c
-      LEFT JOIN properties p ON c.property_id = p.id
-      LEFT JOIN users u_s ON c.student_id = u_s.id
-      LEFT JOIN users u_p ON c.provider_id = u_p.id
-      WHERE c.id = ?
-    `).get(id) as any;
+    const conv = findOrResolveConversation(id, req.user, req.body.propertyId);
 
     if (!conv) {
       return res.status(404).json({ error: 'Conversation not found' });
     }
 
-    // Role Normalization & Authorization check
-    const userRole = (req.user.role || '').toUpperCase();
-    const isStudentRole = userRole === 'STUDENT';
-    const isProviderRole = userRole === 'PROVIDER' || userRole === 'LANDLORD' || userRole === 'AGENT';
-    const isAdminRole = userRole === 'ADMIN' || userRole === 'OWNER';
-
-    const isStudent = (isStudentRole || !isProviderRole) && (
-      conv.student_id === req.user.id ||
-      (req.user.email && conv.student_email && conv.student_email.toLowerCase() === req.user.email.toLowerCase())
-    );
-    const isProvider = isProviderRole && (
-      conv.provider_id === req.user.id || 
-      conv.property_provider_id === req.user.id ||
-      (req.user.email && conv.provider_email && conv.provider_email.toLowerCase() === req.user.email.toLowerCase())
-    );
-    const isParticipant = conv.student_id === req.user.id || conv.provider_id === req.user.id;
-    const isAdmin = isAdminRole;
-
-    if (!isStudent && !isProvider && !isAdmin && !isParticipant) {
+    if (!isAuthorizedParticipant(conv, req.user)) {
       return res.status(403).json({ error: 'Access denied: You cannot send messages in this conversation' });
     }
 
@@ -638,6 +780,9 @@ router.post('/conversations/:id/messages', authenticate, (req: AuthenticatedRequ
       senderTag: 'Hostel Ease Automated Assistant'
     };
 
+    const userRole = (req.user.role || '').toUpperCase();
+    const isStudent = userRole === 'STUDENT';
+
     if (isStudent && !metadata?.isAutoReply && (messageType || 'TEXT') !== 'AUTOMATED_ACKNOWLEDGEMENT') {
       try {
         // 1. Did provider send a manual message in the last 15 minutes?
@@ -647,7 +792,7 @@ router.post('/conversations/:id/messages', authenticate, (req: AuthenticatedRequ
             AND (metadata_json IS NULL OR metadata_json NOT LIKE '%"automated":true%')
             AND created_at > datetime('now', '-15 minutes')
           LIMIT 1
-        `).get(id, req.user.id) as any;
+        `).get(conv.id, req.user.id) as any;
 
         // 2. Was an automated assistant acknowledgement sent in this conversation within the last 10 minutes?
         const recentAutoReply = db.prepare(`
@@ -656,14 +801,14 @@ router.post('/conversations/:id/messages', authenticate, (req: AuthenticatedRequ
             AND (message_type = 'AUTOMATED_ACKNOWLEDGEMENT' OR metadata_json LIKE '%"isAutoReply":true%')
             AND created_at > datetime('now', '-10 minutes')
           LIMIT 1
-        `).get(id) as any;
+        `).get(conv.id) as any;
 
         if (!recentProviderMsg && !recentAutoReply) {
           shouldGenerateAutoReply = true;
           autoReplyId = `msg-auto-${crypto.randomUUID()}`;
           autoReplyMessage = {
             id: autoReplyId,
-            conversationId: id,
+            conversationId: conv.id,
             senderId: conv.provider_id,
             senderRole: 'PROVIDER',
             messageType: 'AUTOMATED_ACKNOWLEDGEMENT',
@@ -685,7 +830,7 @@ router.post('/conversations/:id/messages', authenticate, (req: AuthenticatedRequ
         VALUES (?, ?, ?, ?, ?, ?, ?, 0)
       `).run(
         messageId,
-        id,
+        conv.id,
         req.user.id,
         req.user.role,
         messageType || 'TEXT',
@@ -699,7 +844,7 @@ router.post('/conversations/:id/messages', authenticate, (req: AuthenticatedRequ
           VALUES (?, ?, ?, 'PROVIDER', 'AUTOMATED_ACKNOWLEDGEMENT', ?, ?, 1, datetime('now'), datetime('now'))
         `).run(
           autoReplyId,
-          id,
+          conv.id,
           conv.provider_id,
           autoReplyContent,
           JSON.stringify(autoMeta)
@@ -709,26 +854,69 @@ router.post('/conversations/:id/messages', authenticate, (req: AuthenticatedRequ
           UPDATE conversations
           SET last_message_text = ?, last_message_at = datetime('now'), updated_at = datetime('now')
           WHERE id = ?
-        `).run(autoReplyContent, id);
+        `).run(autoReplyContent, conv.id);
       } else {
         db.prepare(`
           UPDATE conversations
           SET last_message_text = ?, last_message_at = datetime('now'), updated_at = datetime('now')
           WHERE id = ?
-        `).run(cleanContent, id);
+        `).run(cleanContent, conv.id);
       }
     });
     sendTx();
 
     // Clear typing indicator for sender upon message dispatch
-    const existingTyping = conversationTypingMap.get(id);
+    const existingTyping = conversationTypingMap.get(conv.id) || conversationTypingMap.get(id);
     if (existingTyping && existingTyping.userId === req.user.id) {
+      conversationTypingMap.delete(conv.id);
       conversationTypingMap.delete(id);
     }
 
-    // Determine recipient & dispatch in-app notifications asynchronously
+    // Determine recipient & dispatch in-app notifications and real-time event immediately
     const recipientId = req.user.id === conv.student_id ? conv.provider_id : conv.student_id;
     const senderName = req.user.fullName || (req.user.role === 'STUDENT' ? 'Student' : 'Agent');
+
+    const newMsgObj = {
+      id: messageId,
+      conversationId: conv.id,
+      senderId: req.user.id,
+      senderRole: req.user.role,
+      messageType: messageType || 'TEXT',
+      content: cleanContent,
+      metadata: metadata || null,
+      isRead: false,
+      readAt: null,
+      createdAt: new Date().toISOString()
+    };
+
+    // Instant real-time push to recipient's connected device(s)
+    try {
+      realtimeService.sendToUser(recipientId, 'message:new', {
+        conversationId: conv.id,
+        message: newMsgObj
+      });
+      if (conv.provider_email && conv.provider_email !== recipientId) {
+        realtimeService.sendToUser(conv.provider_email, 'message:new', {
+          conversationId: conv.id,
+          message: newMsgObj
+        });
+      }
+      if (conv.student_email && conv.student_email !== recipientId) {
+        realtimeService.sendToUser(conv.student_email, 'message:new', {
+          conversationId: conv.id,
+          message: newMsgObj
+        });
+      }
+
+      if (shouldGenerateAutoReply && autoReplyMessage) {
+        realtimeService.sendToUser(req.user.id, 'message:new', {
+          conversationId: conv.id,
+          message: autoReplyMessage
+        });
+      }
+    } catch (realtimeErr) {
+      console.warn('Realtime message dispatch error:', realtimeErr);
+    }
 
     setImmediate(() => {
       try {
@@ -737,8 +925,8 @@ router.post('/conversations/:id/messages', authenticate, (req: AuthenticatedRequ
           `New message from ${senderName}`,
           `"${cleanContent.substring(0, 60)}${cleanContent.length > 60 ? '...' : ''}"`,
           'NEW_MESSAGE',
-          `/messages?conversationId=${id}&propertyId=${conv.property_id || ''}`,
-          id,
+          `/messages?conversationId=${conv.id}&propertyId=${conv.property_id || ''}`,
+          conv.id,
           messageId,
           req.user.id
         );
@@ -749,8 +937,8 @@ router.post('/conversations/:id/messages', authenticate, (req: AuthenticatedRequ
             'Hostel Ease Automated Assistant',
             autoReplyContent,
             'NEW_MESSAGE',
-            `/messages?conversationId=${id}&propertyId=${conv.property_id || ''}`,
-            id,
+            `/messages?conversationId=${conv.id}&propertyId=${conv.property_id || ''}`,
+            conv.id,
             autoReplyId,
             conv.provider_id
           );
@@ -763,7 +951,7 @@ router.post('/conversations/:id/messages', authenticate, (req: AuthenticatedRequ
     return res.status(201).json({
       message: {
         id: messageId,
-        conversationId: id,
+        conversationId: conv.id,
         senderId: req.user.id,
         senderRole: req.user.role,
         messageType: messageType || 'TEXT',
@@ -787,6 +975,27 @@ router.post('/conversations/:id/typing', authenticate, (req: AuthenticatedReques
   if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
   const { id } = req.params;
   const { isTyping } = req.body;
+
+  const conv = findOrResolveConversation(id, req.user);
+  if (conv) {
+    const recipientId = req.user.id === conv.student_id ? conv.provider_id : conv.student_id;
+    const typingPayload = {
+      conversationId: conv.id,
+      userId: req.user.id,
+      userName: req.user.fullName || (req.user.role === 'STUDENT' ? 'Student' : 'Agent'),
+      userRole: req.user.role,
+      isTyping: Boolean(isTyping)
+    };
+    try {
+      realtimeService.sendToUser(recipientId, 'typing', typingPayload);
+      if (conv.provider_email && conv.provider_email !== recipientId) {
+        realtimeService.sendToUser(conv.provider_email, 'typing', typingPayload);
+      }
+      if (conv.student_email && conv.student_email !== recipientId) {
+        realtimeService.sendToUser(conv.student_email, 'typing', typingPayload);
+      }
+    } catch {}
+  }
 
   if (isTyping) {
     conversationTypingMap.set(id, {
@@ -822,6 +1031,7 @@ const handleMarkConversationRead = (req: AuthenticatedRequest, res: Response) =>
   const { id } = req.params;
 
   try {
+    const conv = findOrResolveConversation(id, req.user);
     const markReadTx = db.transaction(() => {
       db.prepare(`
         UPDATE messages
@@ -837,6 +1047,17 @@ const handleMarkConversationRead = (req: AuthenticatedRequest, res: Response) =>
     });
     markReadTx();
 
+    if (conv) {
+      const recipientId = req.user.id === conv.student_id ? conv.provider_id : conv.student_id;
+      try {
+        realtimeService.sendToUser(recipientId, 'message:read', {
+          conversationId: conv.id,
+          readBy: req.user.id,
+          readAt: new Date().toISOString()
+        });
+      } catch {}
+    }
+
     return res.json({ success: true, message: 'Conversation marked as read' });
   } catch (err: any) {
     console.error('Mark read error:', err);
@@ -847,6 +1068,96 @@ const handleMarkConversationRead = (req: AuthenticatedRequest, res: Response) =>
 router.patch('/conversations/:id/read', authenticate, handleMarkConversationRead);
 router.put('/conversations/:id/read', authenticate, handleMarkConversationRead);
 router.post('/conversations/:id/read', authenticate, handleMarkConversationRead);
+
+// ----------------------------------------------------
+// 5c. TOGGLE MESSAGE REACTION (WhatsApp-Style reactions: ❤️ 👍 😂 😮 😢 🙏)
+// ----------------------------------------------------
+router.post('/conversations/:id/messages/:messageId/reactions', authenticate, (req: AuthenticatedRequest, res: Response) => {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+  const { id, messageId } = req.params;
+  const { emoji } = req.body;
+
+  if (!emoji || typeof emoji !== 'string') {
+    return res.status(400).json({ error: 'Emoji is required' });
+  }
+
+  try {
+    const conv = findOrResolveConversation(id, req.user);
+    if (!conv) {
+      return res.status(404).json({ error: 'Conversation not found' });
+    }
+
+    if (!isAuthorizedParticipant(conv, req.user)) {
+      return res.status(403).json({ error: 'Access denied: You cannot react to messages in this conversation' });
+    }
+
+    const msg = db.prepare('SELECT id, metadata_json FROM messages WHERE id = ? AND conversation_id = ?').get(messageId, conv.id) as any;
+    if (!msg) {
+      return res.status(404).json({ error: 'Message not found' });
+    }
+
+    let meta: any = {};
+    if (msg.metadata_json) {
+      try {
+        meta = JSON.parse(msg.metadata_json);
+      } catch {}
+    }
+
+    if (!meta.reactions || typeof meta.reactions !== 'object') {
+      meta.reactions = {};
+    }
+
+    const userId = req.user.id;
+    const currentReactions: Record<string, string[]> = meta.reactions;
+
+    // Check if user already reacted with THIS emoji
+    const existingList = currentReactions[emoji] || [];
+    const hasThisEmoji = existingList.includes(userId);
+
+    // Remove user from all emojis first (WhatsApp-style single active reaction)
+    for (const em of Object.keys(currentReactions)) {
+      currentReactions[em] = (currentReactions[em] || []).filter(u => u !== userId);
+      if (currentReactions[em].length === 0) {
+        delete currentReactions[em];
+      }
+    }
+
+    // If user didn't already have this emoji, add it
+    if (!hasThisEmoji) {
+      if (!currentReactions[emoji]) {
+        currentReactions[emoji] = [];
+      }
+      currentReactions[emoji].push(userId);
+    }
+
+    meta.reactions = currentReactions;
+
+    db.prepare('UPDATE messages SET metadata_json = ? WHERE id = ?')
+      .run(JSON.stringify(meta), messageId);
+
+    // Broadcast reaction update to participants in real time
+    const reactionPayload = {
+      conversationId: conv.id,
+      messageId,
+      reactions: meta.reactions,
+      userId,
+      emoji: hasThisEmoji ? null : emoji
+    };
+
+    realtimeService.sendToConversation(conv.student_id, conv.provider_id, 'message:reaction', reactionPayload);
+    if (conv.provider_email) realtimeService.sendToUser(conv.provider_email, 'message:reaction', reactionPayload);
+    if (conv.student_email) realtimeService.sendToUser(conv.student_email, 'message:reaction', reactionPayload);
+
+    return res.json({
+      success: true,
+      messageId,
+      reactions: meta.reactions
+    });
+  } catch (err: any) {
+    console.error('Toggle reaction error:', err);
+    return res.status(500).json({ error: 'Failed to toggle reaction' });
+  }
+});
 
 // 5b. MARK ALL CONVERSATIONS AS READ
 const handleMarkAllConversationsRead = (req: AuthenticatedRequest, res: Response) => {

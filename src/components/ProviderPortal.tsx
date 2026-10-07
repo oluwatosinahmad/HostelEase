@@ -48,11 +48,18 @@ import {
   KeyRound,
   MessageSquare,
   Search,
-  ChevronLeft
+  ChevronLeft,
+  Smile,
+  Reply,
+  Copy,
+  Heart,
+  ThumbsUp,
+  MoreVertical
 } from 'lucide-react';
 import { Area, Property, VerificationDocument, PriceHistoryItem, ConversationItem, ConversationDetail, MessageItem } from '../types/hostelEase';
 import { DEFAULT_PROPERTIES } from '../services/offlineFallback';
 import { api, getMediaUrl } from '../services/api';
+import { realtimeClient } from '../services/realtime';
 import { useAuth } from '../context/AuthContext';
 import { HostelCreationWizard } from './HostelCreationWizard';
 import { ProviderInspectionDashboard } from './ProviderInspectionDashboard';
@@ -216,6 +223,15 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
   const [messagesLoading, setMessagesLoading] = useState<boolean>(false);
   const [sendingReply, setSendingReply] = useState<boolean>(false);
   const [conversationSearch, setConversationSearch] = useState<string>('');
+  const [replyingToMessage, setReplyingToMessage] = useState<MessageItem | null>(null);
+  const [activeReactionPickerMessageId, setActiveReactionPickerMessageId] = useState<string | null>(null);
+  const [showEmojiPicker, setShowEmojiPicker] = useState<boolean>(false);
+  const [studentTyping, setStudentTyping] = useState<{ conversationId: string; isTyping: boolean; userName?: string } | null>(null);
+  const [swipingMessageId, setSwipingMessageId] = useState<string | null>(null);
+  const [swipeOffset, setSwipeOffset] = useState<number>(0);
+  const touchStartXRef = useRef<number>(0);
+  const typingDebounceRef = useRef<any>(null);
+
   const [fullScreenImage, setFullScreenImage] = useState<{
     imageUrl: string;
     title: string;
@@ -527,18 +543,155 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
     return selectAndLoadConversation(id, item);
   };
 
+  const handleTypingInputChange = (val: string) => {
+    setMessageReplyText(val);
+    if (!activeConversationId) return;
+
+    if (typingDebounceRef.current) clearTimeout(typingDebounceRef.current);
+    realtimeClient.sendTyping(activeConversationId, val.length > 0).catch(() => {});
+
+    if (val.length > 0) {
+      typingDebounceRef.current = setTimeout(() => {
+        realtimeClient.sendTyping(activeConversationId, false).catch(() => {});
+      }, 4000);
+    }
+  };
+
+  const handleToggleReaction = async (messageId: string, emoji: string) => {
+    if (!activeConversationId) return;
+
+    setActiveDetail(prev => {
+      if (!prev) return null;
+      return {
+        ...prev,
+        messages: prev.messages.map(m => {
+          if (m.id !== messageId) return m;
+          const meta = m.metadata ? { ...m.metadata } : {};
+          const currentReactions: Record<string, string[]> = { ...(meta.reactions || {}) };
+          const myId = user?.id || 'agent';
+
+          const existingList = currentReactions[emoji] || [];
+          const hasThisEmoji = existingList.includes(myId);
+
+          for (const em of Object.keys(currentReactions)) {
+            currentReactions[em] = (currentReactions[em] || []).filter((u: string) => u !== myId);
+            if (currentReactions[em].length === 0) delete currentReactions[em];
+          }
+
+          if (!hasThisEmoji) {
+            if (!currentReactions[emoji]) currentReactions[emoji] = [];
+            currentReactions[emoji].push(myId);
+          }
+
+          return { ...m, metadata: { ...meta, reactions: currentReactions } };
+        })
+      };
+    });
+
+    try {
+      const res = await api.messages.toggleReaction(activeConversationId, messageId, emoji);
+      if (res && res.reactions) {
+        setActiveDetail(prev => {
+          if (!prev) return null;
+          return {
+            ...prev,
+            messages: prev.messages.map(m => m.id === messageId ? {
+              ...m,
+              metadata: { ...(m.metadata || {}), reactions: res.reactions }
+            } : m)
+          };
+        });
+      }
+    } catch (err) {
+      console.warn('Failed to toggle reaction on server:', err);
+    }
+  };
+
+  const handleTouchStart = (e: React.TouchEvent, msg: MessageItem) => {
+    touchStartXRef.current = e.touches[0].clientX;
+    setSwipingMessageId(msg.id);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent, msg: MessageItem) => {
+    if (swipingMessageId !== msg.id) return;
+    const diff = e.touches[0].clientX - touchStartXRef.current;
+    if (diff > 0 && diff < 120) {
+      setSwipeOffset(diff);
+    }
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent, msg: MessageItem) => {
+    if (swipingMessageId === msg.id) {
+      if (swipeOffset > 40) {
+        setReplyingToMessage(msg);
+        if ('vibrate' in navigator) {
+          try { navigator.vibrate(20); } catch {}
+        }
+      }
+      setSwipingMessageId(null);
+      setSwipeOffset(0);
+    }
+  };
+
   const handleSendReply = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!messageReplyText.trim() || !activeConversationId) return;
 
     setSendingReply(true);
+    const content = messageReplyText.trim();
+    const meta: any = {};
+    if (replyingToMessage) {
+      meta.replyToMessageId = replyingToMessage.id;
+      meta.replyToText = replyingToMessage.content;
+      meta.replyToSender = replyingToMessage.senderRole;
+    }
+
+    // Optimistic local bubble insert for 0ms instant display!
+    const tempId = `temp-${Date.now()}`;
+    const tempMsg: MessageItem = {
+      id: tempId,
+      conversationId: activeConversationId,
+      senderId: user?.id || 'agent',
+      senderRole: 'PROVIDER',
+      messageType: 'TEXT',
+      content,
+      metadata: Object.keys(meta).length > 0 ? meta : null,
+      isRead: false,
+      createdAt: new Date().toISOString()
+    };
+
+    setActiveDetail(prev => prev ? ({
+      ...prev,
+      messages: [...prev.messages, tempMsg]
+    }) : null);
+
+    setMessageReplyText('');
+    setReplyingToMessage(null);
+    setShowEmojiPicker(false);
+    realtimeClient.sendTyping(activeConversationId, false).catch(() => {});
+
     try {
-      await api.messages.sendMessage(activeConversationId, messageReplyText.trim());
-      setMessageReplyText('');
-      await loadConversationDetail(activeConversationId);
+      const res = await api.messages.sendMessage(activeConversationId, content, meta);
+      if (res && res.message) {
+        setActiveDetail(prev => prev ? ({
+          ...prev,
+          messages: prev.messages.map(m => m.id === tempId ? res.message : m)
+        }) : null);
+      }
       onShowToast('Reply sent to student successfully!', 'success');
-      const res = await api.messages.getConversations();
-      setConversations(res.conversations || []);
+      // Update inquiry list
+      setConversations(prev => {
+        const idx = prev.findIndex(c => c.id === activeConversationId);
+        if (idx === -1) return prev;
+        const updated = [...prev];
+        updated[idx] = {
+          ...updated[idx],
+          lastMessageText: content,
+          lastMessageAt: new Date().toISOString()
+        };
+        const [moved] = updated.splice(idx, 1);
+        return [moved, ...updated];
+      });
       window.dispatchEvent(new CustomEvent('hostel_ease_notification_updated'));
       window.dispatchEvent(new CustomEvent('hostel_ease_conversations_updated'));
     } catch (err: any) {
@@ -547,6 +700,98 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
       setSendingReply(false);
     }
   };
+
+  // Real-time Student Inquiries Listener (WhatsApp-Style instant push)
+  useEffect(() => {
+    if (!user) return;
+
+    const handleRealtimeMsg = (e: any) => {
+      const { conversationId, message } = e.detail || {};
+      if (!conversationId || !message) return;
+
+      if (activeConversationId === conversationId) {
+        setActiveDetail(prev => {
+          if (!prev) return null;
+          if (prev.messages.some(m => m.id === message.id)) return prev;
+          return {
+            ...prev,
+            messages: [...prev.messages, message]
+          };
+        });
+        api.messages.markAsRead(conversationId).catch(() => {});
+      }
+
+      setConversations(prev => {
+        const idx = prev.findIndex(c => c.id === conversationId);
+        if (idx === -1) {
+          api.messages.getConversations().then(res => setConversations(res.conversations || []));
+          return prev;
+        }
+        const updated = [...prev];
+        const existing = updated[idx];
+        const isCurrent = activeConversationId === conversationId;
+        const newUnread = isCurrent ? 0 : (existing.unreadCount || 0) + 1;
+
+        const updatedItem = {
+          ...existing,
+          lastMessageText: message.content,
+          lastMessageAt: message.createdAt || new Date().toISOString(),
+          unreadCount: newUnread
+        };
+
+        updated.splice(idx, 1);
+        return [updatedItem, ...updated];
+      });
+    };
+
+    const handleMessageRead = (e: any) => {
+      const { conversationId } = e.detail || {};
+      if (conversationId && conversationId === activeConversationId) {
+        setActiveDetail(prev => {
+          if (!prev) return null;
+          return {
+            ...prev,
+            messages: prev.messages.map(m => ({ ...m, isRead: true }))
+          };
+        });
+      }
+    };
+
+    const handleMessageReaction = (e: any) => {
+      const { conversationId, messageId, reactions } = e.detail || {};
+      if (conversationId && conversationId === activeConversationId && reactions) {
+        setActiveDetail(prev => {
+          if (!prev) return null;
+          return {
+            ...prev,
+            messages: prev.messages.map(m => m.id === messageId ? {
+              ...m,
+              metadata: { ...(m.metadata || {}), reactions }
+            } : m)
+          };
+        });
+      }
+    };
+
+    const handleTypingEvent = (e: any) => {
+      const { conversationId, userId, userName, isTyping } = e.detail || {};
+      if (conversationId === activeConversationId && userId !== user.id) {
+        setStudentTyping(isTyping ? { conversationId, isTyping, userName } : null);
+      }
+    };
+
+    window.addEventListener('hostel_ease_realtime_message', handleRealtimeMsg);
+    window.addEventListener('hostel_ease_message_read', handleMessageRead);
+    window.addEventListener('hostel_ease_message_reaction', handleMessageReaction);
+    window.addEventListener('hostel_ease_typing', handleTypingEvent);
+
+    return () => {
+      window.removeEventListener('hostel_ease_realtime_message', handleRealtimeMsg);
+      window.removeEventListener('hostel_ease_message_read', handleMessageRead);
+      window.removeEventListener('hostel_ease_message_reaction', handleMessageReaction);
+      window.removeEventListener('hostel_ease_typing', handleTypingEvent);
+    };
+  }, [user, activeConversationId]);
 
   const fetchAllProviderData = (propId: string = selectedPropertyId) => {
     // Only set blocking loading if we don't have dashboard data yet
@@ -1271,6 +1516,7 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
             <div className="space-y-1">
               {[
                 { id: 'dashboard', label: 'Overview', icon: Building2 },
+                { id: 'messages', label: 'Student Inquiries', count: conversations.reduce((sum, c) => sum + (c.unreadCount || 0), 0) || stats?.unreadMessages || 0, badgeColor: 'bg-rose-600 text-white', icon: Send },
                 { id: 'listings', label: 'My Hostels', count: publishedHostels.length, icon: Building2 },
                 { id: 'drafts', label: 'My Hostel Drafts', count: draftHostels.length, badgeColor: 'bg-amber-500 text-white', icon: FileText },
                 { id: 'videos', label: '4K Videos', count: videoStats.total, badgeColor: videoStats.pending > 0 ? 'bg-amber-500 text-white' : undefined, icon: Video },
@@ -1315,8 +1561,7 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
               {[
                 { id: 'bookings', label: 'Bookings', count: stats?.pendingBookings, badgeColor: 'bg-red-500 text-white', icon: FileText },
                 { id: 'move_ins', label: 'Move-In & Issues', count: 0, badgeColor: 'bg-amber-500 text-white', icon: KeyRound },
-                { id: 'inspections', label: 'Inspections & Slots', count: stats?.pendingInspections, badgeColor: 'bg-blue-500 text-white', icon: Clock },
-                { id: 'messages', label: 'Student Inquiries', count: conversations.reduce((sum, c) => sum + (c.unreadCount || 0), 0) || stats?.unreadMessages || 0, badgeColor: 'bg-rose-600 text-white', icon: Send }
+                { id: 'inspections', label: 'Inspections & Slots', count: stats?.pendingInspections, badgeColor: 'bg-blue-500 text-white', icon: Clock }
               ].map(tab => {
                 const Icon = tab.icon;
                 const isActive = activeTab === tab.id;
@@ -2975,11 +3220,33 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
                             ? 'You (Agent)'
                             : activeDetail.conversation.student?.name || 'Student';
 
+                          const replyToText = msg.metadata?.replyToText;
+                          const replyToSender = msg.metadata?.replyToSender;
+                          const reactions: Record<string, string[]> = msg.metadata?.reactions || {};
+                          const reactionEntries = Object.entries(reactions);
+                          const isSwiping = swipingMessageId === msg.id;
+                          const showPicker = activeReactionPickerMessageId === msg.id;
+
                           return (
                             <div
                               key={msg.id}
-                              className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}
+                              className={`group relative flex flex-col ${isMe ? 'items-end' : 'items-start'} my-1`}
+                              onTouchStart={!isMe ? (e) => handleTouchStart(e, msg) : undefined}
+                              onTouchMove={!isMe ? (e) => handleTouchMove(e, msg) : undefined}
+                              onTouchEnd={!isMe ? (e) => handleTouchEnd(e, msg) : undefined}
+                              style={{
+                                transform: isSwiping ? `translateX(${swipeOffset}px)` : undefined,
+                                transition: isSwiping ? 'none' : 'transform 0.2s ease-out'
+                              }}
                             >
+                              {/* Mobile Swipe to reply visual cue */}
+                              {isSwiping && swipeOffset > 20 && (
+                                <div className="absolute left-[-32px] top-1/2 -translate-y-1/2 p-1.5 bg-emerald-100 text-emerald-800 rounded-full shadow-xs">
+                                  <Reply className="w-3.5 h-3.5" />
+                                </div>
+                              )}
+
+                              {/* Sender Header */}
                               <div className="flex items-center gap-1.5 mb-1 px-1">
                                 <span className="text-[10px] font-bold text-gray-500">
                                   {senderLabel}
@@ -2988,30 +3255,126 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
                                   {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                 </span>
                               </div>
-                              <div
-                                className={`max-w-md p-3.5 rounded-2xl text-xs leading-relaxed shadow-xs ${
-                                  isAutoReply
-                                    ? 'bg-emerald-50/80 border border-emerald-300 text-slate-800 rounded-tl-none'
-                                    : isMe
-                                    ? 'bg-emerald-800 text-white rounded-tr-none'
-                                    : 'bg-white border border-gray-200 text-gray-800 rounded-tl-none'
-                                }`}
-                              >
-                                {isAutoReply && (
-                                  <div className="flex items-center gap-1.5 pb-1 text-[10px] font-bold text-emerald-800 border-b border-emerald-500/20 mb-1">
-                                    <Sparkles className="w-3 h-3 text-emerald-600" />
-                                    <span>Automated Acknowledgement</span>
+
+                              <div className="relative max-w-[85%] sm:max-w-md">
+                                {/* Desktop Hover Action Bar */}
+                                <div className={`hidden sm:flex items-center gap-1 absolute -top-3.5 ${isMe ? 'left-0 -translate-x-full pr-1.5' : 'right-0 translate-x-full pl-1.5'} opacity-0 group-hover:opacity-100 transition-opacity z-10 bg-white/95 backdrop-blur dark:bg-slate-800 border border-gray-200 dark:border-slate-700 shadow-sm rounded-full px-1.5 py-0.5`}>
+                                  <button
+                                    type="button"
+                                    onClick={() => setReplyingToMessage(msg)}
+                                    className="p-1 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-full text-gray-500 hover:text-emerald-700 transition-colors"
+                                    title="Reply"
+                                  >
+                                    <Reply className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setActiveReactionPickerMessageId(showPicker ? null : msg.id)}
+                                    className="p-1 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-full text-gray-500 hover:text-amber-500 transition-colors"
+                                    title="React"
+                                  >
+                                    <Smile className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      navigator.clipboard?.writeText(msg.content);
+                                      onShowToast('Copied to clipboard', 'info');
+                                    }}
+                                    className="p-1 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-full text-gray-500 hover:text-gray-800 transition-colors"
+                                    title="Copy Text"
+                                  >
+                                    <Copy className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+
+                                {/* Reaction Picker Popover */}
+                                {showPicker && (
+                                  <div className={`absolute z-20 -top-11 ${isMe ? 'right-0' : 'left-0'} flex items-center gap-1.5 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-full px-2.5 py-1 shadow-lg animate-in fade-in zoom-in-95 duration-100`}>
+                                    {['❤️', '👍', '😂', '😮', '😢', '🙏'].map(emoji => (
+                                      <button
+                                        key={emoji}
+                                        type="button"
+                                        onClick={() => {
+                                          handleToggleReaction(msg.id, emoji);
+                                          setActiveReactionPickerMessageId(null);
+                                        }}
+                                        className="hover:scale-125 active:scale-95 transition-transform text-base p-0.5"
+                                      >
+                                        {emoji}
+                                      </button>
+                                    ))}
                                   </div>
                                 )}
-                                <p className="whitespace-pre-wrap">{msg.content}</p>
-                                {isMe && (
-                                  <div className="flex items-center justify-end gap-1 mt-1 text-[9px] text-emerald-200">
-                                    <span>{new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                                    {msg.isRead ? (
-                                      <span title="Read by student"><CheckCheck className="w-3.5 h-3.5 text-cyan-300" /></span>
-                                    ) : (
-                                      <span title="Delivered to student"><Check className="w-3.5 h-3.5 text-emerald-200" /></span>
-                                    )}
+
+                                {/* Bubble Body */}
+                                <div
+                                  className={`p-3.5 rounded-2xl text-xs leading-relaxed shadow-xs ${
+                                    isAutoReply
+                                      ? 'bg-emerald-50/80 border border-emerald-300 text-slate-800 rounded-tl-none'
+                                      : isMe
+                                      ? 'bg-emerald-800 text-white rounded-tr-none'
+                                      : 'bg-white border border-gray-200 text-gray-800 rounded-tl-none'
+                                  }`}
+                                >
+                                  {isAutoReply && (
+                                    <div className="flex items-center gap-1.5 pb-1 text-[10px] font-bold text-emerald-800 border-b border-emerald-500/20 mb-1">
+                                      <Sparkles className="w-3 h-3 text-emerald-600" />
+                                      <span>Automated Acknowledgement</span>
+                                    </div>
+                                  )}
+
+                                  {/* Quoted Reply Preview */}
+                                  {replyToText && (
+                                    <div className={`mb-2 p-2 rounded-lg border-l-4 text-[11px] ${
+                                      isMe 
+                                        ? 'bg-emerald-900/60 border-emerald-400 text-emerald-100'
+                                        : 'bg-gray-100 border-emerald-600 text-gray-700'
+                                    }`}>
+                                      <div className="font-bold text-[10px] text-emerald-300 mb-0.5">
+                                        {replyToSender === 'PROVIDER' ? 'Agent (You)' : (activeDetail.conversation.student?.name || 'Student')}
+                                      </div>
+                                      <p className="line-clamp-2 truncate">{replyToText}</p>
+                                    </div>
+                                  )}
+
+                                  <p className="whitespace-pre-wrap">{msg.content}</p>
+
+                                  {isMe && (
+                                    <div className="flex items-center justify-end gap-1 mt-1 text-[9px] text-emerald-200">
+                                      <span>{new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                      {msg.isRead ? (
+                                        <span title="Read by student"><CheckCheck className="w-3.5 h-3.5 text-cyan-300" /></span>
+                                      ) : (
+                                        <span title="Delivered to student"><Check className="w-3.5 h-3.5 text-emerald-200" /></span>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+
+                                {/* Reaction Badges Below Bubble */}
+                                {reactionEntries.length > 0 && (
+                                  <div className={`flex flex-wrap items-center gap-1 mt-1 ${isMe ? 'justify-end' : 'justify-start'}`}>
+                                    {reactionEntries.map(([emoji, users]) => {
+                                      if (!users || users.length === 0) return null;
+                                      const hasReacted = users.includes(user?.id || 'agent');
+                                      return (
+                                        <button
+                                          key={emoji}
+                                          type="button"
+                                          onClick={() => handleToggleReaction(msg.id, emoji)}
+                                          className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[11px] border transition-transform active:scale-95 ${
+                                            hasReacted
+                                              ? 'bg-emerald-50 border-emerald-300 text-emerald-800 font-bold shadow-xs'
+                                              : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+                                          }`}
+                                          title={`${users.length} ${users.length === 1 ? 'reaction' : 'reactions'}`}
+                                        >
+                                          <span>{emoji}</span>
+                                          {users.length > 1 && <span className="text-[9px]">{users.length}</span>}
+                                        </button>
+                                      );
+                                    })}
                                   </div>
                                 )}
                               </div>
@@ -3022,13 +3385,76 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
                       <div ref={messagesEndRef} />
                     </div>
 
+                    {/* Student Typing Indicator */}
+                    {studentTyping?.isTyping && (
+                      <div className="px-4 py-1.5 text-xs text-emerald-700 font-medium flex items-center gap-2 bg-emerald-50/70 border-t border-emerald-100 animate-pulse">
+                        <div className="flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-bounce" />
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-bounce [animation-delay:0.2s]" />
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-bounce [animation-delay:0.4s]" />
+                        </div>
+                        <span>{studentTyping.userName || activeDetail.conversation.student?.name || 'Student'} is typing...</span>
+                      </div>
+                    )}
+
+                    {/* Reply Preview Bar */}
+                    {replyingToMessage && (
+                      <div className="px-4 py-2 bg-slate-50 border-t border-gray-200 flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div className="w-1 h-8 bg-emerald-600 rounded-full shrink-0" />
+                          <div className="min-w-0">
+                            <p className="text-[11px] font-bold text-emerald-800">
+                              Replying to {replyingToMessage.senderRole === 'PROVIDER' ? 'yourself' : (activeDetail.conversation.student?.name || 'Student')}
+                            </p>
+                            <p className="text-[11px] text-gray-600 truncate">{replyingToMessage.content}</p>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setReplyingToMessage(null)}
+                          className="p-1 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-200"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Emoji Quick Picker Toolbar */}
+                    {showEmojiPicker && (
+                      <div className="p-2 border-t border-gray-100 bg-gray-50 flex items-center gap-2 overflow-x-auto">
+                        <span className="text-[10px] font-bold text-gray-400 shrink-0">Quick Insert:</span>
+                        {['👍', '👋', '🏢', '🔑', '✅', '🙏', '😊', '📞', '📍', '💰'].map(em => (
+                          <button
+                            key={em}
+                            type="button"
+                            onClick={() => setMessageReplyText(prev => prev + em)}
+                            className="text-base p-1 hover:bg-white rounded-lg transition-transform hover:scale-125"
+                          >
+                            {em}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
                     {/* Reply Input Form */}
                     <div className="p-4 border-t border-gray-200 bg-white space-y-2">
-                      <form onSubmit={handleSendReply} className="flex gap-2">
+                      <form onSubmit={handleSendReply} className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                          className={`p-2.5 rounded-xl border transition-colors ${
+                            showEmojiPicker
+                              ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                              : 'bg-gray-50 text-gray-500 border-gray-300 hover:bg-gray-100'
+                          }`}
+                          title="Insert emoji"
+                        >
+                          <Smile className="w-4 h-4" />
+                        </button>
                         <input
                           type="text"
                           value={messageReplyText}
-                          onChange={e => setMessageReplyText(e.target.value)}
+                          onChange={e => handleTypingInputChange(e.target.value)}
                           placeholder="Type your response to this student..."
                           className="flex-1 px-4 py-2.5 text-xs bg-gray-50 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                           disabled={sendingReply}
@@ -3036,14 +3462,14 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
                         <button
                           type="submit"
                           disabled={!messageReplyText.trim() || sendingReply}
-                          className="px-5 py-2.5 bg-emerald-800 hover:bg-emerald-900 disabled:opacity-50 text-white text-xs font-bold rounded-xl shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer"
+                          className="px-5 py-2.5 bg-emerald-800 hover:bg-emerald-900 disabled:opacity-50 text-white text-xs font-bold rounded-xl shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer shrink-0"
                         >
                           <Send className="w-4 h-4" />
-                          <span>{sendingReply ? 'Sending...' : 'Send Reply'}</span>
+                          <span>{sendingReply ? 'Sending...' : 'Send'}</span>
                         </button>
                       </form>
                       <div className="flex items-center justify-between text-[11px] text-gray-400 px-1">
-                        <span>💬 Direct replies are delivered instantly to the student's portal.</span>
+                        <span>💬 Instant WhatsApp-style delivery • End-to-end synchronized</span>
                       </div>
                     </div>
                   </>

@@ -83,9 +83,14 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
     const interval = setInterval(() => {
       if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
       refreshCounts();
-    }, 3500);
+    }, 30000);
 
-    const handleUpdate = () => refreshCounts();
+    const handleUpdate = (e?: any) => {
+      if (e?.detail?.unreadCount !== undefined) {
+        setLiveUnreadNotif(e.detail.unreadCount);
+      }
+      refreshCounts();
+    };
     window.addEventListener('hostel_ease_notification_updated', handleUpdate);
     window.addEventListener('hostel_ease_conversations_updated', handleUpdate);
     window.addEventListener('hostel_ease_booking_created', handleUpdate);

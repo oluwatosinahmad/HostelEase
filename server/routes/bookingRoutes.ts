@@ -2,6 +2,7 @@ import { Router, Response } from 'express';
 import crypto from 'crypto';
 import db from '../db.js';
 import { authenticate, AuthenticatedRequest } from '../middleware/auth.js';
+import { notificationService } from '../services/notificationService.js';
 
 const router = Router();
 
@@ -305,16 +306,19 @@ const createReservationHandler = (req: AuthenticatedRequest, res: Response) => {
       `).run(`bhist-${crypto.randomUUID()}`, bookingId, req.user!.id);
 
       // 10. Send In-App Notification to Provider
-      db.prepare(`
-        INSERT INTO notifications (id, user_id, title, message, type, link_url)
-        VALUES (?, ?, ?, ?, 'BOOKING_REQUEST', ?)
-      `).run(
-        `notif-${crypto.randomUUID()}`,
-        property.provider_id,
-        'New Hostel Reservation Request',
-        `A student requested to reserve a space in ${property.title} (Ref: ${bookingReference}). Please review and confirm within 48 hours.`,
-        `/provider/bookings`
-      );
+      try {
+        notificationService.createNotification({
+          userId: property.provider_id,
+          title: 'New Hostel Reservation Request',
+          message: `A student requested to reserve a space in ${property.title} (Ref: ${bookingReference}). Please review and confirm within 48 hours.`,
+          type: 'BOOKING_REQUEST',
+          linkUrl: '/provider',
+          relatedEntityId: bookingId,
+          relatedEntityType: 'BOOKING'
+        });
+      } catch (notifErr) {
+        console.warn('Booking notification error:', notifErr);
+      }
 
       // 11. Connect or create conversation and record milestone message
       let conv = db.prepare(`
@@ -746,16 +750,17 @@ router.patch('/:id/confirm', authenticate, (req: AuthenticatedRequest, res: Resp
       `).run(`bhist-${crypto.randomUUID()}`, id, userId, userRole);
 
       // Send notification to student
-      db.prepare(`
-        INSERT INTO notifications (id, user_id, title, message, type, link_url)
-        VALUES (?, ?, ?, ?, 'BOOKING_CONFIRMED', ?)
-      `).run(
-        `notif-${crypto.randomUUID()}`,
-        booking.student_id,
-        '🎉 Reservation Confirmed!',
-        `Your reservation for ${booking.propertyTitle} (Ref: ${booking.booking_reference}) has been confirmed by the agent.`,
-        `/bookings/${booking.id}`
-      );
+      try {
+        notificationService.createNotification({
+          userId: booking.student_id,
+          title: '🎉 Reservation Confirmed!',
+          message: `Your reservation for ${booking.propertyTitle} (Ref: ${booking.booking_reference}) has been confirmed by the agent.`,
+          type: 'BOOKING_CONFIRMED',
+          linkUrl: `/bookings/${booking.id}`,
+          relatedEntityId: booking.id,
+          relatedEntityType: 'BOOKING'
+        });
+      } catch {}
 
       // Record in conversation
       const conv = db.prepare(`
@@ -849,16 +854,17 @@ router.patch('/:id/decline', authenticate, (req: AuthenticatedRequest, res: Resp
       `).run(`bhist-${crypto.randomUUID()}`, id, userId, userRole, reason || null);
 
       // 5. Send notification to student
-      db.prepare(`
-        INSERT INTO notifications (id, user_id, title, message, type, link_url)
-        VALUES (?, ?, ?, ?, 'BOOKING', ?)
-      `).run(
-        `notif-${crypto.randomUUID()}`,
-        booking.student_id,
-        'Reservation Declined',
-        `Your reservation request for ${booking.propertyTitle} (Ref: ${booking.booking_reference}) was declined. Reason: ${reason || 'Space unavailable'}.`,
-        `/bookings/${booking.id}`
-      );
+      try {
+        notificationService.createNotification({
+          userId: booking.student_id,
+          title: 'Reservation Declined',
+          message: `Your reservation request for ${booking.propertyTitle} (Ref: ${booking.booking_reference}) was declined. Reason: ${reason || 'Space unavailable'}.`,
+          type: 'BOOKING',
+          linkUrl: `/bookings/${booking.id}`,
+          relatedEntityId: booking.id,
+          relatedEntityType: 'BOOKING'
+        });
+      } catch {}
 
       // 6. Record in conversation
       const conv = db.prepare(`
@@ -968,16 +974,17 @@ router.patch('/:id/cancel', authenticate, (req: AuthenticatedRequest, res: Respo
       );
 
       // 5. Send Notification
-      db.prepare(`
-        INSERT INTO notifications (id, user_id, title, message, type, link_url)
-        VALUES (?, ?, ?, ?, 'BOOKING', ?)
-      `).run(
-        `notif-${crypto.randomUUID()}`,
-        notifyUserId,
-        `Reservation Cancelled by ${actorTitle}`,
-        `Reservation for ${booking.propertyTitle} (Ref: ${booking.booking_reference}) was cancelled. Reason: ${reason || 'None provided'}.`,
-        `/bookings/${booking.id}`
-      );
+      try {
+        notificationService.createNotification({
+          userId: notifyUserId,
+          title: `Reservation Cancelled by ${actorTitle}`,
+          message: `Reservation for ${booking.propertyTitle} (Ref: ${booking.booking_reference}) was cancelled. Reason: ${reason || 'None provided'}.`,
+          type: 'BOOKING',
+          linkUrl: `/bookings/${booking.id}`,
+          relatedEntityId: booking.id,
+          relatedEntityType: 'BOOKING'
+        });
+      } catch {}
 
       // 6. Record in Conversation
       const conv = db.prepare(`

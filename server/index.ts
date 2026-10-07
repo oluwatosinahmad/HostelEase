@@ -34,6 +34,7 @@ import roommateRoutes from './routes/roommateRoutes';
 import operationsRoutes from './routes/operationsRoutes';
 import adminRevenueRoutes from './routes/adminRevenueRoutes';
 import videoRoutes from './routes/videoRoutes';
+import realtimeRoutes from './routes/realtimeRoutes';
 
 import { securityHeaders } from './middleware/securityHeaders';
 import { sanitizeInputs } from './middleware/sanitize';
@@ -220,6 +221,7 @@ app.use('/api/public/providers', publicProviderRoutes);
 app.use('/api/discovery', discoveryRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/presence', presenceRoutes);
+app.use('/api/realtime', realtimeRoutes);
 app.use('/api/bookings', bookingRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/student', studentDashboardRoutes);
