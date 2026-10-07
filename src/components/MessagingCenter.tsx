@@ -99,7 +99,7 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
   onShowToast,
   onViewOnMap
 }) => {
-  const { user } = useAuth();
+  const { user, isLoading } = useAuth();
   const isStudent = user?.role === 'STUDENT';
 
   // Conversations and active state
@@ -465,6 +465,7 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
   // Open and foreground conversation for a specific hostel property
   const openPropertyConversation = async (propertyId: string, studentId?: string) => {
     if (!propertyId || !propertyId.trim()) return;
+    if (!user) return;
     const cleanPropId = propertyId.trim();
 
     // Prevent duplicate in-flight requests
@@ -564,8 +565,18 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
     }
   };
 
+  // Reset all conversation state when authenticated user changes or logs out (Strict Session Isolation)
+  useEffect(() => {
+    setConversations([]);
+    setActiveConversationId(null);
+    setActiveDetail(null);
+    setResolvingPropertyId(null);
+    resolvingPropertyRef.current = null;
+  }, [user?.id]);
+
   // If initialConversationId or initialPropertyId is provided from a hostel card or inspection click, open that exact conversation
   useEffect(() => {
+    if (!user || isLoading) return;
     if (initialConversationId) {
       setActiveConversationId(initialConversationId);
       loadConversations(initialConversationId);
@@ -574,7 +585,7 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
     } else {
       loadConversations();
     }
-  }, [initialConversationId, initialPropertyId]);
+  }, [initialConversationId, initialPropertyId, user?.id, isLoading]);
 
   // Instant notification navigation listener (even when already on messages screen)
   useEffect(() => {
@@ -1203,6 +1214,38 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
     }
     return true;
   });
+
+  if (isLoading && !user) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 py-20 flex flex-col items-center justify-center space-y-4">
+        <div className="w-10 h-10 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+        <p className="text-sm font-bold text-slate-400">Verifying session...</p>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="max-w-md mx-auto my-16 p-8 bg-slate-900 border border-slate-800 rounded-3xl text-center space-y-5 shadow-2xl">
+        <div className="w-14 h-14 mx-auto rounded-2xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center">
+          <MessageCircle className="w-7 h-7" />
+        </div>
+        <div className="space-y-2">
+          <h2 className="text-xl font-black text-white">Sign In to Hostel Ease Chat</h2>
+          <p className="text-xs text-slate-400 leading-relaxed">
+            Please sign in with your student or agent account to access direct messages, inquiries, and verified chat histories.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => window.dispatchEvent(new CustomEvent('hostel_ease_open_auth', { detail: { role: 'STUDENT' } }))}
+          className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-2xl transition-all shadow-lg shadow-emerald-950/40 cursor-pointer"
+        >
+          Sign In / Create Account
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div data-testid="messaging-center-container" className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-6 pt-2 sm:pt-4 pb-20 md:pb-4">

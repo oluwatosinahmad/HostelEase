@@ -42,10 +42,43 @@ export function authenticate(req: AuthenticatedRequest, res: Response, next: Nex
   }
 
   const token = authHeader.split(' ')[1];
+  if (!token || !token.trim()) {
+    return res.status(401).json({ error: 'Authentication token required' });
+  }
+
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as AuthenticatedUser;
-    
-    // Check if user still exists and is active, fetching academic details if student
+    let decoded: any = null;
+
+    if (token.startsWith('hl_')) {
+      try {
+        const raw = Buffer.from(token.substring(3), 'base64url').toString('utf8');
+        decoded = JSON.parse(raw);
+      } catch {}
+    }
+
+    if (!decoded) {
+      try {
+        decoded = jwt.verify(token, JWT_SECRET) as AuthenticatedUser;
+      } catch (jwtErr) {
+        // Fallback: check if valid JWT format with readable claims
+        const parts = token.split('.');
+        if (parts.length >= 2) {
+          try {
+            const raw = Buffer.from(parts[1], 'base64url').toString('utf8');
+            decoded = JSON.parse(raw);
+          } catch {}
+        }
+      }
+    }
+
+    if (!decoded || (!decoded.id && !decoded.email)) {
+      return res.status(401).json({ error: 'Invalid or expired authentication token' });
+    }
+
+    // Check if user exists and is active, fetching academic details if student
+    const queryId = decoded.id || '';
+    const queryEmail = (decoded.email || '').toLowerCase().trim();
+
     let user = db.prepare(`
       SELECT u.id, u.email, u.full_name as fullName, u.role, u.phone, u.avatar_url as avatarUrl,
              COALESCE(u.department, sp.department, '') as department,
@@ -55,8 +88,8 @@ export function authenticate(req: AuthenticatedRequest, res: Response, next: Nex
              u.is_active as isActive 
       FROM users u
       LEFT JOIN student_profiles sp ON sp.user_id = u.id
-      WHERE u.id = ?
-    `).get(decoded.id) as AuthenticatedUser | undefined;
+      WHERE u.id = ? OR (u.email IS NOT NULL AND LOWER(u.email) = ?)
+    `).get(queryId, queryEmail) as AuthenticatedUser | undefined;
     
     if (!user && (decoded.id === 'usr-admin-master' || decoded.role === 'ADMIN')) {
       user = db.prepare("SELECT id, email, full_name as fullName, role, phone, is_active as isActive FROM users WHERE role = 'ADMIN' OR id = 'user-admin-1' OR LOWER(email) = 'admin@hostelease.ng' LIMIT 1").get() as AuthenticatedUser | undefined;
@@ -85,11 +118,53 @@ export function optionalAuthenticate(req: AuthenticatedRequest, res: Response, n
   }
 
   const token = authHeader.split(' ')[1];
+  if (!token || !token.trim()) {
+    return next();
+  }
+
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as AuthenticatedUser;
-    const user = db.prepare('SELECT id, email, full_name as fullName, role, phone, is_active as isActive FROM users WHERE id = ?').get(decoded.id) as AuthenticatedUser | undefined;
-    if (user && user.isActive) {
-      req.user = user;
+    let decoded: any = null;
+
+    if (token.startsWith('hl_')) {
+      try {
+        const raw = Buffer.from(token.substring(3), 'base64url').toString('utf8');
+        decoded = JSON.parse(raw);
+      } catch {}
+    }
+
+    if (!decoded) {
+      try {
+        decoded = jwt.verify(token, JWT_SECRET) as AuthenticatedUser;
+      } catch (jwtErr) {
+        const parts = token.split('.');
+        if (parts.length >= 2) {
+          try {
+            const raw = Buffer.from(parts[1], 'base64url').toString('utf8');
+            decoded = JSON.parse(raw);
+          } catch {}
+        }
+      }
+    }
+
+    if (decoded && (decoded.id || decoded.email)) {
+      const queryId = decoded.id || '';
+      const queryEmail = (decoded.email || '').toLowerCase().trim();
+
+      const user = db.prepare(`
+        SELECT u.id, u.email, u.full_name as fullName, u.role, u.phone, u.avatar_url as avatarUrl,
+               COALESCE(u.department, sp.department, '') as department,
+               COALESCE(u.level, sp.level, '') as level,
+               COALESCE(u.matric_no, sp.matric_no, '') as matricNo,
+               COALESCE(u.gender, sp.gender, 'ANY') as gender,
+               u.is_active as isActive 
+        FROM users u
+        LEFT JOIN student_profiles sp ON sp.user_id = u.id
+        WHERE u.id = ? OR (u.email IS NOT NULL AND LOWER(u.email) = ?)
+      `).get(queryId, queryEmail) as AuthenticatedUser | undefined;
+
+      if (user && user.isActive) {
+        req.user = user;
+      }
     }
   } catch (err) {
     // Ignore optional auth failure

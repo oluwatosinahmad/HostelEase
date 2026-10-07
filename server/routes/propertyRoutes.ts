@@ -180,6 +180,13 @@ function formatPropertySummary(p: any, savedPropertyIds: Set<string> = new Set()
       totalRefundableCost: 10000,
       isNegotiable: false
     }),
+    providerId: p.provider_id,
+    provider: {
+      id: p.provider_id,
+      name: p.provider_name || 'Verified Agent',
+      avatarUrl: p.provider_avatar || null,
+      verificationStatus: 'VERIFIED'
+    },
     keyAmenities,
     isSaved: savedPropertyIds.has(p.id)
   };
@@ -477,11 +484,13 @@ router.get('/:id', optionalAuthenticate, (req: AuthenticatedRequest, res: Respon
           slug: property.area_slug,
           landmark: property.area_landmark
         },
+        providerId: property.provider_id,
         provider: {
-          name: property.provider_name,
+          id: property.provider_id,
+          name: property.provider_name || 'Verified Agent',
           businessName: property.provider_business_name,
           phone: property.provider_phone,
-          verificationStatus: property.provider_verification_status
+          verificationStatus: property.provider_verification_status || 'VERIFIED'
         },
         rooms: rooms.map((r: any) => ({
           id: r.id,

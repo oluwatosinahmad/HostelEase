@@ -68,8 +68,8 @@ router.post('/conversations', authenticate, (req: AuthenticatedRequest, res: Res
       FROM properties p
       LEFT JOIN users u ON u.id = p.provider_id
       LEFT JOIN areas a ON a.id = p.area_id
-      WHERE p.id = ?
-    `).get(propertyId) as any;
+      WHERE p.id = ? OR p.slug = ?
+    `).get(propertyId, propertyId) as any;
 
     if (!property) {
       return res.status(404).json({ error: 'Hostel accommodation not found' });
@@ -100,14 +100,14 @@ router.post('/conversations', authenticate, (req: AuthenticatedRequest, res: Res
       WHERE property_id = ? AND student_id = ?
       ORDER BY last_message_at DESC
       LIMIT 1
-    `).get(propertyId, studentId) as any;
+    `).get(property.id, studentId) as any;
 
     if (!conv) {
       const convId = `conv-${crypto.randomUUID()}`;
       db.prepare(`
         INSERT INTO conversations (id, property_id, student_id, provider_id, last_message_text, last_message_at)
         VALUES (?, ?, ?, ?, ?, datetime('now'))
-      `).run(convId, propertyId, studentId, providerId, initialMessage || 'No messages yet');
+      `).run(convId, property.id, studentId, providerId, initialMessage || 'No messages yet');
 
       conv = db.prepare('SELECT * FROM conversations WHERE id = ?').get(convId);
 
@@ -128,7 +128,7 @@ router.post('/conversations', authenticate, (req: AuthenticatedRequest, res: Res
           `New Message about ${property.title}`,
           `${senderName}: "${cleanMsg.substring(0, 60)}${cleanMsg.length > 60 ? '...' : ''}"`,
           'NEW_MESSAGE',
-          `/messages?conversationId=${convId}&propertyId=${propertyId}`,
+          `/messages?conversationId=${convId}&propertyId=${property.id}`,
           convId,
           msgId,
           req.user.id
@@ -156,7 +156,7 @@ router.post('/conversations', authenticate, (req: AuthenticatedRequest, res: Res
         `New Message about ${property.title}`,
         `${senderName}: "${cleanMsg.substring(0, 60)}${cleanMsg.length > 60 ? '...' : ''}"`,
         'NEW_MESSAGE',
-        `/messages?conversationId=${conv.id}&propertyId=${propertyId}`,
+        `/messages?conversationId=${conv.id}&propertyId=${property.id}`,
         conv.id,
         msgId,
         req.user.id

@@ -181,30 +181,7 @@ function MainApp() {
     }
   });
 
-  // Centralized, robust navigation handler to open conversation for a property
-  const handleOpenConversation = (propId?: string, studentId?: string) => {
-    if (propId && propId.trim()) {
-      const cleanPropId = propId.trim();
-      setMessagingTargetPropertyId(cleanPropId);
-      setMessagingTargetConversationId(null);
-      setCurrentView('messages');
-      try {
-        window.history.pushState({ view: 'messages', propertyId: cleanPropId }, '', `#messages?propertyId=${encodeURIComponent(cleanPropId)}`);
-      } catch {}
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-      setTimeout(() => {
-        window.dispatchEvent(new CustomEvent('hostel_ease_open_conversation', { detail: { propertyId: cleanPropId, studentId } }));
-      }, 25);
-    } else {
-      setMessagingTargetPropertyId(null);
-      setMessagingTargetConversationId(null);
-      setCurrentView('messages');
-      try {
-        window.history.pushState({ view: 'messages' }, '', '#messages');
-      } catch {}
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
-  };
+
 
   // Modals
   const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null);
@@ -431,6 +408,55 @@ function MainApp() {
       setToasts(prev => prev.filter(t => t.id !== id));
     }, 4000);
   };
+
+  // Centralized, robust navigation handler to open conversation for a property
+  const handleOpenConversation = (propId?: string, studentId?: string) => {
+    if (!isAuthenticated) {
+      showToast('Please sign in or create an account to message the hostel agent.', 'info');
+      setAuthModalDefaultRole('STUDENT');
+      setAuthModalOpen(true);
+      return;
+    }
+
+    if (propId && propId.trim()) {
+      const cleanPropId = propId.trim();
+      setMessagingTargetPropertyId(cleanPropId);
+      setMessagingTargetConversationId(null);
+      setCurrentView('messages');
+      try {
+        window.history.pushState({ view: 'messages', propertyId: cleanPropId }, '', `#messages?propertyId=${encodeURIComponent(cleanPropId)}`);
+      } catch {}
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent('hostel_ease_open_conversation', { detail: { propertyId: cleanPropId, studentId } }));
+      }, 25);
+    } else {
+      setMessagingTargetPropertyId(null);
+      setMessagingTargetConversationId(null);
+      setCurrentView('messages');
+      try {
+        window.history.pushState({ view: 'messages' }, '', '#messages');
+      } catch {}
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
+  // Listen for logout event to reset transient navigation and chat target states
+  useEffect(() => {
+    const handleLogoutClean = () => {
+      setMessagingTargetPropertyId(null);
+      setMessagingTargetConversationId(null);
+      setSelectedPropertyId(null);
+      setBookingTargetProperty(null);
+      setInspectionTargetProperty(null);
+      setCurrentView('home');
+      try {
+        window.history.pushState({ view: 'home' }, '', '/');
+      } catch {}
+    };
+    window.addEventListener('hostel_ease_user_logged_out', handleLogoutClean);
+    return () => window.removeEventListener('hostel_ease_user_logged_out', handleLogoutClean);
+  }, []);
 
   // Load Areas and Initial Data
   const loadInitialData = () => {

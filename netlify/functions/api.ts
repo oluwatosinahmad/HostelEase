@@ -888,7 +888,13 @@ function parseAuth(req: Request): any | null {
       try {
         const parts = token.split('.');
         if (parts.length >= 2) {
-          const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString('utf8'));
+          let rawPayload = '';
+          try {
+            rawPayload = Buffer.from(parts[1], 'base64url').toString('utf8');
+          } catch {
+            rawPayload = Buffer.from(parts[1], 'base64').toString('utf8');
+          }
+          const payload = JSON.parse(rawPayload);
           if (payload && (payload.id || payload.email)) {
             const pEmail = (payload.email || '').toLowerCase().trim();
             if (memoryDeletedUserIds.has(payload.id) || (pEmail && memoryDeletedUserIds.has(pEmail))) {
@@ -3136,7 +3142,7 @@ export default async (req: Request): Promise<Response> => {
 
       const body = await req.json();
       const { propertyId, initialMessage } = body;
-      const prop = memoryProperties.find(p => p.id === propertyId || String(p.id) === String(propertyId));
+      const prop = memoryProperties.find(p => p.id === propertyId || (p as any).slug === propertyId || String(p.id) === String(propertyId));
       
       const sId = user.role === 'STUDENT' ? user.id : (body.studentId || 'usr-student-1');
       const sName = user.role === 'STUDENT' ? (user.fullName || 'Student User') : 'Student User';

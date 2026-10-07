@@ -168,8 +168,18 @@ export async function fetchWithTimeout(url: string, options: RequestInit = {}, t
   }
 }
 
+let activeInMemoryToken: string | null = null;
+
+export function setActiveAuthToken(token: string | null): void {
+  activeInMemoryToken = token;
+}
+
+export function getActiveAuthToken(): string | null {
+  return activeInMemoryToken || safeStorage.getItem('hostel_ease_token');
+}
+
 function getAuthHeader(): Record<string, string> {
-  const token = safeStorage.getItem('hostel_ease_token');
+  const token = getActiveAuthToken();
   const user = getCurrentUser();
   const headers: Record<string, string> = {};
   if (token) headers['Authorization'] = `Bearer ${token}`;
@@ -1588,6 +1598,7 @@ function handleClientSideFallbackLogin(payload: { email?: string; username?: str
     const mockToken = `he_token_${Date.now()}`;
     safeStorage.setItem('hostel_ease_token', mockToken, true);
     safeStorage.setJSON('hostel_ease_user', matchedUser, true);
+    setActiveAuthToken(mockToken);
     console.log(`[AUTH_SUCCESS] Fallback login for registered user: ${matchedUser.email} (${matchedUser.role})`);
     return { message: 'Login successful', token: mockToken, user: matchedUser };
   }
@@ -1613,6 +1624,7 @@ function handleClientSideFallbackLogin(payload: { email?: string; username?: str
     const mockToken = `he_admin_token_${Date.now()}`;
     safeStorage.setItem('hostel_ease_token', mockToken, true);
     safeStorage.setJSON('hostel_ease_user', adminUser, true);
+    setActiveAuthToken(mockToken);
     console.log(`[AUTH_SUCCESS] Fallback login for admin`);
     return { message: 'Login successful', token: mockToken, user: adminUser };
   }
@@ -1634,6 +1646,7 @@ function handleClientSideFallbackLogin(payload: { email?: string; username?: str
     saveLocalRegisteredUsers([...registeredUsers, providerUser]);
     safeStorage.setItem('hostel_ease_token', mockToken, true);
     safeStorage.setJSON('hostel_ease_user', providerUser, true);
+    setActiveAuthToken(mockToken);
     console.log(`[AUTH_SUCCESS] Fallback login for demo provider`);
     return { message: 'Login successful', token: mockToken, user: providerUser };
   }
@@ -1660,6 +1673,7 @@ function handleClientSideFallbackLogin(payload: { email?: string; username?: str
     saveLocalRegisteredUsers([...registeredUsers, studentUser]);
     safeStorage.setItem('hostel_ease_token', mockToken, true);
     safeStorage.setJSON('hostel_ease_user', studentUser, true);
+    setActiveAuthToken(mockToken);
     console.log(`[AUTH_SUCCESS] Fallback login for demo student`);
     return { message: 'Login successful', token: mockToken, user: studentUser };
   }
@@ -1868,8 +1882,9 @@ export const api = {
 
         if (res.ok) {
           const json = await res.json();
-          localStorage.setItem('hostel_ease_token', json.token);
-          localStorage.setItem('hostel_ease_user', JSON.stringify(json.user));
+          safeStorage.setItem('hostel_ease_token', json.token, true);
+          safeStorage.setJSON('hostel_ease_user', json.user, true);
+          setActiveAuthToken(json.token);
           // Save to local registered users
           const existing = getLocalRegisteredUsers();
           saveLocalRegisteredUsers([json.user, ...existing.filter(u => u.email?.toLowerCase() !== json.user.email?.toLowerCase())]);
@@ -1908,8 +1923,9 @@ export const api = {
             } : undefined
           };
           const mockToken = `he_token_${Date.now()}`;
-          localStorage.setItem('hostel_ease_token', mockToken);
-          localStorage.setItem('hostel_ease_user', JSON.stringify(mockUser));
+          safeStorage.setItem('hostel_ease_token', mockToken, true);
+          safeStorage.setJSON('hostel_ease_user', mockUser, true);
+          setActiveAuthToken(mockToken);
 
           // Save to persistent registered users
           const existing = getLocalRegisteredUsers();
@@ -1975,8 +1991,9 @@ export const api = {
           saveLocalRegisteredUsers(registered);
 
           const mockToken = `he_token_${Date.now()}`;
-          localStorage.setItem('hostel_ease_token', mockToken);
-          localStorage.setItem('hostel_ease_user', JSON.stringify(mockUser));
+          safeStorage.setItem('hostel_ease_token', mockToken, true);
+          safeStorage.setJSON('hostel_ease_user', mockUser, true);
+          setActiveAuthToken(mockToken);
           return { message: 'Registration successful', token: mockToken, user: mockUser };
         }
 
@@ -2010,6 +2027,7 @@ export const api = {
           console.log(`[AUTH_SUCCESS] Authenticated ${json.user?.email} (${json.user?.role})`);
           safeStorage.setItem('hostel_ease_token', json.token, true);
           safeStorage.setJSON('hostel_ease_user', json.user, true);
+          setActiveAuthToken(json.token);
           syncCloudProperties().catch(() => {});
           return json;
         }
@@ -2040,7 +2058,7 @@ export const api = {
 
     async getMe(): Promise<{ user: any }> {
       try {
-        const token = safeStorage.getItem('hostel_ease_token');
+        const token = safeStorage.getItem('hostel_ease_token') || activeInMemoryToken;
         if (!token) return { user: null };
 
         const res = await fetch(`${API_BASE}/auth/me`, {
@@ -2050,6 +2068,7 @@ export const api = {
           const json = await res.json();
           if (json.user) {
             safeStorage.setJSON('hostel_ease_user', json.user, true);
+            setActiveAuthToken(token);
           }
           return json;
         }
@@ -2057,6 +2076,7 @@ export const api = {
           // Token is invalid/expired; immediately purge rejected credentials
           safeStorage.removeItem('hostel_ease_token');
           safeStorage.removeItem('hostel_ease_user');
+          setActiveAuthToken(null);
           return { user: null };
         }
       } catch (err) {
