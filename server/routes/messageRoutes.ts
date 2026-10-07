@@ -55,7 +55,7 @@ router.post('/conversations', authenticate, (req: AuthenticatedRequest, res: Res
   try {
     updateUserPresence(req.user.id);
 
-    const property = db.prepare(`
+    let property = db.prepare(`
       SELECT p.id, p.title, p.address, p.provider_id,
              COALESCE(u.full_name, 'Verified Agent') as provider_name,
              u.avatar_url as provider_avatar,
@@ -70,6 +70,35 @@ router.post('/conversations', authenticate, (req: AuthenticatedRequest, res: Res
       LEFT JOIN areas a ON a.id = p.area_id
       WHERE p.id = ? OR p.slug = ?
     `).get(propertyId, propertyId) as any;
+
+    if (!property && (req.body.propertyTitle || propertyId)) {
+      const bodyTitle = req.body.propertyTitle || 'Hostel Accommodation';
+      const bodyAddress = req.body.propertyAddress || 'LAUTECH Area, Ogbomoso';
+      const bodyCover = req.body.propertyCoverImage || 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=1200&q=85';
+      const bodyProviderId = req.body.providerId || 'user-provider-1';
+      const bodyProviderName = req.body.providerName || 'Verified Agent';
+      const bodyAreaName = req.body.areaName || 'Under G';
+
+      try {
+        db.prepare(`
+          INSERT OR IGNORE INTO properties (id, title, address, provider_id, rent_amount, property_type, area_id)
+          VALUES (?, ?, ?, ?, 150000, 'SELF_CONTAIN', 'area-under-g')
+        `).run(propertyId, bodyTitle, bodyAddress, bodyProviderId);
+
+        property = {
+          id: propertyId,
+          title: bodyTitle,
+          address: bodyAddress,
+          provider_id: bodyProviderId,
+          provider_name: bodyProviderName,
+          provider_avatar: bodyCover,
+          cover_image: bodyCover,
+          area_name: bodyAreaName
+        };
+      } catch (insertErr) {
+        console.warn('[HOSTEL_RESOLUTION] Could not auto-insert property into DB:', insertErr);
+      }
+    }
 
     if (!property) {
       return res.status(404).json({ error: 'Hostel accommodation not found' });

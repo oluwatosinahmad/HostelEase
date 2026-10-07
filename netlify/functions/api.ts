@@ -2,6 +2,7 @@ import type { Config } from "@netlify/functions";
 import { getStore } from "@netlify/blobs";
 import seedPropertiesData from "../../src/data/seedProperties.json";
 import seedUsersData from "../../src/data/seedUsers.json";
+import { DEFAULT_PROPERTIES } from "../../src/services/offlineFallback";
 
 export const config: Config = {
   path: ["/api/*", "/.netlify/functions/api/*"]
@@ -166,6 +167,18 @@ let memoryProperties: any[] = [
     createdAt: '2026-08-22T10:00:00Z'
   }
 ];
+
+// Auto-merge all default properties ensuring complete 56-hostel coverage across all districts
+if (Array.isArray(DEFAULT_PROPERTIES)) {
+  const existingPropIds = new Set(memoryProperties.map(p => p.id));
+  for (const p of DEFAULT_PROPERTIES) {
+    if (!existingPropIds.has(p.id)) {
+      memoryProperties.push(p);
+      existingPropIds.add(p.id);
+    }
+  }
+}
+
 let memoryVideos: any[] = [];
 let memorySavedProperties: any[] = [];
 let memoryRecentlyViewed: any[] = [];
@@ -939,16 +952,17 @@ function parseAuth(req: Request): any | null {
   const headerId = req.headers.get('x-user-id');
   const headerRole = req.headers.get('x-user-role');
 
-  if (headerEmail) {
-    if (memoryDeletedUserIds.has(headerEmail) || (headerId && memoryDeletedUserIds.has(headerId))) {
+  if (headerEmail || headerId) {
+    const safeEmail = headerEmail || `${headerId}@hostelease.ng`;
+    if ((headerEmail && memoryDeletedUserIds.has(headerEmail)) || (headerId && memoryDeletedUserIds.has(headerId))) {
       return null;
     }
-    let matched = memoryUsers.find(u => u.email.toLowerCase() === headerEmail);
+    let matched = memoryUsers.find(u => (headerEmail && u.email && u.email.toLowerCase() === headerEmail) || (headerId && u.id === headerId));
     if (matched) return matched;
     const cleanRole = (headerRole || 'STUDENT').toUpperCase();
     const newUser = {
       id: headerId || `user-${Date.now()}`,
-      email: headerEmail,
+      email: safeEmail,
       fullName: 'HostelEase User',
       phone: '',
       department: '',
@@ -3142,15 +3156,21 @@ export default async (req: Request): Promise<Response> => {
 
       const body = await req.json();
       const { propertyId, initialMessage } = body;
-      const prop = memoryProperties.find(p => p.id === propertyId || (p as any).slug === propertyId || String(p.id) === String(propertyId));
+      let prop = memoryProperties.find(p => p.id === propertyId || (p as any).slug === propertyId || String(p.id) === String(propertyId));
+      if (!prop && Array.isArray(DEFAULT_PROPERTIES)) {
+        prop = (DEFAULT_PROPERTIES as any[]).find(p => p.id === propertyId || (p as any).slug === propertyId || String(p.id) === String(propertyId));
+        if (prop) {
+          memoryProperties.push(prop);
+        }
+      }
       
       const sId = user.role === 'STUDENT' ? user.id : (body.studentId || 'usr-student-1');
       const sName = user.role === 'STUDENT' ? (user.fullName || 'Student User') : 'Student User';
       const sEmail = user.role === 'STUDENT' ? (user.email || 'student@lautech.edu.ng') : 'student@lautech.edu.ng';
 
-      const pId = prop?.providerId || (prop?.provider as any)?.id || 'user-provider-default';
-      const pName = prop?.provider?.name || 'Verified Agent';
-      const pEmail = (prop as any)?.providerEmail || prop?.provider?.email || 'landlord@hostelease.ng';
+      const pId = prop?.providerId || (prop?.provider as any)?.id || body.providerId || 'user-provider-default';
+      const pName = prop?.provider?.name || body.providerName || 'Verified Agent';
+      const pEmail = (prop as any)?.providerEmail || prop?.provider?.email || body.providerEmail || 'landlord@hostelease.ng';
 
       const convId = `conv_${sId}_${propertyId || 'general'}`;
       let conv = memoryConversations.find(c => 
@@ -3162,17 +3182,17 @@ export default async (req: Request): Promise<Response> => {
         conv = {
           id: convId,
           propertyId: propertyId || '',
-          propertyTitle: prop?.title || 'Hostel Accommodation',
-          propertyAddress: prop?.address || 'LAUTECH Area, Ogbomoso',
-          propertyCoverImage: prop?.coverImage || 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=1200&q=80',
-          areaName: prop?.area?.name || prop?.areaName || 'Under G',
+          propertyTitle: prop?.title || body.propertyTitle || 'Hostel Accommodation',
+          propertyAddress: prop?.address || body.propertyAddress || 'LAUTECH Area, Ogbomoso',
+          propertyCoverImage: prop?.coverImage || body.propertyCoverImage || 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=1200&q=80',
+          areaName: prop?.area?.name || prop?.areaName || body.areaName || 'Under G',
           studentId: sId,
           studentName: sName,
           studentEmail: sEmail,
           providerId: pId,
           providerName: pName,
           providerEmail: pEmail,
-          avatarUrl: prop?.coverImage || 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=1200&q=80',
+          avatarUrl: prop?.coverImage || body.propertyCoverImage || 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=1200&q=80',
           lastMessageText: initialMessage || 'No messages yet',
           lastMessageAt: new Date().toISOString(),
           status: 'ACTIVE',
@@ -3364,7 +3384,10 @@ export default async (req: Request): Promise<Response> => {
       return new Response(JSON.stringify({ error: 'Conversation not found' }), { status: 404, headers: CORS_HEADERS });
     }
 
-    const prop = memoryProperties.find(p => p.id === conv.propertyId);
+    let prop = memoryProperties.find(p => p.id === conv.propertyId);
+    if (!prop && Array.isArray(DEFAULT_PROPERTIES)) {
+      prop = (DEFAULT_PROPERTIES as any[]).find(p => p.id === conv.propertyId || (p as any).slug === conv.propertyId);
+    }
     const userEmail = (user.email || '').toLowerCase().trim();
 
     // Role Normalization & Authorization Check: participant student, provider, property owner, or admin

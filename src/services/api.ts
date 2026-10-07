@@ -174,8 +174,40 @@ export function setActiveAuthToken(token: string | null): void {
   activeInMemoryToken = token;
 }
 
+export function createClientAuthToken(u: any): string {
+  if (!u) return '';
+  const payload = {
+    id: u.id || `usr-student-${Date.now()}`,
+    email: u.email || 'student@lautech.edu.ng',
+    role: u.role || 'STUDENT',
+    fullName: u.fullName || u.name || 'Student User',
+    phone: u.phone || '',
+    department: u.department || u.studentDetails?.department || '',
+    level: u.level || u.studentDetails?.level || '',
+    matricNo: u.matricNo || u.studentDetails?.matricNo || u.studentDetails?.matricNumber || '',
+    gender: u.gender || 'ANY',
+    avatarUrl: u.avatarUrl || '',
+    businessName: u.businessName || u.providerDetails?.businessName || '',
+    iat: Math.floor(Date.now() / 1000)
+  };
+  try {
+    return `hl_${btoa(unescape(encodeURIComponent(JSON.stringify(payload))))}`;
+  } catch {
+    return `hl_${btoa(JSON.stringify(payload))}`;
+  }
+}
+
 export function getActiveAuthToken(): string | null {
-  return activeInMemoryToken || safeStorage.getItem('hostel_ease_token');
+  let token = activeInMemoryToken || safeStorage.getItem('hostel_ease_token');
+  if (!token) {
+    const user = getCurrentUser();
+    if (user && (user.id || user.email)) {
+      token = createClientAuthToken(user);
+      safeStorage.setItem('hostel_ease_token', token, true);
+      activeInMemoryToken = token;
+    }
+  }
+  return token;
 }
 
 function getAuthHeader(): Record<string, string> {
@@ -1595,7 +1627,7 @@ function handleClientSideFallbackLogin(payload: { email?: string; username?: str
   const matchedUser = registeredUsers.find(u => u.email?.toLowerCase().trim() === rawIdentifier || (u as any).username?.toLowerCase() === rawIdentifier);
 
   if (matchedUser) {
-    const mockToken = `he_token_${Date.now()}`;
+    const mockToken = createClientAuthToken(matchedUser);
     safeStorage.setItem('hostel_ease_token', mockToken, true);
     safeStorage.setJSON('hostel_ease_user', matchedUser, true);
     setActiveAuthToken(mockToken);
@@ -1621,7 +1653,7 @@ function handleClientSideFallbackLogin(payload: { email?: string; username?: str
       isActive: 1,
       accountStatus: 'ACTIVE'
     };
-    const mockToken = `he_admin_token_${Date.now()}`;
+    const mockToken = createClientAuthToken(adminUser);
     safeStorage.setItem('hostel_ease_token', mockToken, true);
     safeStorage.setJSON('hostel_ease_user', adminUser, true);
     setActiveAuthToken(mockToken);
@@ -1642,7 +1674,7 @@ function handleClientSideFallbackLogin(payload: { email?: string; username?: str
       accountStatus: 'ACTIVE',
       providerDetails: { businessName: 'Adeleke Heritage Properties Ogbomoso' }
     };
-    const mockToken = `he_prov_token_${Date.now()}`;
+    const mockToken = createClientAuthToken(providerUser);
     saveLocalRegisteredUsers([...registeredUsers, providerUser]);
     safeStorage.setItem('hostel_ease_token', mockToken, true);
     safeStorage.setJSON('hostel_ease_user', providerUser, true);
@@ -1669,7 +1701,7 @@ function handleClientSideFallbackLogin(payload: { email?: string; username?: str
         matricNumber: '2024/04812'
       }
     };
-    const mockToken = `he_stud_token_${Date.now()}`;
+    const mockToken = createClientAuthToken(studentUser);
     saveLocalRegisteredUsers([...registeredUsers, studentUser]);
     safeStorage.setItem('hostel_ease_token', mockToken, true);
     safeStorage.setJSON('hostel_ease_user', studentUser, true);
@@ -2953,10 +2985,27 @@ export const api = {
   // In-App Messaging API (Single Central Source of Truth: Backend Database)
   messages: {
     async startConversation(propertyId: string, initialMessage?: string, studentId?: string): Promise<{ conversationId: string; conversation: ConversationItem }> {
+      const cleanPropId = propertyId ? propertyId.trim() : '';
+      const foundProp = DEFAULT_PROPERTIES.find(p => p.id === cleanPropId || (p as any).slug === cleanPropId);
+      const payload: any = {
+        propertyId: cleanPropId,
+        initialMessage,
+        studentId
+      };
+      if (foundProp) {
+        payload.propertyTitle = foundProp.title;
+        payload.propertyAddress = foundProp.address;
+        payload.propertyCoverImage = foundProp.coverImage;
+        payload.areaName = foundProp.area?.name || (foundProp as any).areaName;
+        payload.providerId = (foundProp as any).providerId || (foundProp.provider as any)?.id;
+        payload.providerName = foundProp.provider?.name;
+        payload.providerEmail = (foundProp as any).providerEmail || (foundProp.provider as any)?.email;
+      }
+
       const res = await fetch(`${API_BASE}/messages/conversations`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
-        body: JSON.stringify({ propertyId, initialMessage, studentId })
+        body: JSON.stringify(payload)
       });
       if (!res.ok) {
         let errText = 'Failed to start conversation';
