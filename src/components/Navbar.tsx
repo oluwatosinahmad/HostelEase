@@ -158,6 +158,9 @@ export const Navbar: React.FC<NavbarProps> = ({
     }
   }, [notifDropdownOpen, isAuthenticated]);
 
+  const notifDropdownOpenRef = useRef<boolean>(false);
+  notifDropdownOpenRef.current = notifDropdownOpen;
+
   // Poll lightweight unread message & notification count across devices
   useEffect(() => {
     if (isAuthenticated) {
@@ -171,8 +174,8 @@ export const Navbar: React.FC<NavbarProps> = ({
 
       poll();
 
-      // Background recovery sync fallback (30s interval instead of rapid polling)
-      const interval = setInterval(poll, 30000);
+      // Background recovery sync fallback (10s interval)
+      const interval = setInterval(poll, 10000);
 
       const handleNotifEvent = (e?: any) => {
         const detail = e?.detail;
@@ -199,7 +202,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           .then(res => setUnreadMsgCount(res?.unreadCount || 0))
           .catch(() => {});
 
-        if (notifDropdownOpen) fetchFullNotifs();
+        if (notifDropdownOpenRef.current) fetchFullNotifs();
       };
 
       window.addEventListener('hostel_ease_notification_updated', handleNotifEvent);
@@ -215,7 +218,7 @@ export const Navbar: React.FC<NavbarProps> = ({
       setNotifications([]);
       setUnreadNotifCount(0);
     }
-  }, [isAuthenticated, activeView, notifDropdownOpen]);
+  }, [isAuthenticated]);
 
   const handleNotificationClick = async (n: any) => {
     setNotifDropdownOpen(false);

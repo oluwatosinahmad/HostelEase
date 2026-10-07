@@ -503,12 +503,12 @@ async function saveCloudMessage(msg: any) {
   } catch {}
 
   try {
-    await fetch(`https://ntfy.sh/${NTFY_TOPIC}`, {
+    fetch(`https://ntfy.sh/${NTFY_TOPIC}`, {
       method: 'POST',
       headers: { 'Title': 'HOSTEL_MESSAGE', 'Tags': 'envelope' },
       body: JSON.stringify({ type: 'MESSAGE_CREATED', message: msg }),
-      signal: AbortSignal.timeout(3000)
-    });
+      signal: AbortSignal.timeout(2000)
+    }).catch(() => {});
   } catch {}
 }
 
@@ -529,12 +529,12 @@ async function saveCloudNotification(notif: any) {
   } catch {}
 
   try {
-    await fetch(`https://ntfy.sh/${NTFY_TOPIC}`, {
+    fetch(`https://ntfy.sh/${NTFY_TOPIC}`, {
       method: 'POST',
       headers: { 'Title': 'HOSTEL_NOTIF', 'Tags': 'bell' },
       body: JSON.stringify({ type: 'NOTIFICATION_CREATED', notification: notif }),
-      signal: AbortSignal.timeout(3000)
-    });
+      signal: AbortSignal.timeout(2000)
+    }).catch(() => {});
   } catch {}
 }
 
@@ -555,12 +555,12 @@ async function saveCloudInspection(insp: any) {
   } catch {}
 
   try {
-    await fetch(`https://ntfy.sh/${NTFY_TOPIC}`, {
+    fetch(`https://ntfy.sh/${NTFY_TOPIC}`, {
       method: 'POST',
       headers: { 'Title': 'HOSTEL_INSPECTION', 'Tags': 'eyes' },
       body: JSON.stringify({ type: 'INSPECTION_UPDATED', inspection: insp }),
-      signal: AbortSignal.timeout(3000)
-    });
+      signal: AbortSignal.timeout(2000)
+    }).catch(() => {});
   } catch {}
 }
 
@@ -581,12 +581,12 @@ async function saveCloudBooking(bk: any) {
   } catch {}
 
   try {
-    await fetch(`https://ntfy.sh/${NTFY_TOPIC}`, {
+    fetch(`https://ntfy.sh/${NTFY_TOPIC}`, {
       method: 'POST',
       headers: { 'Title': 'HOSTEL_BOOKING', 'Tags': 'key' },
       body: JSON.stringify({ type: 'BOOKING_UPDATED', booking: bk }),
-      signal: AbortSignal.timeout(3000)
-    });
+      signal: AbortSignal.timeout(2000)
+    }).catch(() => {});
   } catch {}
 }
 
@@ -1023,6 +1023,44 @@ export default async (req: Request): Promise<Response> => {
       totalProperties: memoryProperties.length,
       timestamp: new Date().toISOString()
     }), { status: 200, headers: CORS_HEADERS });
+  }
+
+  // 1b. Realtime SSE Stream Endpoint
+  if (pathname === '/api/realtime/stream' && req.method === 'GET') {
+    const user = parseAuth(req);
+    if (!user) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: CORS_HEADERS });
+    }
+
+    const stream = new ReadableStream({
+      start(controller) {
+        const encoder = new TextEncoder();
+        controller.enqueue(encoder.encode(`event: connected\ndata: ${JSON.stringify({ userId: user.id, time: new Date().toISOString() })}\n\n`));
+
+        const pingInterval = setInterval(() => {
+          try {
+            controller.enqueue(encoder.encode(`: ping\n\n`));
+          } catch {
+            clearInterval(pingInterval);
+          }
+        }, 15000);
+
+        req.signal?.addEventListener('abort', () => {
+          clearInterval(pingInterval);
+          try { controller.close(); } catch {}
+        });
+      }
+    });
+
+    return new Response(stream, {
+      status: 200,
+      headers: {
+        ...CORS_HEADERS,
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache, no-transform',
+        'Connection': 'keep-alive'
+      }
+    });
   }
 
   // 2. Auth Current User (Me)

@@ -54,6 +54,7 @@ import { AuthModal } from './components/AuthModal';
 import { Footer } from './components/Footer';
 import { MobileBottomNav } from './components/MobileBottomNav';
 import { NetworkStatusBanner } from './components/NetworkStatusBanner';
+import { NotificationToastHUD } from './components/NotificationToastHUD';
 import { HostelListSkeleton, DashboardSkeleton } from './components/SkeletonLoaders';
 import { formatNaira, formatDistance } from './utils/formatters';
 import { HostelDetailModal } from './components/HostelDetailModal';
@@ -968,6 +969,9 @@ function MainApp() {
         ))}
       </div>
 
+
+      {/* Global Real-Time Notification Toast HUD */}
+      <NotificationToastHUD />
 
       {/* Network Resilience Status Banner */}
       <NetworkStatusBanner onRetry={loadInitialData} />

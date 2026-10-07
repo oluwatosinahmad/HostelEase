@@ -179,6 +179,17 @@ export const HostelDetailModal: React.FC<HostelDetailModalProps> = ({
 
   const handleOpenDirectChat = () => {
     if (!property) return;
+    if (!isAuthenticated) {
+      onShowToast('Please create an account or sign in first to message the agent.', 'info');
+      if (onOpenAuth) {
+        onClose();
+        onOpenAuth('STUDENT');
+      } else {
+        window.dispatchEvent(new CustomEvent('hostel_ease_open_auth', { detail: { role: 'STUDENT' } }));
+        onClose();
+      }
+      return;
+    }
     onClose();
     if (onOpenConversation) {
       onOpenConversation(property.id, undefined, property);

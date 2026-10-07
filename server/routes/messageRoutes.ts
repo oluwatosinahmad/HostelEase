@@ -918,35 +918,35 @@ router.post('/conversations/:id/messages', authenticate, (req: AuthenticatedRequ
       console.warn('Realtime message dispatch error:', realtimeErr);
     }
 
-    setImmediate(() => {
-      try {
+    // Synchronously create notification in database and emit real-time event immediately
+    try {
+      console.log(`[NOTIFICATION DEBUG] SENDING MESSAGE NOTIFICATION - sender: "${senderName}", recipientId: "${recipientId}", messageId: "${messageId}"`);
+      sendNotification(
+        recipientId,
+        `New message from ${senderName}`,
+        `"${cleanContent.substring(0, 60)}${cleanContent.length > 60 ? '...' : ''}"`,
+        'NEW_MESSAGE',
+        `/messages?conversationId=${conv.id}&propertyId=${conv.property_id || ''}`,
+        conv.id,
+        messageId,
+        req.user.id
+      );
+
+      if (shouldGenerateAutoReply && autoReplyMessage) {
         sendNotification(
-          recipientId,
-          `New message from ${senderName}`,
-          `"${cleanContent.substring(0, 60)}${cleanContent.length > 60 ? '...' : ''}"`,
+          req.user.id,
+          'Hostel Ease Automated Assistant',
+          autoReplyContent,
           'NEW_MESSAGE',
           `/messages?conversationId=${conv.id}&propertyId=${conv.property_id || ''}`,
           conv.id,
-          messageId,
-          req.user.id
+          autoReplyId,
+          conv.provider_id
         );
-
-        if (shouldGenerateAutoReply && autoReplyMessage) {
-          sendNotification(
-            req.user.id,
-            'Hostel Ease Automated Assistant',
-            autoReplyContent,
-            'NEW_MESSAGE',
-            `/messages?conversationId=${conv.id}&propertyId=${conv.property_id || ''}`,
-            conv.id,
-            autoReplyId,
-            conv.provider_id
-          );
-        }
-      } catch (notifErr) {
-        console.warn('Async notification dispatch warning:', notifErr);
       }
-    });
+    } catch (notifErr) {
+      console.warn('Sync notification dispatch warning:', notifErr);
+    }
 
     return res.status(201).json({
       message: {

@@ -47,6 +47,8 @@ export const notificationService = {
       ? (typeof params.metadata === 'string' ? params.metadata : JSON.stringify(params.metadata))
       : null;
 
+    console.log(`[NOTIFICATION DEBUG] EVENT CREATED - notifId: ${id}, userId: ${params.userId}, type: ${type}, title: "${params.title}"`);
+
     db.prepare(`
       INSERT INTO notifications (
         id, user_id, title, message, type, is_read, read_at, link_url,
@@ -68,16 +70,22 @@ export const notificationService = {
       metadataStr
     );
 
+    console.log(`[NOTIFICATION DEBUG] DATABASE INSERT SUCCESS - notifId: ${id}, userId: ${params.userId}`);
+
     const created = this.getNotificationById(id, params.userId);
+    const unreadCount = this.getUnreadCount(params.userId);
 
     // Emit event for real-time subscribers
     try {
+      console.log(`[NOTIFICATION DEBUG] REALTIME EMIT - notifId: ${id}, userId: ${params.userId}, unreadCount: ${unreadCount}`);
       notificationEvents.emit('notification_created', {
         userId: params.userId,
         notification: created,
-        unreadCount: this.getUnreadCount(params.userId)
+        unreadCount
       });
-    } catch {}
+    } catch (err) {
+      console.error(`[NOTIFICATION DEBUG] REALTIME EMIT ERROR:`, err);
+    }
 
     return created!;
   },
@@ -321,12 +329,14 @@ export const notificationService = {
         SELECT id FROM notifications
         WHERE user_id = ? AND type = 'WELCOME'
           AND datetime(created_at) > datetime('now', '-5 seconds')
+        ORDER BY created_at DESC
         LIMIT 1
-      `).get(userId);
+      `).get(userId) as any;
 
-      if (recent) {
-        // Debounce only against rapid double-mount within 5 seconds
-        return null;
+      if (recent && recent.id) {
+        // Return existing recent welcome notification record so client can render it immediately without creating a DB duplicate
+        console.log(`[NOTIFICATION DEBUG] RETURNING EXISTING WELCOME NOTIFICATION (DEBOUNCE PROTECTED): ${recent.id} for userId: ${userId}`);
+        return this.getNotificationById(recent.id, userId);
       }
 
       const normalizedRole = (role || 'STUDENT').toUpperCase();

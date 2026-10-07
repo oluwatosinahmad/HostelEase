@@ -29,23 +29,27 @@ class RealtimeService {
    */
   private initNotificationListeners() {
     notificationEvents.on('notification_created', (data: { userId: string; notification: any; unreadCount: number }) => {
-      this.sendToUser(data.userId, 'notification:new', {
+      console.log(`[NOTIFICATION DEBUG] REALTIME SERVICE RECEIVED EVENT - notifId: ${data.notification?.id}, userId: ${data.userId}, unreadCount: ${data.unreadCount}`);
+      const count = this.sendToUser(data.userId, 'notification:new', {
         notification: data.notification,
         unreadCount: data.unreadCount
       });
+      console.log(`[NOTIFICATION DEBUG] REALTIME EMIT - event: notification:new, deliveredToClients: ${count}, userId: ${data.userId}`);
     });
 
     notificationEvents.on('notification_updated', (data: { userId: string; notificationId: string; unreadCount: number }) => {
-      this.sendToUser(data.userId, 'notification:read', {
+      const count = this.sendToUser(data.userId, 'notification:read', {
         notificationId: data.notificationId,
         unreadCount: data.unreadCount
       });
+      console.log(`[NOTIFICATION DEBUG] REALTIME EMIT - event: notification:read, deliveredToClients: ${count}, notifId: ${data.notificationId}`);
     });
 
     notificationEvents.on('notifications_all_read', (data: { userId: string; unreadCount: number }) => {
-      this.sendToUser(data.userId, 'notification:all_read', {
+      const count = this.sendToUser(data.userId, 'notification:all_read', {
         unreadCount: data.unreadCount || 0
       });
+      console.log(`[NOTIFICATION DEBUG] REALTIME EMIT - event: notification:all_read, deliveredToClients: ${count}, userId: ${data.userId}`);
     });
   }
 
@@ -106,8 +110,11 @@ class RealtimeService {
       }
       this.userToClientIds.get(emailKey)!.add(clientId);
     }
+    console.log(`[NOTIFICATION DEBUG] REALTIME CONNECTION ACTIVE - clientId: ${clientId}, userId: ${user.id}, email: ${user.email}`);
+    console.log(`[NOTIFICATION DEBUG] USER CHANNEL - subscribed keys: ["${userKey}"${user.email ? `, "${this.normalizeKey(user.email)}"` : ''}]`);
 
     res.on('close', () => {
+      console.log(`[NOTIFICATION DEBUG] REALTIME CONNECTION CLOSED - clientId: ${clientId}, userId: ${user.id}`);
       this.removeClient(clientId);
     });
 
