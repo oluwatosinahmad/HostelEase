@@ -97,6 +97,7 @@ export const HostelDetailModal: React.FC<HostelDetailModalProps> = ({
   const [reportModalOpen, setReportModalOpen] = useState<boolean>(false);
   const [providerProfileModalOpen, setProviderProfileModalOpen] = useState<boolean>(false);
   const [isSaved, setIsSaved] = useState<boolean>(false);
+  const [saveLoading, setSaveLoading] = useState<boolean>(false);
 
   // Direct DM & Inquiry State
   const [inquiryText, setInquiryText] = useState<string>('');
@@ -245,15 +246,16 @@ export const HostelDetailModal: React.FC<HostelDetailModalProps> = ({
   if (!isOpen) return null;
 
   const handleSaveToggle = async () => {
-    if (!property) return;
+    if (!property || saveLoading) return;
+    setSaveLoading(true);
     try {
       const nextState = !isSaved;
-      setIsSaved(nextState);
       await onToggleSave(property.id, nextState);
-      onShowToast(nextState ? 'Saved to your shortlist' : 'Removed from shortlist', 'success');
-    } catch (err) {
-      setIsSaved(!isSaved);
-      onShowToast('Could not update shortlist', 'error');
+      setIsSaved(nextState);
+    } catch {
+      // Toast error is handled by App.tsx handleToggleSave
+    } finally {
+      setSaveLoading(false);
     }
   };
 
@@ -332,12 +334,22 @@ export const HostelDetailModal: React.FC<HostelDetailModalProps> = ({
             </button>
             <button
               onClick={handleSaveToggle}
-              className={`p-2 rounded-full transition-all ${
-                isSaved ? 'text-rose-600 bg-rose-50 dark:bg-rose-950/50' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+              disabled={saveLoading}
+              className={`p-2 rounded-full transition-all flex items-center gap-1 ${
+                saveLoading
+                  ? 'opacity-60 cursor-not-allowed text-slate-400'
+                  : isSaved
+                    ? 'text-rose-600 bg-rose-50 dark:bg-rose-950/50'
+                    : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
               }`}
-              title={isSaved ? 'Remove from saved' : 'Save to shortlist'}
+              title={saveLoading ? 'Saving...' : isSaved ? 'Saved in shortlist (Click to remove)' : 'Save to shortlist'}
             >
-              <Bookmark className={`w-4 h-4 ${isSaved ? 'fill-current' : ''}`} />
+              {saveLoading ? (
+                <span className="w-4 h-4 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <Bookmark className={`w-4 h-4 ${isSaved ? 'fill-current' : ''}`} />
+              )}
+              {isSaved && <span className="text-[11px] font-bold text-rose-600 dark:text-rose-400 pr-1">Saved ✓</span>}
             </button>
             <button
               onClick={() => setReportModalOpen(true)}
@@ -1063,14 +1075,31 @@ export const HostelDetailModal: React.FC<HostelDetailModalProps> = ({
 
                         <button
                           onClick={handleSaveToggle}
-                          className={`w-full py-2.5 rounded-2xl font-bold text-xs border transition-all flex items-center justify-center gap-1.5 ${
-                            isSaved 
-                              ? 'bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800 hover:bg-rose-100 dark:hover:bg-rose-900/60' 
-                              : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700'
+                          disabled={saveLoading}
+                          className={`w-full py-2.5 rounded-2xl font-bold text-xs border transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                            saveLoading
+                              ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 border-slate-200 dark:border-slate-700 cursor-not-allowed pointer-events-none'
+                              : isSaved 
+                                ? 'bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800 hover:bg-rose-100 dark:hover:bg-rose-900/60' 
+                                : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700'
                           }`}
                         >
-                          <Bookmark className={`w-3.5 h-3.5 ${isSaved ? 'fill-current' : ''}`} />
-                          {isSaved ? 'Hostel Saved in Shortlist' : 'Save to Shortlist'}
+                          {saveLoading ? (
+                            <>
+                              <span className="w-3.5 h-3.5 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" />
+                              <span>Saving...</span>
+                            </>
+                          ) : isSaved ? (
+                            <>
+                              <Bookmark className="w-3.5 h-3.5 fill-current text-rose-600" />
+                              <span>Saved ✓ (In Shortlist)</span>
+                            </>
+                          ) : (
+                            <>
+                              <Bookmark className="w-3.5 h-3.5" />
+                              <span>Save to Shortlist</span>
+                            </>
+                          )}
                         </button>
 
                         {onToggleCompare && (

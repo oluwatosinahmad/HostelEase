@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   CheckCircle2, 
   Video, 
@@ -21,7 +21,7 @@ interface PropertyCardProps {
   property: Property;
   isSaved: boolean;
   isCompared: boolean;
-  onToggleSave: (id: string) => void;
+  onToggleSave: (id: string, willSave?: boolean) => void | Promise<void>;
   onToggleCompare: (property: Property) => void;
   onViewDetails: (property: Property) => void;
 }
@@ -34,6 +34,19 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
   onToggleCompare,
   onViewDetails,
 }) => {
+  const [saveLoading, setSaveLoading] = useState(false);
+
+  const handleSaveClick = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (saveLoading) return;
+    setSaveLoading(true);
+    try {
+      await onToggleSave(property.id, !isSaved);
+    } finally {
+      setSaveLoading(false);
+    }
+  };
+
   return (
     <div className="bg-white rounded-3xl border border-slate-200/90 shadow-card hover:shadow-elevated transition-all duration-200 overflow-hidden flex flex-col group relative">
       
@@ -107,18 +120,30 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
 
             <button
               type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onToggleSave(property.id);
-              }}
-              className={`p-2 rounded-full backdrop-blur-md transition-all active:scale-95 ${
-                isSaved
-                  ? 'bg-rose-500 text-white shadow-md ring-2 ring-white/60'
-                  : 'bg-black/40 hover:bg-black/60 text-white'
+              onClick={handleSaveClick}
+              disabled={saveLoading}
+              className={`px-2 py-1.5 rounded-full backdrop-blur-md transition-all flex items-center gap-1 text-[11px] font-bold ${
+                saveLoading
+                  ? 'bg-black/70 text-amber-300 pointer-events-none'
+                  : isSaved
+                    ? 'bg-rose-500 text-white shadow-md ring-2 ring-white/60'
+                    : 'bg-black/40 hover:bg-black/60 text-white'
               }`}
-              title={isSaved ? 'Remove from shortlist' : 'Save to Shortlist'}
+              title={saveLoading ? 'Saving...' : isSaved ? 'Saved in shortlist (Click to remove)' : 'Save to Shortlist'}
             >
-              <Bookmark className={`w-3.5 h-3.5 ${isSaved ? 'fill-white' : ''}`} />
+              {saveLoading ? (
+                <>
+                  <span className="w-2.5 h-2.5 border-2 border-amber-300 border-t-transparent rounded-full animate-spin" />
+                  <span className="text-[10px]">Saving...</span>
+                </>
+              ) : isSaved ? (
+                <>
+                  <Bookmark className="w-3.5 h-3.5 fill-white text-white" />
+                  <span className="text-[10px]">Saved ✓</span>
+                </>
+              ) : (
+                <Bookmark className="w-3.5 h-3.5" />
+              )}
             </button>
           </div>
         </div>

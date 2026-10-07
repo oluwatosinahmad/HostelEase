@@ -108,13 +108,14 @@ export const HostelCard: React.FC<HostelCardProps> = ({
 
   const handleSaveClick = async (e: React.MouseEvent) => {
     e.stopPropagation();
+    if (saveLoading) return;
     setSaveLoading(true);
     try {
       const nextState = !isSaved;
-      setIsSaved(nextState);
       await onToggleSave(property.id, nextState);
-    } catch (err) {
-      setIsSaved(!isSaved); // Revert on failure
+      setIsSaved(nextState);
+    } catch {
+      // Keep existing state if backend operation threw error
     } finally {
       setSaveLoading(false);
     }
@@ -272,18 +273,33 @@ export const HostelCard: React.FC<HostelCardProps> = ({
               </button>
             )}
 
-            {/* Save / Shortlist Button */}
+            {/* Save / Shortlist Button with Saving... & Saved ✓ Feedback */}
             <button
               onClick={handleSaveClick}
               disabled={saveLoading}
-              className={`p-2 rounded-full shadow-md backdrop-blur transition-all cursor-pointer ${
-                isSaved 
-                  ? 'bg-rose-50 text-rose-600 hover:bg-rose-100' 
-                  : 'bg-white/90 dark:bg-slate-900/90 text-slate-600 dark:text-slate-300 hover:bg-white hover:text-slate-900'
+              className={`px-2 py-1.5 rounded-full shadow-md backdrop-blur transition-all flex items-center gap-1 text-[11px] font-bold cursor-pointer ${
+                saveLoading
+                  ? 'bg-slate-900/90 text-amber-300 pointer-events-none ring-1 ring-amber-400/50'
+                  : isSaved 
+                    ? 'bg-rose-50 text-rose-600 hover:bg-rose-100 dark:bg-rose-950/70 dark:text-rose-300' 
+                    : 'bg-white/90 dark:bg-slate-900/90 text-slate-600 dark:text-slate-300 hover:bg-white hover:text-slate-900'
               }`}
-              title={isSaved ? 'Remove from saved' : 'Save hostel to shortlist'}
+              title={saveLoading ? 'Saving...' : isSaved ? 'Saved in shortlist (Click to remove)' : 'Save hostel to shortlist'}
+              aria-label={saveLoading ? 'Saving hostel...' : isSaved ? 'Saved in shortlist' : 'Save to shortlist'}
             >
-              <Bookmark className={`w-3.5 h-3.5 ${isSaved ? 'fill-current text-rose-600' : ''}`} />
+              {saveLoading ? (
+                <>
+                  <span className="w-3 h-3 border-2 border-amber-400 border-t-transparent rounded-full animate-spin" />
+                  <span className="text-[10px] pr-0.5">Saving...</span>
+                </>
+              ) : isSaved ? (
+                <>
+                  <Bookmark className="w-3.5 h-3.5 fill-current text-rose-600 dark:text-rose-400" />
+                  <span className="hidden sm:inline text-[10px] pr-0.5">Saved ✓</span>
+                </>
+              ) : (
+                <Bookmark className="w-3.5 h-3.5" />
+              )}
             </button>
           </div>
         </div>

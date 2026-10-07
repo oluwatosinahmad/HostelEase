@@ -654,7 +654,7 @@ function MainApp() {
   }, [isFeaturedSliderHovered, featuredRollList.length]);
 
   // Handle Save / Unsave from cards
-  const handleToggleSave = async (propertyId: string, willSave: boolean) => {
+  const handleToggleSave = async (propertyId: string, willSave?: boolean) => {
     if (!isAuthenticated) {
       setAuthModalDefaultRole('STUDENT');
       setAuthModalOpen(true);
@@ -662,25 +662,28 @@ function MainApp() {
       return;
     }
 
-    try {
-      // Optimistically update card states for instant responsiveness
-      setProperties(prev => prev.map(p => p.id === propertyId ? { ...p, isSaved: willSave } : p));
-      setFeaturedProperties(prev => prev.map(p => p.id === propertyId ? { ...p, isSaved: willSave } : p));
-      setRecentProperties(prev => prev.map(p => p.id === propertyId ? { ...p, isSaved: willSave } : p));
+    const cleanId = String(propertyId || '').trim();
+    if (!cleanId) return;
 
-      if (willSave) {
-        await api.properties.saveProperty(propertyId);
-        showToast('Hostel saved to your shortlist', 'success');
+    // Determine target save state if not explicitly provided
+    const isCurrentlySaved = savedProperties.some(p => p.id === cleanId || p.slug === cleanId);
+    const targetWillSave = typeof willSave === 'boolean' ? willSave : !isCurrentlySaved;
+
+    try {
+      if (targetWillSave) {
+        const res = await api.properties.saveProperty(cleanId);
+        showToast(res.message || 'Hostel saved to your shortlist', 'success');
       } else {
-        await api.properties.unsaveProperty(propertyId);
-        showToast('Hostel removed from shortlist', 'info');
+        const res = await api.properties.unsaveProperty(cleanId);
+        showToast(res.message || 'Hostel removed from shortlist', 'info');
       }
 
-      // Re-fetch backend single source of truth
+      // Re-fetch backend single source of truth after DB operation succeeds
       await fetchSavedProperties();
     } catch (err: any) {
       await fetchSavedProperties();
       showToast(err.message || 'Could not update saved hostel', 'error');
+      throw err;
     }
   };
 

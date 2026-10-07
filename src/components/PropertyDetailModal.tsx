@@ -51,7 +51,7 @@ interface PropertyDetailModalProps {
   isSaved: boolean;
   isCompared: boolean;
   onClose: () => void;
-  onToggleSave: (id: string) => void;
+  onToggleSave: (id: string, willSave?: boolean) => void | Promise<void>;
   onToggleCompare: (property: Property) => void;
   onOpenReportModal: (property: Property) => void;
   onOpenLandlordReportModal?: (landlord: Property['landlord']) => void;
@@ -103,6 +103,17 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
   const [isPlayingVideo, setIsPlayingVideo] = useState(false);
   const [reviewSort, setReviewSort] = useState<ReviewSortOption>('newest');
   const [showVerificationInfo, setShowVerificationInfo] = useState(false);
+  const [saveLoading, setSaveLoading] = useState(false);
+
+  const handleSaveClick = async () => {
+    if (saveLoading) return;
+    setSaveLoading(true);
+    try {
+      await onToggleSave(property.id, !isSaved);
+    } finally {
+      setSaveLoading(false);
+    }
+  };
 
   const handleTriggerWriteReview = onOpenWriteReview || onWriteReview;
 
@@ -224,15 +235,23 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
             </button>
 
             <button
-              onClick={() => onToggleSave(property.id)}
-              className={`p-2 rounded-xl border transition-all ${
-                isSaved
-                  ? 'bg-rose-50 border-rose-200 text-rose-600'
-                  : 'bg-slate-100 hover:bg-slate-200 border-slate-200 text-slate-700'
+              onClick={handleSaveClick}
+              disabled={saveLoading}
+              className={`p-2 rounded-xl border transition-all flex items-center gap-1.5 cursor-pointer ${
+                saveLoading
+                  ? 'opacity-60 cursor-not-allowed bg-slate-100 text-slate-400 border-slate-200'
+                  : isSaved
+                    ? 'bg-rose-50 border-rose-200 text-rose-600'
+                    : 'bg-slate-100 hover:bg-slate-200 border-slate-200 text-slate-700'
               }`}
-              title="Save to shortlist"
+              title={saveLoading ? 'Saving...' : isSaved ? 'Saved in shortlist (Click to remove)' : 'Save to shortlist'}
             >
-              <Bookmark className={`w-4 h-4 ${isSaved ? 'fill-rose-600' : ''}`} />
+              {saveLoading ? (
+                <span className="w-4 h-4 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <Bookmark className={`w-4 h-4 ${isSaved ? 'fill-rose-600' : ''}`} />
+              )}
+              {isSaved && <span className="text-xs font-bold text-rose-600 pr-1">Saved ✓</span>}
             </button>
 
             <button

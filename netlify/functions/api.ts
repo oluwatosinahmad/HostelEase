@@ -419,12 +419,12 @@ async function saveCloudSavedProperty(sp: any) {
   } catch {}
 
   try {
-    await fetch(`https://ntfy.sh/${NTFY_TOPIC}`, {
+    fetch(`https://ntfy.sh/${NTFY_TOPIC}`, {
       method: 'POST',
       headers: { 'Title': 'HOSTEL_SAVED_PROP', 'Tags': 'heart' },
       body: JSON.stringify({ type: 'SAVED_PROPERTY_CREATED', savedProperty: sp }),
-      signal: AbortSignal.timeout(3000)
-    });
+      signal: AbortSignal.timeout(2000)
+    }).catch(() => {});
   } catch {}
 }
 
@@ -451,12 +451,12 @@ async function deleteCloudSavedProperty(userId: string, propertyIdOrSavedId: str
   } catch {}
 
   try {
-    await fetch(`https://ntfy.sh/${NTFY_TOPIC}`, {
+    fetch(`https://ntfy.sh/${NTFY_TOPIC}`, {
       method: 'POST',
       headers: { 'Title': 'HOSTEL_SAVED_PROP_DELETE', 'Tags': 'wastebasket' },
       body: JSON.stringify({ type: 'SAVED_PROPERTY_DELETED', userId, targetId: propertyIdOrSavedId }),
-      signal: AbortSignal.timeout(3000)
-    });
+      signal: AbortSignal.timeout(2000)
+    }).catch(() => {});
   } catch {}
 }
 
@@ -2694,56 +2694,82 @@ export default async (req: Request): Promise<Response> => {
   if ((pathname === '/api/saved-properties' || pathname === '/api/saved' || (pathname.startsWith('/api/properties/') && pathname.endsWith('/save'))) && req.method === 'POST') {
     try {
       const user = parseAuth(req);
-      if (!user) {
-        return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: CORS_HEADERS });
+      if (!user || !user.id) {
+        return new Response(JSON.stringify({ error: 'Please log in as a student to save hostels' }), { status: 401, headers: CORS_HEADERS });
       }
 
       let propertyId = '';
+      let notes = '';
       if (pathname.includes('/api/properties/') && pathname.endsWith('/save')) {
         propertyId = pathname.replace('/api/properties/', '').replace('/save', '');
+        const body = await req.json().catch(() => ({}));
+        notes = body.notes || '';
       } else if (pathname.startsWith('/api/saved-properties/') && pathname !== '/api/saved-properties') {
         propertyId = pathname.replace('/api/saved-properties/', '');
+        const body = await req.json().catch(() => ({}));
+        notes = body.notes || '';
       } else if (pathname.startsWith('/api/saved/') && pathname !== '/api/saved') {
         propertyId = pathname.replace('/api/saved/', '');
+        const body = await req.json().catch(() => ({}));
+        notes = body.notes || '';
       } else {
         const body = await req.json().catch(() => ({}));
         propertyId = body.propertyId;
+        notes = body.notes || '';
       }
 
       if (!propertyId) {
-        return new Response(JSON.stringify({ error: 'Property ID required' }), { status: 400, headers: CORS_HEADERS });
+        return new Response(JSON.stringify({ error: 'Hostel ID is required' }), { status: 400, headers: CORS_HEADERS });
       }
 
-      // Canonicalize property ID (check ID or slug)
+      // Canonicalize property ID and validate existence
       const foundProp = memoryProperties.find(p => p.id === propertyId || p.slug === propertyId);
-      const canonicalId = foundProp ? foundProp.id : propertyId;
+      if (!foundProp) {
+        console.warn(`[SAVED NETLIFY WARN] Property not found: "${propertyId}" requested by user ${user.id}`);
+        return new Response(JSON.stringify({ error: 'Hostel listing not found' }), { status: 404, headers: CORS_HEADERS });
+      }
+      const canonicalId = foundProp.id;
 
       const existing = memorySavedProperties.find(sp => sp.userId === user.id && (sp.propertyId === canonicalId || sp.propertyId === propertyId));
       if (existing) {
-        return new Response(JSON.stringify({ success: true, savedId: existing.id, isSaved: true, propertyId: canonicalId, message: 'Property already saved' }), { status: 200, headers: CORS_HEADERS });
+        return new Response(JSON.stringify({
+          success: true,
+          savedId: existing.id,
+          isSaved: true,
+          propertyId: canonicalId,
+          message: 'Hostel already saved in your shortlist'
+        }), { status: 200, headers: CORS_HEADERS });
       }
 
       const savedItem = {
-        id: `saved-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+        id: `saved-${user.id}-${canonicalId}-${Date.now().toString(36)}`,
         userId: user.id,
         userEmail: user.email?.toLowerCase().trim(),
         propertyId: canonicalId,
+        notes,
         createdAt: new Date().toISOString()
       };
 
       await saveCloudSavedProperty(savedItem);
 
-      return new Response(JSON.stringify({ success: true, savedId: savedItem.id, isSaved: true, propertyId: canonicalId, message: 'Hostel saved' }), { status: 201, headers: CORS_HEADERS });
+      return new Response(JSON.stringify({
+        success: true,
+        savedId: savedItem.id,
+        isSaved: true,
+        propertyId: canonicalId,
+        message: 'Hostel saved to your shortlist'
+      }), { status: 201, headers: CORS_HEADERS });
     } catch (err: any) {
-      return new Response(JSON.stringify({ error: err.message || 'Failed to save property' }), { status: 400, headers: CORS_HEADERS });
+      console.error('[SAVED NETLIFY ERROR] Save failed:', err.message);
+      return new Response(JSON.stringify({ error: 'Failed to save hostel to database' }), { status: 500, headers: CORS_HEADERS });
     }
   }
 
-  if ((pathname.startsWith('/api/saved-properties/') || pathname.startsWith('/api/saved/') || (pathname.startsWith('/api/properties/') && pathname.endsWith('/save'))) && req.method === 'DELETE') {
+  if ((pathname.startsWith('/api/saved-properties') || pathname.startsWith('/api/saved') || (pathname.startsWith('/api/properties/') && pathname.endsWith('/save'))) && req.method === 'DELETE') {
     try {
       const user = parseAuth(req);
-      if (!user) {
-        return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: CORS_HEADERS });
+      if (!user || !user.id) {
+        return new Response(JSON.stringify({ error: 'Please log in to manage your saved hostels' }), { status: 401, headers: CORS_HEADERS });
       }
 
       let targetId = '';
@@ -2751,8 +2777,15 @@ export default async (req: Request): Promise<Response> => {
         targetId = pathname.replace('/api/properties/', '').replace('/save', '');
       } else if (pathname.startsWith('/api/saved/')) {
         targetId = pathname.replace('/api/saved/', '');
-      } else {
+      } else if (pathname.startsWith('/api/saved-properties/')) {
         targetId = pathname.replace('/api/saved-properties/', '');
+      } else {
+        const body = await req.json().catch(() => ({}));
+        targetId = body.propertyId || '';
+      }
+
+      if (!targetId) {
+        return new Response(JSON.stringify({ error: 'Hostel ID is required' }), { status: 400, headers: CORS_HEADERS });
       }
 
       const foundProp = memoryProperties.find(p => p.id === targetId || p.slug === targetId);
@@ -2763,9 +2796,15 @@ export default async (req: Request): Promise<Response> => {
         await deleteCloudSavedProperty(user.id, targetId);
       }
 
-      return new Response(JSON.stringify({ success: true, isSaved: false, propertyId: canonicalId, message: 'Removed from saved' }), { status: 200, headers: CORS_HEADERS });
+      return new Response(JSON.stringify({
+        success: true,
+        isSaved: false,
+        propertyId: canonicalId,
+        message: 'Hostel removed from your shortlist'
+      }), { status: 200, headers: CORS_HEADERS });
     } catch (err: any) {
-      return new Response(JSON.stringify({ error: err.message || 'Failed to remove saved property' }), { status: 400, headers: CORS_HEADERS });
+      console.error('[SAVED NETLIFY ERROR] Remove failed:', err.message);
+      return new Response(JSON.stringify({ error: 'Failed to remove saved hostel' }), { status: 500, headers: CORS_HEADERS });
     }
   }
 

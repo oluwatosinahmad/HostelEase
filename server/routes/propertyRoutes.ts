@@ -566,40 +566,87 @@ router.get('/:id', optionalAuthenticate, (req: AuthenticatedRequest, res: Respon
 
 // 5. Save a Property to Shortlist
 router.post('/:id/save', authenticate, (req: AuthenticatedRequest, res: Response) => {
-  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+  if (!req.user || !req.user.id) {
+    return res.status(401).json({ error: 'Please log in as a student to save hostels' });
+  }
   const { id } = req.params;
-  const { notes } = req.body;
+  const { notes = '' } = req.body || {};
 
   try {
     const property = db.prepare('SELECT id FROM properties WHERE id = ? OR slug = ?').get(id, id) as any;
-    if (!property) return res.status(404).json({ error: 'Property not found' });
+    if (!property) {
+      console.warn(`[SAVED DB WARN] Property not found: "${id}" requested by user ${req.user.id}`);
+      return res.status(404).json({ error: 'Hostel listing not found' });
+    }
     const canonicalId = property.id;
 
-    db.prepare(`
-      INSERT OR REPLACE INTO saved_properties (id, user_id, property_id, notes, created_at)
-      VALUES (?, ?, ?, ?, datetime('now'))
-    `).run(`saved-${req.user.id}-${canonicalId}`, req.user.id, canonicalId, notes || null);
+    // Check if already saved
+    const existing = db.prepare('SELECT id FROM saved_properties WHERE user_id = ? AND property_id = ?').get(req.user.id, canonicalId) as any;
+    if (existing) {
+      return res.status(200).json({
+        success: true,
+        savedId: existing.id,
+        isSaved: true,
+        propertyId: canonicalId,
+        message: 'Hostel already saved in your shortlist'
+      });
+    }
 
-    return res.json({ message: 'Hostel saved to your shortlist', isSaved: true, propertyId: canonicalId });
-  } catch (err) {
-    console.error('Save property error:', err);
-    return res.status(500).json({ error: 'Failed to save hostel' });
+    const savedId = `saved-${req.user.id}-${canonicalId}-${Date.now().toString(36)}`;
+    db.prepare(`
+      INSERT INTO saved_properties (id, user_id, property_id, notes, created_at)
+      VALUES (?, ?, ?, ?, datetime('now'))
+      ON CONFLICT(user_id, property_id) DO UPDATE SET notes = COALESCE(excluded.notes, saved_properties.notes)
+    `).run(savedId, req.user.id, canonicalId, notes || null);
+
+    return res.status(201).json({
+      success: true,
+      savedId,
+      isSaved: true,
+      propertyId: canonicalId,
+      message: 'Hostel saved to your shortlist'
+    });
+  } catch (err: any) {
+    console.error('[SAVED DB ERROR] Failed to save property:', {
+      userId: req.user.id,
+      propertyId: id,
+      errorMessage: err.message,
+      errorCode: err.code
+    });
+    return res.status(500).json({ error: 'Failed to save hostel to database' });
   }
 });
 
 // 6. Remove Property from Shortlist
 router.delete('/:id/save', authenticate, (req: AuthenticatedRequest, res: Response) => {
-  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+  if (!req.user || !req.user.id) {
+    return res.status(401).json({ error: 'Please log in to manage your saved hostels' });
+  }
   const { id } = req.params;
 
   try {
     const property = db.prepare('SELECT id FROM properties WHERE id = ? OR slug = ?').get(id, id) as any;
     const targetId = property ? property.id : id;
-    db.prepare('DELETE FROM saved_properties WHERE user_id = ? AND (property_id = ? OR property_id = ?)').run(req.user.id, targetId, id);
-    return res.json({ message: 'Hostel removed from your shortlist', isSaved: false, propertyId: targetId });
-  } catch (err) {
-    console.error('Unsave property error:', err);
-    return res.status(500).json({ error: 'Failed to unsave hostel' });
+
+    db.prepare(`
+      DELETE FROM saved_properties 
+      WHERE user_id = ? AND (property_id = ? OR property_id = ? OR id = ?)
+    `).run(req.user.id, targetId, id, id);
+
+    return res.json({
+      success: true,
+      isSaved: false,
+      propertyId: targetId,
+      message: 'Hostel removed from your shortlist'
+    });
+  } catch (err: any) {
+    console.error('[SAVED DB ERROR] Failed to remove saved property:', {
+      userId: req.user.id,
+      propertyId: id,
+      errorMessage: err.message,
+      errorCode: err.code
+    });
+    return res.status(500).json({ error: 'Failed to remove saved hostel' });
   }
 });
 
