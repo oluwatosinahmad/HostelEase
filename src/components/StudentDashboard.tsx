@@ -44,7 +44,8 @@ import {
   Camera,
   Zap,
   Calculator,
-  Shield
+  Shield,
+  Wrench
 } from 'lucide-react';
 import { 
   StudentDashboardData, 
@@ -86,7 +87,8 @@ interface StudentDashboardProps {
   onOpenAI?: (contextProp?: any) => void;
   onOpenUtilityRadar?: () => void;
   onOpenSafeWalk?: () => void;
-  onOpenUtilityCalculator?: () => void;
+  onOpenMaintenance?: () => void;
+  onOpenSplitRent?: () => void;
   onOpenWomenSection?: () => void;
   onShowToast: (msg: string, type?: 'success' | 'info' | 'error') => void;
 }
@@ -109,7 +111,8 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
   onOpenAI,
   onOpenUtilityRadar,
   onOpenSafeWalk,
-  onOpenUtilityCalculator,
+  onOpenMaintenance,
+  onOpenSplitRent,
   onOpenWomenSection,
   onShowToast
 }) => {
@@ -1705,26 +1708,26 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                 </div>
               </div>
 
-              {/* Tool 3: Utility Calculator */}
+              {/* Tool 3: Maintenance & Issue Reporting */}
               <div 
-                onClick={() => onOpenUtilityCalculator && onOpenUtilityCalculator()}
+                onClick={() => onOpenMaintenance && onOpenMaintenance()}
                 className="bg-white p-4 rounded-2xl border border-slate-200 hover:border-blue-500 hover:shadow-md transition-all cursor-pointer group flex flex-col justify-between space-y-2.5"
               >
                 <div className="space-y-1.5">
                   <div className="w-9 h-9 rounded-xl bg-blue-100 text-blue-800 flex items-center justify-center group-hover:scale-110 transition-transform">
-                    <Calculator className="w-4 h-4" />
+                    <Wrench className="w-4 h-4" />
                   </div>
                   <div>
                     <h4 className="font-extrabold text-xs text-slate-900 group-hover:text-blue-700 transition-colors">
-                      Living Cost Calculator
+                      Maintenance & Repairs
                     </h4>
                     <p className="text-[11px] text-slate-500 leading-snug mt-0.5">
-                      Estimate monthly electricity bills, water dues, and solar ROI.
+                      Report plumbing, electrical, or structural hostel issues with live tracking.
                     </p>
                   </div>
                 </div>
                 <div className="flex items-center text-[11px] font-bold text-blue-700 group-hover:translate-x-1 transition-transform">
-                  Calculate Costs →
+                  Report Issue →
                 </div>
               </div>
 

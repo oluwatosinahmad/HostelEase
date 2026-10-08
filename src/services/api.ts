@@ -222,6 +222,8 @@ export function getActiveAuthToken(): string | null {
   return token;
 }
 
+export const getAuthToken = getActiveAuthToken;
+
 function getAuthHeader(): Record<string, string> {
   const token = getActiveAuthToken();
   const user = getCurrentUser();

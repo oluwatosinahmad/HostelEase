@@ -54,7 +54,8 @@ interface NavbarProps {
   onOpenAI?: () => void;
   onOpenUtilityRadar?: () => void;
   onOpenSafeWalk?: () => void;
-  onOpenUtilityCalculator?: () => void;
+  onOpenMaintenance?: () => void;
+  onOpenSplitRent?: () => void;
   onOpenWomenSection?: () => void;
 }
 
@@ -67,7 +68,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenAI,
   onOpenUtilityRadar,
   onOpenSafeWalk,
-  onOpenUtilityCalculator,
+  onOpenMaintenance,
+  onOpenSplitRent,
   onOpenWomenSection
 }) => {
   const { user, isAuthenticated, isStudent, isProvider, isAdmin, logout } = useAuth();

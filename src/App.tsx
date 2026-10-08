@@ -32,7 +32,8 @@ import {
   Video,
   ChevronLeft,
   ChevronRight,
-  Users
+  Users,
+  Wrench
 } from 'lucide-react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { Property, Area, SearchFilterState, UserRole, AppView, InspectionType } from './types/hostelEase';
@@ -81,10 +82,10 @@ const AccommodationHistory = lazy(() => import('./components/AccommodationHistor
 const CommunityHub = lazy(() => import('./components/CommunityHub').then(m => ({ default: m.CommunityHub })));
 import { UtilityRadarModal } from './components/UtilityRadarModal';
 import { CampusSafeWalkModal } from './components/CampusSafeWalkModal';
-import { UtilityCalculatorModal } from './components/UtilityCalculatorModal';
+import { MaintenanceIssueModal } from './components/MaintenanceIssueModal';
+import { SplitRentModal } from './components/SplitRentModal';
 import { SafetyEscrowModal } from './components/SafetyEscrowModal';
 import { WomensLivingModal } from './components/WomensLivingModal';
-import { INITIAL_APPLIANCES } from './data/campusData';
 import { HostelEaseBrandedLoader } from './components/HostelEaseBrandedLoader';
 
 const initialFilters: SearchFilterState = {
@@ -392,7 +393,8 @@ function MainApp() {
   // Revolutionary Features & Tools Modal States
   const [utilityRadarOpen, setUtilityRadarOpen] = useState<boolean>(false);
   const [safeWalkOpen, setSafeWalkOpen] = useState<boolean>(false);
-  const [utilityCalcOpen, setUtilityCalcOpen] = useState<boolean>(false);
+  const [maintenanceOpen, setMaintenanceOpen] = useState<boolean>(false);
+  const [splitRentOpen, setSplitRentOpen] = useState<boolean>(false);
   const [safetyEscrowOpen, setSafetyEscrowOpen] = useState<boolean>(false);
   const [womensLivingOpen, setWomensLivingOpen] = useState<boolean>(false);
 
@@ -992,7 +994,8 @@ function MainApp() {
         onOpenAI={() => handleOpenAI()}
         onOpenUtilityRadar={() => setUtilityRadarOpen(true)}
         onOpenSafeWalk={() => setSafeWalkOpen(true)}
-        onOpenUtilityCalculator={() => setUtilityCalcOpen(true)}
+        onOpenMaintenance={() => setMaintenanceOpen(true)}
+        onOpenSplitRent={() => setSplitRentOpen(true)}
         onOpenWomenSection={() => setWomensLivingOpen(true)}
       />
 
@@ -1068,32 +1071,7 @@ function MainApp() {
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                {/* Card 1: UtilityRadar */}
-                <div 
-                  onClick={() => setUtilityRadarOpen(true)}
-                  className="bg-gradient-to-br from-amber-500/10 via-white to-amber-500/5 dark:from-amber-950/40 dark:via-slate-900 dark:to-slate-900 p-5 rounded-3xl border border-amber-200/80 dark:border-amber-900/60 shadow-sm hover:shadow-md hover:border-amber-400 transition-all cursor-pointer flex flex-col justify-between group"
-                >
-                  <div className="space-y-2.5">
-                    <div className="w-10 h-10 rounded-2xl bg-amber-500 text-white flex items-center justify-center font-bold shadow-md shadow-amber-500/20 group-hover:scale-105 transition-transform">
-                      <Zap className="w-5 h-5 fill-amber-200" />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-1.5">
-                        <h3 className="font-black text-sm text-slate-900 dark:text-white">UtilityRadar™</h3>
-                        <span className="px-1.5 py-0.2 rounded bg-amber-200 dark:bg-amber-900 text-amber-900 dark:text-amber-200 text-[9px] font-black">LIVE</span>
-                      </div>
-                      <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 leading-relaxed">
-                        Track live NEPA electricity hours, borehole water uptime, and crowd-sourced power voting across Under G, Adenike & Stadium Road.
-                      </p>
-                    </div>
-                  </div>
-                  <div className="pt-3 border-t border-amber-100 dark:border-amber-900/40 flex items-center justify-between text-xs font-bold text-amber-700 dark:text-amber-400">
-                    <span>Open Live Radar</span>
-                    <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                  </div>
-                </div>
-
-                {/* Card 2: SafeWalk */}
+                {/* Card 1: SafeWalk™ */}
                 <div 
                   onClick={() => setSafeWalkOpen(true)}
                   className="bg-gradient-to-br from-emerald-500/10 via-white to-emerald-500/5 dark:from-emerald-950/40 dark:via-slate-900 dark:to-slate-900 p-5 rounded-3xl border border-emerald-200/80 dark:border-emerald-900/60 shadow-sm hover:shadow-md hover:border-emerald-400 transition-all cursor-pointer flex flex-col justify-between group"
@@ -1108,7 +1086,7 @@ function MainApp() {
                         <span className="px-1.5 py-0.2 rounded bg-emerald-200 dark:bg-emerald-900 text-emerald-900 dark:text-emerald-200 text-[9px] font-black">SOS</span>
                       </div>
                       <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 leading-relaxed">
-                        Illuminated night routes from LAUTECH gates to your lodge, safe trek live timer, and 1-tap emergency security dispatch with GPS sharing.
+                        Active student safety companion. Live journey countdown, destination tracking, trusted emergency contacts, and direct 1-tap campus emergency dispatch.
                       </p>
                     </div>
                   </div>
@@ -1118,12 +1096,59 @@ function MainApp() {
                   </div>
                 </div>
 
-                {/* Card 3: RoomieMatch & 50/50 Split Rent */}
+                {/* Card 2: UtilityRadar™ */}
                 <div 
-                  onClick={() => {
-                    setCurrentView('community');
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                  }}
+                  onClick={() => setUtilityRadarOpen(true)}
+                  className="bg-gradient-to-br from-amber-500/10 via-white to-amber-500/5 dark:from-amber-950/40 dark:via-slate-900 dark:to-slate-900 p-5 rounded-3xl border border-amber-200/80 dark:border-amber-900/60 shadow-sm hover:shadow-md hover:border-amber-400 transition-all cursor-pointer flex flex-col justify-between group"
+                >
+                  <div className="space-y-2.5">
+                    <div className="w-10 h-10 rounded-2xl bg-amber-500 text-white flex items-center justify-center font-bold shadow-md shadow-amber-500/20 group-hover:scale-105 transition-transform">
+                      <Zap className="w-5 h-5 fill-amber-200" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <h3 className="font-black text-sm text-slate-900 dark:text-white">UtilityRadar™</h3>
+                        <span className="px-1.5 py-0.2 rounded bg-amber-200 dark:bg-amber-900 text-amber-900 dark:text-amber-200 text-[9px] font-black">LIVE</span>
+                      </div>
+                      <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 leading-relaxed">
+                        Live community electricity (Power ON, Power OFF, Generator ON) and borehole water reporting across Under G, Adenike, Olubere, College Road & Abaa.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="pt-3 border-t border-amber-100 dark:border-amber-900/40 flex items-center justify-between text-xs font-bold text-amber-700 dark:text-amber-400">
+                    <span>Open Live Radar</span>
+                    <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                  </div>
+                </div>
+
+                {/* Card 3: Maintenance & Issue Reporting */}
+                <div 
+                  onClick={() => setMaintenanceOpen(true)}
+                  className="bg-gradient-to-br from-blue-500/10 via-white to-blue-500/5 dark:from-blue-950/40 dark:via-slate-900 dark:to-slate-900 p-5 rounded-3xl border border-blue-200/80 dark:border-blue-900/60 shadow-sm hover:shadow-md hover:border-blue-400 transition-all cursor-pointer flex flex-col justify-between group"
+                >
+                  <div className="space-y-2.5">
+                    <div className="w-10 h-10 rounded-2xl bg-blue-600 text-white flex items-center justify-center font-bold shadow-md shadow-blue-600/20 group-hover:scale-105 transition-transform">
+                      <Wrench className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <h3 className="font-black text-sm text-slate-900 dark:text-white">Maintenance & Repairs</h3>
+                        <span className="px-1.5 py-0.2 rounded bg-blue-200 dark:bg-blue-900 text-blue-900 dark:text-blue-200 text-[9px] font-black">SUPPORT</span>
+                      </div>
+                      <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 leading-relaxed">
+                        Report hostel repairs (electricity, water, plumbing, doors/locks) with auto-generated tracking codes and lodge caretaker progress updates.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="pt-3 border-t border-blue-100 dark:border-blue-900/40 flex items-center justify-between text-xs font-bold text-blue-700 dark:text-blue-400">
+                    <span>Report or Track Issue</span>
+                    <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                  </div>
+                </div>
+
+                {/* Card 4: Split Rent */}
+                <div 
+                  onClick={() => setSplitRentOpen(true)}
                   className="bg-gradient-to-br from-teal-500/10 via-white to-teal-500/5 dark:from-teal-950/40 dark:via-slate-900 dark:to-slate-900 p-5 rounded-3xl border border-teal-200/80 dark:border-teal-900/60 shadow-sm hover:shadow-md hover:border-teal-400 transition-all cursor-pointer flex flex-col justify-between group"
                 >
                   <div className="space-y-2.5">
@@ -1132,41 +1157,16 @@ function MainApp() {
                     </div>
                     <div>
                       <div className="flex items-center gap-1.5">
-                        <h3 className="font-black text-sm text-slate-900 dark:text-white">50/50 Split Rent</h3>
-                        <span className="px-1.5 py-0.2 rounded bg-teal-200 dark:bg-teal-900 text-teal-900 dark:text-teal-200 text-[9px] font-black">CONTRACT</span>
+                        <h3 className="font-black text-sm text-slate-900 dark:text-white">Split Rent</h3>
+                        <span className="px-1.5 py-0.2 rounded bg-teal-200 dark:bg-teal-900 text-teal-900 dark:text-teal-200 text-[9px] font-black">ROOMMATES</span>
                       </div>
                       <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 leading-relaxed">
-                        Co-rent safely with fellow verified students. Split total rent into two Remita RRRs and receive a legally enforceable co-tenancy accord.
+                        Fair roommate rent & cost splitting supporting 50/50, 60/40, 70/30, and custom ratios with due dates, payment status, and automated reminders.
                       </p>
                     </div>
                   </div>
                   <div className="pt-3 border-t border-teal-100 dark:border-teal-900/40 flex items-center justify-between text-xs font-bold text-teal-700 dark:text-teal-400">
-                    <span>Split Rent Escrow</span>
-                    <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                  </div>
-                </div>
-
-                {/* Card 4: Utility Cost Calculator */}
-                <div 
-                  onClick={() => setUtilityCalcOpen(true)}
-                  className="bg-gradient-to-br from-indigo-500/10 via-white to-indigo-500/5 dark:from-indigo-950/40 dark:via-slate-900 dark:to-slate-900 p-5 rounded-3xl border border-indigo-200/80 dark:border-indigo-900/60 shadow-sm hover:shadow-md hover:border-indigo-400 transition-all cursor-pointer flex flex-col justify-between group"
-                >
-                  <div className="space-y-2.5">
-                    <div className="w-10 h-10 rounded-2xl bg-indigo-600 text-white flex items-center justify-center font-bold shadow-md shadow-indigo-600/20 group-hover:scale-105 transition-transform">
-                      <Receipt className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-1.5">
-                        <h3 className="font-black text-sm text-slate-900 dark:text-white">Utility Calculator</h3>
-                        <span className="px-1.5 py-0.2 rounded bg-indigo-200 dark:bg-indigo-900 text-indigo-900 dark:text-indigo-200 text-[9px] font-black">IBEDC</span>
-                      </div>
-                      <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 leading-relaxed">
-                        Configure appliances (fans, laptops, hotplate, mini-fridge) and calculate exact monthly prepaid electricity and water levies per person.
-                      </p>
-                    </div>
-                  </div>
-                  <div className="pt-3 border-t border-indigo-100 dark:border-indigo-900/40 flex items-center justify-between text-xs font-bold text-indigo-700 dark:text-indigo-400">
-                    <span>Calculate Costs</span>
+                    <span>Split Rent Calculator</span>
                     <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                   </div>
                 </div>
@@ -1932,7 +1932,8 @@ function MainApp() {
                 onOpenAI={handleOpenAI}
                 onOpenUtilityRadar={() => setUtilityRadarOpen(true)}
                 onOpenSafeWalk={() => setSafeWalkOpen(true)}
-                onOpenUtilityCalculator={() => setUtilityCalcOpen(true)}
+                onOpenMaintenance={() => setMaintenanceOpen(true)}
+                onOpenSplitRent={() => setSplitRentOpen(true)}
                 onOpenWomenSection={() => setWomensLivingOpen(true)}
               />
             </ErrorBoundary>
@@ -2203,7 +2204,8 @@ function MainApp() {
               onOpenAI={handleOpenAI}
               onOpenUtilityRadar={() => setUtilityRadarOpen(true)}
               onOpenSafeWalk={() => setSafeWalkOpen(true)}
-              onOpenUtilityCalculator={() => setUtilityCalcOpen(true)}
+              onOpenMaintenance={() => setMaintenanceOpen(true)}
+              onOpenSplitRent={() => setSplitRentOpen(true)}
               onOpenWomenSection={() => setWomensLivingOpen(true)}
               onShowToast={showToast}
             />
@@ -2433,7 +2435,8 @@ function MainApp() {
         onSelectArea={handleSelectArea}
         onOpenUtilityRadar={() => setUtilityRadarOpen(true)}
         onOpenSafeWalk={() => setSafeWalkOpen(true)}
-        onOpenUtilityCalculator={() => setUtilityCalcOpen(true)}
+        onOpenMaintenance={() => setMaintenanceOpen(true)}
+        onOpenSplitRent={() => setSplitRentOpen(true)}
         onOpenSafetyEscrow={() => setSafetyEscrowOpen(true)}
       />
 
@@ -2441,6 +2444,7 @@ function MainApp() {
       <UtilityRadarModal
         isOpen={utilityRadarOpen}
         onClose={() => setUtilityRadarOpen(false)}
+        currentUser={user}
         onFilterByUtility={(utilityType) => {
           setUtilityRadarOpen(false);
           setFilters(prev => ({
@@ -2460,14 +2464,24 @@ function MainApp() {
       <CampusSafeWalkModal
         isOpen={safeWalkOpen}
         onClose={() => setSafeWalkOpen(false)}
+        currentUser={user}
         onShowToast={showToast}
       />
 
-      {/* Utility Cost Calculator Modal */}
-      <UtilityCalculatorModal
-        isOpen={utilityCalcOpen}
-        onClose={() => setUtilityCalcOpen(false)}
-        initialAppliances={INITIAL_APPLIANCES}
+      {/* Revolutionary Innovation 3: Maintenance & Issue Reporting Modal */}
+      <MaintenanceIssueModal
+        isOpen={maintenanceOpen}
+        onClose={() => setMaintenanceOpen(false)}
+        currentUser={user}
+        onShowToast={showToast}
+      />
+
+      {/* Revolutionary Innovation 4: Split Rent Agreement & Calculator Modal */}
+      <SplitRentModal
+        isOpen={splitRentOpen}
+        onClose={() => setSplitRentOpen(false)}
+        currentUser={user}
+        onShowToast={showToast}
       />
 
       {/* Women's Living & Safety Modal */}

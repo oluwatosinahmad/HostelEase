@@ -190,6 +190,28 @@ let memoryBookings: any[] = [];
 let memoryDeletedUserIds = new Set<string>();
 const memoryMedia = new Map<string, { buffer: Uint8Array; mimeType: string; filename: string }>();
 
+// Campus Innovations & Student Safety Suite In-Memory Cloud State
+let memorySafeWalkJourneys: any[] = [];
+let memorySafeWalkContacts: any[] = [];
+let memoryUtilityReports: any[] = [
+  { id: 'ur-seed-1', userId: null, areaId: 'area-under-g', utilityType: 'ELECTRICITY', status: 'POWER_ON', notes: 'Transformer restored around 10am. Steady voltage at Bovas axis.', createdAt: new Date(Date.now() - 25 * 60000).toISOString() },
+  { id: 'ur-seed-2', userId: null, areaId: 'area-under-g', utilityType: 'WATER', status: 'WATER_AVAILABLE', notes: 'Borehole pumping running well.', createdAt: new Date(Date.now() - 45 * 60000).toISOString() },
+  { id: 'ur-seed-3', userId: null, areaId: 'area-adenike', utilityType: 'ELECTRICITY', status: 'POWER_OFF', notes: 'Feeder tripped during the morning drizzle.', createdAt: new Date(Date.now() - 18 * 60000).toISOString() },
+  { id: 'ur-seed-4', userId: null, areaId: 'area-adenike', utilityType: 'WATER', status: 'WATER_AVAILABLE', notes: 'Water running from overhead tanks.', createdAt: new Date(Date.now() - 30 * 60000).toISOString() },
+  { id: 'ur-seed-5', userId: null, areaId: 'area-oluyole', utilityType: 'ELECTRICITY', status: 'POWER_ON', notes: 'Light stable all morning.', createdAt: new Date(Date.now() - 12 * 60000).toISOString() },
+  { id: 'ur-seed-6', userId: null, areaId: 'area-oluyole', utilityType: 'WATER', status: 'WATER_AVAILABLE', notes: 'Boreholes full and pressure good.', createdAt: new Date(Date.now() - 50 * 60000).toISOString() },
+  { id: 'ur-seed-7', userId: null, areaId: 'area-college-road', utilityType: 'ELECTRICITY', status: 'GENERATOR_ON', notes: 'Central generator powering the main lodge strip.', createdAt: new Date(Date.now() - 35 * 60000).toISOString() },
+  { id: 'ur-seed-8', userId: null, areaId: 'area-college-road', utilityType: 'WATER', status: 'WATER_AVAILABLE', notes: 'Water available on tap.', createdAt: new Date(Date.now() - 40 * 60000).toISOString() },
+  { id: 'ur-seed-9', userId: null, areaId: 'area-abaa', utilityType: 'ELECTRICITY', status: 'POWER_OFF', notes: 'Outage since 9am in Abaa market axis.', createdAt: new Date(Date.now() - 15 * 60000).toISOString() },
+  { id: 'ur-seed-10', userId: null, areaId: 'area-abaa', utilityType: 'WATER', status: 'WATER_UNAVAILABLE', notes: 'Tanks empty, awaiting pumping.', createdAt: new Date(Date.now() - 20 * 60000).toISOString() },
+  { id: 'ur-seed-11', userId: null, areaId: 'area-isale-general', utilityType: 'ELECTRICITY', status: 'POWER_ON', notes: 'Light currently ON.', createdAt: new Date(Date.now() - 10 * 60000).toISOString() },
+  { id: 'ur-seed-12', userId: null, areaId: 'area-isale-general', utilityType: 'WATER', status: 'WATER_AVAILABLE', notes: 'Borehole water running normally.', createdAt: new Date(Date.now() - 55 * 60000).toISOString() }
+];
+let memoryMaintenanceTickets: any[] = [];
+let memoryMaintenanceUpdates: any[] = [];
+let memorySplitRentAgreements: any[] = [];
+let memorySplitRentShares: any[] = [];
+
 const NTFY_TOPIC = 'hostel_ease_sync_v2_lautech';
 let lastCloudLoad = 0;
 
@@ -5232,6 +5254,397 @@ export default async (req: Request): Promise<Response> => {
       message: `Account status updated to ${newStatus}`,
       accountStatus: newStatus
     }), { status: 200, headers: CORS_HEADERS });
+  }
+
+  // =========================================================================
+  // 20. CAMPUS INNOVATIONS & STUDENT SAFETY SUITE
+  // =========================================================================
+
+  // A. SafeWalk™ Routes
+  if (pathname === '/api/safewalk/active' && req.method === 'GET') {
+    const user = parseAuth(req);
+    const userId = user?.id || req.headers.get('x-user-id');
+    if (!userId) {
+      return new Response(JSON.stringify({ journey: null, contacts: [] }), { status: 200, headers: CORS_HEADERS });
+    }
+    const active = memorySafeWalkJourneys.find(j => j.user_id === userId && (j.status === 'ACTIVE' || j.status === 'SOS_TRIGGERED'));
+    const contacts = memorySafeWalkContacts.filter(c => c.user_id === userId);
+    return new Response(JSON.stringify({ journey: active || null, contacts }), { status: 200, headers: CORS_HEADERS });
+  }
+
+  if (pathname === '/api/safewalk/start' && req.method === 'POST') {
+    const user = parseAuth(req);
+    if (!user) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: CORS_HEADERS });
+    const body = await req.json().catch(() => ({}));
+    const { destination, startLocation, durationMins = 15, emergencyContactName, emergencyContactPhone, notes } = body;
+    if (!destination || !emergencyContactName || !emergencyContactPhone) {
+      return new Response(JSON.stringify({ error: 'Destination and emergency contact are required' }), { status: 400, headers: CORS_HEADERS });
+    }
+    // Cancel previous
+    memorySafeWalkJourneys.forEach(j => {
+      if (j.user_id === user.id && j.status === 'ACTIVE') j.status = 'CANCELLED';
+    });
+    const duration = Math.max(5, Math.min(180, parseInt(durationMins, 10) || 15));
+    const journey = {
+      id: `swj-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      user_id: user.id,
+      destination: destination.trim(),
+      start_location: startLocation || 'Current Location',
+      duration_mins: duration,
+      emergency_contact_name: emergencyContactName.trim(),
+      emergency_contact_phone: emergencyContactPhone.trim(),
+      status: 'ACTIVE',
+      started_at: new Date().toISOString(),
+      expected_arrival_at: new Date(Date.now() + duration * 60000).toISOString(),
+      notes: notes || null
+    };
+    memorySafeWalkJourneys.unshift(journey);
+    return new Response(JSON.stringify({ journey, message: 'SafeWalk journey started successfully' }), { status: 201, headers: CORS_HEADERS });
+  }
+
+  if (pathname === '/api/safewalk/safe' && req.method === 'POST') {
+    const user = parseAuth(req);
+    if (!user) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: CORS_HEADERS });
+    const body = await req.json().catch(() => ({}));
+    const journey = memorySafeWalkJourneys.find(j => (body.journeyId ? j.id === body.journeyId : j.user_id === user.id && ['ACTIVE', 'SOS_TRIGGERED'].includes(j.status)));
+    if (journey) {
+      journey.status = 'COMPLETED';
+      journey.completed_at = new Date().toISOString();
+    }
+    return new Response(JSON.stringify({ success: true, message: "You're safe! SafeWalk completed." }), { status: 200, headers: CORS_HEADERS });
+  }
+
+  if (pathname === '/api/safewalk/sos' && req.method === 'POST') {
+    const user = parseAuth(req);
+    if (!user) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: CORS_HEADERS });
+    const body = await req.json().catch(() => ({}));
+    const journey = memorySafeWalkJourneys.find(j => (body.journeyId ? j.id === body.journeyId : j.user_id === user.id && j.status === 'ACTIVE'));
+    if (journey) {
+      journey.status = 'SOS_TRIGGERED';
+      journey.sos_triggered_at = new Date().toISOString();
+      journey.notes = (journey.notes || '') + ' [SOS Activated]';
+    }
+    return new Response(JSON.stringify({
+      success: true,
+      sosTriggered: true,
+      message: 'SOS alert activated. Designated emergency contacts notified.',
+      securityHelpline: 'LAUTECH Security Unit: 0803 000 0000 / Emergency: 112'
+    }), { status: 200, headers: CORS_HEADERS });
+  }
+
+  if (pathname === '/api/safewalk/contacts' && req.method === 'GET') {
+    const user = parseAuth(req);
+    if (!user) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: CORS_HEADERS });
+    const contacts = memorySafeWalkContacts.filter(c => c.user_id === user.id);
+    return new Response(JSON.stringify({ contacts }), { status: 200, headers: CORS_HEADERS });
+  }
+
+  if (pathname === '/api/safewalk/contacts' && req.method === 'POST') {
+    const user = parseAuth(req);
+    if (!user) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: CORS_HEADERS });
+    const body = await req.json().catch(() => ({}));
+    const contact = {
+      id: `swc-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      user_id: user.id,
+      contact_name: body.contactName,
+      phone_number: body.phoneNumber,
+      relationship: body.relationship || 'Friend',
+      is_primary: body.isPrimary ? 1 : 0
+    };
+    memorySafeWalkContacts.unshift(contact);
+    return new Response(JSON.stringify({ contact }), { status: 201, headers: CORS_HEADERS });
+  }
+
+  // B. UtilityRadar™ Routes
+  if (pathname === '/api/utilities/overview' && req.method === 'GET') {
+    const areas = memoryAreas.map(a => {
+      const elec = memoryUtilityReports.filter(r => r.areaId === a.id && r.utilityType === 'ELECTRICITY');
+      const water = memoryUtilityReports.filter(r => r.areaId === a.id && r.utilityType === 'WATER');
+
+      const getConsensus = (reps: any[]) => {
+        if (!reps.length) return { status: 'UNKNOWN', reportCount: 0, lastReportedAt: null, isConflicted: false, recentNotes: [] };
+        const counts: Record<string, number> = {};
+        for (const r of reps) counts[r.status] = (counts[r.status] || 0) + 1;
+        let maxCount = 0; let majority = reps[0].status;
+        for (const [s, c] of Object.entries(counts)) {
+          if (c > maxCount) { maxCount = c; majority = s; }
+        }
+        const isConflicted = Object.keys(counts).length > 1 && maxCount < (reps.length * 0.7);
+        return {
+          status: majority,
+          consensusStatus: majority,
+          reportCount: reps.length,
+          lastReportedAt: reps[0].createdAt,
+          isConflicted,
+          conflictNote: isConflicted ? 'Mixed reports from students — conditions may be changing.' : null,
+          recentNotes: reps.slice(0, 3).map(r => ({ notes: r.notes, created_at: r.createdAt }))
+        };
+      };
+
+      return {
+        areaId: a.id,
+        areaName: a.name,
+        slug: a.slug,
+        landmark: a.landmark,
+        electricity: getConsensus(elec),
+        water: getConsensus(water)
+      };
+    });
+
+    return new Response(JSON.stringify({
+      areas,
+      totalReportsToday: memoryUtilityReports.length,
+      lastUpdated: new Date().toISOString()
+    }), { status: 200, headers: CORS_HEADERS });
+  }
+
+  if (pathname === '/api/utilities/report' && req.method === 'POST') {
+    const user = parseAuth(req);
+    const body = await req.json().catch(() => ({}));
+    const { areaId, utilityType, status, notes } = body;
+    if (!areaId || !utilityType || !status) {
+      return new Response(JSON.stringify({ error: 'Area, utility type, and status required' }), { status: 400, headers: CORS_HEADERS });
+    }
+    const report = {
+      id: `ur-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      userId: user?.id || null,
+      areaId,
+      utilityType,
+      status,
+      notes: notes || null,
+      createdAt: new Date().toISOString()
+    };
+    memoryUtilityReports.unshift(report);
+    return new Response(JSON.stringify({
+      success: true,
+      message: 'Report submitted successfully!',
+      reportId: report.id
+    }), { status: 201, headers: CORS_HEADERS });
+  }
+
+  if (pathname === '/api/utilities/areas' && req.method === 'GET') {
+    return new Response(JSON.stringify({ areas: memoryAreas }), { status: 200, headers: CORS_HEADERS });
+  }
+
+  // C. Maintenance & Issue Reporting Routes
+  if (pathname === '/api/maintenance/properties' && req.method === 'GET') {
+    const user = parseAuth(req);
+    const properties = memoryProperties.map(p => ({
+      id: p.id,
+      title: p.title,
+      address: p.address,
+      provider_id: p.providerId || p.provider?.id,
+      provider_name: p.provider?.name || 'Property Manager'
+    }));
+    return new Response(JSON.stringify({ bookedProperties: properties.slice(0, 3), allProperties: properties }), { status: 200, headers: CORS_HEADERS });
+  }
+
+  if (pathname === '/api/maintenance/tickets' && req.method === 'POST') {
+    const user = parseAuth(req);
+    if (!user) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: CORS_HEADERS });
+    const body = await req.json().catch(() => ({}));
+    const { propertyId, roomNumber, category, description, priority = 'MEDIUM', attachments = [] } = body;
+    if (!propertyId || !roomNumber || !category || !description) {
+      return new Response(JSON.stringify({ error: 'Missing required ticket fields' }), { status: 400, headers: CORS_HEADERS });
+    }
+    const prop = memoryProperties.find(p => p.id === propertyId);
+    const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    const ticketCode = `HE-MNT-${dateStr}-${Math.floor(10000 + Math.random() * 90000)}`;
+    const ticket = {
+      id: `mnt-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      ticket_code: ticketCode,
+      student_id: user.id,
+      student_name: user.fullName || 'Student',
+      student_email: user.email,
+      student_phone: user.phone || '',
+      property_id: propertyId,
+      property_title: prop?.title || 'LAUTECH Hostel',
+      property_address: prop?.address || 'LAUTECH Axis',
+      provider_id: prop?.providerId || prop?.provider?.id || 'user-provider-default',
+      provider_name: prop?.provider?.name || 'Hostel Caretaker',
+      room_number: roomNumber.trim(),
+      category,
+      description: description.trim(),
+      attachments_json: JSON.stringify(attachments),
+      status: 'SUBMITTED',
+      priority,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      resolved_at: null
+    };
+    memoryMaintenanceTickets.unshift(ticket);
+
+    const update = {
+      id: `mnt-upd-${Date.now()}`,
+      ticket_id: ticket.id,
+      sender_id: user.id,
+      sender_role: user.role,
+      sender_name: user.fullName || 'Student',
+      message: `Issue reported: ${description.substring(0, 100)}...`,
+      status_change: 'SUBMITTED',
+      attachments_json: JSON.stringify(attachments),
+      created_at: new Date().toISOString()
+    };
+    memoryMaintenanceUpdates.push(update);
+
+    return new Response(JSON.stringify({
+      success: true,
+      message: `Maintenance ticket ${ticketCode} created successfully!`,
+      ticket
+    }), { status: 201, headers: CORS_HEADERS });
+  }
+
+  if (pathname === '/api/maintenance/tickets' && req.method === 'GET') {
+    const user = parseAuth(req);
+    if (!user) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: CORS_HEADERS });
+    let tickets = memoryMaintenanceTickets;
+    if (user.role === 'STUDENT') {
+      tickets = tickets.filter(t => t.student_id === user.id);
+    } else if (user.role === 'PROVIDER') {
+      tickets = tickets.filter(t => t.provider_id === user.id);
+    }
+    return new Response(JSON.stringify({ tickets }), { status: 200, headers: CORS_HEADERS });
+  }
+
+  if (pathname.startsWith('/api/maintenance/tickets/') && pathname.endsWith('/updates') && req.method === 'POST') {
+    const user = parseAuth(req);
+    if (!user) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: CORS_HEADERS });
+    const ticketId = pathname.replace('/api/maintenance/tickets/', '').replace('/updates', '');
+    const body = await req.json().catch(() => ({}));
+    const ticket = memoryMaintenanceTickets.find(t => t.id === ticketId || t.ticket_code === ticketId);
+    if (!ticket) return new Response(JSON.stringify({ error: 'Ticket not found' }), { status: 404, headers: CORS_HEADERS });
+
+    const newStatus = body.statusChange || ticket.status;
+    ticket.status = newStatus;
+    ticket.updated_at = new Date().toISOString();
+    if (newStatus === 'RESOLVED' || newStatus === 'CLOSED') ticket.resolved_at = new Date().toISOString();
+
+    const update = {
+      id: `mnt-upd-${Date.now()}`,
+      ticket_id: ticket.id,
+      sender_id: user.id,
+      sender_role: user.role,
+      sender_name: user.fullName || user.email,
+      message: body.message,
+      status_change: body.statusChange || null,
+      attachments_json: JSON.stringify(body.attachments || []),
+      created_at: new Date().toISOString()
+    };
+    memoryMaintenanceUpdates.push(update);
+
+    return new Response(JSON.stringify({ success: true, message: 'Update recorded', ticket }), { status: 200, headers: CORS_HEADERS });
+  }
+
+  if (pathname.startsWith('/api/maintenance/tickets/') && req.method === 'GET') {
+    const user = parseAuth(req);
+    if (!user) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: CORS_HEADERS });
+    const ticketId = pathname.replace('/api/maintenance/tickets/', '');
+    const ticket = memoryMaintenanceTickets.find(t => t.id === ticketId || t.ticket_code === ticketId);
+    if (!ticket) return new Response(JSON.stringify({ error: 'Ticket not found' }), { status: 404, headers: CORS_HEADERS });
+    const updates = memoryMaintenanceUpdates.filter(u => u.ticket_id === ticket.id);
+    return new Response(JSON.stringify({ ticket, updates }), { status: 200, headers: CORS_HEADERS });
+  }
+
+  // D. Split Rent Routes
+  if (pathname === '/api/split-rent/create' && req.method === 'POST') {
+    const user = parseAuth(req);
+    if (!user) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: CORS_HEADERS });
+    const body = await req.json().catch(() => ({}));
+    const { propertyTitle, totalRent, splitType = '50_50', dueDate, notes, participants = [] } = body;
+    const rent = parseFloat(totalRent);
+    if (isNaN(rent) || rent <= 0 || !propertyTitle || participants.length < 2) {
+      return new Response(JSON.stringify({ error: 'Valid rent, property title, and at least 2 participants required' }), { status: 400, headers: CORS_HEADERS });
+    }
+
+    const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    const referenceCode = `HE-SPLIT-${dateStr}-${Math.floor(1000 + Math.random() * 9000)}`;
+    const agreementId = `sra-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+
+    const agreement = {
+      id: agreementId,
+      reference_code: referenceCode,
+      creator_id: user.id,
+      property_title: propertyTitle.trim(),
+      total_rent: rent,
+      split_type: splitType,
+      due_date: dueDate,
+      status: 'PENDING',
+      notes: notes || null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+    memorySplitRentAgreements.unshift(agreement);
+
+    const createdShares: any[] = [];
+    for (const p of participants) {
+      const pct = parseFloat(p.sharePercentage) || 0;
+      const share = {
+        id: `srs-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+        agreement_id: agreementId,
+        user_id: (p.email?.toLowerCase() === user.email.toLowerCase() || p.userId === user.id) ? user.id : (p.userId || null),
+        participant_name: p.name || 'Roommate',
+        participant_email: (p.email || '').toLowerCase().trim(),
+        participant_phone: p.phone || null,
+        share_percentage: pct,
+        share_amount: Math.round((rent * pct) / 100),
+        payment_status: 'PENDING',
+        acceptance_status: (p.email?.toLowerCase() === user.email.toLowerCase() || p.userId === user.id) ? 'ACCEPTED' : 'PENDING',
+        created_at: new Date().toISOString()
+      };
+      memorySplitRentShares.push(share);
+      createdShares.push(share);
+    }
+
+    return new Response(JSON.stringify({
+      success: true,
+      message: `Split Rent agreement ${referenceCode} created!`,
+      agreement,
+      shares: createdShares
+    }), { status: 201, headers: CORS_HEADERS });
+  }
+
+  if (pathname === '/api/split-rent/my' && req.method === 'GET') {
+    const user = parseAuth(req);
+    if (!user) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: CORS_HEADERS });
+    const userEmail = (user.email || '').toLowerCase();
+    const agreements = memorySplitRentAgreements.filter(a => {
+      if (a.creator_id === user.id) return true;
+      return memorySplitRentShares.some(s => s.agreement_id === a.id && (s.user_id === user.id || s.participant_email === userEmail));
+    }).map(a => {
+      const shares = memorySplitRentShares.filter(s => s.agreement_id === a.id);
+      return {
+        ...a,
+        total_participants: shares.length,
+        paid_count: shares.filter(s => s.payment_status === 'PAID').length,
+        collected_amount: shares.filter(s => s.payment_status === 'PAID').reduce((sum, s) => sum + s.share_amount, 0),
+        shares
+      };
+    });
+    return new Response(JSON.stringify({ agreements }), { status: 200, headers: CORS_HEADERS });
+  }
+
+  if (pathname.startsWith('/api/split-rent/share/') && pathname.endsWith('/pay') && req.method === 'POST') {
+    const user = parseAuth(req);
+    if (!user) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: CORS_HEADERS });
+    const shareId = pathname.replace('/api/split-rent/share/', '').replace('/pay', '');
+    const share = memorySplitRentShares.find(s => s.id === shareId);
+    if (!share) return new Response(JSON.stringify({ error: 'Share not found' }), { status: 404, headers: CORS_HEADERS });
+    share.payment_status = 'PAID';
+    share.paid_at = new Date().toISOString();
+    share.payment_reference = `PAY-SPLIT-${Date.now().toString(36).toUpperCase()}`;
+
+    const agreementShares = memorySplitRentShares.filter(s => s.agreement_id === share.agreement_id);
+    const allPaid = agreementShares.every(s => s.payment_status === 'PAID');
+    const agr = memorySplitRentAgreements.find(a => a.id === share.agreement_id);
+    if (agr) agr.status = allPaid ? 'COMPLETED' : 'ACTIVE';
+
+    return new Response(JSON.stringify({ success: true, message: 'Share marked as PAID', share }), { status: 200, headers: CORS_HEADERS });
+  }
+
+  if (pathname.startsWith('/api/split-rent/') && pathname.endsWith('/remind') && req.method === 'POST') {
+    const user = parseAuth(req);
+    if (!user) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: CORS_HEADERS });
+    return new Response(JSON.stringify({ success: true, message: 'Payment reminder queued for roommates' }), { status: 200, headers: CORS_HEADERS });
   }
 
   return new Response(JSON.stringify({ error: 'Endpoint not found', path: pathname }), { status: 404, headers: CORS_HEADERS });

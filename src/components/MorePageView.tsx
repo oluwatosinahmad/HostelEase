@@ -29,7 +29,8 @@ import {
   ArrowLeft,
   ChevronRight,
   X,
-  Video
+  Video,
+  Wrench
 } from 'lucide-react';
 import { AppView } from '../types/hostelEase';
 import { useAuth } from '../context/AuthContext';
@@ -45,7 +46,8 @@ interface MorePageViewProps {
   onOpenAI?: () => void;
   onOpenUtilityRadar?: () => void;
   onOpenSafeWalk?: () => void;
-  onOpenUtilityCalculator?: () => void;
+  onOpenMaintenance?: () => void;
+  onOpenSplitRent?: () => void;
   onOpenWomenSection?: () => void;
   onShowToast?: (message: string, type?: 'success' | 'info' | 'error') => void;
 }
@@ -58,7 +60,8 @@ export const MorePageView: React.FC<MorePageViewProps> = ({
   onOpenAI,
   onOpenUtilityRadar,
   onOpenSafeWalk,
-  onOpenUtilityCalculator,
+  onOpenMaintenance,
+  onOpenSplitRent,
   onOpenWomenSection,
   onShowToast
 }) => {
@@ -544,20 +547,38 @@ export const MorePageView: React.FC<MorePageViewProps> = ({
                 </button>
               )}
 
-              {onOpenUtilityCalculator && (
+              {onOpenMaintenance && (
                 <button
-                  onClick={onOpenUtilityCalculator}
-                  className="w-full flex items-center justify-between p-3 rounded-2xl hover:bg-blue-50 dark:hover:bg-blue-950/40 text-blue-700 dark:text-blue-300 font-bold bg-blue-50/50 dark:bg-blue-950/20 border border-blue-200/60 dark:border-blue-900/40 transition-colors text-left"
+                  onClick={onOpenMaintenance}
+                  className="w-full flex items-center justify-between p-3 rounded-2xl hover:bg-blue-50 dark:hover:bg-blue-950/40 text-blue-700 dark:text-blue-300 font-bold bg-blue-50/50 dark:bg-blue-950/20 border border-blue-200/60 dark:border-blue-900/40 transition-colors text-left cursor-pointer"
                 >
                   <div className="flex items-center gap-3">
-                    <Calculator className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
+                    <Wrench className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
                     <div>
-                      <span className="text-xs">💡 Utility Bill Calculator (IBEDC)</span>
-                      <p className="text-[10px] font-normal text-slate-600 dark:text-slate-400">Accurate appliance wattage & prepaid cost estimation</p>
+                      <span className="text-xs">🔧 Maintenance & Issue Reporting</span>
+                      <p className="text-[10px] font-normal text-slate-600 dark:text-slate-400">Report plumbing, electrical, or structural repair tickets</p>
                     </div>
                   </div>
                   <span className="text-[10px] px-2 py-0.5 bg-blue-200 dark:bg-blue-900 text-blue-900 dark:text-blue-200 rounded font-black shrink-0">
-                    CALC
+                    SUPPORT
+                  </span>
+                </button>
+              )}
+
+              {onOpenSplitRent && (
+                <button
+                  onClick={onOpenSplitRent}
+                  className="w-full flex items-center justify-between p-3 rounded-2xl hover:bg-teal-50 dark:hover:bg-teal-950/40 text-teal-700 dark:text-teal-300 font-bold bg-teal-50/50 dark:bg-teal-950/20 border border-teal-200/60 dark:border-teal-900/40 transition-colors text-left cursor-pointer"
+                >
+                  <div className="flex items-center gap-3">
+                    <Users className="w-4 h-4 text-teal-600 dark:text-teal-400 shrink-0" />
+                    <div>
+                      <span className="text-xs">👥 Split Rent (Roommate Calculator)</span>
+                      <p className="text-[10px] font-normal text-slate-600 dark:text-slate-400">50/50, 60/40, or custom ratio rent & deposit splitting</p>
+                    </div>
+                  </div>
+                  <span className="text-[10px] px-2 py-0.5 bg-teal-200 dark:bg-teal-900 text-teal-900 dark:text-teal-200 rounded font-black shrink-0">
+                    ROOMMATES
                   </span>
                 </button>
               )}
@@ -1183,20 +1204,38 @@ export const MorePageView: React.FC<MorePageViewProps> = ({
                 </button>
               )}
 
-              {onOpenUtilityCalculator && (
+              {onOpenMaintenance && (
                 <button
-                  onClick={onOpenUtilityCalculator}
-                  className="w-full flex items-center justify-between p-3 rounded-2xl hover:bg-blue-50 dark:hover:bg-blue-950/40 text-blue-700 dark:text-blue-300 font-bold bg-blue-50/50 dark:bg-blue-950/20 border border-blue-200/60 dark:border-blue-900/40 transition-colors text-left"
+                  onClick={onOpenMaintenance}
+                  className="w-full flex items-center justify-between p-3 rounded-2xl hover:bg-blue-50 dark:hover:bg-blue-950/40 text-blue-700 dark:text-blue-300 font-bold bg-blue-50/50 dark:bg-blue-950/20 border border-blue-200/60 dark:border-blue-900/40 transition-colors text-left cursor-pointer"
                 >
                   <div className="flex items-center gap-3">
-                    <Calculator className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
+                    <Wrench className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
                     <div>
-                      <span className="text-xs">💡 Utility Bill Calculator (IBEDC)</span>
-                      <p className="text-[10px] font-normal text-slate-600 dark:text-slate-400">Calculate electricity and monthly bills</p>
+                      <span className="text-xs">🔧 Maintenance & Issue Reporting</span>
+                      <p className="text-[10px] font-normal text-slate-600 dark:text-slate-400">Report plumbing, electrical, or repair tickets</p>
                     </div>
                   </div>
                   <span className="text-[10px] px-2 py-0.5 bg-blue-200 dark:bg-blue-900 text-blue-900 dark:text-blue-200 rounded font-black shrink-0">
-                    CALC
+                    SUPPORT
+                  </span>
+                </button>
+              )}
+
+              {onOpenSplitRent && (
+                <button
+                  onClick={onOpenSplitRent}
+                  className="w-full flex items-center justify-between p-3 rounded-2xl hover:bg-teal-50 dark:hover:bg-teal-950/40 text-teal-700 dark:text-teal-300 font-bold bg-teal-50/50 dark:bg-teal-950/20 border border-teal-200/60 dark:border-teal-900/40 transition-colors text-left cursor-pointer"
+                >
+                  <div className="flex items-center gap-3">
+                    <Users className="w-4 h-4 text-teal-600 dark:text-teal-400 shrink-0" />
+                    <div>
+                      <span className="text-xs">👥 Split Rent (Roommate Calculator)</span>
+                      <p className="text-[10px] font-normal text-slate-600 dark:text-slate-400">50/50, 60/40, or custom ratio rent & deposit splitting</p>
+                    </div>
+                  </div>
+                  <span className="text-[10px] px-2 py-0.5 bg-teal-200 dark:bg-teal-900 text-teal-900 dark:text-teal-200 rounded font-black shrink-0">
+                    ROOMMATES
                   </span>
                 </button>
               )}

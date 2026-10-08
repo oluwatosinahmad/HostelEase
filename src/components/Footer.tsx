@@ -8,7 +8,8 @@ interface FooterProps {
   onSelectArea?: (areaId: string) => void;
   onOpenUtilityRadar?: () => void;
   onOpenSafeWalk?: () => void;
-  onOpenUtilityCalculator?: () => void;
+  onOpenMaintenance?: () => void;
+  onOpenSplitRent?: () => void;
   onOpenSafetyEscrow?: () => void;
 }
 
@@ -18,7 +19,8 @@ export const Footer: React.FC<FooterProps> = ({
   onSelectArea,
   onOpenUtilityRadar,
   onOpenSafeWalk,
-  onOpenUtilityCalculator,
+  onOpenMaintenance,
+  onOpenSplitRent,
   onOpenSafetyEscrow
 }) => {
   const handleAreaClick = (areaId: string) => {
@@ -81,8 +83,11 @@ export const Footer: React.FC<FooterProps> = ({
               {onOpenSafeWalk && (
                 <li><button onClick={onOpenSafeWalk} className="hover:text-emerald-300 text-emerald-400/90 transition-colors text-left flex items-center gap-1"><span>🚨 SafeWalk™ Campus Night-Trek</span></button></li>
               )}
-              {onOpenUtilityCalculator && (
-                <li><button onClick={onOpenUtilityCalculator} className="hover:text-emerald-400 transition-colors text-left">🧮 IBEDC Utility Cost Calculator</button></li>
+              {onOpenMaintenance && (
+                <li><button onClick={onOpenMaintenance} className="hover:text-blue-400 text-blue-300/90 transition-colors text-left flex items-center gap-1"><span>🔧 Maintenance & Issue Reporting</span></button></li>
+              )}
+              {onOpenSplitRent && (
+                <li><button onClick={onOpenSplitRent} className="hover:text-teal-400 text-teal-300/90 transition-colors text-left flex items-center gap-1"><span>👥 Split Rent (Roommate Calculator)</span></button></li>
               )}
               <li><button onClick={() => onOpenAuth('PROVIDER')} className="hover:text-emerald-400 transition-colors text-left">List Your Property (Agents)</button></li>
               <li><button onClick={() => onOpenAuth('ADMIN')} className="hover:text-emerald-400 transition-colors text-left">Admin Moderation</button></li>

@@ -2594,6 +2594,173 @@ Your caution deposit is refundable upon move-out provided no unauthorized struct
       CREATE INDEX IF NOT EXISTS idx_conversations_provider_updated ON conversations(provider_id, updated_at DESC);
       CREATE INDEX IF NOT EXISTS idx_payments_provider ON payments(provider_id, status);
     `);
+
+    // =========================================================================
+    // 8. CAMPUS INNOVATIONS & STUDENT SAFETY SUITE
+    // =========================================================================
+    // A. SafeWalk™ Journeys & Emergency Contacts
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS safewalk_journeys (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        destination TEXT NOT NULL,
+        start_location TEXT,
+        start_coordinates TEXT,
+        duration_mins INTEGER NOT NULL DEFAULT 15,
+        emergency_contact_name TEXT NOT NULL,
+        emergency_contact_phone TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'ACTIVE' CHECK(status IN ('ACTIVE', 'COMPLETED', 'SOS_TRIGGERED', 'EXPIRED', 'CANCELLED')),
+        started_at TEXT NOT NULL DEFAULT (datetime('now')),
+        expected_arrival_at TEXT NOT NULL,
+        completed_at TEXT,
+        sos_triggered_at TEXT,
+        notes TEXT,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      );
+      CREATE INDEX IF NOT EXISTS idx_safewalk_user_status ON safewalk_journeys(user_id, status);
+      CREATE INDEX IF NOT EXISTS idx_safewalk_started ON safewalk_journeys(started_at DESC);
+
+      CREATE TABLE IF NOT EXISTS safewalk_contacts (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        contact_name TEXT NOT NULL,
+        phone_number TEXT NOT NULL,
+        relationship TEXT DEFAULT 'Family/Friend',
+        is_primary INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      );
+      CREATE INDEX IF NOT EXISTS idx_safewalk_contacts_user ON safewalk_contacts(user_id);
+    `);
+
+    // B. UtilityRadar™ Community Utility Reports
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS utility_reports (
+        id TEXT PRIMARY KEY,
+        user_id TEXT,
+        area_id TEXT NOT NULL,
+        utility_type TEXT NOT NULL CHECK(utility_type IN ('ELECTRICITY', 'WATER')),
+        status TEXT NOT NULL,
+        notes TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        FOREIGN KEY (area_id) REFERENCES areas(id) ON DELETE CASCADE,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_utility_reports_area_created ON utility_reports(area_id, utility_type, created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_utility_reports_user_rate ON utility_reports(user_id, utility_type, created_at DESC);
+    `);
+
+    // C. Maintenance & Issue Reporting
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS maintenance_tickets (
+        id TEXT PRIMARY KEY,
+        ticket_code TEXT NOT NULL UNIQUE,
+        student_id TEXT NOT NULL,
+        property_id TEXT NOT NULL,
+        provider_id TEXT NOT NULL,
+        room_number TEXT NOT NULL,
+        category TEXT NOT NULL CHECK(category IN ('ELECTRICITY', 'WATER', 'PLUMBING', 'DOOR_LOCK', 'FAN_AC', 'INTERNET', 'CLEANING', 'SECURITY', 'FURNITURE', 'OTHER')),
+        description TEXT NOT NULL,
+        attachments_json TEXT NOT NULL DEFAULT '[]',
+        status TEXT NOT NULL DEFAULT 'SUBMITTED' CHECK(status IN ('SUBMITTED', 'RECEIVED', 'ASSIGNED', 'IN_PROGRESS', 'RESOLVED', 'CLOSED')),
+        priority TEXT NOT NULL DEFAULT 'MEDIUM' CHECK(priority IN ('LOW', 'MEDIUM', 'HIGH', 'EMERGENCY')),
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+        resolved_at TEXT,
+        FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (property_id) REFERENCES properties(id) ON DELETE CASCADE,
+        FOREIGN KEY (provider_id) REFERENCES users(id) ON DELETE CASCADE
+      );
+      CREATE INDEX IF NOT EXISTS idx_maintenance_student ON maintenance_tickets(student_id, created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_maintenance_provider ON maintenance_tickets(provider_id, status);
+      CREATE INDEX IF NOT EXISTS idx_maintenance_property ON maintenance_tickets(property_id);
+
+      CREATE TABLE IF NOT EXISTS maintenance_ticket_updates (
+        id TEXT PRIMARY KEY,
+        ticket_id TEXT NOT NULL,
+        sender_id TEXT NOT NULL,
+        sender_role TEXT NOT NULL,
+        message TEXT NOT NULL,
+        status_change TEXT,
+        attachments_json TEXT NOT NULL DEFAULT '[]',
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        FOREIGN KEY (ticket_id) REFERENCES maintenance_tickets(id) ON DELETE CASCADE,
+        FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE CASCADE
+      );
+      CREATE INDEX IF NOT EXISTS idx_mnt_updates_ticket ON maintenance_ticket_updates(ticket_id, created_at ASC);
+    `);
+
+    // D. Split Rent Agreements & Shares
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS split_rent_agreements (
+        id TEXT PRIMARY KEY,
+        reference_code TEXT NOT NULL UNIQUE,
+        creator_id TEXT NOT NULL,
+        property_id TEXT,
+        property_title TEXT NOT NULL,
+        total_rent REAL NOT NULL,
+        split_type TEXT NOT NULL CHECK(split_type IN ('50_50', '60_40', '70_30', 'CUSTOM')),
+        due_date TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'PENDING' CHECK(status IN ('PENDING', 'ACTIVE', 'COMPLETED', 'CANCELLED')),
+        notes TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+        FOREIGN KEY (creator_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (property_id) REFERENCES properties(id) ON DELETE SET NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_split_rent_creator ON split_rent_agreements(creator_id, created_at DESC);
+
+      CREATE TABLE IF NOT EXISTS split_rent_shares (
+        id TEXT PRIMARY KEY,
+        agreement_id TEXT NOT NULL,
+        user_id TEXT,
+        participant_name TEXT NOT NULL,
+        participant_email TEXT NOT NULL,
+        participant_phone TEXT,
+        share_percentage REAL NOT NULL,
+        share_amount REAL NOT NULL,
+        payment_status TEXT NOT NULL DEFAULT 'PENDING' CHECK(payment_status IN ('PENDING', 'PAID')),
+        acceptance_status TEXT NOT NULL DEFAULT 'PENDING' CHECK(acceptance_status IN ('PENDING', 'ACCEPTED', 'DECLINED')),
+        paid_at TEXT,
+        payment_reference TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        FOREIGN KEY (agreement_id) REFERENCES split_rent_agreements(id) ON DELETE CASCADE,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_split_shares_agreement ON split_rent_shares(agreement_id);
+      CREATE INDEX IF NOT EXISTS idx_split_shares_user ON split_rent_shares(user_id);
+      CREATE INDEX IF NOT EXISTS idx_split_shares_email ON split_rent_shares(participant_email);
+    `);
+
+    // E. Initial Seed for UtilityRadar if empty
+    try {
+      const existingReportsCount = (db.prepare('SELECT COUNT(*) as count FROM utility_reports').get() as { count: number }).count;
+      if (existingReportsCount === 0) {
+        const seedReports = [
+          { id: 'ur-seed-1', area_id: 'area-under-g', utility_type: 'ELECTRICITY', status: 'POWER_ON', notes: 'Transformer restored around 10am. Steady voltage at Bovas axis.', created_at: "datetime('now', '-25 minutes')" },
+          { id: 'ur-seed-2', area_id: 'area-under-g', utility_type: 'WATER', status: 'WATER_AVAILABLE', notes: 'Borehole pumping running well.', created_at: "datetime('now', '-45 minutes')" },
+          { id: 'ur-seed-3', area_id: 'area-adenike', utility_type: 'ELECTRICITY', status: 'POWER_OFF', notes: 'Feeder tripped during the morning drizzle.', created_at: "datetime('now', '-18 minutes')" },
+          { id: 'ur-seed-4', area_id: 'area-adenike', utility_type: 'WATER', status: 'WATER_AVAILABLE', notes: 'Water running from overhead tanks.', created_at: "datetime('now', '-30 minutes')" },
+          { id: 'ur-seed-5', area_id: 'area-oluyole', utility_type: 'ELECTRICITY', status: 'POWER_ON', notes: 'Light stable all morning.', created_at: "datetime('now', '-12 minutes')" },
+          { id: 'ur-seed-6', area_id: 'area-oluyole', utility_type: 'WATER', status: 'WATER_AVAILABLE', notes: 'Boreholes full and pressure good.', created_at: "datetime('now', '-50 minutes')" },
+          { id: 'ur-seed-7', area_id: 'area-college-road', utility_type: 'ELECTRICITY', status: 'GENERATOR_ON', notes: 'Central generator powering the main lodge strip.', created_at: "datetime('now', '-35 minutes')" },
+          { id: 'ur-seed-8', area_id: 'area-college-road', utility_type: 'WATER', status: 'WATER_AVAILABLE', notes: 'Water available on tap.', created_at: "datetime('now', '-40 minutes')" },
+          { id: 'ur-seed-9', area_id: 'area-abaa', utility_type: 'ELECTRICITY', status: 'POWER_OFF', notes: 'Outage since 9am in Abaa market axis.', created_at: "datetime('now', '-15 minutes')" },
+          { id: 'ur-seed-10', area_id: 'area-abaa', utility_type: 'WATER', status: 'WATER_UNAVAILABLE', notes: 'Tanks empty, awaiting pumping.', created_at: "datetime('now', '-20 minutes')" },
+          { id: 'ur-seed-11', area_id: 'area-isale-general', utility_type: 'ELECTRICITY', status: 'POWER_ON', notes: 'Light currently ON.', created_at: "datetime('now', '-10 minutes')" },
+          { id: 'ur-seed-12', area_id: 'area-isale-general', utility_type: 'WATER', status: 'WATER_AVAILABLE', notes: 'Borehole water running normally.', created_at: "datetime('now', '-55 minutes')" }
+        ];
+
+        for (const sr of seedReports) {
+          db.prepare(`
+            INSERT INTO utility_reports (id, user_id, area_id, utility_type, status, notes, created_at)
+            VALUES (?, NULL, ?, ?, ?, ?, ${sr.created_at})
+          `).run(sr.id, sr.area_id, sr.utility_type, sr.status, sr.notes);
+        }
+      }
+    } catch (e) {
+      console.warn('Utility reports initial seed notice:', e);
+    }
   })();
 
   db.pragma('foreign_keys = ON');

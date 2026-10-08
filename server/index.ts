@@ -35,6 +35,10 @@ import operationsRoutes from './routes/operationsRoutes';
 import adminRevenueRoutes from './routes/adminRevenueRoutes';
 import videoRoutes from './routes/videoRoutes';
 import realtimeRoutes from './routes/realtimeRoutes';
+import safeWalkRoutes from './routes/safeWalkRoutes';
+import utilityRoutes from './routes/utilityRoutes';
+import maintenanceRoutes from './routes/maintenanceRoutes';
+import splitRentRoutes from './routes/splitRentRoutes';
 
 import { securityHeaders } from './middleware/securityHeaders';
 import { sanitizeInputs } from './middleware/sanitize';
@@ -231,6 +235,10 @@ app.use('/api/move-in', moveInRoutes);
 app.use('/api/intelligence', intelligenceRoutes);
 app.use('/api/community', communityRoutes);
 app.use('/api/roommates', roommateRoutes);
+app.use('/api/safewalk', safeWalkRoutes);
+app.use('/api/utilities', utilityRoutes);
+app.use('/api/maintenance', maintenanceRoutes);
+app.use('/api/split-rent', splitRentRoutes);
 
 // Production Static Serving: Unified React SPA delivery
 const DIST_PATH = path.resolve(process.cwd(), 'dist');
