@@ -112,8 +112,9 @@ export function findOrResolveConversation(id: string, reqUser: any, bodyProperty
 
   if (conv) return conv;
 
-  // 2. Derive property ID if id is formatted as conv_${studentId}_${propertyId} or if bodyPropertyId passed
+  // 2. Derive property ID if id is formatted as conv_${studentId}_${propertyId} or if bodyPropertyId passed, or if id matches property
   let propId = bodyPropertyId;
+  let explicitStudentId: string | null = null;
   if (!propId && id && id.startsWith('conv_')) {
     const prefix = `conv_${reqUser.id}_`;
     if (id.startsWith(prefix)) {
@@ -121,47 +122,98 @@ export function findOrResolveConversation(id: string, reqUser: any, bodyProperty
     } else {
       const parts = id.split('_');
       if (parts.length >= 3) {
+        explicitStudentId = parts[1];
         propId = parts.slice(2).join('_');
       }
     }
   }
 
+  // Also check if id directly matches a property ID or slug
+  if (!propId && id) {
+    const propCheck = db.prepare('SELECT id FROM properties WHERE id = ? OR slug = ?').get(id, id) as any;
+    if (propCheck) {
+      propId = propCheck.id;
+    }
+  }
+
   if (propId) {
-    // Check if conversation exists by property_id and user
-    conv = db.prepare(`
-      SELECT c.*, COALESCE(p.title, 'Hostel Accommodation') as property_title,
-             COALESCE(p.address, 'LAUTECH Area, Ogbomoso') as property_address,
-             COALESCE(p.property_type, 'SELF_CONTAIN') as property_type,
-             COALESCE(p.distance_from_campus_km, 0.5) as distance_from_campus_km,
-             p.provider_id as property_provider_id,
-             pr.rent_amount, pr.total_mandatory_cost,
-             COALESCE(a.name, 'Under G') as area_name,
-             COALESCE(u_s.full_name, 'Student') as student_name,
-             u_s.avatar_url as student_avatar,
-             u_s.email as student_email,
-             u_p.email as provider_email,
-             COALESCE(u_p.full_name, 'Verified Agent') as provider_name,
-             u_p.avatar_url as provider_avatar,
-             COALESCE(
-               (SELECT url FROM property_media WHERE property_id = p.id AND is_cover = 1 LIMIT 1),
-               (SELECT url FROM property_media WHERE property_id = p.id ORDER BY display_order ASC LIMIT 1),
-               (SELECT url FROM property_media WHERE property_id = p.id LIMIT 1)
-             ) as property_cover,
-             up_s.last_seen_at as student_last_seen_at,
-             up_p.last_seen_at as provider_last_seen_at
-      FROM conversations c
-      LEFT JOIN properties p ON c.property_id = p.id
-      LEFT JOIN areas a ON p.area_id = a.id
-      LEFT JOIN prices pr ON pr.property_id = p.id
-      LEFT JOIN users u_s ON c.student_id = u_s.id
-      LEFT JOIN users u_p ON c.provider_id = u_p.id
-      LEFT JOIN user_presence up_s ON up_s.user_id = c.student_id
-      LEFT JOIN user_presence up_p ON up_p.user_id = c.provider_id
-      WHERE (c.property_id = ? OR p.slug = ?)
-        AND (c.student_id = ? OR c.student_id IN (SELECT id FROM users WHERE LOWER(email) = LOWER(?)))
-      ORDER BY c.last_message_at DESC
-      LIMIT 1
-    `).get(propId, propId, reqUser.id, reqUser.email || '') as any;
+    const userRole = (reqUser.role || '').toUpperCase();
+    const isProvider = userRole === 'PROVIDER' || userRole === 'LANDLORD' || userRole === 'AGENT';
+
+    if (isProvider) {
+      // For provider: find conversation for this property managed by this provider
+      conv = db.prepare(`
+        SELECT c.*, COALESCE(p.title, 'Hostel Accommodation') as property_title,
+               COALESCE(p.address, 'LAUTECH Area, Ogbomoso') as property_address,
+               COALESCE(p.property_type, 'SELF_CONTAIN') as property_type,
+               COALESCE(p.distance_from_campus_km, 0.5) as distance_from_campus_km,
+               p.provider_id as property_provider_id,
+               pr.rent_amount, pr.total_mandatory_cost,
+               COALESCE(a.name, 'Under G') as area_name,
+               COALESCE(u_s.full_name, 'Student') as student_name,
+               u_s.avatar_url as student_avatar,
+               u_s.email as student_email,
+               u_p.email as provider_email,
+               COALESCE(u_p.full_name, 'Verified Agent') as provider_name,
+               u_p.avatar_url as provider_avatar,
+               COALESCE(
+                 (SELECT url FROM property_media WHERE property_id = p.id AND is_cover = 1 LIMIT 1),
+                 (SELECT url FROM property_media WHERE property_id = p.id ORDER BY display_order ASC LIMIT 1),
+                 (SELECT url FROM property_media WHERE property_id = p.id LIMIT 1)
+               ) as property_cover,
+               up_s.last_seen_at as student_last_seen_at,
+               up_p.last_seen_at as provider_last_seen_at
+        FROM conversations c
+        LEFT JOIN properties p ON c.property_id = p.id
+        LEFT JOIN areas a ON p.area_id = a.id
+        LEFT JOIN prices pr ON pr.property_id = p.id
+        LEFT JOIN users u_s ON c.student_id = u_s.id
+        LEFT JOIN users u_p ON c.provider_id = u_p.id
+        LEFT JOIN user_presence up_s ON up_s.user_id = c.student_id
+        LEFT JOIN user_presence up_p ON up_p.user_id = c.provider_id
+        WHERE (c.property_id = ? OR p.slug = ?)
+          AND (c.provider_id = ? OR p.provider_id = ? OR c.provider_id IN (SELECT id FROM users WHERE LOWER(email) = LOWER(?)))
+          AND (? IS NULL OR c.student_id = ?)
+        ORDER BY c.last_message_at DESC
+        LIMIT 1
+      `).get(propId, propId, reqUser.id, reqUser.id, reqUser.email || '', explicitStudentId, explicitStudentId) as any;
+    } else {
+      // For student or admin: find conversation for this property where user is the student
+      conv = db.prepare(`
+        SELECT c.*, COALESCE(p.title, 'Hostel Accommodation') as property_title,
+               COALESCE(p.address, 'LAUTECH Area, Ogbomoso') as property_address,
+               COALESCE(p.property_type, 'SELF_CONTAIN') as property_type,
+               COALESCE(p.distance_from_campus_km, 0.5) as distance_from_campus_km,
+               p.provider_id as property_provider_id,
+               pr.rent_amount, pr.total_mandatory_cost,
+               COALESCE(a.name, 'Under G') as area_name,
+               COALESCE(u_s.full_name, 'Student') as student_name,
+               u_s.avatar_url as student_avatar,
+               u_s.email as student_email,
+               u_p.email as provider_email,
+               COALESCE(u_p.full_name, 'Verified Agent') as provider_name,
+               u_p.avatar_url as provider_avatar,
+               COALESCE(
+                 (SELECT url FROM property_media WHERE property_id = p.id AND is_cover = 1 LIMIT 1),
+                 (SELECT url FROM property_media WHERE property_id = p.id ORDER BY display_order ASC LIMIT 1),
+                 (SELECT url FROM property_media WHERE property_id = p.id LIMIT 1)
+               ) as property_cover,
+               up_s.last_seen_at as student_last_seen_at,
+               up_p.last_seen_at as provider_last_seen_at
+        FROM conversations c
+        LEFT JOIN properties p ON c.property_id = p.id
+        LEFT JOIN areas a ON p.area_id = a.id
+        LEFT JOIN prices pr ON pr.property_id = p.id
+        LEFT JOIN users u_s ON c.student_id = u_s.id
+        LEFT JOIN users u_p ON c.provider_id = u_p.id
+        LEFT JOIN user_presence up_s ON up_s.user_id = c.student_id
+        LEFT JOIN user_presence up_p ON up_p.user_id = c.provider_id
+        WHERE (c.property_id = ? OR p.slug = ?)
+          AND (c.student_id = ? OR c.student_id IN (SELECT id FROM users WHERE LOWER(email) = LOWER(?)))
+        ORDER BY c.last_message_at DESC
+        LIMIT 1
+      `).get(propId, propId, reqUser.id, reqUser.email || '') as any;
+    }
 
     if (conv) return conv;
 
@@ -169,9 +221,9 @@ export function findOrResolveConversation(id: string, reqUser: any, bodyProperty
     let property = db.prepare('SELECT id, provider_id FROM properties WHERE id = ? OR slug = ?').get(propId, propId) as any;
     let providerId = property?.provider_id || 'user-provider-1';
     let studentId = reqUser.id;
-    if (reqUser.role === 'PROVIDER' || reqUser.role === 'LANDLORD' || reqUser.role === 'AGENT') {
+    if (isProvider) {
       providerId = reqUser.id;
-      studentId = 'user-student-1';
+      studentId = explicitStudentId || 'user-student-1';
     }
 
     try {

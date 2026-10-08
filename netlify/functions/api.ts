@@ -3538,24 +3538,63 @@ export default async (req: Request): Promise<Response> => {
 
     const convId = pathname.replace('/api/messages/conversations/', '');
     let conv = memoryConversations.find(c => c.id === convId);
-    if (!conv && convId.startsWith('conv_')) {
-      const prefix = `conv_${user.id}_`;
+
+    const userRole = (user.role || '').toUpperCase();
+    const isStudentRole = userRole === 'STUDENT';
+    const isProviderRole = userRole === 'PROVIDER' || userRole === 'LANDLORD' || userRole === 'AGENT';
+    const isAdminRole = userRole === 'ADMIN' || userRole === 'OWNER';
+    const userEmail = (user.email || '').toLowerCase().trim();
+
+    if (!conv) {
       let propertyId = '';
-      if (convId.startsWith(prefix)) {
-        propertyId = convId.substring(prefix.length);
-      } else {
-        const parts = convId.split('_');
-        if (parts.length >= 3) {
-          propertyId = parts.slice(2).join('_');
+      let explicitStudentId: string | null = null;
+      if (convId.startsWith('conv_')) {
+        const prefix = `conv_${user.id}_`;
+        if (convId.startsWith(prefix)) {
+          propertyId = convId.substring(prefix.length);
+        } else {
+          const parts = convId.split('_');
+          if (parts.length >= 3) {
+            explicitStudentId = parts[1];
+            propertyId = parts.slice(2).join('_');
+          }
         }
       }
+
+      if (!propertyId) {
+        const propMatch = memoryProperties.find(p => p.id === convId || (p as any).slug === convId) ||
+          (Array.isArray(DEFAULT_PROPERTIES) ? (DEFAULT_PROPERTIES as any[]).find(p => p.id === convId || (p as any).slug === convId) : null);
+        if (propMatch) {
+          propertyId = propMatch.id;
+        }
+      }
+
       if (propertyId) {
-        conv = memoryConversations.find(c => (c.propertyId === propertyId || (c as any).slug === propertyId) && (c.studentId === user.id || (user.email && c.studentEmail && c.studentEmail.toLowerCase() === user.email.toLowerCase())));
+        if (isProviderRole) {
+          conv = memoryConversations.find(c => 
+            (c.propertyId === propertyId || (c as any).slug === propertyId) &&
+            (c.providerId === user.id || (userEmail && c.providerEmail && c.providerEmail.toLowerCase() === userEmail)) &&
+            (!explicitStudentId || c.studentId === explicitStudentId)
+          );
+        } else {
+          conv = memoryConversations.find(c => 
+            (c.propertyId === propertyId || (c as any).slug === propertyId) &&
+            (c.studentId === user.id || (userEmail && c.studentEmail && c.studentEmail.toLowerCase() === userEmail))
+          );
+        }
+
         if (!conv) {
           let matchedProp = memoryProperties.find(p => p.id === propertyId || (p as any).slug === propertyId);
           if (!matchedProp && Array.isArray(DEFAULT_PROPERTIES)) {
             matchedProp = (DEFAULT_PROPERTIES as any[]).find(p => p.id === propertyId || (p as any).slug === propertyId);
           }
+          const sId = isProviderRole ? (explicitStudentId || 'usr-student-1') : user.id;
+          const sName = isProviderRole ? 'Student User' : (user.fullName || 'Student User');
+          const sEmail = isProviderRole ? 'student@lautech.edu.ng' : (user.email || 'student@lautech.edu.ng');
+          const pId = isProviderRole ? user.id : (matchedProp?.providerId || (matchedProp?.provider as any)?.id || 'user-provider-default');
+          const pName = isProviderRole ? (user.fullName || 'Verified Agent') : (matchedProp?.provider?.name || 'Verified Agent');
+          const pEmail = isProviderRole ? (user.email || 'landlord@hostelease.ng') : ((matchedProp as any)?.providerEmail || matchedProp?.provider?.email || 'landlord@hostelease.ng');
+
           conv = {
             id: convId,
             propertyId,
@@ -3563,12 +3602,12 @@ export default async (req: Request): Promise<Response> => {
             propertyAddress: matchedProp?.address || 'LAUTECH Area, Ogbomoso',
             propertyCoverImage: matchedProp?.coverImage || 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=1200&q=80',
             areaName: matchedProp?.area?.name || (matchedProp as any)?.areaName || 'Under G',
-            studentId: user.id,
-            studentName: user.fullName || 'Student User',
-            studentEmail: user.email || 'student@lautech.edu.ng',
-            providerId: matchedProp?.providerId || (matchedProp?.provider as any)?.id || 'user-provider-default',
-            providerName: matchedProp?.provider?.name || 'Verified Agent',
-            providerEmail: (matchedProp as any)?.providerEmail || matchedProp?.provider?.email || 'landlord@hostelease.ng',
+            studentId: sId,
+            studentName: sName,
+            studentEmail: sEmail,
+            providerId: pId,
+            providerName: pName,
+            providerEmail: pEmail,
             avatarUrl: matchedProp?.coverImage || 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=1200&q=80',
             lastMessageText: 'No messages yet',
             lastMessageAt: new Date().toISOString(),
@@ -3590,14 +3629,8 @@ export default async (req: Request): Promise<Response> => {
     if (!prop && Array.isArray(DEFAULT_PROPERTIES)) {
       prop = (DEFAULT_PROPERTIES as any[]).find(p => p.id === conv.propertyId || (p as any).slug === conv.propertyId);
     }
-    const userEmail = (user.email || '').toLowerCase().trim();
 
     // Role Normalization & Authorization Check: participant student, provider, property owner, or admin
-    const userRole = (user.role || '').toUpperCase();
-    const isStudentRole = userRole === 'STUDENT';
-    const isProviderRole = userRole === 'PROVIDER' || userRole === 'LANDLORD' || userRole === 'AGENT';
-    const isAdminRole = userRole === 'ADMIN' || userRole === 'OWNER';
-
     const isStudent = (isStudentRole || !isProviderRole) && (
       conv.studentId === user.id || 
       (userEmail && conv.studentEmail && conv.studentEmail.toLowerCase() === userEmail)
@@ -3614,7 +3647,7 @@ export default async (req: Request): Promise<Response> => {
       return new Response(JSON.stringify({ error: 'Access denied: You are not authorized to view this conversation' }), { status: 403, headers: CORS_HEADERS });
     }
 
-    let msgs = memoryMessages.filter(m => m.conversationId === convId);
+    let msgs = memoryMessages.filter(m => m.conversationId === convId || (conv && m.conversationId === conv.id));
 
     // Mark unread messages sent by opposite party as read and persist to cloud
     const unreadMsgsToUpdate: any[] = [];

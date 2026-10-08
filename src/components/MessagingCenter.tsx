@@ -377,10 +377,8 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
         if (item) {
           selectAndLoadConversation(item.id, false, item);
         } else if (!resolvingPropertyRef.current && !initialPropertyId) {
-          // Auto-select first conversation on wider desktop screens ONLY if not currently resolving a property chat
-          if (typeof window !== 'undefined' && window.innerWidth >= 768 && convs.length > 0) {
-            selectAndLoadConversation(convs[0].id, false, convs[0]);
-          }
+          // If a specific targetId was requested (e.g. from URL), load it directly even if not yet in sidebar list
+          selectAndLoadConversation(targetId, false);
         }
       } else if (convs.length > 0 && !resolvingPropertyRef.current && !initialPropertyId) {
         // Auto-select first conversation on wider desktop screens ONLY if not currently resolving a property chat
@@ -430,14 +428,14 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
             areaName: currentItem.areaName || 'Under G',
             propertyType: 'SELF_CONTAIN',
             distanceFromCampusKm: 0.5,
-            rentAmount: 0,
-            totalMandatoryCost: 0,
+            rentAmount: (currentItem as any).rentAmount || 0,
+            totalMandatoryCost: (currentItem as any).totalMandatoryCost || 0,
             coverImage: currentItem.propertyCoverImage || currentItem.avatarUrl || 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=1200&q=85'
           },
           student: {
-            id: currentItem.studentId || 'student',
-            name: currentItem.studentName || 'Student',
-            avatarUrl: currentItem.avatarUrl || null,
+            id: currentItem.studentId || user?.id || 'student',
+            name: currentItem.studentName || user?.fullName || 'Student',
+            avatarUrl: currentItem.avatarUrl || user?.avatarUrl || null,
             isOnline: Boolean(currentItem.isOnline),
             lastSeenAt: currentItem.lastSeenAt || null
           },
@@ -458,8 +456,9 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
 
     try {
       const res = await api.messages.getConversation(convId);
-      if (res) {
+      if (res && res.conversation) {
         setActiveDetail(res);
+        setActiveThreadError(false);
         setTimeout(() => scrollToBottom('auto'), 50);
         setTimeout(() => inputRef.current?.focus(), 100);
       }
@@ -468,9 +467,7 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
       setConversations(prev => prev.map(c => c.id === convId ? { ...c, unreadCount: 0 } : c));
     } catch (err) {
       console.error('[MessagingCenter] Failed to load conversation messages:', err);
-      if (!activeDetail) {
-        setActiveThreadError(true);
-      }
+      setActiveThreadError(true);
     } finally {
       setMessagesLoading(false);
       setTimeout(() => inputRef.current?.focus(), 100);
@@ -495,6 +492,7 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
       await selectAndLoadConversation(existingConv.id, true, existingConv);
       resolvingPropertyRef.current = null;
       setResolvingPropertyId(null);
+      setLoading(false);
       setTimeout(() => inputRef.current?.focus(), 100);
       return;
     }
@@ -620,7 +618,10 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
           if (listRes?.conversations) {
             setConversations(listRes.conversations);
           }
-        }).catch(() => {});
+          setLoading(false);
+        }).catch(() => {
+          setLoading(false);
+        });
       }
     } catch (err: any) {
       console.warn('[MessagingCenter] Background startConversation note:', err);
@@ -630,6 +631,7 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
       resolvingPropertyRef.current = null;
       setResolvingPropertyId(null);
       setMessagesLoading(false);
+      setLoading(false);
       setTimeout(() => inputRef.current?.focus(), 100);
     }
   };
@@ -1375,7 +1377,7 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
                 </div>
                 <div>
                   <h2 className="font-black text-sm text-white tracking-tight">Direct Messages</h2>
-                  <p className="text-[10px] text-slate-400 font-bold">Encrypted & Escrow Shielded</p>
+                  <p className="text-[10px] text-emerald-400 font-bold">Verified & Escrow Protected</p>
                 </div>
               </div>
 
@@ -1450,7 +1452,7 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
             {loading ? (
               <div className="py-20 text-center space-y-2">
                 <div className="w-6 h-6 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto" />
-                <p className="text-xs text-slate-400 font-bold">Syncing conversations...</p>
+                <p className="text-xs text-slate-400 font-bold">Loading conversations...</p>
               </div>
             ) : conversationsError && conversations.length === 0 ? (
               <div className="py-16 px-4 text-center space-y-3">
@@ -1634,23 +1636,15 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
                 </button>
               )}
             </div>
-          ) : (!activeDetail && messagesLoading) ? (
-            <div className="flex-1 flex flex-col items-center justify-center p-8 text-center space-y-4">
-              <div className="w-8 h-8 border-3 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto" />
-              <div className="space-y-1">
-                <h4 className="font-bold text-sm text-white">Opening Conversation...</h4>
-                <p className="text-xs text-slate-400">Loading verified inquiry history and messages</p>
-              </div>
-            </div>
-          ) : (!activeDetail || activeThreadError) ? (
+          ) : activeThreadError ? (
             <div className="flex-1 flex flex-col items-center justify-center p-8 text-center space-y-4">
               <div className="w-14 h-14 bg-slate-900 text-slate-400 rounded-3xl flex items-center justify-center shadow-inner border border-slate-800">
                 <MessageSquare className="w-7 h-7" />
               </div>
               <div className="space-y-1">
-                <h3 className="font-black text-base text-white">Unable to load messages</h3>
+                <h3 className="font-black text-base text-white">Unable to load this conversation right now</h3>
                 <p className="text-xs text-slate-400 max-w-sm">
-                  We couldn't load this conversation right now. Please try again.
+                  We couldn't load this conversation right now. Please check your connection and try again.
                 </p>
               </div>
               <button
@@ -1658,8 +1652,16 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
                 onClick={() => activeConversationId && selectAndLoadConversation(activeConversationId, true)}
                 className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-md cursor-pointer transition-colors"
               >
-                Try Again
+                Retry
               </button>
+            </div>
+          ) : (!activeDetail || messagesLoading) ? (
+            <div className="flex-1 flex flex-col items-center justify-center p-8 text-center space-y-4">
+              <div className="w-8 h-8 border-3 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto" />
+              <div className="space-y-1">
+                <h4 className="font-bold text-sm text-white">Loading messages...</h4>
+                <p className="text-xs text-slate-400">Loading verified inquiry history and messages</p>
+              </div>
             </div>
           ) : (
             <>
@@ -2031,11 +2033,14 @@ export const MessagingCenter: React.FC<MessagingCenterProps> = ({
                       : (activeDetail.conversation?.student?.name || 'Student');
                     return (
                       <div className="py-20 text-center space-y-2">
-                        <p className="text-xs font-bold text-slate-300">Start the conversation with {peerName}</p>
-                        <p className="text-[11px] text-slate-500">
+                        <div className="w-12 h-12 bg-slate-800 text-slate-400 rounded-2xl flex items-center justify-center mx-auto mb-2">
+                          <MessageSquare className="w-6 h-6 text-emerald-400" />
+                        </div>
+                        <p className="text-sm font-bold text-white">No messages yet. Start the conversation with {peerName}</p>
+                        <p className="text-xs text-slate-400 max-w-sm mx-auto">
                           {isStudent 
-                            ? 'Pick a quick inquiry chip below, ask a question, or send a photo snap.' 
-                            : 'Reply to this student inquiry or send photos and details about the hostel.'}
+                            ? 'Ask about room availability, power, running water, caution fees, or schedule an inspection.' 
+                            : 'Reply to this student inquiry or send photos and details about the hostel accommodation.'}
                         </p>
                       </div>
                     );
