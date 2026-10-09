@@ -243,7 +243,11 @@ export const HostelComparisonModal: React.FC<HostelComparisonModalProps> = ({
                     {data.hostels.map(h => (
                       <td key={h.id} className="p-3">
                         <span className={`px-2 py-0.5 rounded text-[10px] font-black ${
-                          h.availabilityStatus === 'AVAILABLE' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+                          h.availabilityStatus === 'AVAILABLE'
+                            ? 'bg-emerald-100 text-emerald-800'
+                            : h.availabilityStatus === 'BOOKED'
+                            ? 'bg-red-100 text-red-800'
+                            : 'bg-amber-100 text-amber-800'
                         }`}>
                           {h.availabilityStatus.replace(/_/g, ' ')}
                         </span>

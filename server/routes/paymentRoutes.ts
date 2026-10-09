@@ -3,6 +3,7 @@ import crypto from 'crypto';
 import db from '../db';
 import { authenticate, AuthenticatedRequest } from '../middleware/auth';
 import { getPaymentGateway } from '../services/paymentGateway';
+import { realtimeService } from '../services/realtimeService';
 
 const router = Router();
 
@@ -103,6 +104,16 @@ router.post('/initialize', authenticate, async (req: AuthenticatedRequest, res: 
 
     if (booking.payment_status === 'PAID') {
       return res.status(400).json({ error: 'This booking has already been paid for' });
+    }
+
+    // Check if property is already booked by another confirmed reservation
+    const otherConfirmed = db.prepare(`
+      SELECT COUNT(*) as count FROM bookings
+      WHERE property_id = ? AND id != ? AND status = 'CONFIRMED'
+    `).get(booking.property_id, booking.id) as { count: number };
+
+    if (otherConfirmed && otherConfirmed.count > 0) {
+      return res.status(409).json({ error: 'This hostel has already been booked and confirmed by another student' });
     }
 
     // 2. Authoritative Price Calculation (Zero trust on frontend values)
@@ -360,6 +371,16 @@ router.get('/verify/:reference', authenticate, async (req: AuthenticatedRequest,
       db.transaction(() => {
         const now = new Date().toISOString();
 
+        // Concurrency check: Ensure no other booking has been CONFIRMED for this property
+        const otherConfirmed = db.prepare(`
+          SELECT COUNT(*) as count FROM bookings
+          WHERE property_id = ? AND id != ? AND status = 'CONFIRMED'
+        `).get(payment.property_id, payment.booking_id) as { count: number };
+
+        if (otherConfirmed && otherConfirmed.count > 0) {
+          throw new Error('Hostel is already booked and confirmed by another student');
+        }
+
         // 1. Update Payment Record
         db.prepare(`
           UPDATE payments
@@ -387,6 +408,13 @@ router.get('/verify/:reference', authenticate, async (req: AuthenticatedRequest,
               updated_at = datetime('now')
           WHERE id = ?
         `).run(now, payment.booking_id);
+
+        // 2b. Update Property availability status to BOOKED
+        db.prepare(`
+          UPDATE properties
+          SET availability_status = 'BOOKED', updated_at = datetime('now')
+          WHERE id = ?
+        `).run(payment.property_id);
 
         // 3. Write Immutable Financial Ledger Entries (Double-Entry audit trail)
         const ledgerId1 = `ledg-${crypto.randomUUID()}`;
@@ -470,6 +498,11 @@ router.get('/verify/:reference', authenticate, async (req: AuthenticatedRequest,
           );
         }
       })();
+
+      realtimeService.broadcast('property:availability_changed', {
+        propertyId: payment.property_id,
+        availabilityStatus: 'BOOKED'
+      });
 
       return res.json({
         success: true,
@@ -599,6 +632,7 @@ router.post('/webhook', async (req: Request, res: Response) => {
       `).get(reference) as any;
 
       if (payment && payment.status !== 'SUCCESS') {
+        let propertyMarkedBooked = false;
         db.transaction(() => {
           const now = new Date().toISOString();
           db.prepare(`
@@ -617,6 +651,21 @@ router.post('/webhook', async (req: Request, res: Response) => {
             WHERE id = ?
           `).run(now, payment.booking_id);
 
+          // Check concurrency: ensure another booking hasn't already been CONFIRMED for this property
+          const otherConfirmed = db.prepare(`
+            SELECT COUNT(*) as count FROM bookings
+            WHERE property_id = ? AND id != ? AND status = 'CONFIRMED'
+          `).get(payment.property_id, payment.booking_id) as { count: number };
+
+          if (!otherConfirmed || otherConfirmed.count === 0) {
+            db.prepare(`
+              UPDATE properties
+              SET availability_status = 'BOOKED', updated_at = datetime('now')
+              WHERE id = ?
+            `).run(payment.property_id);
+            propertyMarkedBooked = true;
+          }
+
           // Record Ledger Entry
           db.prepare(`
             INSERT INTO financial_ledger (
@@ -628,6 +677,13 @@ router.post('/webhook', async (req: Request, res: Response) => {
             `Webhook verified payment for ${reference}`
           );
         })();
+
+        if (propertyMarkedBooked) {
+          realtimeService.broadcast('property:availability_changed', {
+            propertyId: payment.property_id,
+            availabilityStatus: 'BOOKED'
+          });
+        }
       }
     }
 

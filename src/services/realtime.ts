@@ -201,6 +201,17 @@ class RealtimeClient {
         } catch {}
       });
 
+      // 8. Property Availability Changed (Authoritative Realtime Update)
+      es.addEventListener('property:availability_changed', (e: MessageEvent) => {
+        try {
+          const data = JSON.parse(e.data);
+          console.log('[REALTIME AVAILABILITY] Property availability changed:', data);
+          this.dispatchLocalEvent('hostel_ease_properties_updated', data);
+        } catch (err) {
+          console.warn('[REALTIME AVAILABILITY] Failed to parse availability changed event', err);
+        }
+      });
+
       es.onerror = () => {
         this.isConnecting = false;
         if (this.eventSource) {

@@ -45,7 +45,7 @@ router.get('/', authenticate, (req: AuthenticatedRequest, res: Response) => {
       const activeBookingRow = db.prepare(`
         SELECT COUNT(*) as count 
         FROM bookings 
-        WHERE property_id = ? AND status IN ('PENDING', 'CONFIRMED')
+        WHERE property_id = ? AND status = 'CONFIRMED'
       `).get(p.id) as { count: number } | undefined;
       const activeBookingCount = activeBookingRow ? activeBookingRow.count : 0;
       const isBooked = activeBookingCount > 0 || p.availability_status === 'BOOKED' || p.availability_status === 'FULLY_OCCUPIED';

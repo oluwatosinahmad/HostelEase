@@ -27,7 +27,7 @@ const getSavedPropStmt = db.prepare(`
 const getActiveBookingCountStmt = db.prepare(`
   SELECT COUNT(*) as count 
   FROM bookings 
-  WHERE property_id = ? AND status IN ('PENDING', 'CONFIRMED')
+  WHERE property_id = ? AND status = 'CONFIRMED'
 `);
 
 // Pre-compiled statements for Single Property Details

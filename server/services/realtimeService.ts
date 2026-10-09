@@ -190,6 +190,25 @@ class RealtimeService {
   }
 
   /**
+   * Broadcast real-time event to all currently connected clients across the platform
+   */
+  public broadcast(eventName: string, data: any): number {
+    let sent = 0;
+    const sseMessage = `event: ${eventName}\ndata: ${JSON.stringify(data)}\n\n`;
+
+    for (const [cid, client] of this.clients.entries()) {
+      try {
+        client.res.write(sseMessage);
+        sent++;
+      } catch {
+        this.removeClient(cid);
+      }
+    }
+
+    return sent;
+  }
+
+  /**
    * Return number of active connections
    */
   public getStats() {

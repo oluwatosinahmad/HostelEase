@@ -182,6 +182,12 @@ export const SavedHostelsView: React.FC<SavedHostelsViewProps> = ({
       {!loading && savedHostels.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {savedHostels.map(property => {
+            const isPropertyBooked = Boolean(
+              (property as any).isBooked ||
+              property.availabilityStatus === 'BOOKED' ||
+              property.availabilityStatus === 'FULLY_OCCUPIED' ||
+              ((property as any).activeBookingCount !== undefined && (property as any).activeBookingCount > 0)
+            );
             const hasAvailabilityAlert = property.availabilityStatus === 'LIMITED' || property.availabilityStatus === 'FULLY_OCCUPIED';
 
             return (
@@ -213,12 +219,18 @@ export const SavedHostelsView: React.FC<SavedHostelsViewProps> = ({
                     </button>
                   </div>
 
-                  <div className="absolute bottom-3 left-3">
-                    <span className={`px-2.5 py-1 rounded-xl text-[10px] font-bold ${
-                      property.availabilityStatus === 'AVAILABLE' ? 'bg-emerald-100 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-300' : 'bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-300'
-                    } backdrop-blur-md shadow-sm`}>
-                      {property.availabilityStatus.replace(/_/g, ' ')}
-                    </span>
+                  <div className="absolute bottom-3 left-3 z-10">
+                    {isPropertyBooked ? (
+                      <span className="px-2.5 py-1 rounded-xl text-[11px] font-black border bg-red-600 text-white border-red-700 shadow-md backdrop-blur-md bg-opacity-95 flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
+                        Booked
+                      </span>
+                    ) : (
+                      <span className="px-2.5 py-1 rounded-xl text-[11px] font-black border bg-emerald-600 text-white border-emerald-700 shadow-md backdrop-blur-md bg-opacity-95 flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-white" />
+                        Available
+                      </span>
+                    )}
                   </div>
                 </div>
 

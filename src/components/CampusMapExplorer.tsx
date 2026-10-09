@@ -483,7 +483,7 @@ export const CampusMapExplorer: React.FC<CampusMapExplorerProps> = ({
       const isCompared = comparedIds.includes(m.id);
 
       const priceShort = `₦${Math.round(m.rentAmount / 1000)}k`;
-      const badgeColor = m.availabilityStatus === 'AVAILABLE' ? 'bg-emerald-600 border-white text-white' : 'bg-amber-600 border-white text-white';
+      const badgeColor = m.availabilityStatus === 'AVAILABLE' ? 'bg-emerald-600 border-white text-white' : m.availabilityStatus === 'BOOKED' ? 'bg-red-600 border-white text-white' : 'bg-amber-600 border-white text-white';
 
       const customMarkerIcon = L.divIcon({
         className: 'hostel-price-marker',
@@ -1102,7 +1102,11 @@ export const CampusMapExplorer: React.FC<CampusMapExplorerProps> = ({
               <div className="flex-1 min-w-0 space-y-1">
                 <div className="flex items-center gap-1.5 flex-wrap">
                   <span className={`px-2 py-0.5 rounded text-[9px] font-black ${
-                    selectedMarker.availabilityStatus === 'AVAILABLE' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+                    selectedMarker.availabilityStatus === 'AVAILABLE'
+                      ? 'bg-emerald-100 text-emerald-800'
+                      : selectedMarker.availabilityStatus === 'BOOKED'
+                      ? 'bg-red-100 text-red-800'
+                      : 'bg-amber-100 text-amber-800'
                   }`}>
                     {selectedMarker.availabilityStatus.replace(/_/g, ' ')}
                   </span>

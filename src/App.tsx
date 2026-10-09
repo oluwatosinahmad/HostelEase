@@ -509,10 +509,6 @@ function MainApp() {
     ]).finally(() => {
       setIsInitialReady(true);
     });
-
-    const handlePropsUpdate = () => loadInitialData();
-    window.addEventListener('hostel_ease_properties_updated', handlePropsUpdate);
-    return () => window.removeEventListener('hostel_ease_properties_updated', handlePropsUpdate);
   }, []);
 
   // Central function to fetch saved properties from backend
@@ -551,6 +547,16 @@ function MainApp() {
     };
     window.addEventListener('hostel_ease_saved_updated', handleSavedUpdated);
     return () => window.removeEventListener('hostel_ease_saved_updated', handleSavedUpdated);
+  }, [fetchSavedProperties]);
+
+  // Listen to authoritative property availability changes (realtime SSE / cross-device)
+  useEffect(() => {
+    const handlePropsUpdate = () => {
+      loadInitialData();
+      fetchSavedProperties();
+    };
+    window.addEventListener('hostel_ease_properties_updated', handlePropsUpdate);
+    return () => window.removeEventListener('hostel_ease_properties_updated', handlePropsUpdate);
   }, [fetchSavedProperties]);
 
   // Role-based route guard - soft notification without jarring forced jumps

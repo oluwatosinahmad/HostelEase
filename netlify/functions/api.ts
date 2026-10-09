@@ -1915,7 +1915,7 @@ export default async (req: Request): Promise<Response> => {
     }
 
     const mappedProps = publicProps.map(p => {
-      const activeBooking = memoryBookings.find(b => b.propertyId === p.id && ['PENDING', 'CONFIRMED'].includes(b.status));
+      const activeBooking = memoryBookings.find(b => b.propertyId === p.id && b.status === 'CONFIRMED');
       const isBooked = Boolean(activeBooking) || p.availabilityStatus === 'BOOKED' || p.availabilityStatus === 'FULL';
       return {
         ...p,
@@ -1945,7 +1945,7 @@ export default async (req: Request): Promise<Response> => {
       return new Response(JSON.stringify({ error: 'Property not found or pending review' }), { status: 404, headers: CORS_HEADERS });
     }
 
-    const activeBooking = memoryBookings.find(b => b.propertyId === found.id && ['PENDING', 'CONFIRMED'].includes(b.status));
+    const activeBooking = memoryBookings.find(b => b.propertyId === found.id && b.status === 'CONFIRMED');
     const isBooked = Boolean(activeBooking) || found.availabilityStatus === 'BOOKED' || found.availabilityStatus === 'FULL';
     const videoUrl = found.videoTourUrl || (found.media && (found.media as any[]).find((m: any) => m.mediaType === 'VIDEO' || m.type === 'VIDEO' || m.category === 'VIDEO_WALKTHROUGH')?.url) || null;
     const formattedProperty = {
@@ -4683,7 +4683,7 @@ export default async (req: Request): Promise<Response> => {
       const prop = memoryProperties.find(p => p.id === body.propertyId);
 
       // Check if already booked
-      const activeBooking = memoryBookings.find(b => b.propertyId === body.propertyId && ['PENDING', 'CONFIRMED'].includes(b.status));
+      const activeBooking = memoryBookings.find(b => b.propertyId === body.propertyId && b.status === 'CONFIRMED');
       if (activeBooking || prop?.availabilityStatus === 'BOOKED' || prop?.availabilityStatus === 'FULL') {
         return new Response(JSON.stringify({ error: 'Sorry, this hostel is already booked.' }), { status: 409, headers: CORS_HEADERS });
       }
@@ -4705,12 +4705,8 @@ export default async (req: Request): Promise<Response> => {
 
       await saveCloudBooking(bk);
 
-      if (prop) {
-        prop.availabilityStatus = 'BOOKED';
-        prop.isBooked = true;
-        prop.bookingStatus = 'BOOKED';
-        await saveCloudProperty(prop);
-      }
+      // Note: Do not set prop.availabilityStatus to BOOKED on PENDING creation;
+      // It only becomes BOOKED when the booking is authoritatively CONFIRMED.
 
       // Notify Landlord
       await saveCloudNotification({
@@ -4734,8 +4730,22 @@ export default async (req: Request): Promise<Response> => {
     const bkId = pathname.replace('/api/bookings/', '').replace('/confirm', '');
     const bk = memoryBookings.find(b => b.id === bkId);
     if (bk) {
+      // Concurrency check: Ensure no other booking has been CONFIRMED for this property
+      const otherConfirmed = memoryBookings.find(b => b.propertyId === bk.propertyId && b.id !== bk.id && b.status === 'CONFIRMED');
+      if (otherConfirmed) {
+        return new Response(JSON.stringify({ error: 'This property already has a confirmed booking by another student.' }), { status: 409, headers: CORS_HEADERS });
+      }
+
       bk.status = 'CONFIRMED';
       await saveCloudBooking(bk);
+
+      const prop = memoryProperties.find(p => p.id === bk.propertyId);
+      if (prop) {
+        prop.availabilityStatus = 'BOOKED';
+        prop.isBooked = true;
+        prop.bookingStatus = 'BOOKED';
+        await saveCloudProperty(prop);
+      }
 
       // Notify Student
       await saveCloudNotification({
@@ -4760,7 +4770,7 @@ export default async (req: Request): Promise<Response> => {
       bk.status = 'DECLINED';
       await saveCloudBooking(bk);
 
-      const remainingActive = memoryBookings.filter(b => b.propertyId === bk.propertyId && b.id !== bk.id && ['PENDING', 'CONFIRMED'].includes(b.status));
+      const remainingActive = memoryBookings.filter(b => b.propertyId === bk.propertyId && b.id !== bk.id && b.status === 'CONFIRMED');
       if (remainingActive.length === 0) {
         const prop = memoryProperties.find(p => p.id === bk.propertyId);
         if (prop) {
@@ -4794,7 +4804,7 @@ export default async (req: Request): Promise<Response> => {
       bk.status = 'CANCELLED_BY_STUDENT';
       await saveCloudBooking(bk);
 
-      const remainingActive = memoryBookings.filter(b => b.propertyId === bk.propertyId && b.id !== bk.id && ['PENDING', 'CONFIRMED'].includes(b.status));
+      const remainingActive = memoryBookings.filter(b => b.propertyId === bk.propertyId && b.id !== bk.id && b.status === 'CONFIRMED');
       if (remainingActive.length === 0) {
         const prop = memoryProperties.find(p => p.id === bk.propertyId);
         if (prop) {
@@ -4817,6 +4827,39 @@ export default async (req: Request): Promise<Response> => {
       });
     }
     return new Response(JSON.stringify({ success: true }), { status: 200, headers: CORS_HEADERS });
+  }
+
+  // Payment Verification Endpoint
+  if (pathname.startsWith('/api/payments/verify/') && req.method === 'GET') {
+    const reference = pathname.replace('/api/payments/verify/', '').split('?')[0];
+    const user = parseAuth(req);
+    const bk = memoryBookings.find(b => b.id === reference || (b as any).bookingReference === reference || (b as any).paymentReference === reference);
+    if (bk) {
+      const otherConfirmed = memoryBookings.find(b => b.propertyId === bk.propertyId && b.id !== bk.id && b.status === 'CONFIRMED');
+      if (otherConfirmed) {
+        return new Response(JSON.stringify({ error: 'Hostel is already booked and confirmed by another student' }), { status: 409, headers: CORS_HEADERS });
+      }
+      bk.status = 'CONFIRMED';
+      (bk as any).paymentStatus = 'PAID';
+      await saveCloudBooking(bk);
+
+      const prop = memoryProperties.find(p => p.id === bk.propertyId);
+      if (prop) {
+        prop.availabilityStatus = 'BOOKED';
+        prop.isBooked = true;
+        prop.bookingStatus = 'BOOKED';
+        await saveCloudProperty(prop);
+      }
+    }
+    return new Response(JSON.stringify({
+      success: true,
+      status: 'SUCCESS',
+      message: 'Payment verified and credited successfully',
+      payment: {
+        paymentReference: reference,
+        status: 'SUCCESS'
+      }
+    }), { status: 200, headers: CORS_HEADERS });
   }
 
   // 18b. Provider Financials

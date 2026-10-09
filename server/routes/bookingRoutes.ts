@@ -3,6 +3,7 @@ import crypto from 'crypto';
 import db from '../db.js';
 import { authenticate, AuthenticatedRequest } from '../middleware/auth.js';
 import { notificationService } from '../services/notificationService.js';
+import { realtimeService } from '../services/realtimeService.js';
 
 const router = Router();
 
@@ -154,14 +155,14 @@ const createReservationHandler = (req: AuthenticatedRequest, res: Response) => {
         throw new Error('Hostel property not found');
       }
 
-      // Check if property is already booked by an active or confirmed booking
-      const activePropertyBooking = db.prepare(`
+      // Check if property is already booked by a confirmed booking or marked BOOKED
+      const confirmedPropertyBooking = db.prepare(`
         SELECT id, booking_reference
         FROM bookings
-        WHERE property_id = ? AND status IN ('PENDING', 'CONFIRMED')
+        WHERE property_id = ? AND status = 'CONFIRMED'
       `).get(propertyId) as any;
 
-      if (activePropertyBooking || property.availability_status === 'BOOKED' || property.availability_status === 'FULL') {
+      if (confirmedPropertyBooking || property.availability_status === 'BOOKED' || property.availability_status === 'FULLY_OCCUPIED' || property.availability_status === 'FULL') {
         const err: any = new Error('Sorry, this hostel is already booked.');
         err.statusCode = 409;
         throw err;
@@ -292,14 +293,7 @@ const createReservationHandler = (req: AuthenticatedRequest, res: Response) => {
         specialRequests || null
       );
 
-      // 9. Update Property status to BOOKED
-      db.prepare(`
-        UPDATE properties
-        SET availability_status = 'BOOKED', updated_at = datetime('now')
-        WHERE id = ?
-      `).run(propertyId);
-
-      // 10. Record Initial Status History
+      // 9. Record Initial Status History
       db.prepare(`
         INSERT INTO booking_status_history (id, booking_id, actor_id, actor_role, previous_status, new_status, reason, notes)
         VALUES (?, ?, ?, 'STUDENT', NULL, 'PENDING', NULL, 'Reservation created by student')
@@ -738,11 +732,30 @@ router.patch('/:id/confirm', authenticate, (req: AuthenticatedRequest, res: Resp
 
   try {
     db.transaction(() => {
+      // Concurrency check: Ensure property is not already claimed by another confirmed booking
+      const otherConfirmed = db.prepare(`
+        SELECT id, booking_reference FROM bookings 
+        WHERE property_id = ? AND status = 'CONFIRMED' AND id != ?
+      `).get(booking.property_id, id) as any;
+
+      if (otherConfirmed) {
+        const err: any = new Error(`Hostel is already confirmed under booking ${otherConfirmed.booking_reference}`);
+        err.statusCode = 409;
+        throw err;
+      }
+
       db.prepare(`
         UPDATE bookings
         SET status = 'CONFIRMED', updated_at = datetime('now')
         WHERE id = ?
       `).run(id);
+
+      // Authoritative transition: update property availability to BOOKED
+      db.prepare(`
+        UPDATE properties
+        SET availability_status = 'BOOKED', updated_at = datetime('now')
+        WHERE id = ?
+      `).run(booking.property_id);
 
       db.prepare(`
         INSERT INTO booking_status_history (id, booking_id, actor_id, actor_role, previous_status, new_status, notes)
@@ -781,9 +794,16 @@ router.patch('/:id/confirm', authenticate, (req: AuthenticatedRequest, res: Resp
       }
     })();
 
+    // Broadcast real-time availability change to all clients
+    realtimeService.broadcast('property:availability_changed', {
+      propertyId: booking.property_id,
+      availabilityStatus: 'BOOKED',
+      bookingReference: booking.booking_reference
+    });
+
     res.json({ message: 'Reservation confirmed successfully', status: 'CONFIRMED' });
   } catch (err: any) {
-    res.status(500).json({ error: err.message || 'Failed to confirm reservation' });
+    res.status(err.statusCode || 500).json({ error: err.message || 'Failed to confirm reservation' });
   }
 });
 
@@ -839,11 +859,11 @@ router.patch('/:id/decline', authenticate, (req: AuthenticatedRequest, res: Resp
         `).run(booking.bedspace_id);
       }
 
-      // Check if property still has any active/confirmed bookings; if not, revert availability_status to AVAILABLE
-      const remainingActive = db.prepare(`
-        SELECT COUNT(*) as count FROM bookings WHERE property_id = ? AND id != ? AND status IN ('PENDING', 'CONFIRMED')
+      // Check if property still has any confirmed bookings; if not, revert availability_status to AVAILABLE
+      const remainingConfirmed = db.prepare(`
+        SELECT COUNT(*) as count FROM bookings WHERE property_id = ? AND id != ? AND status = 'CONFIRMED'
       `).get(booking.property_id, id) as { count: number };
-      if (!remainingActive || remainingActive.count === 0) {
+      if (!remainingConfirmed || remainingConfirmed.count === 0) {
         db.prepare(`UPDATE properties SET availability_status = 'AVAILABLE', updated_at = datetime('now') WHERE id = ?`).run(booking.property_id);
       }
 
@@ -885,6 +905,12 @@ router.patch('/:id/decline', authenticate, (req: AuthenticatedRequest, res: Resp
       }
     })();
 
+    // Check if property reverted to AVAILABLE and broadcast
+    const hasRemainingConfirmed = db.prepare(`SELECT 1 FROM bookings WHERE property_id = ? AND status = 'CONFIRMED'`).get(booking.property_id);
+    if (!hasRemainingConfirmed) {
+      realtimeService.broadcast('property:availability_changed', { propertyId: booking.property_id, availabilityStatus: 'AVAILABLE' });
+    }
+
     res.json({ message: 'Reservation declined and capacity restored', status: 'DECLINED' });
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Failed to decline reservation' });
@@ -925,6 +951,8 @@ router.patch('/:id/cancel', authenticate, (req: AuthenticatedRequest, res: Respo
   const actorTitle = isStudent ? 'Student' : 'Agent';
 
   try {
+    let revertedToAvailable = false;
+
     db.transaction(() => {
       // 1. Update Booking
       db.prepare(`
@@ -950,12 +978,13 @@ router.patch('/:id/cancel', authenticate, (req: AuthenticatedRequest, res: Respo
         `).run(booking.bedspace_id);
       }
 
-      // Check if property still has any active/confirmed bookings; if not, revert availability_status to AVAILABLE
-      const remainingActive = db.prepare(`
-        SELECT COUNT(*) as count FROM bookings WHERE property_id = ? AND id != ? AND status IN ('PENDING', 'CONFIRMED')
+      // Check if property still has any confirmed bookings; if not, revert availability_status to AVAILABLE
+      const remainingConfirmed = db.prepare(`
+        SELECT COUNT(*) as count FROM bookings WHERE property_id = ? AND id != ? AND status = 'CONFIRMED'
       `).get(booking.property_id, id) as { count: number };
-      if (!remainingActive || remainingActive.count === 0) {
+      if (!remainingConfirmed || remainingConfirmed.count === 0) {
         db.prepare(`UPDATE properties SET availability_status = 'AVAILABLE', updated_at = datetime('now') WHERE id = ?`).run(booking.property_id);
+        revertedToAvailable = true;
       }
 
       // 4. Status History
@@ -1006,6 +1035,13 @@ router.patch('/:id/cancel', authenticate, (req: AuthenticatedRequest, res: Respo
       }
     })();
 
+    if (revertedToAvailable) {
+      realtimeService.broadcast('property:availability_changed', {
+        propertyId: booking.property_id,
+        availabilityStatus: 'AVAILABLE'
+      });
+    }
+
     res.json({ message: 'Reservation cancelled and capacity restored', status: newStatus });
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Failed to cancel reservation' });
@@ -1048,12 +1084,16 @@ router.post('/check-expirations', (req, res: Response) => {
           `).run(booking.bedspace_id);
         }
 
-        // Check if property still has any active/confirmed bookings; if not, revert availability_status to AVAILABLE
-        const remainingActive = db.prepare(`
-          SELECT COUNT(*) as count FROM bookings WHERE property_id = ? AND id != ? AND status IN ('PENDING', 'CONFIRMED')
+        // Check if property still has any confirmed bookings; if not, revert availability_status to AVAILABLE
+        const remainingConfirmed = db.prepare(`
+          SELECT COUNT(*) as count FROM bookings WHERE property_id = ? AND id != ? AND status = 'CONFIRMED'
         `).get(booking.property_id, booking.id) as { count: number };
-        if (!remainingActive || remainingActive.count === 0) {
+        if (!remainingConfirmed || remainingConfirmed.count === 0) {
           db.prepare(`UPDATE properties SET availability_status = 'AVAILABLE', updated_at = datetime('now') WHERE id = ?`).run(booking.property_id);
+          realtimeService.broadcast('property:availability_changed', {
+            propertyId: booking.property_id,
+            availabilityStatus: 'AVAILABLE'
+          });
         }
 
         db.prepare(`
