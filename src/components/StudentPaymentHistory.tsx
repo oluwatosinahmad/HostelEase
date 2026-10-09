@@ -59,10 +59,10 @@ export const StudentPaymentHistory: React.FC<StudentPaymentHistoryProps> = ({
     if (!searchQuery.trim()) return true;
     const q = searchQuery.toLowerCase();
     return (
-      p.paymentReference.toLowerCase().includes(q) ||
-      p.bookingReference.toLowerCase().includes(q) ||
-      p.property.title.toLowerCase().includes(q) ||
-      p.property.areaName.toLowerCase().includes(q)
+      (p.paymentReference || '').toLowerCase().includes(q) ||
+      (p.bookingReference || '').toLowerCase().includes(q) ||
+      (p.property?.title || '').toLowerCase().includes(q) ||
+      (p.property?.areaName || '').toLowerCase().includes(q)
     );
   });
 
@@ -212,15 +212,15 @@ export const StudentPaymentHistory: React.FC<StudentPaymentHistoryProps> = ({
                 <div className="bg-slate-50 rounded-lg p-3 border border-slate-100 space-y-1">
                   <div className="flex items-center gap-1.5 font-bold text-slate-900 text-sm">
                     <Building2 className="w-4 h-4 text-emerald-600" />
-                    <span>{payment.property.title}</span>
+                    <span>{payment.property?.title || 'Accommodation'}</span>
                   </div>
-                  <p className="text-xs text-slate-500">{payment.property.address} ({payment.property.areaName})</p>
+                  <p className="text-xs text-slate-500">{payment.property?.address || 'Campus Vicinity'} {payment.property?.areaName ? `(${payment.property.areaName})` : ''}</p>
                   <div className="flex items-center gap-2 pt-1 text-[11px] text-slate-600">
-                    <span>{payment.room.name}</span>
-                    {payment.room.bedspaceNumber && (
+                    <span>{payment.room?.name || 'Standard Unit'}</span>
+                    {payment.room?.bedspaceNumber && (
                       <span className="text-emerald-700 font-semibold">• Space {payment.room.bedspaceNumber}</span>
                     )}
-                    <span>• Booking: <strong className="font-mono">{payment.bookingReference}</strong></span>
+                    <span>• Booking: <strong className="font-mono">{payment.bookingReference || 'N/A'}</strong></span>
                   </div>
                 </div>
               </div>

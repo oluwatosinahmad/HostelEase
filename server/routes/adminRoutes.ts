@@ -1158,7 +1158,7 @@ router.post(
 // 10. SYSTEM HEALTH MONITOR
 // =============================================================================
 router.get(
-  '/system-health',
+  ['/system-health', '/system/health'],
   authenticate,
   requirePermission('system_health.view'),
   (req: AuthenticatedRequest, res: Response) => {

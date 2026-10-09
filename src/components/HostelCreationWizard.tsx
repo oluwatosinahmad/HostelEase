@@ -91,7 +91,7 @@ interface RoomConfig {
 }
 
 export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
-  areas,
+  areas = [],
   onComplete,
   onCancel,
   onShowToast,
@@ -775,7 +775,7 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
                         }}
                         className="w-full text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 text-slate-900 dark:text-white font-medium focus:ring-2 focus:ring-emerald-500 focus:outline-none cursor-pointer"
                       >
-                        {areas.map(a => (
+                        {(areas || []).map(a => (
                           <option key={a.id} value={a.id}>{a.name} ({a.approxDistanceMinKm}-{a.approxDistanceMaxKm} km from campus)</option>
                         ))}
                         <option value="custom">➕ + Add Custom Location / New Area...</option>
@@ -842,7 +842,7 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
                         onChange={(e) => setAreaId(e.target.value)}
                         className="w-full text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-slate-900 dark:text-white cursor-pointer"
                       >
-                        {areas.map(a => (
+                        {(areas || []).map(a => (
                           <option key={a.id} value={a.id}>{a.name}</option>
                         ))}
                       </select>

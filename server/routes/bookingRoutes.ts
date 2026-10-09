@@ -576,6 +576,137 @@ const handleBookingReview = (req: AuthenticatedRequest, res: Response) => {
 router.get('/review/:id', authenticate, handleBookingReview);
 router.get('/:id/review', authenticate, handleBookingReview);
 
+// 3.5. List User / Provider Bookings
+router.get(['/', '/my-bookings', '/my'], authenticate, (req: AuthenticatedRequest, res: Response) => {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+
+  const { status } = req.query;
+  const userRole = (req.user.role || '').toUpperCase();
+  const isAgent = userRole === 'PROVIDER' || userRole === 'LANDLORD' || userRole === 'AGENT';
+  const isStudent = userRole === 'STUDENT';
+  const isAdmin = userRole === 'ADMIN';
+
+  try {
+    let whereClause = '';
+    const params: any[] = [];
+
+    if (isStudent) {
+      whereClause = 'WHERE b.student_id = ?';
+      params.push(req.user.id);
+    } else if (isAgent) {
+      whereClause = 'WHERE b.provider_id = ?';
+      params.push(req.user.id);
+    } else if (isAdmin) {
+      whereClause = 'WHERE 1=1';
+    } else {
+      whereClause = 'WHERE b.student_id = ?';
+      params.push(req.user.id);
+    }
+
+    if (status && status !== 'ALL') {
+      whereClause += ' AND b.status = ?';
+      params.push(status);
+    }
+
+    const rows = db.prepare(`
+      SELECT 
+        b.*,
+        p.title as propertyTitle,
+        p.address as propertyAddress,
+        COALESCE(
+          (SELECT url FROM property_media WHERE property_id = p.id AND is_cover = 1 LIMIT 1),
+          (SELECT url FROM property_media WHERE property_id = p.id LIMIT 1),
+          'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=800&q=80'
+        ) as propertyCoverImage,
+        p.nearby_landmark as nearbyLandmark,
+        p.distance_from_campus_km as distanceFromCampusKm,
+        a.name as areaName,
+        r.room_name as roomName,
+        r.room_type as roomType,
+        r.is_ensuite as isEnsuite,
+        bs.bedspace_number as bedspaceNumber,
+        u_student.full_name as studentName,
+        u_student.email as studentEmail,
+        u_student.phone as studentPhone,
+        u_student.avatar_url as studentAvatarUrl,
+        sp.matric_no as studentMatricNumber,
+        sp.department as studentDepartment,
+        sp.level as studentLevel,
+        sp.gender as studentGender,
+        u_provider.full_name as providerName,
+        u_provider.email as providerEmail,
+        u_provider.phone as providerPhone
+      FROM bookings b
+      JOIN properties p ON b.property_id = p.id
+      JOIN areas a ON p.area_id = a.id
+      JOIN rooms r ON b.room_id = r.id
+      LEFT JOIN bedspaces bs ON b.bedspace_id = bs.id
+      JOIN users u_student ON b.student_id = u_student.id
+      LEFT JOIN student_profiles sp ON u_student.id = sp.user_id
+      JOIN users u_provider ON b.provider_id = u_provider.id
+      ${whereClause}
+      ORDER BY b.created_at DESC
+    `).all(...params) as any[];
+
+    const bookings = rows.map(r => ({
+      id: r.id,
+      bookingReference: r.booking_reference,
+      propertyId: r.property_id,
+      propertyTitle: r.propertyTitle,
+      propertyAddress: r.propertyAddress,
+      propertyCoverImage: r.propertyCoverImage,
+      distanceFromCampusKm: r.distanceFromCampusKm,
+      nearbyLandmark: r.nearbyLandmark,
+      areaName: r.areaName,
+      roomId: r.room_id,
+      roomName: r.roomName,
+      roomType: r.roomType,
+      bedspaceId: r.bedspace_id,
+      bedspaceNumber: r.bedspaceNumber,
+      moveInDate: r.move_in_date,
+      academicSession: r.academic_session,
+      durationMonths: r.duration_months || 12,
+      rentAmount: r.rent_amount,
+      serviceCharge: r.service_charge,
+      agencyFee: r.agency_fee,
+      cautionDeposit: r.caution_deposit,
+      otherCharges: r.other_charges,
+      totalCost: r.total_cost,
+      status: r.status,
+      expiresAt: r.expires_at,
+      cancellationReason: r.cancellation_reason,
+      declineReason: r.decline_reason,
+      specialRequests: r.special_requests,
+      paymentStatus: r.payment_status,
+      paidAt: r.paid_at,
+      createdAt: r.created_at,
+      updatedAt: r.updated_at,
+      studentName: r.studentName,
+      studentEmail: r.studentEmail,
+      studentPhone: r.studentPhone,
+      studentAvatarUrl: r.studentAvatarUrl,
+      studentMatricNumber: r.studentMatricNumber,
+      studentMatricNo: r.studentMatricNumber,
+      studentDepartment: r.studentDepartment,
+      studentLevel: r.studentLevel,
+      studentGender: r.studentGender,
+      providerName: r.providerName,
+      providerEmail: r.providerEmail,
+      providerPhone: r.providerPhone,
+      provider: {
+        name: r.providerName,
+        email: r.providerEmail,
+        phone: r.providerPhone
+      }
+    }));
+
+    return res.json({ bookings });
+  } catch (err: any) {
+    console.error('Fetch bookings error:', err);
+    return res.status(500).json({ error: 'Failed to retrieve bookings: ' + err.message });
+  }
+});
+
 // 4. Get Booking Details by ID
 router.get('/:id', authenticate, (req: AuthenticatedRequest, res: Response) => {
   const { id } = req.params;

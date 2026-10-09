@@ -298,7 +298,7 @@ export const StudentInspectionCenter: React.FC<StudentInspectionCenterProps> = (
                       isCompleted ? 'bg-slate-100 text-slate-800' :
                       'bg-rose-100 text-rose-900'
                     }`}>
-                      {isConfirmed ? '✓ Confirmed by Agent' : isPending ? '⏳ Awaiting Agent' : insp.status.replace(/_/g, ' ')}
+                      {isConfirmed ? '✓ Confirmed by Agent' : isPending ? '⏳ Awaiting Agent' : (insp.status || 'PENDING').replace(/_/g, ' ')}
                     </span>
                   </div>
                 </div>

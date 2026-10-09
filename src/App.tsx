@@ -1878,70 +1878,79 @@ function MainApp() {
               message="Unable to load your student dashboard right now. Please try again."
               onReturnHome={() => setCurrentView('home')}
             >
-              <StudentDashboard
-                areas={areas}
-                initialTab={studentDashboardTab}
-                onNavigateToSearch={() => {
-                  setCurrentView('search');
-                  window.scrollTo({ top: 0, behavior: 'smooth' });
-                }}
-                onNavigateToSaved={() => {
-                  setCurrentView('saved');
-                  window.scrollTo({ top: 0, behavior: 'smooth' });
-                }}
-                onNavigateToInspections={() => {
-                  setCurrentView('inspections');
-                  window.scrollTo({ top: 0, behavior: 'smooth' });
-                }}
-                onNavigateToBookings={() => {
-                  setCurrentView('bookings');
-                  window.scrollTo({ top: 0, behavior: 'smooth' });
-                }}
-                onNavigateToPayments={() => {
-                  setCurrentView('payments');
-                  window.scrollTo({ top: 0, behavior: 'smooth' });
-                }}
-                onNavigateToMoveIn={() => {
-                  setCurrentView('move-in');
-                  window.scrollTo({ top: 0, behavior: 'smooth' });
-                }}
-                onNavigateToHistory={() => {
-                  setCurrentView('history');
-                  window.scrollTo({ top: 0, behavior: 'smooth' });
-                }}
-                onNavigateToMessages={() => {
-                  setCurrentView('messages');
-                  window.scrollTo({ top: 0, behavior: 'smooth' });
-                }}
-                onNavigateToCommunity={() => {
-                  setCurrentView('community');
-                  window.scrollTo({ top: 0, behavior: 'smooth' });
-                }}
-                onOpenConversation={handleOpenConversation}
-                onSelectProperty={(id) => setSelectedPropertyId(id)}
-                onApplyPreferencesToSearch={(prefs) => {
-                  setFilters(prev => ({
-                    ...prev,
-                    minPrice: prefs.minBudget ? Number(prefs.minBudget) : prev.minPrice,
-                    maxPrice: prefs.maxBudget ? Number(prefs.maxBudget) : prev.maxPrice,
-                    maxDistance: prefs.maxDistanceKm ? Number(prefs.maxDistanceKm) : prev.maxDistance,
-                    roomType: (prefs.preferredRoomTypes && prefs.preferredRoomTypes.length > 0) ? prefs.preferredRoomTypes[0] : 'all',
-                    genderPreference: prefs.genderPreference || 'ANY',
-                    facilities: (prefs.preferredFacilities && prefs.preferredFacilities.length > 0) ? prefs.preferredFacilities : prev.facilities,
-                    areaId: (prefs.preferredAreas && prefs.preferredAreas.length > 0) ? prefs.preferredAreas[0] : 'all'
-                  }));
-                  setCurrentView('search');
-                  window.scrollTo({ top: 0, behavior: 'smooth' });
-                  showToast('Applied your saved accommodation preferences to search filters!', 'success');
-                }}
-                onShowToast={showToast}
-                onOpenAI={handleOpenAI}
-                onOpenUtilityRadar={() => setUtilityRadarOpen(true)}
-                onOpenSafeWalk={() => setSafeWalkOpen(true)}
-                onOpenMaintenance={() => setMaintenanceOpen(true)}
-                onOpenSplitRent={() => setSplitRentOpen(true)}
-                onOpenWomenSection={() => setWomensLivingOpen(true)}
-              />
+              <Suspense
+                fallback={
+                  <div className="flex-1 flex flex-col items-center justify-center min-h-[50vh] p-8">
+                    <HostelEaseBrandedLoader />
+                    <p className="mt-4 text-xs font-bold text-slate-500 tracking-wider uppercase animate-pulse">Loading student dashboard...</p>
+                  </div>
+                }
+              >
+                <StudentDashboard
+                  areas={areas}
+                  initialTab={studentDashboardTab}
+                  onNavigateToSearch={() => {
+                    setCurrentView('search');
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                  onNavigateToSaved={() => {
+                    setCurrentView('saved');
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                  onNavigateToInspections={() => {
+                    setCurrentView('inspections');
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                  onNavigateToBookings={() => {
+                    setCurrentView('bookings');
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                  onNavigateToPayments={() => {
+                    setCurrentView('payments');
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                  onNavigateToMoveIn={() => {
+                    setCurrentView('move-in');
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                  onNavigateToHistory={() => {
+                    setCurrentView('history');
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                  onNavigateToMessages={() => {
+                    setCurrentView('messages');
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                  onNavigateToCommunity={() => {
+                    setCurrentView('community');
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                  onOpenConversation={handleOpenConversation}
+                  onSelectProperty={(id) => setSelectedPropertyId(id)}
+                  onApplyPreferencesToSearch={(prefs) => {
+                    setFilters(prev => ({
+                      ...prev,
+                      minPrice: prefs.minBudget ? Number(prefs.minBudget) : prev.minPrice,
+                      maxPrice: prefs.maxBudget ? Number(prefs.maxBudget) : prev.maxPrice,
+                      maxDistance: prefs.maxDistanceKm ? Number(prefs.maxDistanceKm) : prev.maxDistance,
+                      roomType: (prefs.preferredRoomTypes && prefs.preferredRoomTypes.length > 0) ? prefs.preferredRoomTypes[0] : 'all',
+                      genderPreference: prefs.genderPreference || 'ANY',
+                      facilities: (prefs.preferredFacilities && prefs.preferredFacilities.length > 0) ? prefs.preferredFacilities : prev.facilities,
+                      areaId: (prefs.preferredAreas && prefs.preferredAreas.length > 0) ? prefs.preferredAreas[0] : 'all'
+                    }));
+                    setCurrentView('search');
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                    showToast('Applied your saved accommodation preferences to search filters!', 'success');
+                  }}
+                  onShowToast={showToast}
+                  onOpenAI={handleOpenAI}
+                  onOpenUtilityRadar={() => setUtilityRadarOpen(true)}
+                  onOpenSafeWalk={() => setSafeWalkOpen(true)}
+                  onOpenMaintenance={() => setMaintenanceOpen(true)}
+                  onOpenSplitRent={() => setSplitRentOpen(true)}
+                  onOpenWomenSection={() => setWomensLivingOpen(true)}
+                />
+              </Suspense>
             </ErrorBoundary>
           )
         )}
@@ -1973,11 +1982,20 @@ function MainApp() {
               message="Unable to load your agent portal right now. Please try again."
               onReturnHome={() => setCurrentView('home')}
             >
-              <ProviderPortal
-                areas={areas}
-                onOpenConversation={handleOpenConversation}
-                onShowToast={showToast}
-              />
+              <Suspense
+                fallback={
+                  <div className="flex-1 flex flex-col items-center justify-center min-h-[50vh] p-8">
+                    <HostelEaseBrandedLoader />
+                    <p className="mt-4 text-xs font-bold text-slate-500 tracking-wider uppercase animate-pulse">Loading agent portal...</p>
+                  </div>
+                }
+              >
+                <ProviderPortal
+                  areas={areas}
+                  onOpenConversation={handleOpenConversation}
+                  onShowToast={showToast}
+                />
+              </Suspense>
             </ErrorBoundary>
           ) : isLoading ? (
             <div className="flex-1 flex flex-col items-center justify-center min-h-[50vh] p-8">
@@ -2015,11 +2033,20 @@ function MainApp() {
               message="Unable to load the admin portal right now. Please try again."
               onReturnHome={() => setCurrentView('home')}
             >
-              <AdminPortal
-                areas={areas}
-                onShowToast={showToast}
-                onNavigateView={setCurrentView}
-              />
+              <Suspense
+                fallback={
+                  <div className="flex-1 flex flex-col items-center justify-center min-h-[50vh] p-8">
+                    <HostelEaseBrandedLoader />
+                    <p className="mt-4 text-xs font-bold text-slate-500 tracking-wider uppercase animate-pulse">Loading admin command portal...</p>
+                  </div>
+                }
+              >
+                <AdminPortal
+                  areas={areas}
+                  onShowToast={showToast}
+                  onNavigateView={setCurrentView}
+                />
+              </Suspense>
             </ErrorBoundary>
           ) : isLoading ? (
             <div className="flex-1 flex flex-col items-center justify-center min-h-[50vh] p-8">

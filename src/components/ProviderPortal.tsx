@@ -81,7 +81,7 @@ interface ProviderPortalProps {
 }
 
 export const ProviderPortal: React.FC<ProviderPortalProps> = ({
-  areas,
+  areas = [],
   onOpenConversation,
   onShowToast
 }) => {

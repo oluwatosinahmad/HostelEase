@@ -35,7 +35,7 @@ const COMMON_FACILITIES = [
 ];
 
 export const StudentOnboardingModal: React.FC<StudentOnboardingModalProps> = ({
-  areas,
+  areas = [],
   isOpen,
   onClose,
   onSavePreferences,
@@ -182,7 +182,7 @@ export const StudentOnboardingModal: React.FC<StudentOnboardingModalProps> = ({
                   Preferred LAUTECH Areas (Select all that apply)
                 </label>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  {areas.map(area => {
+                  {(areas || []).map(area => {
                     const isSelected = selectedAreas.includes(area.id);
                     return (
                       <button
@@ -198,7 +198,7 @@ export const StudentOnboardingModal: React.FC<StudentOnboardingModalProps> = ({
                         <div className="truncate">
                           <p className="truncate">{area.name}</p>
                           <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium">
-                            ~{area.approxDistanceMinKm} - {area.approxDistanceMaxKm}km
+                            ~{area.approxDistanceMinKm ?? 0.5} - {area.approxDistanceMaxKm ?? 2.0}km
                           </span>
                         </div>
                         {isSelected && <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />}

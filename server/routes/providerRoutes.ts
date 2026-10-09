@@ -257,25 +257,28 @@ router.get(
       }
     });
 
+    const statsObj = {
+      totalHostels: totalHostels.count,
+      activeListings: activeHostels.count,
+      pendingApproval: pendingApproval.count,
+      drafts: drafts.count,
+      totalCapacity,
+      availableSpaces,
+      occupiedSpaces,
+      reservedSpaces,
+      pendingBookings,
+      confirmedBookings,
+      pendingInspections,
+      upcomingInspections,
+      unreadMessages: unreadMessagesCount,
+      pendingPayments,
+      totalRevenue,
+      verificationStatus: profile.verification_status || 'PENDING'
+    };
+
     res.json({
-      stats: {
-        totalHostels: totalHostels.count,
-        activeListings: activeHostels.count,
-        pendingApproval: pendingApproval.count,
-        drafts: drafts.count,
-        totalCapacity,
-        availableSpaces,
-        occupiedSpaces,
-        reservedSpaces,
-        pendingBookings,
-        confirmedBookings,
-        pendingInspections,
-        upcomingInspections,
-        unreadMessages: unreadMessagesCount,
-        pendingPayments,
-        totalRevenue,
-        verificationStatus: profile.verification_status || 'PENDING'
-      },
+      stats: statsObj,
+      summary: statsObj,
       properties,
       actionRequired,
       qualityAlerts,
@@ -1566,7 +1569,7 @@ router.get(
 // 6. INSPECTION SCHEDULE AVAILABILITY CONFIGURATION
 // -----------------------------------------------------------------------------
 router.get(
-  '/inspections/availability',
+  ['/inspections/availability', '/inspection-schedules'],
   authenticate,
   requireRole('PROVIDER', 'ADMIN'),
   (req: AuthenticatedRequest, res: Response) => {
@@ -1622,7 +1625,7 @@ router.get(
 );
 
 router.put(
-  '/inspections/availability',
+  ['/inspections/availability', '/inspection-schedules'],
   authenticate,
   requireRole('PROVIDER', 'ADMIN'),
   (req: AuthenticatedRequest, res: Response) => {

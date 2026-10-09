@@ -1003,11 +1003,11 @@ export const AIAccommodationAssistantModal: React.FC<AIAccommodationAssistantMod
                               </tr>
                             </thead>
                             <tbody>
-                              {msg.structuredData.comparison.properties.map((cp: any) => (
+                              {(msg.structuredData.comparison?.properties || []).map((cp: any) => (
                                 <tr key={cp.id} className="border-b border-slate-100 last:border-0">
                                   <td className="py-2 font-bold text-slate-900">{cp.title}</td>
-                                  <td className="py-2 text-emerald-700 font-bold">{formatNaira(cp.pricing.rentAmount)}</td>
-                                  <td className="py-2 text-slate-600">{cp.distanceFromCampusKm}km</td>
+                                  <td className="py-2 text-emerald-700 font-bold">{formatNaira(cp.pricing?.rentAmount || 0)}</td>
+                                  <td className="py-2 text-slate-600">{cp.distanceFromCampusKm ?? 'N/A'}km</td>
                                   <td className="py-2">
                                     {cp.verificationStatus === 'APPROVED' ? (
                                       <span className="text-emerald-600 font-black">✓ Yes</span>
@@ -1029,19 +1029,19 @@ export const AIAccommodationAssistantModal: React.FC<AIAccommodationAssistantMod
                         <div className="flex items-center justify-between pb-2 border-b border-slate-200">
                           <h4 className="font-black text-slate-900 flex items-center gap-1.5">
                             <Calendar className="w-4 h-4 text-emerald-600" />
-                            Inspection Checklist for {msg.structuredData.checklist.propertyTitle}
+                            Inspection Checklist for {msg.structuredData.checklist.propertyTitle || 'Property'}
                           </h4>
                           <span className="text-[10px] text-slate-400 font-bold">Things to Check On-Site</span>
                         </div>
 
                         <div className="space-y-4">
-                          {msg.structuredData.checklist.categories.map((cat, cIdx) => (
+                          {(msg.structuredData.checklist.categories || []).map((cat, cIdx) => (
                             <div key={cIdx} className="space-y-1.5">
                               <div className="font-black text-[11px] text-slate-700 uppercase tracking-wider flex items-center gap-1">
                                 <span>•</span> {cat.name}
                               </div>
                               <div className="space-y-1 pl-3">
-                                {cat.checks.map((chk, kIdx) => {
+                                {(cat.checks || []).map((chk, kIdx) => {
                                   const key = `${cat.name}-${kIdx}`;
                                   const isChecked = !!checkedChecklistItems[key];
                                   return (
@@ -1089,7 +1089,7 @@ export const AIAccommodationAssistantModal: React.FC<AIAccommodationAssistantMod
                           )}
                         </div>
 
-                        {msg.structuredData.scamAssessment.warningFlags.length > 0 && (
+                        {Array.isArray(msg.structuredData.scamAssessment.warningFlags) && msg.structuredData.scamAssessment.warningFlags.length > 0 && (
                           <ul className="list-disc list-inside space-y-1 text-[11px] font-medium text-rose-800 pl-1">
                             {msg.structuredData.scamAssessment.warningFlags.map((f: string, idx: number) => (
                               <li key={idx}>{f}</li>

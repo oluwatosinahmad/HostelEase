@@ -156,7 +156,7 @@ const defaultDashboardData: AdminDashboardData = {
 };
 
 export const AdminPortal: React.FC<AdminPortalProps> = ({
-  areas,
+  areas = [],
   onShowToast,
   onNavigateView
 }) => {
@@ -1581,8 +1581,8 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                     className="bg-slate-900 border border-slate-700 text-xs text-slate-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-emerald-500 font-medium"
                   >
                     <option value="all">All LAUTECH Areas</option>
-                    {areas.map(a => (
-                      <option key={a.id} value={a.id}>{a.name}</option>
+                    {(areas || []).map(a => (
+                      <option key={a?.id || Math.random()} value={a?.id}>{a?.name || 'Area'}</option>
                     ))}
                   </select>
 
