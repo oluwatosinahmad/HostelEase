@@ -116,7 +116,7 @@ export const CampusSafeWalkModal: React.FC<CampusSafeWalkModalProps> = ({
   const [newContactPhone, setNewContactPhone] = useState('');
   const [newContactRel, setNewContactRel] = useState('Friend');
   const [savingContact, setSavingContact] = useState(false);
-
+  const [showSosConfirm, setShowSosConfirm] = useState(false);
   const [copiedCoords, setCopiedCoords] = useState(false);
 
   useEffect(() => {
@@ -231,7 +231,7 @@ export const CampusSafeWalkModal: React.FC<CampusSafeWalkModalProps> = ({
 
       setActiveJourney(data.journey);
       setSecondsRemaining(durationMins * 60);
-      onShowToast(`SafeWalk activated! Safe trek to ${destination}.`, 'success');
+      onShowToast('SafeWalk Started Successfully', 'success');
     } catch (err: any) {
       onShowToast(err.message || 'Error starting SafeWalk', 'error');
     } finally {
@@ -444,10 +444,13 @@ export const CampusSafeWalkModal: React.FC<CampusSafeWalkModalProps> = ({
                   </div>
 
                   <div>
-                    <h4 className="text-lg font-black text-slate-900 dark:text-white">
-                      Heading to: {activeJourney.destination}
+                    <h4 className="text-xl font-black text-slate-900 dark:text-white">
+                      SafeWalk Started Successfully
                     </h4>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    <p className="text-xs text-slate-600 dark:text-slate-300 mt-1 font-bold">
+                      Heading to: {activeJourney.destination}
+                    </p>
+                    <p className="text-[11px] text-slate-400 mt-0.5">
                       From: {activeJourney.start_location} • GPS: {coordinates}
                     </p>
                   </div>
@@ -494,7 +497,7 @@ export const CampusSafeWalkModal: React.FC<CampusSafeWalkModalProps> = ({
                     </button>
 
                     <button
-                      onClick={handleTriggerSOS}
+                      onClick={() => setShowSosConfirm(true)}
                       className="px-6 py-3 bg-rose-600 hover:bg-rose-700 text-white font-black text-xs rounded-2xl shadow-lg shadow-rose-600/30 flex items-center gap-2 cursor-pointer transition-all"
                     >
                       <ShieldAlert className="w-4 h-4" />
@@ -502,6 +505,68 @@ export const CampusSafeWalkModal: React.FC<CampusSafeWalkModalProps> = ({
                     </button>
                   </div>
                 </div>
+
+                {/* SOS Confirmation Modal to prevent accidental triggers */}
+                {showSosConfirm && (
+                  <div className="fixed inset-0 z-70 bg-black/75 backdrop-blur-xs flex items-center justify-center p-4 animate-fadeIn">
+                    <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-md w-full p-6 space-y-4 border-2 border-rose-500 shadow-2xl text-center">
+                      <div className="w-14 h-14 rounded-2xl bg-rose-600 text-white flex items-center justify-center mx-auto shadow-lg shadow-rose-600/40">
+                        <ShieldAlert className="w-8 h-8" />
+                      </div>
+
+                      <div>
+                        <h4 className="text-lg font-black text-slate-900 dark:text-white">
+                          Confirm Emergency SOS Alert?
+                        </h4>
+                        <p className="text-xs text-slate-600 dark:text-slate-300 mt-1 leading-relaxed">
+                          Are you in immediate danger or facing an emergency? Confirming will broadcast high-priority distress alerts to your emergency contacts, campus security dispatch, and log your live GPS coordinates.
+                        </p>
+                      </div>
+
+                      <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-left space-y-2">
+                        <span className="text-[10px] font-black uppercase text-slate-400 block">
+                          Rapid 1-Tap Emergency Dials (Direct Phone Call):
+                        </span>
+                        <div className="grid grid-cols-2 gap-2 text-xs">
+                          <a
+                            href="tel:08031234567"
+                            className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-900 dark:text-white font-bold flex items-center justify-center gap-1.5"
+                          >
+                            <PhoneCall className="w-3.5 h-3.5 text-emerald-600" />
+                            <span>SUG Cadet</span>
+                          </a>
+                          {activeJourney?.emergency_contact_phone && (
+                            <a
+                              href={`tel:${activeJourney.emergency_contact_phone}`}
+                              className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-900 dark:text-white font-bold flex items-center justify-center gap-1.5"
+                            >
+                              <PhoneCall className="w-3.5 h-3.5 text-blue-600" />
+                              <span>Contact</span>
+                            </a>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 pt-2">
+                        <button
+                          onClick={() => setShowSosConfirm(false)}
+                          className="flex-1 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 font-bold text-xs text-slate-700 dark:text-slate-300 cursor-pointer"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={() => {
+                            setShowSosConfirm(false);
+                            handleTriggerSOS();
+                          }}
+                          className="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-black text-xs shadow-md cursor-pointer"
+                        >
+                          YES — BROADCAST SOS
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             ) : (
               /* Setup New SafeWalk Journey */

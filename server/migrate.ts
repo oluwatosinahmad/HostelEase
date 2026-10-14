@@ -2660,6 +2660,7 @@ Your caution deposit is refundable upon move-out provided no unauthorized struct
         provider_id TEXT NOT NULL,
         room_number TEXT NOT NULL,
         category TEXT NOT NULL CHECK(category IN ('ELECTRICITY', 'WATER', 'PLUMBING', 'DOOR_LOCK', 'FAN_AC', 'INTERNET', 'CLEANING', 'SECURITY', 'FURNITURE', 'OTHER')),
+        custom_category TEXT,
         description TEXT NOT NULL,
         attachments_json TEXT NOT NULL DEFAULT '[]',
         status TEXT NOT NULL DEFAULT 'SUBMITTED' CHECK(status IN ('SUBMITTED', 'RECEIVED', 'ASSIGNED', 'IN_PROGRESS', 'RESOLVED', 'CLOSED')),
@@ -2689,6 +2690,15 @@ Your caution deposit is refundable upon move-out provided no unauthorized struct
       );
       CREATE INDEX IF NOT EXISTS idx_mnt_updates_ticket ON maintenance_ticket_updates(ticket_id, created_at ASC);
     `);
+
+    // Ensure custom_category and utility columns exist on existing DBs
+    try { db.exec('ALTER TABLE maintenance_tickets ADD COLUMN custom_category TEXT'); } catch {}
+    try { db.exec('ALTER TABLE utility_reports ADD COLUMN property_id TEXT'); } catch {}
+    try { db.exec('ALTER TABLE utility_reports ADD COLUMN is_flagged INTEGER DEFAULT 0'); } catch {}
+    try { db.exec('ALTER TABLE utility_reports ADD COLUMN flag_reason TEXT'); } catch {}
+    try { db.exec('ALTER TABLE split_rent_shares ADD COLUMN declined_reason TEXT'); } catch {}
+    try { db.exec('CREATE INDEX IF NOT EXISTS idx_maintenance_custom_cat ON maintenance_tickets(custom_category)'); } catch {}
+    try { db.exec('CREATE INDEX IF NOT EXISTS idx_utility_reports_prop ON utility_reports(property_id)'); } catch {}
 
     // D. Split Rent Agreements & Shares
     db.exec(`

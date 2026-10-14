@@ -1097,7 +1097,7 @@ function MainApp() {
                     </div>
                   </div>
                   <div className="pt-3 border-t border-emerald-100 dark:border-emerald-900/40 flex items-center justify-between text-xs font-bold text-emerald-700 dark:text-emerald-400">
-                    <span>Launch SafeWalk</span>
+                    <span>Start SafeWalk</span>
                     <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                   </div>
                 </div>
@@ -1122,7 +1122,7 @@ function MainApp() {
                     </div>
                   </div>
                   <div className="pt-3 border-t border-amber-100 dark:border-amber-900/40 flex items-center justify-between text-xs font-bold text-amber-700 dark:text-amber-400">
-                    <span>Open Live Radar</span>
+                    <span>Open UtilityRadar</span>
                     <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                   </div>
                 </div>
@@ -1138,16 +1138,16 @@ function MainApp() {
                     </div>
                     <div>
                       <div className="flex items-center gap-1.5">
-                        <h3 className="font-black text-sm text-slate-900 dark:text-white">Maintenance & Repairs</h3>
+                        <h3 className="font-black text-sm text-slate-900 dark:text-white">Maintenance & Issue Reporting</h3>
                         <span className="px-1.5 py-0.2 rounded bg-blue-200 dark:bg-blue-900 text-blue-900 dark:text-blue-200 text-[9px] font-black">SUPPORT</span>
                       </div>
                       <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 leading-relaxed">
-                        Report hostel repairs (electricity, water, plumbing, doors/locks) with auto-generated tracking codes and lodge caretaker progress updates.
+                        Report hostel repairs (electricity, water, plumbing, doors/locks, custom category) with auto-generated tracking codes and Agent progress updates.
                       </p>
                     </div>
                   </div>
                   <div className="pt-3 border-t border-blue-100 dark:border-blue-900/40 flex items-center justify-between text-xs font-bold text-blue-700 dark:text-blue-400">
-                    <span>Report or Track Issue</span>
+                    <span>Report a Problem</span>
                     <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                   </div>
                 </div>
@@ -1172,7 +1172,7 @@ function MainApp() {
                     </div>
                   </div>
                   <div className="pt-3 border-t border-teal-100 dark:border-teal-900/40 flex items-center justify-between text-xs font-bold text-teal-700 dark:text-teal-400">
-                    <span>Split Rent Calculator</span>
+                    <span>Split Rent</span>
                     <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                   </div>
                 </div>

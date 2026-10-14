@@ -2,6 +2,7 @@ import { Router, Response } from 'express';
 import db from '../db.js';
 import { authenticate, AuthenticatedRequest } from '../middleware/auth.js';
 import crypto from 'crypto';
+import { notificationService } from '../services/notificationService.js';
 
 const router = Router();
 
@@ -53,6 +54,8 @@ router.post('/create', authenticate, (req: AuthenticatedRequest, res: Response) 
     const agreementId = `sra-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`;
     const referenceCode = generateSplitRef();
 
+    const createdShares: any[] = [];
+
     db.transaction(() => {
       db.prepare(`
         INSERT INTO split_rent_agreements (
@@ -88,8 +91,16 @@ router.post('/create', authenticate, (req: AuthenticatedRequest, res: Response) 
         const shareAmt = Math.round((rent * pct) / 100);
         
         // Check if participant matches the creator
-        const isCreator = p.email?.trim().toLowerCase() === user.email.toLowerCase() || p.userId === user.id;
-        const participantUserId = isCreator ? user.id : (p.userId || null);
+        const isCreator = (p.email && p.email.trim().toLowerCase() === user.email.toLowerCase()) || p.userId === user.id;
+        
+        let participantUserId = isCreator ? user.id : (p.userId || null);
+        if (!participantUserId && p.email && p.email.trim()) {
+          const matchedUser = db.prepare('SELECT id FROM users WHERE LOWER(email) = ?').get(p.email.trim().toLowerCase()) as any;
+          if (matchedUser) {
+            participantUserId = matchedUser.id;
+          }
+        }
+
         const acceptanceStatus = isCreator ? 'ACCEPTED' : 'PENDING';
 
         insertShare.run(
@@ -103,15 +114,56 @@ router.post('/create', authenticate, (req: AuthenticatedRequest, res: Response) 
           shareAmt,
           acceptanceStatus
         );
+
+        createdShares.push({
+          shareId,
+          participantUserId,
+          isCreator,
+          name: p.name?.trim() || 'Roommate',
+          email: p.email?.trim() || '',
+          pct,
+          shareAmt
+        });
       }
     })();
+
+    // Real notifications to invited roommates and creator
+    try {
+      for (const sh of createdShares) {
+        if (!sh.isCreator && sh.participantUserId) {
+          notificationService.createNotification({
+            userId: sh.participantUserId,
+            title: `Rent Split Invitation: ${propertyTitle.trim()}`,
+            message: `${user.full_name || 'Your roommate'} invited you to split rent for ${propertyTitle.trim()} (${sh.pct}% - ₦${sh.shareAmt.toLocaleString()}).`,
+            type: 'SPLIT_RENT',
+            linkUrl: `/student-dashboard?tab=bookings`,
+            relatedEntityId: agreementId,
+            relatedEntityType: 'SPLIT_RENT_AGREEMENT',
+            senderId: user.id
+          });
+        }
+      }
+
+      notificationService.createNotification({
+        userId: user.id,
+        title: 'Rent-Splitting Request Sent Successfully',
+        message: `Split Rent agreement ${referenceCode} generated and shared with ${participants.length - 1} roommate(s).`,
+        type: 'SPLIT_RENT',
+        linkUrl: `/student-dashboard?tab=bookings`,
+        relatedEntityId: agreementId,
+        relatedEntityType: 'SPLIT_RENT_AGREEMENT',
+        senderId: user.id
+      });
+    } catch (notifErr) {
+      console.error('Error dispatching split rent notifications:', notifErr);
+    }
 
     const agreement = db.prepare('SELECT * FROM split_rent_agreements WHERE id = ?').get(agreementId);
     const shares = db.prepare('SELECT * FROM split_rent_shares WHERE agreement_id = ?').all(agreementId);
 
     return res.status(201).json({
       success: true,
-      message: `Split Rent agreement ${referenceCode} generated! Roommates can now view and settle their portion.`,
+      message: 'Rent-Splitting Request Sent Successfully',
       agreement,
       shares
     });
@@ -197,13 +249,97 @@ router.post('/share/:shareId/accept', authenticate, (req: AuthenticatedRequest, 
       WHERE id = ?
     `).run(user.id, share.id);
 
+    const agreement = db.prepare('SELECT * FROM split_rent_agreements WHERE id = ?').get(share.agreement_id) as any;
+
+    if (agreement) {
+      // Notify the agreement creator
+      try {
+        notificationService.createNotification({
+          userId: agreement.creator_id,
+          title: 'Rent Split Share Accepted',
+          message: `${user.full_name || share.participant_name} accepted their rent split share (${share.share_percentage}%) for ${agreement.property_title}.`,
+          type: 'SPLIT_RENT',
+          linkUrl: `/student-dashboard?tab=bookings`,
+          relatedEntityId: agreement.id,
+          relatedEntityType: 'SPLIT_RENT_AGREEMENT',
+          senderId: user.id
+        });
+
+        // Check if all shares are now accepted
+        const pendingAcceptances = db.prepare(`
+          SELECT COUNT(*) as count FROM split_rent_shares 
+          WHERE agreement_id = ? AND acceptance_status != 'ACCEPTED'
+        `).get(agreement.id) as { count: number };
+
+        if (pendingAcceptances.count === 0 && agreement.property_id) {
+          const prop = db.prepare('SELECT provider_id, title FROM properties WHERE id = ?').get(agreement.property_id) as any;
+          if (prop?.provider_id) {
+            notificationService.createNotification({
+              userId: prop.provider_id,
+              title: `Co-Tenancy Split Rent Confirmed: ${prop.title}`,
+              message: `All roommates have formally accepted rent-splitting shares for ${agreement.property_title}.`,
+              type: 'SPLIT_RENT',
+              linkUrl: `/provider?tab=bookings`,
+              relatedEntityId: agreement.id,
+              relatedEntityType: 'SPLIT_RENT_AGREEMENT',
+              senderId: user.id
+            });
+          }
+        }
+      } catch (notifErr) {
+        console.error('Error sending split rent acceptance notification:', notifErr);
+      }
+    }
+
     return res.json({ success: true, message: 'Split rent share accepted.' });
   } catch (err: any) {
     return res.status(500).json({ error: 'Failed to accept share' });
   }
 });
 
-// 5. Mark / Record Payment for a share
+// 5. Decline share invite
+router.post('/share/:shareId/decline', authenticate, (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const user = req.user!;
+    const { shareId } = req.params;
+    const { declinedReason = 'Declined by roommate' } = req.body;
+
+    const share = db.prepare('SELECT * FROM split_rent_shares WHERE id = ?').get(shareId) as any;
+    if (!share) {
+      return res.status(404).json({ error: 'Share record not found' });
+    }
+
+    db.prepare(`
+      UPDATE split_rent_shares 
+      SET acceptance_status = 'DECLINED', declined_reason = ?, user_id = ?
+      WHERE id = ?
+    `).run(declinedReason.trim(), user.id, share.id);
+
+    const agreement = db.prepare('SELECT * FROM split_rent_agreements WHERE id = ?').get(share.agreement_id) as any;
+    if (agreement) {
+      try {
+        notificationService.createNotification({
+          userId: agreement.creator_id,
+          title: 'Rent Split Share Declined',
+          message: `${user.full_name || share.participant_name} declined their share for ${agreement.property_title}. Note: "${declinedReason.trim()}"`,
+          type: 'SPLIT_RENT',
+          linkUrl: `/student-dashboard?tab=bookings`,
+          relatedEntityId: agreement.id,
+          relatedEntityType: 'SPLIT_RENT_AGREEMENT',
+          senderId: user.id
+        });
+      } catch (notifErr) {
+        console.error('Error sending split rent decline notification:', notifErr);
+      }
+    }
+
+    return res.json({ success: true, message: 'Split rent share declined.' });
+  } catch (err: any) {
+    return res.status(500).json({ error: 'Failed to decline share' });
+  }
+});
+
+// 6. Mark / Record Payment for a share
 router.post('/share/:shareId/pay', authenticate, (req: AuthenticatedRequest, res: Response) => {
   try {
     const user = req.user!;
@@ -215,6 +351,7 @@ router.post('/share/:shareId/pay', authenticate, (req: AuthenticatedRequest, res
       return res.status(404).json({ error: 'Share record not found' });
     }
 
+    let allPaid = false;
     db.transaction(() => {
       db.prepare(`
         UPDATE split_rent_shares 
@@ -229,6 +366,7 @@ router.post('/share/:shareId/pay', authenticate, (req: AuthenticatedRequest, res
       `).get(share.agreement_id) as { count: number };
 
       if (remainingUnpaid.count === 0) {
+        allPaid = true;
         db.prepare(`
           UPDATE split_rent_agreements 
           SET status = 'COMPLETED', updated_at = datetime('now')
@@ -243,6 +381,40 @@ router.post('/share/:shareId/pay', authenticate, (req: AuthenticatedRequest, res
       }
     })();
 
+    const agreement = db.prepare('SELECT * FROM split_rent_agreements WHERE id = ?').get(share.agreement_id) as any;
+    if (agreement) {
+      try {
+        notificationService.createNotification({
+          userId: agreement.creator_id,
+          title: 'Rent Portion Paid',
+          message: `${user.full_name || share.participant_name} paid their share (₦${share.share_amount.toLocaleString()}) for ${agreement.property_title}.`,
+          type: 'SPLIT_RENT',
+          linkUrl: `/student-dashboard?tab=bookings`,
+          relatedEntityId: agreement.id,
+          relatedEntityType: 'SPLIT_RENT_AGREEMENT',
+          senderId: user.id
+        });
+
+        if (allPaid && agreement.property_id) {
+          const prop = db.prepare('SELECT provider_id, title FROM properties WHERE id = ?').get(agreement.property_id) as any;
+          if (prop?.provider_id) {
+            notificationService.createNotification({
+              userId: prop.provider_id,
+              title: `Rent Fully Collected: ${prop.title}`,
+              message: `All roommate portions for ${agreement.property_title} (Total ₦${agreement.total_rent.toLocaleString()}) are now fully settled.`,
+              type: 'SPLIT_RENT',
+              linkUrl: `/provider?tab=financials`,
+              relatedEntityId: agreement.id,
+              relatedEntityType: 'SPLIT_RENT_AGREEMENT',
+              senderId: user.id
+            });
+          }
+        }
+      } catch (notifErr) {
+        console.error('Error dispatching payment notification:', notifErr);
+      }
+    }
+
     const updatedShare = db.prepare('SELECT * FROM split_rent_shares WHERE id = ?').get(share.id);
     return res.json({
       success: true,
@@ -255,7 +427,7 @@ router.post('/share/:shareId/pay', authenticate, (req: AuthenticatedRequest, res
   }
 });
 
-// 6. Send Reminder to unpaid roommates
+// 7. Send Reminder to unpaid roommates
 router.post('/:id/remind', authenticate, (req: AuthenticatedRequest, res: Response) => {
   try {
     const user = req.user!;
@@ -271,12 +443,35 @@ router.post('/:id/remind', authenticate, (req: AuthenticatedRequest, res: Respon
       WHERE agreement_id = ? AND payment_status = 'PENDING'
     `).all(agreement.id) as any[];
 
-    // In a real email/SMS queue, messages are dispatched. We log and return confirmation
+    // Send real notifications to pending roommates
+    for (const sh of unpaidShares) {
+      let targetUserId = sh.user_id;
+      if (!targetUserId && sh.participant_email) {
+        const u = db.prepare('SELECT id FROM users WHERE LOWER(email) = ?').get(sh.participant_email.toLowerCase()) as any;
+        if (u) targetUserId = u.id;
+      }
+
+      if (targetUserId && targetUserId !== user.id) {
+        try {
+          notificationService.createNotification({
+            userId: targetUserId,
+            title: `Rent Due Reminder: ${agreement.property_title}`,
+            message: `Friendly reminder from ${user.full_name || 'your roommate'} to settle your rent portion (₦${sh.share_amount.toLocaleString()}) by ${agreement.due_date}.`,
+            type: 'SPLIT_RENT',
+            linkUrl: `/student-dashboard?tab=bookings`,
+            relatedEntityId: agreement.id,
+            relatedEntityType: 'SPLIT_RENT_AGREEMENT',
+            senderId: user.id
+          });
+        } catch (e) {}
+      }
+    }
+
     const remindedNames = unpaidShares.map(s => s.participant_name).join(', ');
 
     return res.json({
       success: true,
-      message: `Friendly payment reminder queued for ${unpaidShares.length} pending roommate(s): ${remindedNames || 'All settled'}.`,
+      message: `Friendly payment reminder dispatched for ${unpaidShares.length} pending roommate(s): ${remindedNames || 'All settled'}.`,
       remindedCount: unpaidShares.length
     });
   } catch (err: any) {

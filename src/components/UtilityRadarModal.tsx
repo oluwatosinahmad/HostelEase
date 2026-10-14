@@ -16,7 +16,9 @@ import {
   Radio,
   SlidersHorizontal,
   Flame,
-  BatteryCharging
+  BatteryCharging,
+  Flag,
+  Building
 } from 'lucide-react';
 import { getAuthToken } from '../services/api';
 
@@ -41,7 +43,7 @@ interface AreaRadarData {
     isConflicted: boolean;
     conflictNote: string | null;
     freshnessMinutes: number | null;
-    recentNotes: Array<{ notes: string; created_at: string }>;
+    recentNotes: Array<{ id?: string; notes: string; created_at: string }>;
   };
   water: {
     status: string;
@@ -51,7 +53,7 @@ interface AreaRadarData {
     isConflicted: boolean;
     conflictNote: string | null;
     freshnessMinutes: number | null;
-    recentNotes: Array<{ notes: string; created_at: string }>;
+    recentNotes: Array<{ id?: string; notes: string; created_at: string }>;
   };
 }
 
@@ -73,10 +75,15 @@ export const UtilityRadarModal: React.FC<UtilityRadarModalProps> = ({
   const [reportStatus, setReportStatus] = useState<string>('POWER_ON');
   const [reportNotes, setReportNotes] = useState<string>('');
   const [submittingReport, setSubmittingReport] = useState<boolean>(false);
+  const [properties, setProperties] = useState<any[]>([]);
+  const [selectedPropertyId, setSelectedPropertyId] = useState<string>('');
+  const [submittedReportData, setSubmittedReportData] = useState<any | null>(null);
+  const [flaggingReportId, setFlaggingReportId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isOpen) return;
     fetchRadarOverview();
+    fetchProperties();
   }, [isOpen]);
 
   const getHeaders = () => {
@@ -89,6 +96,21 @@ export const UtilityRadarModal: React.FC<UtilityRadarModalProps> = ({
       headers['x-user-email'] = currentUser.email || '';
     }
     return headers;
+  };
+
+  const fetchProperties = async () => {
+    try {
+      const res = await fetch('/api/maintenance/properties', { headers: getHeaders() });
+      if (res.ok) {
+        const data = await res.json();
+        const list = (data.bookedProperties?.length > 0)
+          ? data.bookedProperties
+          : (data.allProperties || []);
+        setProperties(list);
+      }
+    } catch (err) {
+      console.error('Failed to load properties for UtilityRadar:', err);
+    }
   };
 
   const fetchRadarOverview = async () => {
@@ -118,6 +140,8 @@ export const UtilityRadarModal: React.FC<UtilityRadarModalProps> = ({
     setReportUtilityType(utilityType);
     setReportStatus(utilityType === 'ELECTRICITY' ? 'POWER_ON' : 'WATER_AVAILABLE');
     setReportNotes('');
+    setSelectedPropertyId('');
+    setSubmittedReportData(null);
   };
 
   const handleSubmitReport = async (e: React.FormEvent) => {
@@ -133,7 +157,8 @@ export const UtilityRadarModal: React.FC<UtilityRadarModalProps> = ({
           areaId: reportingAreaId,
           utilityType: reportUtilityType,
           status: reportStatus,
-          notes: reportNotes.trim()
+          notes: reportNotes.trim(),
+          propertyId: selectedPropertyId || undefined
         })
       });
 
@@ -142,13 +167,46 @@ export const UtilityRadarModal: React.FC<UtilityRadarModalProps> = ({
         throw new Error(data.error || 'Failed to submit report');
       }
 
-      onShowToast(data.message || 'Report submitted! Thank you for updating fellow students.', 'success');
-      setReportingAreaId(null);
+      const curArea = areasData.find(a => a.areaId === reportingAreaId);
+      const curProp = properties.find(p => p.id === selectedPropertyId);
+      setSubmittedReportData({
+        areaName: curArea?.areaName || 'Campus Area',
+        landmark: curArea?.landmark,
+        utilityType: reportUtilityType,
+        status: reportStatus,
+        notes: reportNotes.trim(),
+        propertyTitle: curProp?.title,
+        isOutage: reportStatus === 'POWER_OFF' || reportStatus === 'WATER_UNAVAILABLE'
+      });
+
+      onShowToast('Utility Report Submitted Successfully', 'success');
       fetchRadarOverview();
     } catch (err: any) {
       onShowToast(err.message || 'Failed to submit report', 'error');
     } finally {
       setSubmittingReport(false);
+    }
+  };
+
+  const handleFlagReport = async (reportId?: string) => {
+    if (!reportId) return;
+    setFlaggingReportId(reportId);
+    try {
+      const res = await fetch(`/api/utilities/reports/${reportId}/flag`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({ reason: 'Reported as inaccurate or spam by fellow student' })
+      });
+      if (res.ok) {
+        onShowToast('Report flagged for moderation and removed from live overview.', 'success');
+        fetchRadarOverview();
+      } else {
+        onShowToast('Could not flag report.', 'error');
+      }
+    } catch (err) {
+      onShowToast('Error flagging report.', 'error');
+    } finally {
+      setFlaggingReportId(null);
     }
   };
 
@@ -377,12 +435,23 @@ export const UtilityRadarModal: React.FC<UtilityRadarModalProps> = ({
                       </button>
                     </div>
 
-                    {/* Recent notes preview */}
-                    {area.electricity.recentNotes?.length > 0 && area.electricity.recentNotes[0].notes && (
-                      <p className="text-[10px] text-slate-600 dark:text-slate-300 italic bg-white/70 dark:bg-slate-900/70 p-1.5 rounded-lg border border-amber-100 dark:border-amber-900">
-                        "{area.electricity.recentNotes[0].notes}"
-                      </p>
-                    )}
+                    {/* Recent notes preview with flag action */}
+                    {area.electricity.recentNotes?.length > 0 && area.electricity.recentNotes.map((n, nIdx) => n.notes ? (
+                      <div key={nIdx} className="flex items-center justify-between text-[10px] text-slate-600 dark:text-slate-300 italic bg-white/70 dark:bg-slate-900/70 p-1.5 rounded-lg border border-amber-100 dark:border-amber-900 gap-1.5">
+                        <span className="line-clamp-2">"{n.notes}"</span>
+                        {n.id && (
+                          <button
+                            type="button"
+                            onClick={() => handleFlagReport(n.id)}
+                            disabled={flaggingReportId === n.id}
+                            title="Flag inaccurate report"
+                            className="p-0.5 text-slate-400 hover:text-rose-500 cursor-pointer flex-shrink-0"
+                          >
+                            <Flag className="w-2.5 h-2.5" />
+                          </button>
+                        )}
+                      </div>
+                    ) : null)}
                   </div>
 
                   {/* Water Section */}
@@ -414,12 +483,23 @@ export const UtilityRadarModal: React.FC<UtilityRadarModalProps> = ({
                       </button>
                     </div>
 
-                    {/* Recent notes preview */}
-                    {area.water.recentNotes?.length > 0 && area.water.recentNotes[0].notes && (
-                      <p className="text-[10px] text-slate-600 dark:text-slate-300 italic bg-white/70 dark:bg-slate-900/70 p-1.5 rounded-lg border border-sky-100 dark:border-sky-900">
-                        "{area.water.recentNotes[0].notes}"
-                      </p>
-                    )}
+                    {/* Recent notes preview with flag action */}
+                    {area.water.recentNotes?.length > 0 && area.water.recentNotes.map((n, nIdx) => n.notes ? (
+                      <div key={nIdx} className="flex items-center justify-between text-[10px] text-slate-600 dark:text-slate-300 italic bg-white/70 dark:bg-slate-900/70 p-1.5 rounded-lg border border-sky-100 dark:border-sky-900 gap-1.5">
+                        <span className="line-clamp-2">"{n.notes}"</span>
+                        {n.id && (
+                          <button
+                            type="button"
+                            onClick={() => handleFlagReport(n.id)}
+                            disabled={flaggingReportId === n.id}
+                            title="Flag inaccurate report"
+                            className="p-0.5 text-slate-400 hover:text-rose-500 cursor-pointer flex-shrink-0"
+                          >
+                            <Flag className="w-2.5 h-2.5" />
+                          </button>
+                        )}
+                      </div>
+                    ) : null)}
                   </div>
                 </div>
               ))}
@@ -430,157 +510,240 @@ export const UtilityRadarModal: React.FC<UtilityRadarModalProps> = ({
         {/* Submission Modal Overlay */}
         {reportingAreaId && (
           <div className="fixed inset-0 z-60 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-            <div className="bg-white dark:bg-slate-900 rounded-2xl max-w-md w-full p-5 space-y-4 shadow-2xl border border-slate-200 dark:border-slate-800">
-              <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
-                <h4 className="font-black text-sm text-slate-900 dark:text-white flex items-center gap-2">
-                  <Radio className="w-4 h-4 text-amber-500" />
-                  <span>Report Utility Condition</span>
-                </h4>
-                <button
-                  onClick={() => setReportingAreaId(null)}
-                  className="p-1 rounded-lg text-slate-400 hover:bg-slate-100 cursor-pointer"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-
-              <form onSubmit={handleSubmitReport} className="space-y-3.5">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Area:
-                  </label>
-                  <div className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-xs font-bold text-slate-800 dark:text-slate-200">
-                    📍 {areasData.find(a => a.areaId === reportingAreaId)?.areaName}
+            <div className="bg-white dark:bg-slate-900 rounded-2xl max-w-md w-full p-5 space-y-4 shadow-2xl border border-slate-200 dark:border-slate-800 animate-fadeIn">
+              {submittedReportData ? (
+                /* Success Confirmation Screen */
+                <div className="text-center space-y-4 py-2">
+                  <div className="w-14 h-14 rounded-2xl bg-amber-500 text-white flex items-center justify-center mx-auto shadow-lg shadow-amber-500/30">
+                    <CheckCircle2 className="w-8 h-8" />
                   </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Utility Type:
-                  </label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setReportUtilityType('ELECTRICITY');
-                        setReportStatus('POWER_ON');
-                      }}
-                      className={`p-2 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer ${
-                        reportUtilityType === 'ELECTRICITY'
-                          ? 'border-amber-500 bg-amber-50 dark:bg-amber-950 text-amber-900 dark:text-amber-200'
-                          : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800'
-                      }`}
-                    >
-                      <Zap className="w-3.5 h-3.5 text-amber-500" />
-                      <span>Electricity</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setReportUtilityType('WATER');
-                        setReportStatus('WATER_AVAILABLE');
-                      }}
-                      className={`p-2 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer ${
-                        reportUtilityType === 'WATER'
-                          ? 'border-sky-500 bg-sky-50 dark:bg-sky-950 text-sky-900 dark:text-sky-200'
-                          : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800'
-                      }`}
-                    >
-                      <Droplets className="w-3.5 h-3.5 text-sky-500" />
-                      <span>Water</span>
-                    </button>
+                  <div>
+                    <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-amber-100 dark:bg-amber-900 text-amber-900 dark:text-amber-200">
+                      LIVE RADAR BROADCAST
+                    </span>
+                    <h4 className="text-xl font-black text-slate-900 dark:text-white mt-1">
+                      Utility Report Submitted Successfully
+                    </h4>
+                    <p className="text-xs text-slate-600 dark:text-slate-300 mt-1 max-w-sm mx-auto">
+                      Your report has updated the real-time campus utility pulse and alert grid.
+                    </p>
                   </div>
-                </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Current Condition:
-                  </label>
-                  {reportUtilityType === 'ELECTRICITY' ? (
-                    <div className="grid grid-cols-3 gap-1.5">
-                      {[
-                        { id: 'POWER_ON', label: 'Power ON' },
-                        { id: 'POWER_OFF', label: 'Power OFF' },
-                        { id: 'GENERATOR_ON', label: 'Generator ON' }
-                      ].map(s => (
-                        <button
-                          key={s.id}
-                          type="button"
-                          onClick={() => setReportStatus(s.id)}
-                          className={`py-2 px-1 rounded-xl text-[11px] font-bold border text-center cursor-pointer ${
-                            reportStatus === s.id
-                              ? 'border-amber-600 bg-amber-600 text-white font-black'
-                              : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300'
-                          }`}
-                        >
-                          {s.label}
-                        </button>
-                      ))}
+                  <div className="p-3.5 bg-slate-50 dark:bg-slate-800/80 rounded-xl border border-slate-200 dark:border-slate-700 text-left text-xs space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">Area:</span>
+                      <strong className="text-slate-800 dark:text-slate-200">
+                        {submittedReportData.areaName} ({submittedReportData.landmark})
+                      </strong>
                     </div>
-                  ) : (
-                    <div className="grid grid-cols-2 gap-2">
-                      {[
-                        { id: 'WATER_AVAILABLE', label: 'Water Available' },
-                        { id: 'WATER_UNAVAILABLE', label: 'Water Unavailable' }
-                      ].map(s => (
-                        <button
-                          key={s.id}
-                          type="button"
-                          onClick={() => setReportStatus(s.id)}
-                          className={`py-2 px-2 rounded-xl text-[11px] font-bold border text-center cursor-pointer ${
-                            reportStatus === s.id
-                              ? 'border-sky-600 bg-sky-600 text-white font-black'
-                              : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300'
-                          }`}
-                        >
-                          {s.label}
-                        </button>
-                      ))}
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-400">Condition:</span>
+                      <span className="font-bold text-amber-600 dark:text-amber-400">
+                        {submittedReportData.status.replace(/_/g, ' ')}
+                      </span>
                     </div>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Notes / Axis specifics (Optional):
-                  </label>
-                  <input
-                    type="text"
-                    value={reportNotes}
-                    onChange={(e) => setReportNotes(e.target.value)}
-                    placeholder="e.g. Transformer restored at 1:30pm around Bovas junction"
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500 focus:outline-none"
-                  />
-                </div>
-
-                <div className="flex items-center gap-2 pt-2">
-                  <button
-                    type="button"
-                    onClick={() => setReportingAreaId(null)}
-                    className="flex-1 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-300 cursor-pointer"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={submittingReport}
-                    className="flex-1 py-2.5 bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white text-xs font-black rounded-xl shadow-md cursor-pointer flex items-center justify-center gap-1.5"
-                  >
-                    {submittingReport ? (
-                      <>
-                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                        <span>Broadcasting...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Send className="w-3.5 h-3.5" />
-                        <span>Broadcast Report</span>
-                      </>
+                    {submittedReportData.notes && (
+                      <div className="pt-1 border-t border-slate-200 dark:border-slate-700">
+                        <span className="text-slate-400 block text-[10px]">Note:</span>
+                        <span className="italic text-slate-700 dark:text-slate-300">"{submittedReportData.notes}"</span>
+                      </div>
                     )}
+                    {submittedReportData.isOutage && submittedReportData.propertyTitle && (
+                      <div className="p-2 rounded-lg bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 text-[11px] text-rose-800 dark:text-rose-200 font-bold">
+                        ⚡ Agent Alert Sent: The assigned Agent for <strong>{submittedReportData.propertyTitle}</strong> has been notified of this outage.
+                      </div>
+                    )}
+                  </div>
+
+                  <button
+                    onClick={() => {
+                      setSubmittedReportData(null);
+                      setReportingAreaId(null);
+                    }}
+                    className="w-full py-2.5 bg-amber-600 hover:bg-amber-700 text-white font-black text-xs rounded-xl shadow-md cursor-pointer transition-all"
+                  >
+                    Return to Radar Overview
                   </button>
                 </div>
-              </form>
+              ) : (
+                /* Report Form */
+                <>
+                  <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+                    <h4 className="font-black text-sm text-slate-900 dark:text-white flex items-center gap-2">
+                      <Radio className="w-4 h-4 text-amber-500" />
+                      <span>Report Utility Condition</span>
+                    </h4>
+                    <button
+                      onClick={() => setReportingAreaId(null)}
+                      className="p-1 rounded-lg text-slate-400 hover:bg-slate-100 cursor-pointer"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  <form onSubmit={handleSubmitReport} className="space-y-3.5">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                        Area:
+                      </label>
+                      <div className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-xs font-bold text-slate-800 dark:text-slate-200">
+                        📍 {areasData.find(a => a.areaId === reportingAreaId)?.areaName}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                        Utility Type:
+                      </label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setReportUtilityType('ELECTRICITY');
+                            setReportStatus('POWER_ON');
+                          }}
+                          className={`p-2 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer ${
+                            reportUtilityType === 'ELECTRICITY'
+                              ? 'border-amber-500 bg-amber-50 dark:bg-amber-950 text-amber-900 dark:text-amber-200'
+                              : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800'
+                          }`}
+                        >
+                          <Zap className="w-3.5 h-3.5 text-amber-500" />
+                          <span>Electricity</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setReportUtilityType('WATER');
+                            setReportStatus('WATER_AVAILABLE');
+                          }}
+                          className={`p-2 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer ${
+                            reportUtilityType === 'WATER'
+                              ? 'border-sky-500 bg-sky-50 dark:bg-sky-950 text-sky-900 dark:text-sky-200'
+                              : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800'
+                          }`}
+                        >
+                          <Droplets className="w-3.5 h-3.5 text-sky-500" />
+                          <span>Water</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                        Current Condition:
+                      </label>
+                      {reportUtilityType === 'ELECTRICITY' ? (
+                        <div className="grid grid-cols-3 gap-1.5">
+                          {[
+                            { id: 'POWER_ON', label: 'Power ON' },
+                            { id: 'POWER_OFF', label: 'Power OFF' },
+                            { id: 'GENERATOR_ON', label: 'Generator ON' }
+                          ].map(s => (
+                            <button
+                              key={s.id}
+                              type="button"
+                              onClick={() => setReportStatus(s.id)}
+                              className={`py-2 px-1 rounded-xl text-[11px] font-bold border text-center cursor-pointer ${
+                                reportStatus === s.id
+                                  ? 'border-amber-600 bg-amber-600 text-white font-black'
+                                  : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300'
+                              }`}
+                            >
+                              {s.label}
+                            </button>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-2 gap-2">
+                          {[
+                            { id: 'WATER_AVAILABLE', label: 'Water Available' },
+                            { id: 'WATER_UNAVAILABLE', label: 'Water Unavailable' }
+                          ].map(s => (
+                            <button
+                              key={s.id}
+                              type="button"
+                              onClick={() => setReportStatus(s.id)}
+                              className={`py-2 px-2 rounded-xl text-[11px] font-bold border text-center cursor-pointer ${
+                                reportStatus === s.id
+                                  ? 'border-sky-600 bg-sky-600 text-white font-black'
+                                  : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300'
+                              }`}
+                            >
+                              {s.label}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Optional Tag Hostel to Alert Agent */}
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                        Tag Your Hostel / Lodge (Optional — alerts Agent if outage):
+                      </label>
+                      <select
+                        value={selectedPropertyId}
+                        onChange={(e) => setSelectedPropertyId(e.target.value)}
+                        className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                      >
+                        <option value="">No specific hostel (Area-wide report)</option>
+                        {properties.map(p => (
+                          <option key={p.id} value={p.id}>
+                            {p.title}
+                          </option>
+                        ))}
+                      </select>
+                      {(reportStatus === 'POWER_OFF' || reportStatus === 'WATER_UNAVAILABLE') && selectedPropertyId && (
+                        <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-1">
+                          Selecting your hostel will notify the assigned Agent immediately about this utility interruption.
+                        </p>
+                      )}
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                        Notes / Axis specifics (Optional):
+                      </label>
+                      <input
+                        type="text"
+                        value={reportNotes}
+                        onChange={(e) => setReportNotes(e.target.value)}
+                        placeholder="e.g. Transformer restored at 1:30pm around Bovas junction"
+                        className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                      />
+                    </div>
+
+                    <div className="flex items-center gap-2 pt-2">
+                      <button
+                        type="button"
+                        onClick={() => setReportingAreaId(null)}
+                        className="flex-1 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-300 cursor-pointer"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={submittingReport}
+                        className="flex-1 py-2.5 bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white text-xs font-black rounded-xl shadow-md cursor-pointer flex items-center justify-center gap-1.5"
+                      >
+                        {submittingReport ? (
+                          <>
+                            <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                            <span>Broadcasting...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Send className="w-3.5 h-3.5" />
+                            <span>Broadcast Report</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </form>
+                </>
+              )}
             </div>
           </div>
         )}

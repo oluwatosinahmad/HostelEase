@@ -2,6 +2,7 @@ import { Router, Response } from 'express';
 import db from '../db.js';
 import { authenticate, AuthenticatedRequest } from '../middleware/auth.js';
 import crypto from 'crypto';
+import { notificationService } from '../services/notificationService.js';
 
 const router = Router();
 
@@ -21,6 +22,7 @@ router.get('/properties', authenticate, (req: AuthenticatedRequest, res: Respons
       const properties = db.prepare(`
         SELECT id, title, address, total_rooms FROM properties 
         WHERE provider_id = ? AND availability_status != 'DELISTED'
+        AND title NOT LIKE '%[TEST]%' AND title NOT LIKE '%E2E Test%' AND id NOT LIKE 'test_%'
         ORDER BY title ASC
       `).all(user.id);
       return res.json({ properties });
@@ -33,6 +35,8 @@ router.get('/properties', authenticate, (req: AuthenticatedRequest, res: Respons
       JOIN properties p ON b.property_id = p.id
       JOIN users u ON p.provider_id = u.id
       WHERE b.student_id = ? AND b.status IN ('CONFIRMED', 'ACTIVE', 'PAID', 'APPROVED')
+      AND p.availability_status != 'DELISTED'
+      AND p.title NOT LIKE '%[TEST]%' AND p.title NOT LIKE '%E2E Test%' AND p.id NOT LIKE 'test_%'
     `).all(user.id);
 
     // Also provide active verified hostels in case of recent move-in or unlinked booking
@@ -41,6 +45,7 @@ router.get('/properties', authenticate, (req: AuthenticatedRequest, res: Respons
       FROM properties p
       JOIN users u ON p.provider_id = u.id
       WHERE p.availability_status != 'DELISTED'
+      AND p.title NOT LIKE '%[TEST]%' AND p.title NOT LIKE '%E2E Test%' AND p.id NOT LIKE 'test_%'
       ORDER BY p.title ASC
     `).all();
 
@@ -62,6 +67,7 @@ router.post('/tickets', authenticate, (req: AuthenticatedRequest, res: Response)
       propertyId,
       roomNumber,
       category,
+      customCategory,
       description,
       priority = 'MEDIUM',
       attachments = []
@@ -84,14 +90,28 @@ router.post('/tickets', authenticate, (req: AuthenticatedRequest, res: Response)
       'ELECTRICITY', 'WATER', 'PLUMBING', 'DOOR_LOCK', 'FAN_AC',
       'INTERNET', 'CLEANING', 'SECURITY', 'FURNITURE', 'OTHER'
     ];
-    if (!validCategories.includes(category)) {
+    
+    // Normalize category
+    let finalCategory = category;
+    let finalCustomCategory: string | null = null;
+
+    if (category === 'CUSTOM' || category === 'OTHER') {
+      finalCategory = 'OTHER';
+      if (customCategory && customCategory.trim()) {
+        const trimmedCustom = customCategory.trim();
+        if (trimmedCustom.length < 3 || trimmedCustom.length > 100) {
+          return res.status(400).json({ error: 'Custom maintenance category must be between 3 and 100 characters.' });
+        }
+        finalCustomCategory = trimmedCustom;
+      }
+    } else if (!validCategories.includes(category)) {
       return res.status(400).json({ error: `Invalid category. Choose from: ${validCategories.join(', ')}` });
     }
 
     const validPriorities = ['LOW', 'MEDIUM', 'HIGH', 'EMERGENCY'];
     const assignedPriority = validPriorities.includes(priority) ? priority : 'MEDIUM';
 
-    // Fetch property and its provider
+    // Fetch property and its provider (Agent)
     const property = db.prepare(`
       SELECT p.id, p.title, p.provider_id, u.full_name as provider_name 
       FROM properties p 
@@ -111,11 +131,11 @@ router.post('/tickets', authenticate, (req: AuthenticatedRequest, res: Response)
       db.prepare(`
         INSERT INTO maintenance_tickets (
           id, ticket_code, student_id, property_id, provider_id,
-          room_number, category, description, attachments_json,
+          room_number, category, custom_category, description, attachments_json,
           status, priority, created_at, updated_at
         ) VALUES (
           ?, ?, ?, ?, ?,
-          ?, ?, ?, ?,
+          ?, ?, ?, ?, ?,
           'SUBMITTED', ?, datetime('now'), datetime('now')
         )
       `).run(
@@ -125,7 +145,8 @@ router.post('/tickets', authenticate, (req: AuthenticatedRequest, res: Response)
         property.id,
         property.provider_id,
         roomNumber.trim(),
-        category,
+        finalCategory,
+        finalCustomCategory,
         description.trim(),
         attachmentsJson,
         assignedPriority
@@ -149,6 +170,38 @@ router.post('/tickets', authenticate, (req: AuthenticatedRequest, res: Response)
       );
     })();
 
+    const categoryDisplayName = finalCustomCategory || finalCategory;
+
+    // Send authoritative real notification to the Agent (provider)
+    try {
+      notificationService.createNotification({
+        userId: property.provider_id,
+        title: `New Maintenance Request: ${ticketCode}`,
+        message: `${user.full_name || 'A student'} reported an issue (${categoryDisplayName}) at ${property.title}, Room ${roomNumber.trim()}.`,
+        type: 'MAINTENANCE',
+        linkUrl: `/provider?tab=maintenance&ticketId=${ticketId}`,
+        relatedEntityId: ticketId,
+        relatedEntityType: 'MAINTENANCE_TICKET',
+        senderId: user.id,
+        metadata: { ticketId, ticketCode, propertyId: property.id, priority: assignedPriority }
+      });
+
+      // Send confirmation notification to the Student
+      notificationService.createNotification({
+        userId: user.id,
+        title: 'Issue Report Submitted Successfully',
+        message: `Your maintenance ticket ${ticketCode} for ${property.title} has been logged and assigned to Agent ${property.provider_name}.`,
+        type: 'MAINTENANCE',
+        linkUrl: `/student-dashboard?tab=maintenance&ticketId=${ticketId}`,
+        relatedEntityId: ticketId,
+        relatedEntityType: 'MAINTENANCE_TICKET',
+        senderId: property.provider_id,
+        metadata: { ticketId, ticketCode, propertyId: property.id }
+      });
+    } catch (notifErr) {
+      console.error('Error dispatching maintenance notifications:', notifErr);
+    }
+
     const createdTicket = db.prepare(`
       SELECT mt.*, p.title as property_title, u.full_name as provider_name
       FROM maintenance_tickets mt
@@ -159,7 +212,7 @@ router.post('/tickets', authenticate, (req: AuthenticatedRequest, res: Response)
 
     return res.status(201).json({
       success: true,
-      message: `Maintenance ticket ${ticketCode} created successfully! Property management has been notified.`,
+      message: 'Issue Report Submitted Successfully',
       ticket: createdTicket
     });
   } catch (err: any) {
@@ -172,7 +225,7 @@ router.post('/tickets', authenticate, (req: AuthenticatedRequest, res: Response)
 router.get('/tickets', authenticate, (req: AuthenticatedRequest, res: Response) => {
   try {
     const user = req.user!;
-    const { status, category, priority, propertyId } = req.query;
+    const { status, category, priority, propertyId, search } = req.query;
 
     let sql = `
       SELECT mt.*, 
@@ -210,6 +263,11 @@ router.get('/tickets', authenticate, (req: AuthenticatedRequest, res: Response) 
     if (propertyId) {
       sql += ' AND mt.property_id = ?';
       params.push(propertyId);
+    }
+    if (search && typeof search === 'string' && search.trim()) {
+      const s = `%${search.trim()}%`;
+      sql += ' AND (mt.ticket_code LIKE ? OR mt.description LIKE ? OR mt.custom_category LIKE ? OR p.title LIKE ? OR mt.room_number LIKE ?)';
+      params.push(s, s, s, s, s);
     }
 
     sql += ' ORDER BY mt.created_at DESC';
@@ -322,6 +380,29 @@ router.post('/tickets/:id/updates', authenticate, (req: AuthenticatedRequest, re
       `).run(newStatus, ticket.id);
     })();
 
+    // Notify the other party about the update note
+    try {
+      const recipientId = user.id === ticket.student_id ? ticket.provider_id : ticket.student_id;
+      const recipientTitle = user.id === ticket.student_id 
+        ? `Student Update on Ticket ${ticket.ticket_code}`
+        : `Agent Update on Ticket ${ticket.ticket_code}`;
+      
+      notificationService.createNotification({
+        userId: recipientId,
+        title: recipientTitle,
+        message: `${user.full_name || 'User'}: "${message.trim().substring(0, 100)}"`,
+        type: 'MAINTENANCE',
+        linkUrl: user.id === ticket.student_id 
+          ? `/provider?tab=maintenance&ticketId=${ticket.id}`
+          : `/student-dashboard?tab=maintenance&ticketId=${ticket.id}`,
+        relatedEntityId: ticket.id,
+        relatedEntityType: 'MAINTENANCE_TICKET',
+        senderId: user.id
+      });
+    } catch (notifErr) {
+      console.error('Error dispatching maintenance update notification:', notifErr);
+    }
+
     const updatedTicket = db.prepare('SELECT * FROM maintenance_tickets WHERE id = ?').get(ticket.id);
     return res.json({
       success: true,
@@ -381,7 +462,33 @@ router.patch('/tickets/:id/status', authenticate, (req: AuthenticatedRequest, re
       `).run(status, ticket.id);
     })();
 
-    return res.json({ success: true, message: `Status updated to ${status}` });
+    // Notify the other party about the status change
+    try {
+      const recipientId = user.id === ticket.student_id ? ticket.provider_id : ticket.student_id;
+      const statusTitle = `Ticket ${ticket.ticket_code} Status: ${status}`;
+      
+      notificationService.createNotification({
+        userId: recipientId,
+        title: statusTitle,
+        message: `${user.full_name || 'Party'} changed ticket status to ${status}. ${note ? `Note: "${note}"` : ''}`,
+        type: 'MAINTENANCE',
+        linkUrl: user.id === ticket.student_id 
+          ? `/provider?tab=maintenance&ticketId=${ticket.id}`
+          : `/student-dashboard?tab=maintenance&ticketId=${ticket.id}`,
+        relatedEntityId: ticket.id,
+        relatedEntityType: 'MAINTENANCE_TICKET',
+        senderId: user.id
+      });
+    } catch (notifErr) {
+      console.error('Error dispatching status change notification:', notifErr);
+    }
+
+    const updatedTicket = db.prepare('SELECT * FROM maintenance_tickets WHERE id = ?').get(ticket.id);
+    return res.json({ 
+      success: true, 
+      message: `Status updated to ${status}`,
+      ticket: updatedTicket 
+    });
   } catch (err: any) {
     console.error('Error updating status:', err);
     return res.status(500).json({ error: 'Failed to update ticket status' });

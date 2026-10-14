@@ -145,7 +145,7 @@ export const SmartShortlistManager: React.FC<SmartShortlistManagerProps> = ({
     );
   }
 
-  const items: ShortlistTagItem[] = shortlistData?.items || [];
+  const items: ShortlistTagItem[] = shortlistData?.items || shortlistData?.shortlist || [];
   const filteredItems = activeFilterTag === 'ALL'
     ? items
     : items.filter(item => item.tag === activeFilterTag);
@@ -275,30 +275,30 @@ export const SmartShortlistManager: React.FC<SmartShortlistManagerProps> = ({
                     onClick={() => onSelectProperty(item.propertyId)}
                     className="text-base font-black text-slate-900 line-clamp-1 hover:text-emerald-600 cursor-pointer"
                   >
-                    {item.propertyTitle}
+                    {item.propertyTitle || 'Saved Hostel'}
                   </h4>
                   <p className="text-xs text-slate-500 flex items-center gap-1 mt-0.5">
                     <MapPin className="w-3.5 h-3.5 text-slate-400" />
-                    {item.area}
+                    {item.area || 'Under G'}
                   </p>
                 </div>
 
                 {/* Price */}
                 <div>
-                  <span className="text-lg font-black text-slate-900">₦{item.pricePerYear.toLocaleString()}</span>
+                  <span className="text-lg font-black text-slate-900">₦{(item.pricePerYear || 0).toLocaleString()}</span>
                   <span className="text-xs text-slate-400"> / year</span>
                 </div>
 
                 {/* Positive & Negative summary points */}
                 <div className="space-y-1 text-xs">
-                  {item.positiveReasons.slice(0, 2).map((p, idx) => (
+                  {(item.positiveReasons || []).slice(0, 2).map((p, idx) => (
                     <div key={idx} className="flex items-center gap-1.5 text-emerald-800 font-medium">
                       <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />
                       <span>{p}</span>
                     </div>
                   ))}
 
-                  {item.negativeWarnings.slice(0, 1).map((w, idx) => (
+                  {(item.negativeWarnings || []).slice(0, 1).map((w, idx) => (
                     <div key={idx} className="flex items-center gap-1.5 text-amber-800 font-medium">
                       <span className="text-amber-500 font-bold">⚠</span>
                       <span>{w}</span>

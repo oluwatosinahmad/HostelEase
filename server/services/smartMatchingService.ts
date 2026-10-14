@@ -346,7 +346,15 @@ export class SmartMatchingService {
     const bestMatch = evaluations[0] || null;
 
     // Build 3 personalized alternatives
-    const alternatives: Array<{ type: string; title: string; explanation: string; match: MatchEvaluation }> = [];
+    const alternatives: Array<{
+      type: string;
+      title: string;
+      label: string;
+      explanation: string;
+      differentiator: string;
+      match: MatchEvaluation;
+      property: MatchEvaluation;
+    }> = [];
 
     // 1. Cheaper Alternative
     const cheaper = evaluations.find(e => e.propertyId !== bestMatch?.propertyId && e.pricePerYear < (bestMatch?.pricePerYear || 0));
@@ -355,8 +363,11 @@ export class SmartMatchingService {
       alternatives.push({
         type: 'CHEAPER',
         title: 'Budget-Friendly Alternative',
+        label: 'Budget-Friendly Alternative',
         explanation: `Saves you ₦${diff.toLocaleString()} per year compared to your top match (${cheaper.matchScore}% Match).`,
-        match: cheaper
+        differentiator: `Saves ₦${diff.toLocaleString()}/yr`,
+        match: cheaper,
+        property: cheaper
       });
     }
 
@@ -366,8 +377,11 @@ export class SmartMatchingService {
       alternatives.push({
         type: 'CLOSER',
         title: 'Closest to LAUTECH Campus',
+        label: 'Closest to LAUTECH Campus',
         explanation: `Just ${closer.estimatedWalkMinutes} mins from campus gate (${closer.distanceKm} km) with ${closer.matchScore}% Match.`,
-        match: closer
+        differentiator: `${closer.estimatedWalkMinutes} mins to gate`,
+        match: closer,
+        property: closer
       });
     }
 
@@ -380,8 +394,11 @@ export class SmartMatchingService {
       alternatives.push({
         type: 'BETTER_POWER',
         title: 'Top Rated Electricity',
+        label: 'Top Rated Electricity',
         explanation: `Electricity rated ${betterPower.powerRating}★ by verified students with stable power supply.`,
-        match: betterPower
+        differentiator: `${betterPower.powerRating}★ Power rating`,
+        match: betterPower,
+        property: betterPower
       });
     }
 

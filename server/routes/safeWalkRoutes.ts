@@ -2,6 +2,7 @@ import { Router, Response } from 'express';
 import db from '../db.js';
 import { authenticate, optionalAuthenticate, AuthenticatedRequest } from '../middleware/auth.js';
 import crypto from 'crypto';
+import { notificationService } from '../services/notificationService.js';
 
 const router = Router();
 
@@ -46,7 +47,8 @@ router.get('/active', optionalAuthenticate, (req: AuthenticatedRequest, res: Res
 // 2. Start a new SafeWalk journey
 router.post('/start', authenticate, (req: AuthenticatedRequest, res: Response) => {
   try {
-    const userId = req.user!.id;
+    const user = req.user!;
+    const userId = user.id;
     const { 
       destination, 
       startLocation, 
@@ -78,7 +80,7 @@ router.post('/start', authenticate, (req: AuthenticatedRequest, res: Response) =
     // Save or update emergency contact in address book
     const existingContact = db.prepare(`
       SELECT id FROM safewalk_contacts WHERE user_id = ? AND phone_number = ?
-    `).get(userId, emergencyContactPhone);
+    `).get(userId, emergencyContactPhone.trim());
 
     if (!existingContact) {
       db.prepare(`
@@ -102,7 +104,7 @@ router.post('/start', authenticate, (req: AuthenticatedRequest, res: Response) =
       userId,
       destination.trim(),
       startLocation ? startLocation.trim() : 'Current Location',
-      startCoordinates ? JSON.stringify(startCoordinates) : null,
+      startCoordinates ? (typeof startCoordinates === 'string' ? startCoordinates : JSON.stringify(startCoordinates)) : null,
       duration,
       emergencyContactName.trim(),
       emergencyContactPhone.trim(),
@@ -110,8 +112,42 @@ router.post('/start', authenticate, (req: AuthenticatedRequest, res: Response) =
       notes ? notes.trim() : null
     );
 
+    // Send real notifications
+    try {
+      notificationService.createNotification({
+        userId,
+        title: 'SafeWalk Started Successfully',
+        message: `SafeWalk journey to ${destination.trim()} (${duration} mins) is active. Expected arrival monitored with live security dispatch.`,
+        type: 'SAFEWALK',
+        linkUrl: `/student-dashboard?tab=overview`,
+        relatedEntityId: journeyId,
+        relatedEntityType: 'SAFEWALK_JOURNEY'
+      });
+
+      // Check if emergency contact has a registered student/user account
+      const cleanPhone = emergencyContactPhone.trim().replace(/\s+/g, '');
+      const matchedUser = db.prepare(`
+        SELECT id FROM users WHERE REPLACE(phone, ' ', '') = ? OR REPLACE(phone, '-', '') = ?
+      `).get(cleanPhone, cleanPhone) as any;
+
+      if (matchedUser && matchedUser.id !== userId) {
+        notificationService.createNotification({
+          userId: matchedUser.id,
+          title: 'SafeWalk Contact Alert',
+          message: `${user.full_name || 'A friend'} listed you as trusted emergency contact for their trek to ${destination.trim()} (${duration} mins).`,
+          type: 'SAFEWALK',
+          linkUrl: `/student-dashboard?tab=overview`,
+          relatedEntityId: journeyId,
+          relatedEntityType: 'SAFEWALK_JOURNEY',
+          senderId: userId
+        });
+      }
+    } catch (notifErr) {
+      console.error('Error dispatching SafeWalk notifications:', notifErr);
+    }
+
     const created = db.prepare('SELECT * FROM safewalk_journeys WHERE id = ?').get(journeyId);
-    return res.status(201).json({ journey: created, message: 'SafeWalk journey started successfully' });
+    return res.status(201).json({ journey: created, message: 'SafeWalk Started Successfully' });
   } catch (err: any) {
     console.error('Error starting SafeWalk journey:', err);
     return res.status(500).json({ error: 'Failed to start SafeWalk journey' });
@@ -121,12 +157,13 @@ router.post('/start', authenticate, (req: AuthenticatedRequest, res: Response) =
 // 3. Mark Journey as Safe / Arrived
 router.post('/safe', authenticate, (req: AuthenticatedRequest, res: Response) => {
   try {
-    const userId = req.user!.id;
+    const user = req.user!;
+    const userId = user.id;
     const { journeyId } = req.body;
 
     const journey = journeyId 
-      ? db.prepare('SELECT * FROM safewalk_journeys WHERE id = ? AND user_id = ?').get(journeyId, userId)
-      : db.prepare("SELECT * FROM safewalk_journeys WHERE user_id = ? AND status IN ('ACTIVE', 'SOS_TRIGGERED') ORDER BY started_at DESC LIMIT 1").get(userId);
+      ? db.prepare('SELECT * FROM safewalk_journeys WHERE id = ? AND user_id = ?').get(journeyId, userId) as any
+      : db.prepare("SELECT * FROM safewalk_journeys WHERE user_id = ? AND status IN ('ACTIVE', 'SOS_TRIGGERED') ORDER BY started_at DESC LIMIT 1").get(userId) as any;
 
     if (!journey) {
       return res.status(404).json({ error: 'Active journey not found' });
@@ -136,7 +173,39 @@ router.post('/safe', authenticate, (req: AuthenticatedRequest, res: Response) =>
       UPDATE safewalk_journeys 
       SET status = 'COMPLETED', completed_at = datetime('now')
       WHERE id = ?
-    `).run((journey as any).id);
+    `).run(journey.id);
+
+    try {
+      notificationService.createNotification({
+        userId,
+        title: 'SafeWalk Completed',
+        message: `You arrived safely at ${journey.destination}. SafeWalk journey marked as completed!`,
+        type: 'SAFEWALK',
+        relatedEntityId: journey.id,
+        relatedEntityType: 'SAFEWALK_JOURNEY'
+      });
+
+      if (journey.emergency_contact_phone) {
+        const cleanPhone = journey.emergency_contact_phone.trim().replace(/\s+/g, '');
+        const matchedUser = db.prepare(`
+          SELECT id FROM users WHERE REPLACE(phone, ' ', '') = ?
+        `).get(cleanPhone) as any;
+
+        if (matchedUser && matchedUser.id !== userId) {
+          notificationService.createNotification({
+            userId: matchedUser.id,
+            title: 'SafeWalk: Arrived Safely',
+            message: `${user.full_name || 'Your contact'} safely completed their walk to ${journey.destination}.`,
+            type: 'SAFEWALK',
+            relatedEntityId: journey.id,
+            relatedEntityType: 'SAFEWALK_JOURNEY',
+            senderId: userId
+          });
+        }
+      }
+    } catch (notifErr) {
+      console.error('Error dispatching SafeWalk completion notification:', notifErr);
+    }
 
     return res.json({ 
       success: true, 
@@ -151,14 +220,15 @@ router.post('/safe', authenticate, (req: AuthenticatedRequest, res: Response) =>
 // 4. Trigger SOS Alert
 router.post('/sos', authenticate, (req: AuthenticatedRequest, res: Response) => {
   try {
-    const userId = req.user!.id;
+    const user = req.user!;
+    const userId = user.id;
     const { journeyId, currentCoordinates, alertNote } = req.body;
 
     const journey = journeyId 
-      ? db.prepare('SELECT * FROM safewalk_journeys WHERE id = ? AND user_id = ?').get(journeyId, userId)
-      : db.prepare("SELECT * FROM safewalk_journeys WHERE user_id = ? AND status = 'ACTIVE' ORDER BY started_at DESC LIMIT 1").get(userId);
+      ? db.prepare('SELECT * FROM safewalk_journeys WHERE id = ? AND user_id = ?').get(journeyId, userId) as any
+      : db.prepare("SELECT * FROM safewalk_journeys WHERE user_id = ? AND status IN ('ACTIVE', 'SOS_TRIGGERED') ORDER BY started_at DESC LIMIT 1").get(userId) as any;
 
-    const actualId = (journey as any)?.id;
+    const actualId = journey?.id;
 
     if (actualId) {
       db.prepare(`
@@ -170,13 +240,48 @@ router.post('/sos', authenticate, (req: AuthenticatedRequest, res: Response) => 
       `).run(alertNote || 'Emergency SOS Button Activated', actualId);
     }
 
+    // Send priority ALERT notifications
+    try {
+      notificationService.createNotification({
+        userId,
+        title: 'EMERGENCY SOS ACTIVATED',
+        message: `Emergency SOS triggered for your journey to ${journey?.destination || 'destination'}. University security lines and contacts prioritized.`,
+        type: 'ALERT',
+        relatedEntityId: actualId || null,
+        relatedEntityType: 'SAFEWALK_JOURNEY'
+      });
+
+      if (journey?.emergency_contact_phone) {
+        const cleanPhone = journey.emergency_contact_phone.trim().replace(/\s+/g, '');
+        const matchedUser = db.prepare(`
+          SELECT id FROM users WHERE REPLACE(phone, ' ', '') = ?
+        `).get(cleanPhone) as any;
+
+        if (matchedUser && matchedUser.id !== userId) {
+          notificationService.createNotification({
+            userId: matchedUser.id,
+            title: 'EMERGENCY SOS ALERT!',
+            message: `URGENT: ${user.full_name || 'A contact'} activated EMERGENCY SOS during walk to ${journey.destination}! GPS: ${currentCoordinates || 'Active location'}`,
+            type: 'ALERT',
+            relatedEntityId: actualId || null,
+            relatedEntityType: 'SAFEWALK_JOURNEY',
+            senderId: userId
+          });
+        }
+      }
+    } catch (notifErr) {
+      console.error('Error sending SOS notifications:', notifErr);
+    }
+
+    const updatedJourney = actualId ? db.prepare('SELECT * FROM safewalk_journeys WHERE id = ?').get(actualId) : null;
     return res.json({
       success: true,
       sosTriggered: true,
       message: 'Emergency SOS activated. Your designated contacts have been prioritized with your journey details.',
+      journey: updatedJourney,
       emergencyContact: journey ? {
-        name: (journey as any).emergency_contact_name,
-        phone: (journey as any).emergency_contact_phone
+        name: journey.emergency_contact_name,
+        phone: journey.emergency_contact_phone
       } : null,
       securityHelpline: 'LAUTECH Security Unit: 0803 000 0000 / Oyo State Emergency: 112'
     });

@@ -5440,6 +5440,38 @@ export const api = {
     }
   },
 
+  // Maintenance & Issue Reporting
+  maintenance: {
+    async getTickets(): Promise<{ tickets: any[] }> {
+      const res = await fetch(`${API_BASE}/maintenance/tickets`, {
+        headers: getAuthHeader()
+      });
+      return handleResponse(res);
+    },
+    async getTicket(id: string): Promise<{ ticket: any; updates: any[] }> {
+      const res = await fetch(`${API_BASE}/maintenance/tickets/${id}`, {
+        headers: getAuthHeader()
+      });
+      return handleResponse(res);
+    },
+    async updateStatus(id: string, status: string): Promise<{ message: string; ticket: any }> {
+      const res = await fetch(`${API_BASE}/maintenance/tickets/${id}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+        body: JSON.stringify({ status })
+      });
+      return handleResponse(res);
+    },
+    async addUpdate(id: string, message: string): Promise<{ message: string; update: any }> {
+      const res = await fetch(`${API_BASE}/maintenance/tickets/${id}/updates`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+        body: JSON.stringify({ message })
+      });
+      return handleResponse(res);
+    }
+  },
+
   // 4K Video Tour System & Admin Verification
   videos: {
     async upload4K(data: {

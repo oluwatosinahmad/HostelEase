@@ -66,6 +66,7 @@ import { SmartSearchBar } from './SmartSearchBar';
 import { SmartShortlistManager } from './SmartShortlistManager';
 import { AccommodationProgressTracker } from './AccommodationProgressTracker';
 import { UserAvatar } from './UserAvatar';
+import { ErrorBoundary } from './ErrorBoundary';
 import { DEFAULT_STUDENT_DASHBOARD } from '../services/offlineFallback';
 import { safeStorage } from '../utils/safeStorage';
 
@@ -1450,16 +1451,18 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
               </div>
 
               {/* 3. DETERMINISTIC SMART MATCH RECOMMENDATION FEED */}
-              <SmartMatchFeed
-                onSelectProperty={onSelectProperty || (() => {})}
-                onRequestInspection={(id) => {
-                  if (onNavigateToInspections) onNavigateToInspections();
-                  else if (onSelectProperty) onSelectProperty(id);
-                }}
-                onBookNow={(id) => {
-                  if (onSelectProperty) onSelectProperty(id);
-                }}
-              />
+              <ErrorBoundary isolated title="Smart Match Recommendations">
+                <SmartMatchFeed
+                  onSelectProperty={onSelectProperty || (() => {})}
+                  onRequestInspection={(id) => {
+                    if (onNavigateToInspections) onNavigateToInspections();
+                    else if (onSelectProperty) onSelectProperty(id);
+                  }}
+                  onBookNow={(id) => {
+                    if (onSelectProperty) onSelectProperty(id);
+                  }}
+                />
+              </ErrorBoundary>
 
               {/* Ask Hostel Ease AI Assistant Card */}
           {onOpenAI && (
@@ -1659,7 +1662,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                 Student Essentials
               </span>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
               
               {/* Tool 1: UtilityRadar™ */}
               <div 
@@ -1681,7 +1684,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                   </div>
                 </div>
                 <div className="flex items-center text-[11px] font-bold text-amber-700 group-hover:translate-x-1 transition-transform">
-                  Check Live Grid →
+                  Open UtilityRadar →
                 </div>
               </div>
 
@@ -1696,7 +1699,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                   </div>
                   <div>
                     <h4 className="font-extrabold text-xs text-slate-900 group-hover:text-emerald-700 transition-colors">
-                      Campus SafeWalk™
+                      SafeWalk™
                     </h4>
                     <p className="text-[11px] text-slate-500 leading-snug mt-0.5">
                       Night-walk routes, emergency SOS & security escort contacts.
@@ -1704,7 +1707,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                   </div>
                 </div>
                 <div className="flex items-center text-[11px] font-bold text-emerald-700 group-hover:translate-x-1 transition-transform">
-                  Open SafeWalk →
+                  Start SafeWalk →
                 </div>
               </div>
 
@@ -1727,11 +1730,34 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                   </div>
                 </div>
                 <div className="flex items-center text-[11px] font-bold text-blue-700 group-hover:translate-x-1 transition-transform">
-                  Report Issue →
+                  Report a Problem →
                 </div>
               </div>
 
-              {/* Tool 4: Women's Living & Safety */}
+              {/* Tool 4: Split Rent */}
+              <div 
+                onClick={() => onOpenSplitRent && onOpenSplitRent()}
+                className="bg-white p-4 rounded-2xl border border-slate-200 hover:border-teal-500 hover:shadow-md transition-all cursor-pointer group flex flex-col justify-between space-y-2.5"
+              >
+                <div className="space-y-1.5">
+                  <div className="w-9 h-9 rounded-xl bg-teal-100 text-teal-800 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <Users className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h4 className="font-extrabold text-xs text-slate-900 group-hover:text-teal-700 transition-colors">
+                      Split Rent
+                    </h4>
+                    <p className="text-[11px] text-slate-500 leading-snug mt-0.5">
+                      Fair roommate rent & cost sharing with automated tracking.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center text-[11px] font-bold text-teal-700 group-hover:translate-x-1 transition-transform">
+                  Split Rent →
+                </div>
+              </div>
+
+              {/* Tool 5: Women's Living & Safety */}
               <div 
                 onClick={() => onOpenWomenSection && onOpenWomenSection()}
                 className="bg-white p-4 rounded-2xl border border-slate-200 hover:border-rose-400 hover:shadow-md transition-all cursor-pointer group flex flex-col justify-between space-y-2.5"
@@ -2289,13 +2315,15 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
         <div className="space-y-6 animate-in fade-in">
           
           {/* SMART SHORTLIST ORGANIZER & COMPARISON */}
-          <SmartShortlistManager
-            onSelectProperty={onSelectProperty || (() => {})}
-            onRequestInspection={(id) => {
-              if (onNavigateToInspections) onNavigateToInspections();
-              else if (onSelectProperty) onSelectProperty(id);
-            }}
-          />
+          <ErrorBoundary isolated title="Smart Shortlist">
+            <SmartShortlistManager
+              onSelectProperty={onSelectProperty || (() => {})}
+              onRequestInspection={(id) => {
+                if (onNavigateToInspections) onNavigateToInspections();
+                else if (onSelectProperty) onSelectProperty(id);
+              }}
+            />
+          </ErrorBoundary>
 
           {/* Saved Hostels List */}
           <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 space-y-6 shadow-sm">

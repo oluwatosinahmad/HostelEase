@@ -1,0 +1,19 @@
+# Render Blueprint Specification
+services:
+  - type: web
+    name: hostelease
+    runtime: node
+    plan: free
+    region: oregon
+    buildCommand: npm install && npm run build
+    startCommand: npm run start
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: CORS_ORIGIN
+        value: "*"
+      - key: AUTH_JWT_SECRET
+        generateValue: true
+

@@ -573,7 +573,7 @@ export const MorePageView: React.FC<MorePageViewProps> = ({
                   <div className="flex items-center gap-3">
                     <Users className="w-4 h-4 text-teal-600 dark:text-teal-400 shrink-0" />
                     <div>
-                      <span className="text-xs">👥 Split Rent (Roommate Calculator)</span>
+                      <span className="text-xs">👥 Split Rent</span>
                       <p className="text-[10px] font-normal text-slate-600 dark:text-slate-400">50/50, 60/40, or custom ratio rent & deposit splitting</p>
                     </div>
                   </div>
@@ -1230,7 +1230,7 @@ export const MorePageView: React.FC<MorePageViewProps> = ({
                   <div className="flex items-center gap-3">
                     <Users className="w-4 h-4 text-teal-600 dark:text-teal-400 shrink-0" />
                     <div>
-                      <span className="text-xs">👥 Split Rent (Roommate Calculator)</span>
+                      <span className="text-xs">👥 Split Rent</span>
                       <p className="text-[10px] font-normal text-slate-600 dark:text-slate-400">50/50, 60/40, or custom ratio rent & deposit splitting</p>
                     </div>
                   </div>

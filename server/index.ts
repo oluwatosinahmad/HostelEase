@@ -7,6 +7,7 @@ import { fileURLToPath } from 'url';
 
 import db from './db';
 import { runMigrations } from './migrate';
+import { runSeed } from './seed';
 import authRoutes from './routes/authRoutes';
 import propertyRoutes from './routes/propertyRoutes';
 import savedRoutes from './routes/savedRoutes';
@@ -52,6 +53,17 @@ const __dirname = path.dirname(__filename);
 
 // Ensure migrations run automatically on startup
 runMigrations();
+
+// Auto-seed initial catalog if database is fresh/empty
+try {
+  const propCount = db.prepare('SELECT count(*) as count FROM properties').get() as { count: number };
+  if (!propCount || propCount.count === 0) {
+    console.log('🌱 Fresh database detected on startup. Auto-seeding initial LAUTECH catalog...');
+    runSeed();
+  }
+} catch (e) {
+  console.warn('Auto-seed check warning:', e);
+}
 
 const app = express();
 const PORT = process.env.PORT || 5000;

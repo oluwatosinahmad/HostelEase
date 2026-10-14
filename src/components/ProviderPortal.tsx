@@ -54,7 +54,9 @@ import {
   Copy,
   Heart,
   ThumbsUp,
-  MoreVertical
+  MoreVertical,
+  Wrench,
+  ChevronRight
 } from 'lucide-react';
 import { Area, Property, VerificationDocument, PriceHistoryItem, ConversationItem, ConversationDetail, MessageItem } from '../types/hostelEase';
 import { DEFAULT_PROPERTIES } from '../services/offlineFallback';
@@ -137,7 +139,7 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
 
   // Active Tab
   const [activeTab, setActiveTab] = useState<
-    'dashboard' | 'listings' | 'drafts' | 'videos' | 'rooms' | 'availability' | 'bookings' | 'move_ins' | 'inspections' | 'financials' | 'messages' | 'performance' | 'profile_team' | 'wizard'
+    'dashboard' | 'listings' | 'drafts' | 'videos' | 'rooms' | 'availability' | 'bookings' | 'move_ins' | 'inspections' | 'financials' | 'messages' | 'performance' | 'profile_team' | 'wizard' | 'maintenance'
   >(() => {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
@@ -147,6 +149,7 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
       if (tabParam === 'messages') return 'messages';
       if (tabParam === 'financials') return 'financials';
       if (tabParam === 'listings') return 'listings';
+      if (tabParam === 'maintenance') return 'maintenance';
     }
     return 'dashboard';
   });
@@ -155,6 +158,14 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
       return params.get('inspectionId') || null;
+    }
+    return null;
+  });
+
+  const [targetMaintenanceTicketId, setTargetMaintenanceTicketId] = useState<string | null>(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      return params.get('ticketId') || null;
     }
     return null;
   });
@@ -239,6 +250,84 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
     isOnline?: boolean;
     presenceText?: string;
   } | null>(null);
+
+  // Maintenance & Issue Reporting State (Agent Portal)
+  const [agentMaintenanceTickets, setAgentMaintenanceTickets] = useState<any[]>([]);
+  const [loadingAgentTickets, setLoadingAgentTickets] = useState<boolean>(false);
+  const [selectedAgentTicket, setSelectedAgentTicket] = useState<any | null>(null);
+  const [agentTicketUpdates, setAgentTicketUpdates] = useState<any[]>([]);
+  const [agentNewNote, setAgentNewNote] = useState<string>('');
+  const [agentTicketFilter, setAgentTicketFilter] = useState<'ALL' | 'SUBMITTED' | 'RECEIVED' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED'>('ALL');
+  const [agentTicketSearch, setAgentTicketSearch] = useState<string>('');
+  const [submittingAgentNote, setSubmittingAgentNote] = useState<boolean>(false);
+  const [updatingAgentStatus, setUpdatingAgentStatus] = useState<boolean>(false);
+
+  const fetchAgentMaintenanceTickets = async () => {
+    setLoadingAgentTickets(true);
+    try {
+      const res = await api.maintenance.getTickets();
+      const list = res?.tickets || [];
+      setAgentMaintenanceTickets(list);
+      if (targetMaintenanceTicketId) {
+        const found = list.find((t: any) => t.id === targetMaintenanceTicketId || t.ticket_code === targetMaintenanceTicketId);
+        if (found) {
+          fetchAgentTicketDetail(found.id);
+        }
+      }
+    } catch (err: any) {
+      console.error('Error fetching maintenance tickets for agent:', err);
+    } finally {
+      setLoadingAgentTickets(false);
+    }
+  };
+
+  const fetchAgentTicketDetail = async (ticketId: string) => {
+    try {
+      const res = await api.maintenance.getTicket(ticketId);
+      if (res?.ticket) {
+        setSelectedAgentTicket(res.ticket);
+        setAgentTicketUpdates(res.updates || []);
+      }
+    } catch (err: any) {
+      console.error('Error fetching ticket details:', err);
+      onShowToast(err.message || 'Failed to fetch ticket timeline', 'error');
+    }
+  };
+
+  const handleAgentStatusUpdate = async (ticketId: string, newStatus: string) => {
+    setUpdatingAgentStatus(true);
+    try {
+      await api.maintenance.updateStatus(ticketId, newStatus);
+      onShowToast(`Ticket status updated to ${newStatus}`, 'success');
+      await fetchAgentMaintenanceTickets();
+      if (selectedAgentTicket && selectedAgentTicket.id === ticketId) {
+        await fetchAgentTicketDetail(ticketId);
+      }
+    } catch (err: any) {
+      console.error('Error updating ticket status:', err);
+      onShowToast(err.message || 'Failed to update ticket status', 'error');
+    } finally {
+      setUpdatingAgentStatus(false);
+    }
+  };
+
+  const handleAgentAddNote = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedAgentTicket || !agentNewNote.trim()) return;
+    setSubmittingAgentNote(true);
+    try {
+      await api.maintenance.addUpdate(selectedAgentTicket.id, agentNewNote.trim());
+      onShowToast('Timeline update note posted to tenant', 'success');
+      setAgentNewNote('');
+      await fetchAgentTicketDetail(selectedAgentTicket.id);
+      await fetchAgentMaintenanceTickets();
+    } catch (err: any) {
+      console.error('Error adding ticket note:', err);
+      onShowToast(err.message || 'Failed to post timeline note', 'error');
+    } finally {
+      setSubmittingAgentNote(false);
+    }
+  };
 
   // Active presence heartbeat while agent is on provider portal
   useEffect(() => {
@@ -894,11 +983,15 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
     loadedTabs.current.clear();
     fetchAllProviderData(selectedPropertyId);
     fetchProviderVideos();
+    fetchAgentMaintenanceTickets();
   }, [selectedPropertyId, user?.id, user?.email]);
 
   // Progressive On-Demand Lazy Tab Loading: Only fetch data for active tab when opened
   useEffect(() => {
-    if (activeTab === 'performance' && !loadedTabs.current.has(`perf_${selectedPropertyId}`)) {
+    if (activeTab === 'maintenance' && !loadedTabs.current.has('maintenance')) {
+      loadedTabs.current.add('maintenance');
+      fetchAgentMaintenanceTickets();
+    } else if (activeTab === 'performance' && !loadedTabs.current.has(`perf_${selectedPropertyId}`)) {
       loadedTabs.current.add(`perf_${selectedPropertyId}`);
       api.provider.getPerformance(selectedPropertyId).then(res => {
         setPerformanceData(res || DEFAULT_PROVIDER_PERFORMANCE);
@@ -991,16 +1084,24 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
         let tab = typeof e.detail === 'string' ? e.detail : e.detail.tab;
         const convId = typeof e.detail === 'object' ? e.detail.conversationId : undefined;
         const inspId = typeof e.detail === 'object' ? (e.detail.inspectionId || null) : null;
+        const ticketId = typeof e.detail === 'object' ? (e.detail.ticketId || null) : null;
         if (inspId) {
           setTargetInspectionId(inspId);
+        }
+        if (ticketId) {
+          setTargetMaintenanceTicketId(ticketId);
         }
         if (tab === 'movein') tab = 'move_ins';
         if (tab === 'finance') tab = 'financials';
         if (tab === 'documents') tab = 'profile_team';
+        if (tab === 'maintenance') tab = 'maintenance';
         if (tab === 'wizard') setEditingProperty(null);
         setActiveTab(tab);
         if (tab === 'messages') {
           fetchConversations(convId);
+        }
+        if (tab === 'maintenance') {
+          fetchAgentMaintenanceTickets();
         }
       }
     };
@@ -1018,6 +1119,7 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
     window.addEventListener('hostel_ease_bookings_updated', handlePropsUpdate);
     window.addEventListener('hostel_ease_inspections_updated', handlePropsUpdate);
     window.addEventListener('hostel_ease_properties_updated', handlePropsUpdate);
+    window.addEventListener('hostel_ease_maintenance_updated', fetchAgentMaintenanceTickets);
     window.addEventListener('hostel_ease_provider_tab', handleTabChange);
     return () => {
       clearInterval(pollTimer);
@@ -1027,6 +1129,7 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
       window.removeEventListener('hostel_ease_bookings_updated', handlePropsUpdate);
       window.removeEventListener('hostel_ease_inspections_updated', handlePropsUpdate);
       window.removeEventListener('hostel_ease_properties_updated', handlePropsUpdate);
+      window.removeEventListener('hostel_ease_maintenance_updated', fetchAgentMaintenanceTickets);
       window.removeEventListener('hostel_ease_provider_tab', handleTabChange);
     };
   }, [activeConversationId, selectedPropertyId]);
@@ -1455,6 +1558,7 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
           { id: 'bookings', label: 'Bookings', icon: Receipt },
           { id: 'inspections', label: 'Inspections', icon: Clock },
           { id: 'move_ins', label: 'Move-In', icon: KeyRound },
+          { id: 'maintenance', label: `Maintenance (${agentMaintenanceTickets.filter(t => t.status !== 'RESOLVED' && t.status !== 'CLOSED').length})`, icon: Wrench },
           { id: 'messages', label: 'Chat', icon: MessageSquare },
           { id: 'financials', label: 'Payouts', icon: DollarSign },
           { id: 'performance', label: 'Performance', icon: TrendingUp },
@@ -1560,7 +1664,8 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
             <div className="space-y-1">
               {[
                 { id: 'bookings', label: 'Bookings', count: stats?.pendingBookings, badgeColor: 'bg-red-500 text-white', icon: FileText },
-                { id: 'move_ins', label: 'Move-In & Issues', count: 0, badgeColor: 'bg-amber-500 text-white', icon: KeyRound },
+                { id: 'move_ins', label: 'Move-In & Key Delivery', count: 0, badgeColor: 'bg-amber-500 text-white', icon: KeyRound },
+                { id: 'maintenance', label: 'Maintenance Issues', count: agentMaintenanceTickets.filter(t => t.status !== 'RESOLVED' && t.status !== 'CLOSED').length, badgeColor: 'bg-rose-500 text-white', icon: Wrench },
                 { id: 'inspections', label: 'Inspections & Slots', count: stats?.pendingInspections, badgeColor: 'bg-blue-500 text-white', icon: Clock }
               ].map(tab => {
                 const Icon = tab.icon;
@@ -2916,6 +3021,506 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
         {/* TAB 5B: MOVE-IN & ISSUES */}
         {activeTab === 'move_ins' && (
           <ProviderMoveInManager onShowToast={onShowToast} onOpenConversation={onOpenConversation} />
+        )}
+
+        {/* TAB 5C: MAINTENANCE & ISSUE REPORTING */}
+        {activeTab === 'maintenance' && (
+          <div className="space-y-6 animate-fadeIn">
+            {/* Top Banner & Quick Metrics */}
+            <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-gray-200 dark:border-slate-800 shadow-xs space-y-5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex items-center gap-3.5">
+                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-rose-600 to-amber-500 text-white flex items-center justify-center shadow-md shadow-rose-500/20 shrink-0">
+                    <Wrench className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-black text-gray-900 dark:text-white">
+                      Hostel Maintenance & Repair Requests
+                    </h3>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      Live issue tracker for lodged student repair tickets across your properties
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => fetchAgentMaintenanceTickets()}
+                    disabled={loadingAgentTickets}
+                    className="px-3.5 py-2 rounded-xl text-xs font-bold bg-gray-100 hover:bg-gray-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-gray-700 dark:text-gray-200 transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  >
+                    <Clock className={`w-3.5 h-3.5 ${loadingAgentTickets ? 'animate-spin' : ''}`} />
+                    <span>Refresh</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Summary Stats Grid */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
+                <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Total Tickets</span>
+                  <span className="text-xl font-black text-slate-900 dark:text-white">{agentMaintenanceTickets.length}</span>
+                </div>
+                <div className="p-3.5 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50">
+                  <span className="text-[10px] font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wider block">Action Needed</span>
+                  <span className="text-xl font-black text-amber-900 dark:text-amber-200">
+                    {agentMaintenanceTickets.filter(t => t.status === 'SUBMITTED').length}
+                  </span>
+                </div>
+                <div className="p-3.5 rounded-2xl bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800/50">
+                  <span className="text-[10px] font-bold text-blue-700 dark:text-blue-400 uppercase tracking-wider block">In Progress</span>
+                  <span className="text-xl font-black text-blue-900 dark:text-blue-200">
+                    {agentMaintenanceTickets.filter(t => t.status === 'IN_PROGRESS' || t.status === 'RECEIVED').length}
+                  </span>
+                </div>
+                <div className="p-3.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/50">
+                  <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider block">Resolved & Closed</span>
+                  <span className="text-xl font-black text-emerald-900 dark:text-emerald-200">
+                    {agentMaintenanceTickets.filter(t => t.status === 'RESOLVED' || t.status === 'CLOSED').length}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Filter Tabs & Search Controls */}
+            <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
+              {/* Status Filter Pills */}
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
+                {[
+                  { id: 'ALL', label: 'All', count: agentMaintenanceTickets.length },
+                  { id: 'SUBMITTED', label: 'New / Submitted', count: agentMaintenanceTickets.filter(t => t.status === 'SUBMITTED').length },
+                  { id: 'RECEIVED', label: 'Acknowledged', count: agentMaintenanceTickets.filter(t => t.status === 'RECEIVED').length },
+                  { id: 'IN_PROGRESS', label: 'In Progress', count: agentMaintenanceTickets.filter(t => t.status === 'IN_PROGRESS').length },
+                  { id: 'RESOLVED', label: 'Resolved', count: agentMaintenanceTickets.filter(t => t.status === 'RESOLVED').length },
+                  { id: 'CLOSED', label: 'Closed', count: agentMaintenanceTickets.filter(t => t.status === 'CLOSED').length }
+                ].map(filterTab => (
+                  <button
+                    key={filterTab.id}
+                    onClick={() => setAgentTicketFilter(filterTab.id as any)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap cursor-pointer transition-all flex items-center gap-1.5 ${
+                      agentTicketFilter === filterTab.id
+                        ? 'bg-emerald-800 text-white shadow-xs'
+                        : 'bg-white dark:bg-slate-800 text-gray-600 dark:text-gray-300 hover:bg-gray-100 border border-gray-200 dark:border-slate-700'
+                    }`}
+                  >
+                    <span>{filterTab.label}</span>
+                    <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${
+                      agentTicketFilter === filterTab.id
+                        ? 'bg-white/20 text-white'
+                        : 'bg-gray-100 dark:bg-slate-700 text-gray-700 dark:text-gray-300'
+                    }`}>
+                      {filterTab.count}
+                    </span>
+                  </button>
+                ))}
+              </div>
+
+              {/* Search Box */}
+              <div className="relative min-w-[240px]">
+                <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="Search code, room, category, tenant..."
+                  value={agentTicketSearch}
+                  onChange={e => setAgentTicketSearch(e.target.value)}
+                  className="w-full pl-9 pr-3 py-2 text-xs rounded-xl bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+              </div>
+            </div>
+
+            {/* Tickets Grid / Cards */}
+            {loadingAgentTickets ? (
+              <div className="p-12 text-center bg-white dark:bg-slate-900 rounded-3xl border border-gray-200 dark:border-slate-800">
+                <Clock className="w-8 h-8 text-emerald-600 animate-spin mx-auto mb-2" />
+                <p className="text-xs text-gray-500">Loading maintenance tickets...</p>
+              </div>
+            ) : agentMaintenanceTickets
+                .filter(t => {
+                  if (agentTicketFilter !== 'ALL' && t.status !== agentTicketFilter) return false;
+                  if (!agentTicketSearch.trim()) return true;
+                  const q = agentTicketSearch.toLowerCase();
+                  return (
+                    (t.ticket_code && t.ticket_code.toLowerCase().includes(q)) ||
+                    (t.category && t.category.toLowerCase().includes(q)) ||
+                    (t.custom_category && t.custom_category.toLowerCase().includes(q)) ||
+                    (t.property_title && t.property_title.toLowerCase().includes(q)) ||
+                    (t.student_name && t.student_name.toLowerCase().includes(q)) ||
+                    (t.room_number && t.room_number.toLowerCase().includes(q)) ||
+                    (t.description && t.description.toLowerCase().includes(q))
+                  );
+                }).length === 0 ? (
+              <div className="p-12 text-center bg-white dark:bg-slate-900 rounded-3xl border border-gray-200 dark:border-slate-800 space-y-3">
+                <div className="w-14 h-14 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto">
+                  <CheckCircle2 className="w-8 h-8" />
+                </div>
+                <h4 className="text-sm font-bold text-gray-900 dark:text-white">No Maintenance Tickets Found</h4>
+                <p className="text-xs text-gray-500 max-w-sm mx-auto">
+                  {agentTicketSearch
+                    ? 'No tickets match your search criteria. Try a different query.'
+                    : 'All maintenance requests for this filter have been handled! Great job keeping your properties in top shape.'}
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {agentMaintenanceTickets
+                  .filter(t => {
+                    if (agentTicketFilter !== 'ALL' && t.status !== agentTicketFilter) return false;
+                    if (!agentTicketSearch.trim()) return true;
+                    const q = agentTicketSearch.toLowerCase();
+                    return (
+                      (t.ticket_code && t.ticket_code.toLowerCase().includes(q)) ||
+                      (t.category && t.category.toLowerCase().includes(q)) ||
+                      (t.custom_category && t.custom_category.toLowerCase().includes(q)) ||
+                      (t.property_title && t.property_title.toLowerCase().includes(q)) ||
+                      (t.student_name && t.student_name.toLowerCase().includes(q)) ||
+                      (t.room_number && t.room_number.toLowerCase().includes(q)) ||
+                      (t.description && t.description.toLowerCase().includes(q))
+                    );
+                  })
+                  .map(t => {
+                    let attachments: any[] = [];
+                    try {
+                      attachments = typeof t.attachments_json === 'string'
+                        ? JSON.parse(t.attachments_json)
+                        : (t.attachments_json || []);
+                    } catch (e) {
+                      attachments = [];
+                    }
+
+                    return (
+                      <div
+                        key={t.id}
+                        className="bg-white dark:bg-slate-900 rounded-3xl p-5 border border-gray-200 dark:border-slate-800 shadow-xs hover:border-emerald-400 transition-all space-y-4 flex flex-col justify-between"
+                      >
+                        <div className="space-y-3">
+                          {/* Top Badges */}
+                          <div className="flex items-start justify-between gap-2 flex-wrap">
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono text-xs font-black text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/60 px-2.5 py-1 rounded-xl border border-blue-200 dark:border-blue-800">
+                                {t.ticket_code}
+                              </span>
+                              {t.priority === 'EMERGENCY' ? (
+                                <span className="px-2 py-0.5 rounded-lg text-[10px] font-black bg-rose-600 text-white animate-pulse">EMERGENCY</span>
+                              ) : t.priority === 'HIGH' ? (
+                                <span className="px-2 py-0.5 rounded-lg text-[10px] font-black bg-rose-100 text-rose-700 border border-rose-200">HIGH</span>
+                              ) : t.priority === 'MEDIUM' ? (
+                                <span className="px-2 py-0.5 rounded-lg text-[10px] font-black bg-amber-100 text-amber-800 border border-amber-200">MEDIUM</span>
+                              ) : (
+                                <span className="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-slate-100 text-slate-700">LOW</span>
+                              )}
+                            </div>
+
+                            {/* Status Badge */}
+                            <div>
+                              {t.status === 'SUBMITTED' ? (
+                                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border border-blue-200">SUBMITTED</span>
+                              ) : t.status === 'RECEIVED' ? (
+                                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 border border-purple-200">ACKNOWLEDGED</span>
+                              ) : t.status === 'IN_PROGRESS' ? (
+                                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300 border border-amber-200 flex items-center gap-1">
+                                  <Clock className="w-2.5 h-2.5 animate-spin" /> IN PROGRESS
+                                </span>
+                              ) : t.status === 'RESOLVED' ? (
+                                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-200 flex items-center gap-1">
+                                  <CheckCircle2 className="w-2.5 h-2.5" /> RESOLVED
+                                </span>
+                              ) : (
+                                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-300">CLOSED</span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Property & Room */}
+                          <div>
+                            <h4 className="text-sm font-black text-gray-900 dark:text-white flex items-center gap-1.5">
+                              <Building2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                              <span>{t.property_title}</span>
+                              <span className="text-emerald-700 font-bold">• Room {t.room_number}</span>
+                            </h4>
+                            <div className="flex items-center gap-2 mt-1 text-xs text-gray-500">
+                              <span>Category:</span>
+                              <strong className="text-gray-800 dark:text-gray-200">
+                                {t.custom_category ? `${t.custom_category} (Custom)` : t.category}
+                              </strong>
+                            </div>
+                          </div>
+
+                          {/* Tenant Info Card */}
+                          <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
+                            <div>
+                              <span className="font-bold text-gray-900 dark:text-white block">{t.student_name || 'Lodged Tenant'}</span>
+                              <span className="text-[11px] text-gray-500">{t.student_email}</span>
+                            </div>
+                            {t.student_phone && (
+                              <a
+                                href={`tel:${t.student_phone}`}
+                                className="px-2.5 py-1 rounded-xl bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 text-gray-700 dark:text-gray-200 text-xs font-bold hover:text-emerald-600 flex items-center gap-1.5 transition-colors"
+                              >
+                                <Phone className="w-3 h-3 text-emerald-600" />
+                                <span>{t.student_phone}</span>
+                              </a>
+                            )}
+                          </div>
+
+                          {/* Issue Description */}
+                          <p className="text-xs text-gray-700 dark:text-gray-300 leading-relaxed bg-slate-50/50 dark:bg-slate-800/30 p-3 rounded-2xl border border-gray-100 dark:border-slate-800">
+                            {t.description}
+                          </p>
+
+                          {/* Attachments Preview (Photos & 100MB Videos) */}
+                          {attachments.length > 0 && (
+                            <div className="space-y-1.5">
+                              <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider block">
+                                Media Attachments ({attachments.length})
+                              </span>
+                              <div className="grid grid-cols-2 gap-2">
+                                {attachments.map((att, idx) => {
+                                  const isVideo = att.type === 'video' || (typeof att.url === 'string' && (att.url.endsWith('.mp4') || att.url.endsWith('.webm') || att.url.endsWith('.mov')));
+                                  return (
+                                    <div key={idx} className="relative rounded-xl overflow-hidden border border-gray-200 dark:border-slate-700 bg-black">
+                                      {isVideo ? (
+                                        <video
+                                          src={att.url}
+                                          controls
+                                          className="w-full max-h-36 object-contain bg-black"
+                                          preload="metadata"
+                                        />
+                                      ) : (
+                                        <a href={att.url} target="_blank" rel="noopener noreferrer">
+                                          <img
+                                            src={att.url}
+                                            alt={att.name || `Attachment ${idx + 1}`}
+                                            className="w-full h-28 object-cover hover:opacity-90 transition-opacity"
+                                          />
+                                        </a>
+                                      )}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div className="pt-3 border-t border-gray-100 dark:border-slate-800 space-y-2">
+                          <div className="flex flex-wrap items-center gap-2">
+                            {t.status === 'SUBMITTED' && (
+                              <>
+                                <button
+                                  onClick={() => handleAgentStatusUpdate(t.id, 'RECEIVED')}
+                                  disabled={updatingAgentStatus}
+                                  className="flex-1 py-2 px-3 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold transition-all shadow-xs cursor-pointer flex items-center justify-center gap-1.5 disabled:opacity-50"
+                                >
+                                  <Check className="w-3.5 h-3.5" />
+                                  <span>Acknowledge</span>
+                                </button>
+                                <button
+                                  onClick={() => handleAgentStatusUpdate(t.id, 'IN_PROGRESS')}
+                                  disabled={updatingAgentStatus}
+                                  className="flex-1 py-2 px-3 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold transition-all shadow-xs cursor-pointer flex items-center justify-center gap-1.5 disabled:opacity-50"
+                                >
+                                  <Clock className="w-3.5 h-3.5" />
+                                  <span>In Progress</span>
+                                </button>
+                              </>
+                            )}
+
+                            {t.status === 'RECEIVED' && (
+                              <>
+                                <button
+                                  onClick={() => handleAgentStatusUpdate(t.id, 'IN_PROGRESS')}
+                                  disabled={updatingAgentStatus}
+                                  className="flex-1 py-2 px-3 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold transition-all shadow-xs cursor-pointer flex items-center justify-center gap-1.5 disabled:opacity-50"
+                                >
+                                  <Clock className="w-3.5 h-3.5" />
+                                  <span>Set In Progress</span>
+                                </button>
+                                <button
+                                  onClick={() => handleAgentStatusUpdate(t.id, 'RESOLVED')}
+                                  disabled={updatingAgentStatus}
+                                  className="flex-1 py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-xs cursor-pointer flex items-center justify-center gap-1.5 disabled:opacity-50"
+                                >
+                                  <CheckCircle2 className="w-3.5 h-3.5" />
+                                  <span>Mark Resolved</span>
+                                </button>
+                              </>
+                            )}
+
+                            {t.status === 'IN_PROGRESS' && (
+                              <button
+                                onClick={() => handleAgentStatusUpdate(t.id, 'RESOLVED')}
+                                disabled={updatingAgentStatus}
+                                className="w-full py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-xs cursor-pointer flex items-center justify-center gap-1.5 disabled:opacity-50"
+                              >
+                                <CheckCircle2 className="w-3.5 h-3.5" />
+                                <span>Mark Resolved</span>
+                              </button>
+                            )}
+
+                            {t.status === 'RESOLVED' && (
+                              <>
+                                <button
+                                  onClick={() => handleAgentStatusUpdate(t.id, 'CLOSED')}
+                                  disabled={updatingAgentStatus}
+                                  className="flex-1 py-2 px-3 rounded-xl bg-slate-700 hover:bg-slate-800 text-white text-xs font-bold transition-all shadow-xs cursor-pointer flex items-center justify-center gap-1.5 disabled:opacity-50"
+                                >
+                                  <CheckCheck className="w-3.5 h-3.5" />
+                                  <span>Close Ticket</span>
+                                </button>
+                                <button
+                                  onClick={() => handleAgentStatusUpdate(t.id, 'IN_PROGRESS')}
+                                  disabled={updatingAgentStatus}
+                                  className="flex-1 py-2 px-3 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 disabled:opacity-50"
+                                >
+                                  <span>Reopen</span>
+                                </button>
+                              </>
+                            )}
+
+                            {t.status === 'CLOSED' && (
+                              <button
+                                onClick={() => handleAgentStatusUpdate(t.id, 'IN_PROGRESS')}
+                                disabled={updatingAgentStatus}
+                                className="w-full py-2 px-3 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 disabled:opacity-50"
+                              >
+                                <span>Reopen Ticket</span>
+                              </button>
+                            )}
+                          </div>
+
+                          {/* Timeline & Notes CTA */}
+                          <button
+                            onClick={() => {
+                              setSelectedAgentTicket(t);
+                              fetchAgentTicketDetail(t.id);
+                            }}
+                            className="w-full py-2 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                          >
+                            <MessageSquare className="w-3.5 h-3.5 text-blue-600" />
+                            <span>View Timeline & Send Note ({t.ticket_code})</span>
+                            <ChevronRight className="w-3 h-3 text-gray-400" />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+            )}
+
+            {/* Ticket Timeline Modal */}
+            {selectedAgentTicket && (
+              <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/80 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 animate-fadeIn">
+                <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col">
+                  {/* Modal Header */}
+                  <div className="p-5 border-b border-gray-100 dark:border-slate-800 flex items-center justify-between sticky top-0 bg-white/95 dark:bg-slate-900/95 backdrop-blur z-10">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 rounded-xl bg-blue-100 dark:bg-blue-900/50 text-blue-600">
+                        <Wrench className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-xs font-black text-blue-600 dark:text-blue-400">
+                            {selectedAgentTicket.ticket_code}
+                          </span>
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                            {selectedAgentTicket.status}
+                          </span>
+                        </div>
+                        <h4 className="text-sm font-bold text-gray-900 dark:text-white mt-0.5">
+                          {selectedAgentTicket.property_title} • Room {selectedAgentTicket.room_number}
+                        </h4>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setSelectedAgentTicket(null)}
+                      className="p-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 dark:hover:bg-slate-800 cursor-pointer"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+
+                  {/* Modal Body: Updates Timeline */}
+                  <div className="p-5 sm:p-6 space-y-5 flex-1">
+                    {/* Tenant & Issue Summary */}
+                    <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 space-y-2">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-gray-500">Reported by:</span>
+                        <strong className="text-gray-900 dark:text-white">{selectedAgentTicket.student_name} ({selectedAgentTicket.student_phone || 'No phone'})</strong>
+                      </div>
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-gray-500">Category:</span>
+                        <strong className="text-gray-900 dark:text-white">{selectedAgentTicket.custom_category || selectedAgentTicket.category}</strong>
+                      </div>
+                      <p className="text-xs text-gray-700 dark:text-gray-300 pt-2 border-t border-slate-200 dark:border-slate-700">
+                        {selectedAgentTicket.description}
+                      </p>
+                    </div>
+
+                    {/* Timeline List */}
+                    <div className="space-y-3">
+                      <h5 className="text-xs font-bold text-gray-500 uppercase tracking-wider">
+                        Progress History & Communications ({agentTicketUpdates.length})
+                      </h5>
+
+                      {agentTicketUpdates.length === 0 ? (
+                        <p className="text-xs text-gray-400 italic text-center py-4">No progress notes yet.</p>
+                      ) : (
+                        <div className="space-y-3 relative before:absolute before:inset-0 before:left-3 before:w-0.5 before:bg-slate-200 dark:before:bg-slate-700">
+                          {agentTicketUpdates.map(u => (
+                            <div key={u.id} className="relative flex items-start gap-3 pl-1">
+                              <div className="w-5 h-5 rounded-full bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-xs z-10 text-[9px] font-black">
+                                {u.sender_role === 'STUDENT' ? 'S' : 'A'}
+                              </div>
+                              <div className="flex-1 p-3 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 space-y-1">
+                                <div className="flex items-center justify-between text-[11px]">
+                                  <span className="font-bold text-slate-800 dark:text-slate-200">
+                                    {u.sender_role === 'STUDENT' ? 'Student' : u.sender_role === 'PROVIDER' ? 'Agent (You)' : 'HostelEase Admin'}
+                                  </span>
+                                  <span className="text-slate-400">
+                                    {new Date(u.created_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
+                                  </span>
+                                </div>
+                                <p className="text-xs text-slate-700 dark:text-slate-300">{u.message}</p>
+                                {u.status_change && (
+                                  <span className="inline-block mt-1 text-[10px] font-bold px-2 py-0.5 rounded bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200">
+                                    Status updated: {u.status_change}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Post Update Note Form */}
+                    <form onSubmit={handleAgentAddNote} className="space-y-3 pt-4 border-t border-gray-100 dark:border-slate-800">
+                      <label className="block text-xs font-bold text-gray-700 dark:text-gray-300">
+                        Post Timeline Note to Student
+                      </label>
+                      <textarea
+                        rows={3}
+                        value={agentNewNote}
+                        onChange={e => setAgentNewNote(e.target.value)}
+                        placeholder="e.g. Electrician scheduled for 2:00 PM today. Please ensure room is accessible..."
+                        className="w-full p-3 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-none"
+                      />
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          type="submit"
+                          disabled={submittingAgentNote || !agentNewNote.trim()}
+                          className="px-4 py-2 rounded-xl bg-emerald-800 hover:bg-emerald-900 text-white text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                        >
+                          <Send className="w-3.5 h-3.5" />
+                          <span>{submittingAgentNote ? 'Sending...' : 'Send Note to Student'}</span>
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
         )}
 
         {/* TAB 6: INSPECTIONS */}

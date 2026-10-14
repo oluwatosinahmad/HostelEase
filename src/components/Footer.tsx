@@ -87,7 +87,7 @@ export const Footer: React.FC<FooterProps> = ({
                 <li><button onClick={onOpenMaintenance} className="hover:text-blue-400 text-blue-300/90 transition-colors text-left flex items-center gap-1"><span>🔧 Maintenance & Issue Reporting</span></button></li>
               )}
               {onOpenSplitRent && (
-                <li><button onClick={onOpenSplitRent} className="hover:text-teal-400 text-teal-300/90 transition-colors text-left flex items-center gap-1"><span>👥 Split Rent (Roommate Calculator)</span></button></li>
+                <li><button onClick={onOpenSplitRent} className="hover:text-teal-400 text-teal-300/90 transition-colors text-left flex items-center gap-1"><span>👥 Split Rent</span></button></li>
               )}
               <li><button onClick={() => onOpenAuth('PROVIDER')} className="hover:text-emerald-400 transition-colors text-left">List Your Property (Agents)</button></li>
               <li><button onClick={() => onOpenAuth('ADMIN')} className="hover:text-emerald-400 transition-colors text-left">Admin Moderation</button></li>

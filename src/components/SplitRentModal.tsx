@@ -73,6 +73,11 @@ export const SplitRentModal: React.FC<SplitRentModalProps> = ({
   ]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [payingShareId, setPayingShareId] = useState<string | null>(null);
+  const [createdAgreementData, setCreatedAgreementData] = useState<any | null>(null);
+  const [decliningShareId, setDecliningShareId] = useState<string | null>(null);
+  const [declinedReason, setDeclinedReason] = useState<string>('');
+  const [isActionPending, setIsActionPending] = useState(false);
+  const [copiedCode, setCopiedCode] = useState(false);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -210,9 +215,17 @@ export const SplitRentModal: React.FC<SplitRentModalProps> = ({
         throw new Error(data.error || 'Failed to create agreement');
       }
 
-      onShowToast(`Agreement ${data.agreement.reference_code} generated!`, 'success');
+      setCreatedAgreementData({
+        ...data.agreement,
+        shares: data.shares || participants.map(p => ({
+          participant_name: p.name,
+          participant_email: p.email,
+          share_percentage: p.sharePercentage,
+          share_amount: Math.round((rentNumber * (parseFloat(p.sharePercentage as any) || 0)) / 100)
+        }))
+      });
+      onShowToast('Rent-Splitting Request Sent Successfully', 'success');
       fetchMyAgreements();
-      setActiveTab('agreements');
     } catch (err: any) {
       onShowToast(err.message || 'Error creating agreement', 'error');
     } finally {
@@ -240,6 +253,58 @@ export const SplitRentModal: React.FC<SplitRentModalProps> = ({
     } finally {
       setPayingShareId(null);
     }
+  };
+
+  const handleAcceptShare = async (shareId: string) => {
+    setIsActionPending(true);
+    try {
+      const res = await fetch(`/api/split-rent/share/${shareId}/accept`, {
+        method: 'POST',
+        headers: getHeaders()
+      });
+      if (res.ok) {
+        onShowToast('Rent share accepted successfully!', 'success');
+        fetchMyAgreements();
+      } else {
+        const d = await res.json();
+        onShowToast(d.error || 'Could not accept share', 'error');
+      }
+    } catch (err) {
+      onShowToast('Error accepting share', 'error');
+    } finally {
+      setIsActionPending(false);
+    }
+  };
+
+  const handleDeclineShare = async (shareId: string) => {
+    setIsActionPending(true);
+    try {
+      const res = await fetch(`/api/split-rent/share/${shareId}/decline`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({ declinedReason: declinedReason.trim() || 'Declined by roommate' })
+      });
+      if (res.ok) {
+        onShowToast('You declined this rent-splitting request.', 'info');
+        setDecliningShareId(null);
+        setDeclinedReason('');
+        fetchMyAgreements();
+      } else {
+        const d = await res.json();
+        onShowToast(d.error || 'Could not decline share', 'error');
+      }
+    } catch (err) {
+      onShowToast('Error declining share', 'error');
+    } finally {
+      setIsActionPending(false);
+    }
+  };
+
+  const handleCopyCode = (code: string) => {
+    navigator.clipboard.writeText(code);
+    setCopiedCode(true);
+    setTimeout(() => setCopiedCode(false), 2500);
+    onShowToast(`Copied reference: ${code}`, 'success');
   };
 
   const handleRemindRoommates = async (agreementId: string) => {
@@ -329,13 +394,106 @@ export const SplitRentModal: React.FC<SplitRentModalProps> = ({
 
         {/* Tab 1: Create Agreement */}
         {activeTab === 'create' && (
-          <form onSubmit={handleCreateAgreement} className="p-5 sm:p-6 space-y-5 flex-1">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {/* Property Title */}
-              <div>
-                <label className="block text-xs font-black text-slate-700 dark:text-slate-300 mb-1.5">
-                  Hostel / Lodge Name *
-                </label>
+          <div className="p-5 sm:p-6 space-y-5 flex-1">
+            {createdAgreementData ? (
+              <div className="p-6 rounded-3xl bg-teal-50 dark:bg-teal-950/40 border-2 border-teal-300 dark:border-teal-700 text-center space-y-4 animate-fadeIn">
+                <div className="w-14 h-14 rounded-2xl bg-teal-600 text-white flex items-center justify-center mx-auto shadow-lg shadow-teal-600/30">
+                  <CheckCircle2 className="w-8 h-8" />
+                </div>
+                <div>
+                  <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-teal-200 dark:bg-teal-900 text-teal-900 dark:text-teal-200">
+                    ESCROW-SECURED AGREEMENT CREATED
+                  </span>
+                  <h4 className="text-xl font-black text-slate-900 dark:text-white mt-1">
+                    Rent-Splitting Request Sent Successfully
+                  </h4>
+                  <p className="text-xs text-slate-600 dark:text-slate-300 mt-1 max-w-md mx-auto">
+                    Invitations with payment links have been transmitted to your roommates, and the property Agent has been notified.
+                  </p>
+                </div>
+
+                <div className="p-4 bg-white dark:bg-slate-900 rounded-2xl border border-teal-200 dark:border-teal-800 max-w-md mx-auto space-y-2 text-left">
+                  <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2">
+                    <span className="text-[11px] text-slate-400 font-bold uppercase">Reference Code</span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-mono text-xs font-black text-teal-700 dark:text-teal-400">
+                        {createdAgreementData.reference_code}
+                      </span>
+                      <button
+                        onClick={() => handleCopyCode(createdAgreementData.reference_code)}
+                        className="p-1 rounded-md bg-teal-100 hover:bg-teal-200 dark:bg-teal-900 text-teal-800 dark:text-teal-200 text-[10px] font-bold flex items-center gap-1 cursor-pointer"
+                      >
+                        {copiedCode ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                        <span>{copiedCode ? 'Copied' : 'Copy'}</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between text-xs py-0.5">
+                    <span className="text-slate-400">Hostel / Lodge:</span>
+                    <strong className="text-slate-800 dark:text-slate-200">
+                      {createdAgreementData.property_title}
+                    </strong>
+                  </div>
+
+                  <div className="flex items-center justify-between text-xs py-0.5">
+                    <span className="text-slate-400">Total Rent:</span>
+                    <strong className="text-teal-700 dark:text-teal-400">
+                      {formatNaira(createdAgreementData.total_rent)}
+                    </strong>
+                  </div>
+
+                  <div className="flex items-center justify-between text-xs py-0.5">
+                    <span className="text-slate-400">Payment Due Date:</span>
+                    <strong className="text-slate-800 dark:text-slate-200">
+                      {createdAgreementData.due_date}
+                    </strong>
+                  </div>
+
+                  <div className="pt-2 border-t border-slate-100 dark:border-slate-800 space-y-1.5">
+                    <span className="text-[10px] font-black uppercase text-slate-400 block">
+                      Roommate Shares Breakdown
+                    </span>
+                    {createdAgreementData.shares?.map((s: any, idx: number) => (
+                      <div key={idx} className="flex items-center justify-between text-xs bg-slate-50 dark:bg-slate-800 p-2 rounded-xl">
+                        <span className="font-bold text-slate-700 dark:text-slate-300">
+                          {s.participant_name} ({s.share_percentage}%)
+                        </span>
+                        <span className="font-mono font-bold text-teal-700 dark:text-teal-400">
+                          {formatNaira(s.share_amount)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-center gap-3 pt-2">
+                  <button
+                    onClick={() => {
+                      setCreatedAgreementData(null);
+                      setActiveTab('agreements');
+                      fetchMyAgreements();
+                    }}
+                    className="px-6 py-2.5 bg-teal-600 hover:bg-teal-700 text-white font-black text-xs rounded-xl shadow-md cursor-pointer"
+                  >
+                    View In My Agreements
+                  </button>
+                  <button
+                    onClick={() => setCreatedAgreementData(null)}
+                    className="px-4 py-2.5 bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 text-slate-800 dark:text-white font-bold text-xs rounded-xl cursor-pointer"
+                  >
+                    Create Another Split
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <form onSubmit={handleCreateAgreement} className="space-y-5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Property Title */}
+                  <div>
+                    <label className="block text-xs font-black text-slate-700 dark:text-slate-300 mb-1.5">
+                      Hostel / Lodge Name *
+                    </label>
                 <div className="relative">
                   <input
                     type="text"
@@ -545,6 +703,8 @@ export const SplitRentModal: React.FC<SplitRentModalProps> = ({
               )}
             </button>
           </form>
+          )}
+        </div>
         )}
 
         {/* Tab 2: My Agreements */}
@@ -580,7 +740,10 @@ export const SplitRentModal: React.FC<SplitRentModalProps> = ({
                   </p>
                 </div>
                 <button
-                  onClick={() => setActiveTab('create')}
+                  onClick={() => {
+                    setCreatedAgreementData(null);
+                    setActiveTab('create');
+                  }}
                   className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs rounded-xl cursor-pointer"
                 >
                   Create First Agreement
@@ -627,40 +790,110 @@ export const SplitRentModal: React.FC<SplitRentModalProps> = ({
                         {agr.shares?.map((s: any) => {
                           const isUser = s.participant_email?.toLowerCase() === currentUser?.email?.toLowerCase() || s.user_id === currentUser?.id;
                           const isPaid = s.payment_status === 'PAID';
+                          const isAccepted = s.acceptance_status === 'ACCEPTED';
+                          const isDeclined = s.acceptance_status === 'DECLINED';
+                          const isPending = !isAccepted && !isDeclined;
+
                           return (
                             <div
                               key={s.id}
-                              className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 flex items-center justify-between text-xs"
+                              className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 space-y-2 text-xs"
                             >
-                              <div>
-                                <div className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-                                  <span>{s.participant_name}</span>
-                                  {isUser && <span className="px-1 py-0.2 rounded bg-teal-100 text-teal-800 text-[9px] font-black">YOU</span>}
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <div className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                                    <span>{s.participant_name}</span>
+                                    {isUser && <span className="px-1 py-0.2 rounded bg-teal-100 text-teal-800 text-[9px] font-black">YOU</span>}
+                                  </div>
+                                  <span className="text-[11px] text-slate-400">
+                                    {s.share_percentage}% • {formatNaira(s.share_amount)}
+                                  </span>
                                 </div>
-                                <span className="text-[11px] text-slate-400">
-                                  {s.share_percentage}% • {formatNaira(s.share_amount)}
-                                </span>
+
+                                <div className="flex items-center gap-1.5">
+                                  {isDeclined ? (
+                                    <span className="px-2 py-0.5 rounded text-[10px] font-black bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300">
+                                      DECLINED {s.declined_reason ? `(${s.declined_reason})` : ''}
+                                    </span>
+                                  ) : isPaid ? (
+                                    <span className="px-2 py-0.5 rounded text-[10px] font-black bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                                      PAID ✓
+                                    </span>
+                                  ) : isAccepted ? (
+                                    <span className="px-2 py-0.5 rounded text-[10px] font-black bg-teal-100 text-teal-800 dark:bg-teal-950 dark:text-teal-300">
+                                      ACCEPTED (AWAITING PAYMENT)
+                                    </span>
+                                  ) : (
+                                    <span className="px-2 py-0.5 rounded text-[10px] font-black bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                                      INVITED (PENDING ACCEPTANCE)
+                                    </span>
+                                  )}
+                                </div>
                               </div>
 
-                              <div className="flex items-center gap-2">
-                                <span className={`px-2 py-0.5 rounded text-[10px] font-black ${
-                                  isPaid
-                                    ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
-                                    : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
-                                }`}>
-                                  {isPaid ? 'PAID ✓' : 'PENDING'}
-                                </span>
+                              {/* Action row for current user */}
+                              {isUser && !isPaid && !isDeclined && (
+                                <div className="pt-2 border-t border-slate-200 dark:border-slate-800 flex items-center justify-end gap-2 flex-wrap">
+                                  {isPending && (
+                                    <>
+                                      <button
+                                        type="button"
+                                        disabled={isActionPending}
+                                        onClick={() => handleAcceptShare(s.id)}
+                                        className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg cursor-pointer transition-colors shadow-xs"
+                                      >
+                                        Accept Share
+                                      </button>
 
-                                {!isPaid && isUser && (
-                                  <button
-                                    onClick={() => handlePayShare(s.id)}
-                                    disabled={payingShareId === s.id}
-                                    className="px-3 py-1 bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs rounded-lg shadow-sm cursor-pointer"
-                                  >
-                                    {payingShareId === s.id ? 'Processing...' : 'Pay Share'}
-                                  </button>
-                                )}
-                              </div>
+                                      {decliningShareId === s.id ? (
+                                        <div className="flex items-center gap-1.5 animate-fadeIn">
+                                          <input
+                                            type="text"
+                                            placeholder="Reason (optional)"
+                                            value={declinedReason}
+                                            onChange={(e) => setDeclinedReason(e.target.value)}
+                                            className="px-2 py-1 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-xs w-36"
+                                          />
+                                          <button
+                                            type="button"
+                                            disabled={isActionPending}
+                                            onClick={() => handleDeclineShare(s.id)}
+                                            className="px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-lg cursor-pointer"
+                                          >
+                                            Confirm
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={() => setDecliningShareId(null)}
+                                            className="px-2 py-1 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-xs rounded-lg cursor-pointer"
+                                          >
+                                            Cancel
+                                          </button>
+                                        </div>
+                                      ) : (
+                                        <button
+                                          type="button"
+                                          onClick={() => setDecliningShareId(s.id)}
+                                          className="px-3 py-1 bg-rose-100 hover:bg-rose-200 text-rose-800 dark:bg-rose-950 dark:text-rose-300 font-bold text-xs rounded-lg cursor-pointer transition-colors"
+                                        >
+                                          Decline Share
+                                        </button>
+                                      )}
+                                    </>
+                                  )}
+
+                                  {isAccepted && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handlePayShare(s.id)}
+                                      disabled={payingShareId === s.id}
+                                      className="px-3 py-1 bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs rounded-lg shadow-sm cursor-pointer"
+                                    >
+                                      {payingShareId === s.id ? 'Processing...' : 'Pay Share'}
+                                    </button>
+                                  )}
+                                </div>
+                              )}
                             </div>
                           );
                         })}

@@ -2,6 +2,7 @@ import { Router, Response } from 'express';
 import db from '../db.js';
 import { optionalAuthenticate, AuthenticatedRequest } from '../middleware/auth.js';
 import crypto from 'crypto';
+import { notificationService } from '../services/notificationService.js';
 
 const router = Router();
 
@@ -73,11 +74,12 @@ router.get('/overview', (req, res: Response) => {
         END, name ASC
     `).all();
 
-    // Query reports from the last 6 hours
+    // Query reports from the last 6 hours (excluding flagged)
     const recentElectricityReports = db.prepare(`
       SELECT id, area_id, status, notes, created_at 
       FROM utility_reports 
       WHERE utility_type = 'ELECTRICITY' AND created_at >= datetime('now', '-6 hours')
+      AND (is_flagged = 0 OR is_flagged IS NULL)
       ORDER BY created_at DESC
     `).all() as any[];
 
@@ -85,6 +87,7 @@ router.get('/overview', (req, res: Response) => {
       SELECT id, area_id, status, notes, created_at 
       FROM utility_reports 
       WHERE utility_type = 'WATER' AND created_at >= datetime('now', '-6 hours')
+      AND (is_flagged = 0 OR is_flagged IS NULL)
       ORDER BY created_at DESC
     `).all() as any[];
 
@@ -102,11 +105,11 @@ router.get('/overview', (req, res: Response) => {
         landmark: area.landmark,
         electricity: {
           ...elecConsensus,
-          recentNotes: elecReports.slice(0, 3).map(r => ({ notes: r.notes, created_at: r.created_at }))
+          recentNotes: elecReports.slice(0, 3).map(r => ({ id: r.id, notes: r.notes, created_at: r.created_at }))
         },
         water: {
           ...waterConsensus,
-          recentNotes: waterReports.slice(0, 3).map(r => ({ notes: r.notes, created_at: r.created_at }))
+          recentNotes: waterReports.slice(0, 3).map(r => ({ id: r.id, notes: r.notes, created_at: r.created_at }))
         }
       };
     });
@@ -114,6 +117,7 @@ router.get('/overview', (req, res: Response) => {
     const totalReportsToday = (db.prepare(`
       SELECT COUNT(*) as count FROM utility_reports 
       WHERE created_at >= datetime('now', '-24 hours')
+      AND (is_flagged = 0 OR is_flagged IS NULL)
     `).get() as { count: number }).count;
 
     return res.json({
@@ -132,7 +136,7 @@ router.post('/report', optionalAuthenticate, (req: AuthenticatedRequest, res: Re
   try {
     const userId = req.user?.id || (req.headers['x-user-id'] as string) || null;
     const clientIp = req.ip || req.socket.remoteAddress || 'unknown-ip';
-    const { areaId, utilityType, status, notes } = req.body;
+    const { areaId, utilityType, status, notes, propertyId } = req.body;
 
     if (!areaId) {
       return res.status(400).json({ error: 'Area selection is required' });
@@ -176,14 +180,43 @@ router.post('/report', optionalAuthenticate, (req: AuthenticatedRequest, res: Re
 
     const reportId = `ur-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`;
     db.prepare(`
-      INSERT INTO utility_reports (id, user_id, area_id, utility_type, status, notes, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, datetime('now'))
-    `).run(reportId, userId, areaId, utilityType, status, notes ? notes.trim() : null);
+      INSERT INTO utility_reports (id, user_id, area_id, property_id, utility_type, status, notes, is_flagged, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, 0, datetime('now'))
+    `).run(reportId, userId, areaId, propertyId || null, utilityType, status, notes ? notes.trim() : null);
+
+    // If propertyId is provided and indicates an outage (POWER_OFF or WATER_UNAVAILABLE), notify the Agent
+    if (propertyId && (status === 'POWER_OFF' || status === 'WATER_UNAVAILABLE')) {
+      try {
+        const prop = db.prepare(`
+          SELECT p.id, p.title, p.provider_id, u.full_name as provider_name 
+          FROM properties p 
+          JOIN users u ON p.provider_id = u.id 
+          WHERE p.id = ?
+        `).get(propertyId) as any;
+
+        if (prop && prop.provider_id) {
+          notificationService.createNotification({
+            userId: prop.provider_id,
+            title: `Utility Outage Reported: ${prop.title}`,
+            message: `A student submitted an outage report for ${utilityType.toLowerCase()} (${status.replace('_', ' ')}) affecting ${prop.title} in ${area.name}.`,
+            type: 'MAINTENANCE',
+            linkUrl: `/provider?tab=maintenance`,
+            relatedEntityId: reportId,
+            relatedEntityType: 'UTILITY_REPORT',
+            senderId: userId || null,
+            metadata: { propertyId: prop.id, utilityType, status, areaId }
+          });
+        }
+      } catch (notifErr) {
+        console.error('Error notifying agent about property utility outage:', notifErr);
+      }
+    }
 
     // Fetch refreshed area status
     const recentReports = db.prepare(`
       SELECT status, notes, created_at FROM utility_reports 
       WHERE area_id = ? AND utility_type = ? AND created_at >= datetime('now', '-6 hours')
+      AND (is_flagged = 0 OR is_flagged IS NULL)
       ORDER BY created_at DESC
     `).all(areaId, utilityType) as any[];
 
@@ -191,7 +224,7 @@ router.post('/report', optionalAuthenticate, (req: AuthenticatedRequest, res: Re
 
     return res.status(201).json({
       success: true,
-      message: `Thank you for contributing to UtilityRadar! Your report for ${area.name} has been broadcast to fellow students.`,
+      message: 'Utility Report Submitted Successfully',
       reportId,
       updatedConsensus: consensus
     });
@@ -201,7 +234,34 @@ router.post('/report', optionalAuthenticate, (req: AuthenticatedRequest, res: Re
   }
 });
 
-// 3. Get list of areas for reporting
+// 3. Flag an inaccurate or abusive report
+router.post('/reports/:id/flag', optionalAuthenticate, (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { reason } = req.body;
+
+    const report = db.prepare('SELECT id FROM utility_reports WHERE id = ?').get(id);
+    if (!report) {
+      return res.status(404).json({ error: 'Utility report not found' });
+    }
+
+    db.prepare(`
+      UPDATE utility_reports 
+      SET is_flagged = 1, flag_reason = ? 
+      WHERE id = ?
+    `).run(reason ? reason.trim() : 'Flagged as inaccurate by community member', id);
+
+    return res.json({
+      success: true,
+      message: 'Report flagged for community review. Inaccurate status will be recalculated.'
+    });
+  } catch (err: any) {
+    console.error('Error flagging utility report:', err);
+    return res.status(500).json({ error: 'Failed to flag utility report' });
+  }
+});
+
+// 4. Get list of areas for reporting
 router.get('/areas', (req, res: Response) => {
   try {
     const areas = db.prepare(`
@@ -216,7 +276,7 @@ router.get('/areas', (req, res: Response) => {
   }
 });
 
-// 4. Area detailed history (24h)
+// 5. Area detailed history (24h)
 router.get('/history/:areaId', (req, res: Response) => {
   try {
     const { areaId } = req.params;
@@ -226,6 +286,7 @@ router.get('/history/:areaId', (req, res: Response) => {
       FROM utility_reports ur
       LEFT JOIN users u ON ur.user_id = u.id
       WHERE ur.area_id = ? AND ur.created_at >= datetime('now', '-24 hours')
+      AND (ur.is_flagged = 0 OR ur.is_flagged IS NULL)
       ORDER BY ur.created_at DESC LIMIT 30
     `).all(areaId);
 

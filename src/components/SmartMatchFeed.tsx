@@ -43,10 +43,13 @@ interface SmartMatchItem {
 }
 
 interface SmartAlternative {
-  type: 'CHEAPER' | 'CLOSER' | 'BETTER_ELECTRICITY';
-  label: string;
-  property: SmartMatchItem;
-  differentiator: string;
+  type: 'CHEAPER' | 'CLOSER' | 'BETTER_ELECTRICITY' | 'BETTER_POWER' | string;
+  label?: string;
+  title?: string;
+  property?: SmartMatchItem;
+  match?: SmartMatchItem;
+  differentiator?: string;
+  explanation?: string;
 }
 
 interface SmartMatchFeedProps {
@@ -159,27 +162,32 @@ export const SmartMatchFeed: React.FC<SmartMatchFeedProps> = ({
     }
   };
 
-  const openTrueCost = (match: SmartMatchItem) => {
+  const openTrueCost = (match: any) => {
+    if (!match) return;
+    const trueCost = match.trueCost || {};
+    const price = match.pricePerYear || match.price || 0;
+    const totalKnown = trueCost.totalKnownCost ?? price;
+    const transportEst = trueCost.estimatedAnnualTransport ?? 0;
     setSelectedTrueCost({
-      propertyId: match.propertyId,
-      title: match.propertyTitle,
-      area: match.area,
-      distanceKm: match.distanceKm,
+      propertyId: match.propertyId || match.id,
+      title: match.propertyTitle || match.title || 'Hostel Accommodation',
+      area: match.area || 'LAUTECH',
+      distanceKm: match.distanceKm ?? 1,
       knownCosts: {
-        rentPerYear: match.trueCost.rentPerYear,
-        cautionDeposit: match.trueCost.cautionDeposit,
-        serviceCharge: match.trueCost.serviceCharge,
-        agencyLegalFee: match.trueCost.agencyLegalFee,
-        platformEscrowFee: match.trueCost.platformFee,
-        totalKnownCost: match.trueCost.totalKnownCost
+        rentPerYear: trueCost.rentPerYear ?? price,
+        cautionDeposit: trueCost.cautionDeposit ?? 0,
+        serviceCharge: trueCost.serviceCharge ?? 0,
+        agencyLegalFee: trueCost.agencyLegalFee ?? 0,
+        platformEscrowFee: trueCost.platformFee ?? 0,
+        totalKnownCost: totalKnown
       },
       estimatedCosts: {
-        dailyCampusCommuteEstimated: match.trueCost.estimatedDailyTransport,
-        academicSessionCommuteEstimated: match.trueCost.estimatedAnnualTransport,
+        dailyCampusCommuteEstimated: trueCost.estimatedDailyTransport ?? 0,
+        academicSessionCommuteEstimated: transportEst,
         schoolDaysCount: 180
       },
-      totalTrueCost: match.trueCost.totalEstimatedCostWithTransport,
-      costExplanation: `Initial known fee is ₦${match.trueCost.totalKnownCost.toLocaleString()}. Estimated transport to campus is ~₦${match.trueCost.estimatedAnnualTransport.toLocaleString()} over 180 school days.`
+      totalTrueCost: trueCost.totalEstimatedCostWithTransport ?? totalKnown,
+      costExplanation: `Initial known fee is ₦${Number(totalKnown).toLocaleString()}. Estimated transport to campus is ~₦${Number(transportEst).toLocaleString()} over 180 school days.`
     });
   };
 
@@ -219,14 +227,14 @@ export const SmartMatchFeed: React.FC<SmartMatchFeedProps> = ({
                 Best Match For You
               </span>
               <span className="text-xs text-slate-300">
-                Ranked by budget (₦{studentProfile?.maxBudget?.toLocaleString()}) & preferences
+                Ranked by budget (₦{(studentProfile?.maxBudget || 200000).toLocaleString()}) & preferences
               </span>
             </div>
 
             {/* Deterministic Match Score Badge */}
             <div className="flex items-center gap-2 bg-emerald-500/20 border border-emerald-400/30 px-3.5 py-1.5 rounded-2xl">
               <div className="text-right">
-                <div className="text-lg font-black text-emerald-400 leading-none">{bestMatch.matchScore}%</div>
+                <div className="text-lg font-black text-emerald-400 leading-none">{bestMatch.matchScore ?? 95}%</div>
                 <span className="text-[9px] uppercase font-bold text-emerald-200/80 tracking-wider">Match Score</span>
               </div>
             </div>
@@ -239,26 +247,26 @@ export const SmartMatchFeed: React.FC<SmartMatchFeedProps> = ({
             <div className="md:col-span-8 space-y-4">
               <div>
                 <h3 className="text-xl sm:text-2xl font-black text-white tracking-tight hover:text-emerald-300 transition-colors cursor-pointer" onClick={() => onSelectProperty(bestMatch.propertyId)}>
-                  {bestMatch.propertyTitle}
+                  {bestMatch.propertyTitle || 'Hostel Accommodation'}
                 </h3>
                 <p className="text-xs text-slate-300 flex items-center gap-1.5 mt-1">
                   <MapPin className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
-                  {bestMatch.address} • {bestMatch.area} ({bestMatch.estimatedWalkMinutes} mins walk to campus)
+                  {bestMatch.address || 'LAUTECH Area'} • {bestMatch.area || 'Under G'} ({bestMatch.estimatedWalkMinutes ?? 10} mins walk to campus)
                 </p>
               </div>
 
               {/* Price & Affordability Status */}
               <div className="flex flex-wrap items-center gap-4 pt-1">
                 <div>
-                  <span className="text-2xl font-black text-white">₦{bestMatch.pricePerYear.toLocaleString()}</span>
+                  <span className="text-2xl font-black text-white">₦{(bestMatch.pricePerYear || 0).toLocaleString()}</span>
                   <span className="text-xs text-slate-400 font-medium"> / year</span>
                 </div>
 
                 <div className="px-3 py-1 rounded-xl text-xs font-bold bg-white/10 border border-white/20 text-emerald-300">
-                  {bestMatch.affordabilityNote}
+                  {bestMatch.affordabilityNote || 'Within your comfortable budget'}
                 </div>
 
-                {bestMatch.availableBedspaces > 0 && (
+                {(bestMatch.availableBedspaces || 0) > 0 && (
                   <span className="text-xs text-slate-300 font-semibold bg-emerald-950/60 border border-emerald-500/30 px-2.5 py-1 rounded-xl">
                     🟢 {bestMatch.availableBedspaces} spaces available
                   </span>
@@ -268,7 +276,7 @@ export const SmartMatchFeed: React.FC<SmartMatchFeedProps> = ({
               {/* Positive Checks vs Warnings */}
               <div className="space-y-2 pt-2">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                  {bestMatch.positiveReasons.slice(0, 4).map((reason, idx) => (
+                  {(bestMatch.positiveReasons || []).slice(0, 4).map((reason, idx) => (
                     <div key={idx} className="flex items-center gap-2 text-emerald-300 font-medium">
                       <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
                       <span>{reason}</span>
@@ -276,9 +284,9 @@ export const SmartMatchFeed: React.FC<SmartMatchFeedProps> = ({
                   ))}
                 </div>
 
-                {bestMatch.negativeWarnings.length > 0 && (
+                {(bestMatch.negativeWarnings || []).length > 0 && (
                   <div className="mt-2 space-y-1">
-                    {bestMatch.negativeWarnings.map((warn, idx) => (
+                    {(bestMatch.negativeWarnings || []).map((warn, idx) => (
                       <div key={idx} className="flex items-center gap-2 text-amber-300 text-xs font-medium bg-amber-950/40 border border-amber-500/30 px-3 py-1.5 rounded-xl">
                         <AlertTriangle className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />
                         <span>{warn}</span>
@@ -296,11 +304,11 @@ export const SmartMatchFeed: React.FC<SmartMatchFeedProps> = ({
                 <div className="text-xs text-slate-200 space-y-1">
                   <div className="flex justify-between">
                     <span className="text-slate-400">Known Direct:</span>
-                    <span className="font-bold">₦{bestMatch.trueCost.totalKnownCost.toLocaleString()}</span>
+                    <span className="font-bold">₦{(bestMatch.trueCost?.totalKnownCost ?? bestMatch.pricePerYear ?? 0).toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-400">Est. Transport:</span>
-                    <span className="font-bold text-amber-300">~₦{bestMatch.trueCost.estimatedAnnualTransport.toLocaleString()}</span>
+                    <span className="font-bold text-amber-300">~₦{(bestMatch.trueCost?.estimatedAnnualTransport ?? 0).toLocaleString()}</span>
                   </div>
                 </div>
 
@@ -380,59 +388,72 @@ export const SmartMatchFeed: React.FC<SmartMatchFeedProps> = ({
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {alternatives.map((alt, idx) => (
-              <div
-                key={idx}
-                className="bg-white rounded-2xl p-4 border border-slate-200 shadow-xs hover:border-emerald-500 hover:shadow-md transition-all flex flex-col justify-between space-y-3"
-              >
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider ${
-                      alt.type === 'CHEAPER' ? 'bg-emerald-100 text-emerald-800' :
-                      alt.type === 'CLOSER' ? 'bg-blue-100 text-blue-800' :
-                      'bg-amber-100 text-amber-800'
-                    }`}>
-                      {alt.label}
-                    </span>
-                    <span className="text-xs font-bold text-slate-700">{alt.property.matchScore}% Match</span>
-                  </div>
+            {alternatives.map((alt: any, idx) => {
+              const prop = alt.property || alt.match;
+              if (!prop) return null;
+              const propId = prop.propertyId || prop.id || `alt-${idx}`;
+              const propTitle = prop.propertyTitle || prop.title || 'Hostel Listing';
+              const matchScore = prop.matchScore ?? 90;
+              const propArea = prop.area || 'Under G';
+              const walkMins = prop.estimatedWalkMinutes ?? 10;
+              const propPrice = prop.pricePerYear || prop.price || 0;
+              const label = alt.label || alt.title || 'Alternative';
+              const diffText = alt.differentiator || alt.explanation || '';
 
-                  <h5 
-                    className="text-sm font-bold text-slate-900 line-clamp-1 hover:text-emerald-600 cursor-pointer"
-                    onClick={() => onSelectProperty(alt.property.propertyId)}
-                  >
-                    {alt.property.propertyTitle}
-                  </h5>
-                  <p className="text-[11px] text-slate-500 mt-0.5 truncate">{alt.property.area} • {alt.property.estimatedWalkMinutes} mins walk</p>
-
-                  <div className="mt-3 flex items-baseline justify-between">
-                    <div>
-                      <span className="text-base font-black text-slate-900">₦{alt.property.pricePerYear.toLocaleString()}</span>
-                      <span className="text-[10px] text-slate-400"> / yr</span>
+              return (
+                <div
+                  key={propId}
+                  className="bg-white rounded-2xl p-4 border border-slate-200 shadow-xs hover:border-emerald-500 hover:shadow-md transition-all flex flex-col justify-between space-y-3"
+                >
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider ${
+                        alt.type === 'CHEAPER' ? 'bg-emerald-100 text-emerald-800' :
+                        alt.type === 'CLOSER' ? 'bg-blue-100 text-blue-800' :
+                        'bg-amber-100 text-amber-800'
+                      }`}>
+                        {label}
+                      </span>
+                      <span className="text-xs font-bold text-slate-700">{matchScore}% Match</span>
                     </div>
-                    <span className="text-[10px] font-semibold text-emerald-700">{alt.differentiator}</span>
+
+                    <h5 
+                      className="text-sm font-bold text-slate-900 line-clamp-1 hover:text-emerald-600 cursor-pointer"
+                      onClick={() => onSelectProperty(propId)}
+                    >
+                      {propTitle}
+                    </h5>
+                    <p className="text-[11px] text-slate-500 mt-0.5 truncate">{propArea} • {walkMins} mins walk</p>
+
+                    <div className="mt-3 flex items-baseline justify-between">
+                      <div>
+                        <span className="text-base font-black text-slate-900">₦{Number(propPrice).toLocaleString()}</span>
+                        <span className="text-[10px] text-slate-400"> / yr</span>
+                      </div>
+                      {diffText && <span className="text-[10px] font-semibold text-emerald-700">{diffText}</span>}
+                    </div>
+                  </div>
+
+                  <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
+                    <button
+                      onClick={() => openTrueCost(prop)}
+                      className="text-[11px] font-bold text-slate-600 hover:text-emerald-700 flex items-center gap-1"
+                    >
+                      <Calculator className="w-3 h-3" />
+                      <span>True Cost</span>
+                    </button>
+
+                    <button
+                      onClick={() => onSelectProperty(propId)}
+                      className="px-3 py-1.5 bg-slate-900 hover:bg-emerald-600 text-white text-[11px] font-bold rounded-xl transition-colors flex items-center gap-1"
+                    >
+                      <span>Details</span>
+                      <ArrowRight className="w-3 h-3" />
+                    </button>
                   </div>
                 </div>
-
-                <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
-                  <button
-                    onClick={() => openTrueCost(alt.property)}
-                    className="text-[11px] font-bold text-slate-600 hover:text-emerald-700 flex items-center gap-1"
-                  >
-                    <Calculator className="w-3 h-3" />
-                    <span>True Cost</span>
-                  </button>
-
-                  <button
-                    onClick={() => onSelectProperty(alt.property.propertyId)}
-                    className="px-3 py-1.5 bg-slate-900 hover:bg-emerald-600 text-white text-[11px] font-bold rounded-xl transition-colors flex items-center gap-1"
-                  >
-                    <span>Details</span>
-                    <ArrowRight className="w-3 h-3" />
-                  </button>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}

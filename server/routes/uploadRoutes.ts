@@ -57,11 +57,11 @@ const upload = multer({
   }
 });
 
-// 1. Single File Upload (Authenticated Landlord or Admin)
+// 1. Single File Upload (Authenticated Student, Landlord, or Admin)
 router.post(
   '/',
   authenticate,
-  requireRole('PROVIDER', 'ADMIN'),
+  requireRole('STUDENT', 'PROVIDER', 'ADMIN'),
   upload.single('file'),
   (req: AuthenticatedRequest, res: Response) => {
     if (!req.file) {
@@ -85,11 +85,11 @@ router.post(
   }
 );
 
-// 2. Multiple Files Upload (Authenticated Landlord or Admin)
+// 2. Multiple Files Upload (Authenticated Student, Landlord, or Admin)
 router.post(
   '/multiple',
   authenticate,
-  requireRole('PROVIDER', 'ADMIN'),
+  requireRole('STUDENT', 'PROVIDER', 'ADMIN'),
   upload.array('files', 15),
   (req: AuthenticatedRequest, res: Response) => {
     const files = req.files as Express.Multer.File[];
@@ -125,7 +125,7 @@ if (!fs.existsSync(CHUNKS_DIR)) {
 router.post(
   '/chunk',
   authenticate,
-  requireRole('PROVIDER', 'ADMIN'),
+  requireRole('STUDENT', 'PROVIDER', 'ADMIN'),
   upload.single('chunk'),
   async (req: AuthenticatedRequest, res: Response) => {
     try {

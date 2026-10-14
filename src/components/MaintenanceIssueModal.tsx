@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   X,
   Wrench,
@@ -25,9 +25,12 @@ import {
   Wifi,
   Sparkles,
   ShieldAlert,
-  HelpCircle
+  HelpCircle,
+  Video,
+  Image as ImageIcon,
+  Trash2
 } from 'lucide-react';
-import { getAuthToken } from '../services/api';
+import { getAuthToken, api } from '../services/api';
 
 interface MaintenanceIssueModalProps {
   isOpen: boolean;
@@ -45,7 +48,8 @@ export const CATEGORIES = [
   { id: 'INTERNET', label: 'Wi-Fi / Internet', icon: Wifi, color: 'text-indigo-500 bg-indigo-50 dark:bg-indigo-950/50 border-indigo-200' },
   { id: 'CLEANING', label: 'Waste / Hygiene', icon: Sparkles, color: 'text-purple-500 bg-purple-50 dark:bg-purple-950/50 border-purple-200' },
   { id: 'SECURITY', label: 'Security / Gates', icon: ShieldAlert, color: 'text-rose-500 bg-rose-50 dark:bg-rose-950/50 border-rose-200' },
-  { id: 'OTHER', label: 'General / Other', icon: HelpCircle, color: 'text-slate-500 bg-slate-50 dark:bg-slate-800 border-slate-200' }
+  { id: 'OTHER', label: 'General / Other', icon: HelpCircle, color: 'text-slate-500 bg-slate-50 dark:bg-slate-800 border-slate-200' },
+  { id: 'CUSTOM', label: 'Other — Specify Your Own Category', icon: PlusCircle, color: 'text-indigo-600 bg-indigo-50 dark:bg-indigo-950/50 border-indigo-200' }
 ];
 
 export const MaintenanceIssueModal: React.FC<MaintenanceIssueModalProps> = ({
@@ -68,12 +72,18 @@ export const MaintenanceIssueModal: React.FC<MaintenanceIssueModalProps> = ({
   const [propertyId, setPropertyId] = useState('');
   const [roomNumber, setRoomNumber] = useState('');
   const [category, setCategory] = useState('ELECTRICITY');
+  const [customCategory, setCustomCategory] = useState('');
   const [priority, setPriority] = useState<'LOW' | 'MEDIUM' | 'HIGH' | 'EMERGENCY'>('MEDIUM');
   const [description, setDescription] = useState('');
   const [attachmentUrl, setAttachmentUrl] = useState('');
+  const [uploadedMedia, setUploadedMedia] = useState<Array<{ url: string; type: 'image' | 'video'; name: string }>>([]);
+  const [isUploadingMedia, setIsUploadingMedia] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [createdTicketData, setCreatedTicketData] = useState<any | null>(null);
   const [createdTicketCode, setCreatedTicketCode] = useState<string | null>(null);
   const [copiedCode, setCopiedCode] = useState(false);
+  const [ticketSearchQuery, setTicketSearchQuery] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Fetch properties and tickets on mount or open
   useEffect(() => {
@@ -144,6 +154,43 @@ export const MaintenanceIssueModal: React.FC<MaintenanceIssueModalProps> = ({
     }
   };
 
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    setIsUploadingMedia(true);
+    try {
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        if (file.size > 100 * 1024 * 1024) {
+          onShowToast(`File ${file.name} exceeds 100MB limit.`, 'error');
+          continue;
+        }
+        const isVid = file.type.startsWith('video/') || !!file.name.match(/\.(mp4|mov|webm)$/i);
+        const res = await api.upload.single(file);
+        if (res && res.file) {
+          setUploadedMedia(prev => [
+            ...prev,
+            {
+              url: res.file.url,
+              type: (res.file.mediaType === 'VIDEO' || isVid) ? 'video' : 'image',
+              name: file.name
+            }
+          ]);
+          onShowToast(`Uploaded ${file.name}`, 'success');
+        }
+      }
+    } catch (err: any) {
+      onShowToast(err.message || 'Error uploading file', 'error');
+    } finally {
+      setIsUploadingMedia(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const removeMedia = (index: number) => {
+    setUploadedMedia(prev => prev.filter((_, idx) => idx !== index));
+  };
+
   const handleCreateTicket = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!propertyId) {
@@ -154,6 +201,12 @@ export const MaintenanceIssueModal: React.FC<MaintenanceIssueModalProps> = ({
       onShowToast('Please specify your room or bedspace number.', 'error');
       return;
     }
+    if (category === 'CUSTOM') {
+      if (!customCategory.trim() || customCategory.trim().length < 3 || customCategory.trim().length > 100) {
+        onShowToast('Please specify your custom category (3 to 100 characters).', 'error');
+        return;
+      }
+    }
     if (description.trim().length < 10) {
       onShowToast('Please describe the issue in more detail (at least 10 characters).', 'error');
       return;
@@ -161,16 +214,22 @@ export const MaintenanceIssueModal: React.FC<MaintenanceIssueModalProps> = ({
 
     setIsSubmitting(true);
     try {
+      const finalAttachments = [
+        ...uploadedMedia.map(m => m.url),
+        ...(attachmentUrl.trim() ? [attachmentUrl.trim()] : [])
+      ];
+
       const res = await fetch('/api/maintenance/tickets', {
         method: 'POST',
         headers: getHeaders(),
         body: JSON.stringify({
           propertyId,
           roomNumber: roomNumber.trim(),
-          category,
+          category: category === 'CUSTOM' ? 'OTHER' : category,
+          customCategory: category === 'CUSTOM' ? customCategory.trim() : (category === 'OTHER' && customCategory ? customCategory.trim() : undefined),
           priority,
           description: description.trim(),
-          attachments: attachmentUrl ? [attachmentUrl] : []
+          attachments: finalAttachments
         })
       });
 
@@ -179,10 +238,13 @@ export const MaintenanceIssueModal: React.FC<MaintenanceIssueModalProps> = ({
         throw new Error(data.error || 'Failed to submit maintenance ticket');
       }
 
+      setCreatedTicketData(data.ticket);
       setCreatedTicketCode(data.ticket.ticket_code);
-      onShowToast(`Ticket ${data.ticket.ticket_code} generated! Lodge management notified.`, 'success');
+      onShowToast('Issue Report Submitted Successfully', 'success');
       setDescription('');
+      setCustomCategory('');
       setAttachmentUrl('');
+      setUploadedMedia([]);
       fetchTickets();
     } catch (err: any) {
       onShowToast(err.message || 'Error creating maintenance ticket', 'error');
@@ -360,45 +422,82 @@ export const MaintenanceIssueModal: React.FC<MaintenanceIssueModalProps> = ({
         {activeTab === 'create' && (
           <div className="p-5 sm:p-6 space-y-5 flex-1">
             {createdTicketCode ? (
-              <div className="p-6 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-center space-y-4 animate-fadeIn">
-                <div className="w-12 h-12 rounded-full bg-emerald-500 text-white flex items-center justify-center mx-auto shadow-md">
-                  <CheckCircle2 className="w-6 h-6" />
+              <div className="p-6 rounded-3xl bg-emerald-50 dark:bg-emerald-950/40 border-2 border-emerald-300 dark:border-emerald-700 text-center space-y-4 animate-fadeIn">
+                <div className="w-14 h-14 rounded-2xl bg-emerald-600 text-white flex items-center justify-center mx-auto shadow-lg shadow-emerald-600/30">
+                  <CheckCircle2 className="w-8 h-8" />
                 </div>
                 <div>
-                  <h4 className="text-lg font-black text-slate-900 dark:text-white">
-                    Ticket Successfully Created!
+                  <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-200 dark:bg-emerald-900 text-emerald-900 dark:text-emerald-200">
+                    DISPATCHED TO AGENT
+                  </span>
+                  <h4 className="text-xl font-black text-slate-900 dark:text-white mt-1">
+                    Issue Report Submitted Successfully
                   </h4>
-                  <p className="text-xs text-slate-600 dark:text-slate-300 mt-1">
-                    Your issue report has been logged and assigned to your lodge caretaker & manager.
+                  <p className="text-xs text-slate-600 dark:text-slate-300 mt-1 max-w-md mx-auto">
+                    Your maintenance report has been recorded in the central property register and immediately routed to the responsible Agent.
                   </p>
                 </div>
 
-                <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-emerald-300 dark:border-emerald-700 max-w-sm mx-auto flex items-center justify-between">
-                  <span className="font-mono text-sm font-black text-emerald-700 dark:text-emerald-400">
-                    {createdTicketCode}
-                  </span>
-                  <button
-                    onClick={() => handleCopyCode(createdTicketCode)}
-                    className="p-1.5 rounded-lg bg-emerald-100 hover:bg-emerald-200 dark:bg-emerald-900 text-emerald-800 dark:text-emerald-200 text-xs font-bold flex items-center gap-1 cursor-pointer"
-                  >
-                    {copiedCode ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                    <span>{copiedCode ? 'Copied' : 'Copy'}</span>
-                  </button>
+                <div className="p-4 bg-white dark:bg-slate-900 rounded-2xl border border-emerald-200 dark:border-emerald-800 max-w-md mx-auto space-y-2 text-left">
+                  <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2">
+                    <span className="text-[11px] text-slate-400 font-bold uppercase">Ticket Code</span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-mono text-xs font-black text-emerald-700 dark:text-emerald-400">
+                        {createdTicketCode}
+                      </span>
+                      <button
+                        onClick={() => handleCopyCode(createdTicketCode)}
+                        className="p-1 rounded-md bg-emerald-100 hover:bg-emerald-200 dark:bg-emerald-900 text-emerald-800 dark:text-emerald-200 text-[10px] font-bold flex items-center gap-1 cursor-pointer"
+                      >
+                        {copiedCode ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                        <span>{copiedCode ? 'Copied' : 'Copy'}</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {createdTicketData && (
+                    <>
+                      <div className="flex items-center justify-between text-xs py-0.5">
+                        <span className="text-slate-400">Hostel & Room:</span>
+                        <strong className="text-slate-800 dark:text-slate-200">
+                          {createdTicketData.property_title} • Room {createdTicketData.room_number}
+                        </strong>
+                      </div>
+                      <div className="flex items-center justify-between text-xs py-0.5">
+                        <span className="text-slate-400">Category:</span>
+                        <strong className="text-slate-800 dark:text-slate-200">
+                          {createdTicketData.custom_category ? `Other (${createdTicketData.custom_category})` : createdTicketData.category}
+                        </strong>
+                      </div>
+                      <div className="flex items-center justify-between text-xs py-0.5">
+                        <span className="text-slate-400">Assigned Agent:</span>
+                        <strong className="text-emerald-700 dark:text-emerald-400">
+                          {createdTicketData.provider_name}
+                        </strong>
+                      </div>
+                    </>
+                  )}
                 </div>
 
-                <div className="flex items-center justify-center gap-3 pt-2">
+                <div className="flex items-center justify-center gap-3 pt-2 flex-wrap">
+                  <button
+                    onClick={() => {
+                      if (createdTicketData) {
+                        setSelectedTicket(createdTicketData);
+                        fetchTicketDetail(createdTicketData.id);
+                      }
+                      setCreatedTicketCode(null);
+                      setCreatedTicketData(null);
+                    }}
+                    className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-black text-xs rounded-xl shadow-md cursor-pointer transition-all"
+                  >
+                    View My Ticket
+                  </button>
                   <button
                     onClick={() => {
                       setCreatedTicketCode(null);
-                      setActiveTab('list');
-                      fetchTickets();
+                      setCreatedTicketData(null);
                     }}
-                    className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-black text-xs rounded-xl shadow-md cursor-pointer"
-                  >
-                    View Ticket Timeline
-                  </button>
-                  <button
-                    onClick={() => setCreatedTicketCode(null)}
                     className="px-4 py-2.5 bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 text-slate-800 dark:text-white font-bold text-xs rounded-xl cursor-pointer"
                   >
                     Report Another Issue
@@ -476,6 +575,27 @@ export const MaintenanceIssueModal: React.FC<MaintenanceIssueModalProps> = ({
                   </div>
                 </div>
 
+                {/* Custom Category Input when 'CUSTOM' or 'OTHER' is chosen */}
+                {(category === 'CUSTOM' || category === 'OTHER') && (
+                  <div className="p-3.5 rounded-2xl bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 space-y-1.5 animate-fadeIn">
+                    <label className="block text-xs font-black text-indigo-950 dark:text-indigo-200">
+                      Enter Your Maintenance Category *
+                    </label>
+                    <input
+                      type="text"
+                      value={customCategory}
+                      onChange={(e) => setCustomCategory(e.target.value)}
+                      placeholder="e.g., Broken ceiling, leaking roof, damaged furniture, faulty generator, pest infestation."
+                      maxLength={100}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-indigo-300 dark:border-indigo-700 bg-white dark:bg-slate-900 text-xs font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                      required={category === 'CUSTOM'}
+                    />
+                    <p className="text-[10px] text-indigo-600 dark:text-indigo-400">
+                      Specify exactly what broke so the Agent can dispatch the correct technician (Plumber, Electrician, Carpenter, etc.).
+                    </p>
+                  </div>
+                )}
+
                 {/* Priority Selection */}
                 <div>
                   <label className="block text-xs font-black text-slate-700 dark:text-slate-300 mb-1.5">
@@ -523,32 +643,93 @@ export const MaintenanceIssueModal: React.FC<MaintenanceIssueModalProps> = ({
                   />
                 </div>
 
-                {/* Optional Photo Attachment Link */}
-                <div>
-                  <label className="block text-xs font-black text-slate-700 dark:text-slate-300 mb-1.5">
-                    Photo URL / Attachment (Optional)
+                {/* Photo & Video Upload with real preview */}
+                <div className="space-y-2">
+                  <label className="block text-xs font-black text-slate-700 dark:text-slate-300">
+                    Upload Photos / Videos of Issue (Max 100MB per file)
                   </label>
-                  <div className="relative">
-                    <input
-                      type="url"
-                      value={attachmentUrl}
-                      onChange={(e) => setAttachmentUrl(e.target.value)}
-                      placeholder="Paste image link or upload evidence screenshot..."
-                      className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                    />
-                    <Upload className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*,video/*"
+                    multiple
+                    onChange={handleFileUpload}
+                    className="hidden"
+                  />
+
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={isUploadingMedia}
+                      className="px-4 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2 cursor-pointer transition-colors"
+                    >
+                      {isUploadingMedia ? (
+                        <>
+                          <RefreshCw className="w-4 h-4 animate-spin text-blue-600" />
+                          <span>Uploading Media...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="w-4 h-4 text-blue-600" />
+                          <span>Select Photos / Video</span>
+                        </>
+                      )}
+                    </button>
+
+                    <span className="text-[10px] text-slate-400">
+                      JPEG, PNG, WebP, MP4, MOV supported
+                    </span>
+                  </div>
+
+                  {/* Previews Grid */}
+                  {uploadedMedia.length > 0 && (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-1">
+                      {uploadedMedia.map((m, idx) => (
+                        <div key={idx} className="relative rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 group">
+                          {m.type === 'video' ? (
+                            <video src={m.url} controls className="w-full h-24 object-cover" />
+                          ) : (
+                            <img src={m.url} alt="Attachment preview" className="w-full h-24 object-cover" />
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => removeMedia(idx)}
+                            className="absolute top-1 right-1 p-1 bg-black/70 hover:bg-rose-600 text-white rounded-lg transition-colors cursor-pointer"
+                            title="Remove"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Optional External URL fallback */}
+                  <div className="pt-1">
+                    <div className="relative">
+                      <input
+                        type="url"
+                        value={attachmentUrl}
+                        onChange={(e) => setAttachmentUrl(e.target.value)}
+                        placeholder="Or paste external image/video link..."
+                        className="w-full pl-8 pr-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-[11px] text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                      />
+                      <Upload className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
+                    </div>
                   </div>
                 </div>
 
                 <button
                   type="submit"
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || isUploadingMedia}
                   className="w-full py-3 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-black text-xs rounded-xl shadow-md flex items-center justify-center gap-2 cursor-pointer transition-all"
                 >
                   {isSubmitting ? (
                     <>
                       <RefreshCw className="w-4 h-4 animate-spin" />
-                      <span>Generating Ticket & Dispatching...</span>
+                      <span>Transmitting Ticket to Agent...</span>
                     </>
                   ) : (
                     <>
@@ -578,6 +759,20 @@ export const MaintenanceIssueModal: React.FC<MaintenanceIssueModalProps> = ({
               </button>
             </div>
 
+            {/* Search filter for tickets */}
+            {tickets.length > 0 && (
+              <div className="relative">
+                <input
+                  type="text"
+                  value={ticketSearchQuery}
+                  onChange={(e) => setTicketSearchQuery(e.target.value)}
+                  placeholder="Search tickets by code, category, hostel, room, or issue..."
+                  className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                />
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+              </div>
+            )}
+
             {loadingTickets ? (
               <div className="py-12 text-center text-xs text-slate-500">
                 <RefreshCw className="w-6 h-6 animate-spin mx-auto text-blue-600 mb-2" />
@@ -603,7 +798,20 @@ export const MaintenanceIssueModal: React.FC<MaintenanceIssueModalProps> = ({
               </div>
             ) : (
               <div className="space-y-3">
-                {tickets.map(t => (
+                {tickets
+                  .filter(t => {
+                    if (!ticketSearchQuery.trim()) return true;
+                    const q = ticketSearchQuery.toLowerCase();
+                    return (
+                      (t.ticket_code && t.ticket_code.toLowerCase().includes(q)) ||
+                      (t.category && t.category.toLowerCase().includes(q)) ||
+                      (t.custom_category && t.custom_category.toLowerCase().includes(q)) ||
+                      (t.property_title && t.property_title.toLowerCase().includes(q)) ||
+                      (t.description && t.description.toLowerCase().includes(q)) ||
+                      (t.room_number && t.room_number.toLowerCase().includes(q))
+                    );
+                  })
+                  .map(t => (
                   <div
                     key={t.id}
                     onClick={() => fetchTicketDetail(t.id)}
@@ -618,7 +826,7 @@ export const MaintenanceIssueModal: React.FC<MaintenanceIssueModalProps> = ({
                           {getPriorityBadge(t.priority)}
                         </div>
                         <h5 className="font-bold text-sm text-slate-900 dark:text-white mt-1">
-                          {t.property_title} • {t.room_number}
+                          {t.property_title} • Room {t.room_number}
                         </h5>
                       </div>
                       {getStatusBadge(t.status)}
@@ -629,7 +837,7 @@ export const MaintenanceIssueModal: React.FC<MaintenanceIssueModalProps> = ({
                     </p>
 
                     <div className="pt-2 border-t border-slate-100 dark:border-slate-700 flex items-center justify-between text-[11px] text-slate-400">
-                      <span>Category: <strong className="text-slate-700 dark:text-slate-300">{t.category}</strong></span>
+                      <span>Category: <strong className="text-slate-700 dark:text-slate-300">{t.custom_category ? `${t.custom_category}` : t.category}</strong></span>
                       <span className="flex items-center gap-1 text-blue-600 font-bold">
                         <span>View Progress</span>
                         <ChevronRight className="w-3.5 h-3.5" />
@@ -655,18 +863,44 @@ export const MaintenanceIssueModal: React.FC<MaintenanceIssueModalProps> = ({
                     {getPriorityBadge(selectedTicket.priority)}
                   </div>
                   <h4 className="text-base font-black text-slate-900 dark:text-white mt-1">
-                    {selectedTicket.property_title} ({selectedTicket.room_number})
+                    {selectedTicket.property_title} (Room {selectedTicket.room_number})
                   </h4>
                   <p className="text-xs text-slate-500">
-                    Managed by: {selectedTicket.provider_name}
+                    Agent: <strong className="text-slate-700 dark:text-slate-300">{selectedTicket.provider_name || 'Assigned Property Agent'}</strong>
                   </p>
                 </div>
                 {getStatusBadge(selectedTicket.status)}
               </div>
 
               <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
-                <strong>Original Issue:</strong> {selectedTicket.description}
+                <div><strong>Category:</strong> {selectedTicket.custom_category ? `${selectedTicket.custom_category} (Other)` : selectedTicket.category}</div>
+                <div className="mt-1"><strong>Original Issue:</strong> {selectedTicket.description}</div>
               </div>
+
+              {/* Media Attachments (Photos & Videos) */}
+              {selectedTicket.attachment_url && (
+                <div className="space-y-1.5 pt-1">
+                  <div className="text-[11px] font-black text-slate-700 dark:text-slate-300">
+                    Uploaded Issue Photos & Videos:
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {selectedTicket.attachment_url.split(';').filter(Boolean).map((url: string, i: number) => {
+                      const isVid = url.match(/\.(mp4|webm|mov)$/i) || url.includes('/video/');
+                      return (
+                        <div key={i} className="rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-slate-900">
+                          {isVid ? (
+                            <video src={url} controls className="w-full h-28 object-cover" />
+                          ) : (
+                            <a href={url} target="_blank" rel="noreferrer" title="Open full media">
+                              <img src={url} alt="Issue attachment" className="w-full h-28 object-cover hover:opacity-90 transition-opacity" />
+                            </a>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               {/* Status Action Buttons for Student or Provider */}
               <div className="flex items-center gap-2 flex-wrap pt-1">
