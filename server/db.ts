@@ -23,5 +23,22 @@ db.pragma('cache_size = -64000'); // 64MB memory page cache
 db.pragma('temp_store = MEMORY');
 db.pragma('mmap_size = 268435456'); // 256MB memory mapped I/O
 
+/**
+ * Creates a lazy SQLite statement that compiles on first execution rather than module load time.
+ * This guarantees routes can be imported safely before migrations or seed scripts run.
+ */
+export function lazyStatement(sql: string): any {
+  let stmt: any = null;
+  return new Proxy({} as any, {
+    get(_, prop) {
+      if (!stmt) {
+        stmt = db.prepare(sql);
+      }
+      const val = stmt[prop];
+      return typeof val === 'function' ? val.bind(stmt) : val;
+    }
+  });
+}
+
 export default db;
 

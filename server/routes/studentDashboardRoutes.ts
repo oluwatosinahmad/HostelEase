@@ -1,29 +1,29 @@
 import { Router, Response } from 'express';
 import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
-import db from '../db';
+import db, { lazyStatement } from '../db';
 import { authenticate, AuthenticatedRequest } from '../middleware/auth';
 
 const router = Router();
 
-// Pre-compiled prepared statements for Student Dashboard hostel formatting
-const getPriceSummaryStmt = db.prepare(`
+// Pre-compiled prepared statements for Student Dashboard hostel formatting (lazy initialized)
+const getPriceSummaryStmt = lazyStatement(`
   SELECT * FROM prices WHERE property_id = ? ORDER BY rent_amount ASC LIMIT 1
 `);
-const getCoverMediaStmt = db.prepare(`
+const getCoverMediaStmt = lazyStatement(`
   SELECT url FROM property_media WHERE property_id = ? AND is_cover = 1 LIMIT 1
 `);
-const getFallbackMediaStmt = db.prepare(`
+const getFallbackMediaStmt = lazyStatement(`
   SELECT url FROM property_media WHERE property_id = ? ORDER BY display_order ASC LIMIT 1
 `);
-const getKeyAmenitiesStmt = db.prepare(`
+const getKeyAmenitiesStmt = lazyStatement(`
   SELECT a.key, a.name, a.icon 
   FROM property_amenities pa
   JOIN amenities a ON pa.amenity_id = a.id
   WHERE pa.property_id = ? AND pa.is_available = 1
   LIMIT 4
 `);
-const getAreaByIdStmt = db.prepare('SELECT id, name, slug, landmark FROM areas WHERE id = ?');
+const getAreaByIdStmt = lazyStatement('SELECT id, name, slug, landmark FROM areas WHERE id = ?');
 
 // Helper to format hostel card details
 function formatPropertySummary(p: any) {

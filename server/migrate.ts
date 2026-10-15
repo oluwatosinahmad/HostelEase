@@ -2742,7 +2742,16 @@ Your caution deposit is refundable upon move-out provided no unauthorized struct
       CREATE INDEX IF NOT EXISTS idx_split_shares_email ON split_rent_shares(participant_email);
     `);
 
-    // E. Initial Seed for UtilityRadar if empty
+    // E. user_presence table for online status & heartbeat
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS user_presence (
+        user_id TEXT PRIMARY KEY,
+        last_seen_at TEXT NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_user_presence_seen ON user_presence(last_seen_at);
+    `);
+
+    // F. Initial Seed for UtilityRadar if empty
     try {
       const existingReportsCount = (db.prepare('SELECT COUNT(*) as count FROM utility_reports').get() as { count: number }).count;
       if (existingReportsCount === 0) {

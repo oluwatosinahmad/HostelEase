@@ -1,37 +1,37 @@
 import { Router, Response } from 'express';
-import db from '../db';
+import db, { lazyStatement } from '../db';
 import { optionalAuthenticate, authenticate, AuthenticatedRequest } from '../middleware/auth';
 
 const router = Router();
 
-// Pre-compiled SQLite prepared statements for extreme performance (Zero re-compilation in loops!)
-const getPriceStmt = db.prepare(`
+// Pre-compiled SQLite prepared statements with lazy initialization for safe zero-downtime startup
+const getPriceStmt = lazyStatement(`
   SELECT * FROM prices WHERE property_id = ? ORDER BY rent_amount ASC LIMIT 1
 `);
-const getCoverMediaStmt = db.prepare(`
+const getCoverMediaStmt = lazyStatement(`
   SELECT * FROM property_media WHERE property_id = ? AND is_cover = 1 LIMIT 1
 `);
-const getFallbackMediaStmt = db.prepare(`
+const getFallbackMediaStmt = lazyStatement(`
   SELECT * FROM property_media WHERE property_id = ? ORDER BY display_order ASC LIMIT 1
 `);
-const getKeyAmenitiesStmt = db.prepare(`
+const getKeyAmenitiesStmt = lazyStatement(`
   SELECT a.key, a.name, a.icon, a.category 
   FROM property_amenities pa
   JOIN amenities a ON pa.amenity_id = a.id
   WHERE pa.property_id = ? AND pa.is_available = 1
   LIMIT 6
 `);
-const getSavedPropStmt = db.prepare(`
+const getSavedPropStmt = lazyStatement(`
   SELECT property_id FROM saved_properties WHERE user_id = ?
 `);
-const getActiveBookingCountStmt = db.prepare(`
+const getActiveBookingCountStmt = lazyStatement(`
   SELECT COUNT(*) as count 
   FROM bookings 
   WHERE property_id = ? AND status = 'CONFIRMED'
 `);
 
 // Pre-compiled statements for Single Property Details
-const getPropertyByIdStmt = db.prepare(`
+const getPropertyByIdStmt = lazyStatement(`
   SELECT p.*, a.name as area_name, a.slug as area_slug, a.landmark as area_landmark,
          u.full_name as provider_name, u.phone as provider_phone,
          pp.business_name as provider_business_name, pp.verification_status as provider_verification_status
@@ -41,27 +41,27 @@ const getPropertyByIdStmt = db.prepare(`
   LEFT JOIN provider_profiles pp ON u.id = pp.user_id
   WHERE p.id = ? OR p.slug = ?
 `);
-const getRoomsByPropIdStmt = db.prepare(`
+const getRoomsByPropIdStmt = lazyStatement(`
   SELECT * FROM rooms WHERE property_id = ?
 `);
-const getPricesByPropIdStmt = db.prepare(`
+const getPricesByPropIdStmt = lazyStatement(`
   SELECT * FROM prices WHERE property_id = ?
 `);
-const getMediaByPropIdStmt = db.prepare(`
+const getMediaByPropIdStmt = lazyStatement(`
   SELECT * FROM property_media 
   WHERE property_id = ? 
   ORDER BY is_cover DESC, display_order ASC
 `);
-const getAllAmenitiesByPropIdStmt = db.prepare(`
+const getAllAmenitiesByPropIdStmt = lazyStatement(`
   SELECT a.id, a.key, a.name, a.category, a.icon, a.description, pa.is_available, pa.notes
   FROM property_amenities pa
   JOIN amenities a ON pa.amenity_id = a.id
   WHERE pa.property_id = ?
 `);
-const checkSavedUserPropStmt = db.prepare(`
+const checkSavedUserPropStmt = lazyStatement(`
   SELECT id FROM saved_properties WHERE user_id = ? AND property_id = ?
 `);
-const getReviewsByPropIdStmt = db.prepare(`
+const getReviewsByPropIdStmt = lazyStatement(`
   SELECT r.*, u.full_name as student_name
   FROM reviews r
   JOIN users u ON r.student_id = u.id
@@ -69,7 +69,7 @@ const getReviewsByPropIdStmt = db.prepare(`
   ORDER BY r.created_at DESC
 `);
 
-const getVideoMediaStmt = db.prepare(`
+const getVideoMediaStmt = lazyStatement(`
   SELECT url, thumbnail_url, caption, category
   FROM property_media
   WHERE property_id = ? AND (media_type = 'VIDEO' OR category = 'VIDEO_WALKTHROUGH' OR url LIKE '%.mp4' OR url LIKE '%.webm')
