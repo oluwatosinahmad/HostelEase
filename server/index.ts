@@ -290,8 +290,8 @@ app.use((err: any, req: Request, res: Response, next: NextFunction) => {
 });
 
 // Start Server
-const server = app.listen(PORT, () => {
-  console.log(`🚀 Hostel Ease Production Server running on port ${PORT} [${NODE_ENV}]`);
+const server = app.listen(Number(PORT), '0.0.0.0', () => {
+  console.log(`🚀 Hostel Ease Production Server running on 0.0.0.0:${PORT} [${NODE_ENV}]`);
   console.log(`📍 Market: LAUTECH students | Ogbomoso, Oyo State, Nigeria`);
   console.log(`🌐 Health check: http://localhost:${PORT}/api/health`);
 });
