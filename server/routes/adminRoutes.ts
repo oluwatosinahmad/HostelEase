@@ -1,7 +1,7 @@
 import { Router, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
-import db from '../db.js';
+import db, { lazyStatement } from '../db.js';
 import { authenticate, requireRole, requirePermission, ROLE_DEFAULT_PERMISSIONS, AuthenticatedRequest } from '../middleware/auth.js';
 import { userDeletionService } from '../services/userDeletionService.js';
 
@@ -465,8 +465,8 @@ router.patch(
   }
 );
 
-// Precompiled statement for admin hostel media lookup
-const getHostelMediaForAdminStmt = db.prepare(`
+// Precompiled statement for admin hostel media lookup (lazy initialized)
+const getHostelMediaForAdminStmt = lazyStatement(`
   SELECT * FROM property_media 
   WHERE property_id = ? 
   ORDER BY is_cover DESC, display_order ASC
