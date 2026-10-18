@@ -848,6 +848,58 @@ router.post(
 
       db.prepare('UPDATE properties SET completeness_score = ? WHERE id = ?').run(comp.score, propId);
 
+      // 6. Insert 4K Video Tour into four_k_videos (Single source of truth with Hostel Operation)
+      const fourK = req.body.fourKVideo;
+      const vUrl = (fourK && typeof fourK.videoUrl === 'string' && fourK.videoUrl.trim())
+        ? fourK.videoUrl.trim()
+        : (typeof req.body.videoTourUrl === 'string' && req.body.videoTourUrl.trim())
+        ? req.body.videoTourUrl.trim()
+        : null;
+
+      if (vUrl) {
+        const videoId = fourK?.id || `vid-4k-${Date.now()}-${crypto.randomUUID().substring(0, 6)}`;
+        const width = parseInt(fourK?.width, 10) || 3840;
+        const height = parseInt(fourK?.height, 10) || 2160;
+        const resolution = fourK?.resolution || `${width}x${height} (4K UHD)`;
+        const fileSize = parseInt(fourK?.fileSize, 10) || 0;
+        const duration = parseFloat(fourK?.duration) || 0;
+        const vStatus = fourK?.status === 'VERIFIED' ? 'VERIFIED' : 'PENDING';
+
+        try {
+          db.prepare(`
+            INSERT INTO four_k_videos (
+              id, agent_id, property_id, video_url, thumbnail_url,
+              width, height, resolution, file_size, duration,
+              status, uploaded_at, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'), datetime('now'))
+          `).run(
+            videoId,
+            providerId,
+            propId,
+            vUrl,
+            fourK?.thumbnailUrl || null,
+            width,
+            height,
+            resolution,
+            fileSize,
+            duration,
+            vStatus
+          );
+        } catch (err) {
+          console.warn('Could not insert four_k_videos on listing creation:', err);
+        }
+
+        try {
+          db.prepare(`
+            UPDATE properties
+            SET video_tour_url = ?, has_4k_video = 1, video_verification_status = ?
+            WHERE id = ?
+          `).run(vUrl, vStatus === 'VERIFIED' ? 'APPROVED' : 'PENDING_AUDIT', propId);
+        } catch (err) {
+          console.warn('Could not update property video fields on listing creation:', err);
+        }
+      }
+
       // Audit Log
       db.prepare(`
         INSERT INTO audit_logs (id, actor_id, actor_role, action, entity_type, entity_id, details)
@@ -1055,7 +1107,78 @@ router.put(
         });
       }
 
-      // 5. Re-calculate Completeness
+      // 5. Sync 4K Video Tour with four_k_videos & properties
+      const fourK = req.body.fourKVideo;
+      const vUrl = (fourK && typeof fourK.videoUrl === 'string' && fourK.videoUrl.trim())
+        ? fourK.videoUrl.trim()
+        : (typeof req.body.videoTourUrl === 'string' && req.body.videoTourUrl.trim())
+        ? req.body.videoTourUrl.trim()
+        : null;
+
+      if (vUrl) {
+        const width = parseInt(fourK?.width, 10) || 3840;
+        const height = parseInt(fourK?.height, 10) || 2160;
+        const resolution = fourK?.resolution || `${width}x${height} (4K UHD)`;
+        const fileSize = parseInt(fourK?.fileSize, 10) || 0;
+        const duration = parseFloat(fourK?.duration) || 0;
+
+        const existing4K = db.prepare('SELECT id, status FROM four_k_videos WHERE property_id = ?').get(id) as any;
+        if (existing4K) {
+          db.prepare(`
+            UPDATE four_k_videos
+            SET video_url = ?, thumbnail_url = COALESCE(?, thumbnail_url),
+                width = ?, height = ?, resolution = ?, file_size = ?, duration = ?,
+                updated_at = datetime('now')
+            WHERE id = ?
+          `).run(
+            vUrl,
+            fourK?.thumbnailUrl || null,
+            width,
+            height,
+            resolution,
+            fileSize,
+            duration,
+            existing4K.id
+          );
+        } else {
+          const videoId = `vid-4k-${Date.now()}-${crypto.randomUUID().substring(0, 6)}`;
+          db.prepare(`
+            INSERT INTO four_k_videos (
+              id, agent_id, property_id, video_url, thumbnail_url,
+              width, height, resolution, file_size, duration,
+              status, uploaded_at, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'PENDING', datetime('now'), datetime('now'), datetime('now'))
+          `).run(
+            videoId,
+            providerId,
+            id,
+            vUrl,
+            fourK?.thumbnailUrl || null,
+            width,
+            height,
+            resolution,
+            fileSize,
+            duration
+          );
+        }
+
+        db.prepare(`
+          UPDATE properties
+          SET video_tour_url = ?, has_4k_video = 1,
+              video_verification_status = CASE WHEN video_verification_status = 'APPROVED' THEN 'APPROVED' ELSE 'PENDING_AUDIT' END
+          WHERE id = ?
+        `).run(vUrl, id);
+      } else if (req.body.removeVideo || req.body.fourKVideo === null) {
+        db.prepare('DELETE FROM four_k_videos WHERE property_id = ?').run(id);
+        db.prepare('DELETE FROM property_media WHERE property_id = ? AND (media_type = \'VIDEO\' OR category = \'VIDEO_WALKTHROUGH\')').run(id);
+        db.prepare(`
+          UPDATE properties
+          SET video_tour_url = NULL, has_4k_video = 0, video_verification_status = 'NONE'
+          WHERE id = ?
+        `).run(id);
+      }
+
+      // 6. Re-calculate Completeness
       const updatedPrice = db.prepare('SELECT * FROM prices WHERE property_id = ?').get(id) as any;
       const mediaList = db.prepare('SELECT * FROM property_media WHERE property_id = ?').all(id) as any[];
       const amenitiesCount = (db.prepare('SELECT COUNT(*) as count FROM property_amenities WHERE property_id = ?').get(id) as any)?.count || 0;

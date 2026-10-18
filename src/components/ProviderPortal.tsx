@@ -4367,6 +4367,7 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
               setEditingProperty(null);
               setActiveTab('listings');
               fetchAllProviderData('all');
+              fetchProviderVideos();
               window.dispatchEvent(new CustomEvent('hostel_ease_properties_updated'));
             }}
             onCancel={() => {

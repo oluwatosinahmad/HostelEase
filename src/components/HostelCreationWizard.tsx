@@ -33,7 +33,8 @@ import {
 import { Area, MediaCategory, PropertyType, GenderPreference } from '../types/hostelEase';
 import { api } from '../services/api';
 import { formatNaira, formatDistance } from '../utils/formatters';
-import { compressImageFile, extractVideoThumbnail } from '../utils/mediaOptimizer';
+import { compressImageFile } from '../utils/mediaOptimizer';
+import { FourKVideoUploader, FourKVideoData } from './FourKVideoUploader';
 
 export const POPULAR_LAUTECH_FACILITIES = [
   { key: 'toilet', label: 'Private Toilet & Bathroom (Ensuite)', icon: '🚽', category: 'Comfort', keywords: 'toilet bathroom ensuite bath washroom restroom' },
@@ -126,7 +127,6 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
   const [selectedGate, setSelectedGate] = useState<string>(init?.selectedGate || 'Under-G Gate');
   const [walkingMinutes, setWalkingMinutes] = useState<string>(init?.walkingMinutes?.toString() || '4');
   const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null);
-  const videoInputRef = useRef<HTMLInputElement>(null);
 
   const handleQuickDistanceSelect = (km: number, mins: number, gateName?: string) => {
     setDistanceKm(km.toString());
@@ -138,51 +138,108 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
   };
 
   // Step 3: Rooms
-  const [roomsList, setRoomsList] = useState<RoomConfig[]>(initialData?.roomsList || [
+  const [roomsList, setRoomsList] = useState<RoomConfig[]>(init?.roomsList || init?.rooms || initialData?.roomsList || [
     { name: 'Standard Self-Contain', type: 'SELF_CONTAIN', maxOccupants: 1, total: 10, available: 10, isEnsuite: true, isFurnished: false }
   ]);
 
   // Step 4: Facilities with live search & autocomplete
-  const [amenityKeys, setAmenityKeys] = useState<string[]>(initialData?.amenityKeys || [
+  const [amenityKeys, setAmenityKeys] = useState<string[]>(init?.amenityKeys || initialData?.amenityKeys || [
     'toilet', 'electricity', 'water', 'security', 'kitchen'
   ]);
   const [facilitySearch, setFacilitySearch] = useState<string>('');
   const [facilityCategoryFilter, setFacilityCategoryFilter] = useState<string>('ALL');
 
   // Step 5: Pricing
-  const [rentAmount, setRentAmount] = useState(initialData?.pricing?.rentAmount?.toString() || '180000');
-  const [serviceCharge, setServiceCharge] = useState(initialData?.pricing?.serviceCharge?.toString() || '15000');
-  const [agencyFee, setAgencyFee] = useState(initialData?.pricing?.agencyFee?.toString() || '15000');
-  const [cautionFee, setCautionFee] = useState(initialData?.pricing?.cautionFee?.toString() || '10000');
-  const [otherCharges, setOtherCharges] = useState(initialData?.pricing?.otherMandatoryCharges?.toString() || '5000');
-  const [pricingNotes, setPricingNotes] = useState(initialData?.pricing?.notes || '');
+  const [rentAmount, setRentAmount] = useState(init?.pricing?.rentAmount?.toString() || initialData?.pricing?.rentAmount?.toString() || '180000');
+  const [serviceCharge, setServiceCharge] = useState(init?.pricing?.serviceCharge?.toString() || initialData?.pricing?.serviceCharge?.toString() || '15000');
+  const [agencyFee, setAgencyFee] = useState(init?.pricing?.agencyFee?.toString() || initialData?.pricing?.agencyFee?.toString() || '15000');
+  const [cautionFee, setCautionFee] = useState(init?.pricing?.cautionFee?.toString() || initialData?.pricing?.cautionFee?.toString() || '10000');
+  const [otherCharges, setOtherCharges] = useState(init?.pricing?.otherMandatoryCharges?.toString() || initialData?.pricing?.otherMandatoryCharges?.toString() || '5000');
+  const [pricingNotes, setPricingNotes] = useState(init?.pricing?.notes || initialData?.pricing?.notes || '');
 
-  // Step 6: Media
-  const [mediaList, setMediaList] = useState<MediaUploadItem[]>(initialData?.mediaItems || [
-    {
-      id: 'default-ext',
-      url: 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=1200&q=80',
-      filename: 'exterior.jpg',
-      originalName: 'Compound Front Elevation.jpg',
-      mediaType: 'IMAGE',
-      category: 'EXTERIOR',
-      caption: 'Front Elevation & Gate',
-      isCover: true
-    },
-    {
-      id: 'default-bed',
-      url: 'https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?auto=format&fit=crop&w=1200&q=80',
-      filename: 'bedroom.jpg',
-      originalName: 'Bedroom.jpg',
-      mediaType: 'IMAGE',
-      category: 'BEDROOM',
-      caption: 'Bedroom with Tiled Floor',
-      isCover: false
+  // Step 6: Photos / Images (strictly authentic images only)
+  const [mediaList, setMediaList] = useState<MediaUploadItem[]>(() => {
+    const raw = init?.mediaItems || init?.media || initialData?.mediaItems;
+    if (Array.isArray(raw) && raw.length > 0) {
+      const imagesOnly = raw.filter((m: any) => {
+        const isVid = m.mediaType === 'VIDEO' || m.type === 'VIDEO' || m.category === 'VIDEO_WALKTHROUGH' || m.cat === 'VIDEO_WALKTHROUGH';
+        return !isVid;
+      });
+      if (imagesOnly.length > 0) {
+        return imagesOnly.map((m: any, idx: number) => ({
+          id: m.id || `img-${idx}-${Date.now()}`,
+          url: m.url,
+          filename: m.filename || 'photo.jpg',
+          originalName: m.originalName || m.caption || 'Hostel Photo',
+          mediaType: 'IMAGE',
+          category: (m.category === 'VIDEO_WALKTHROUGH' ? 'EXTERIOR' : m.category) || 'EXTERIOR',
+          caption: m.caption || '',
+          isCover: Boolean(m.isCover || idx === 0)
+        }));
+      }
     }
-  ]);
-  const [customVideoUrl, setCustomVideoUrl] = useState('');
+    return [
+      {
+        id: 'default-ext',
+        url: 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=1200&q=80',
+        filename: 'exterior.jpg',
+        originalName: 'Compound Front Elevation.jpg',
+        mediaType: 'IMAGE',
+        category: 'EXTERIOR',
+        caption: 'Front Elevation & Gate',
+        isCover: true
+      },
+      {
+        id: 'default-bed',
+        url: 'https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?auto=format&fit=crop&w=1200&q=80',
+        filename: 'bedroom.jpg',
+        originalName: 'Bedroom.jpg',
+        mediaType: 'IMAGE',
+        category: 'BEDROOM',
+        caption: 'Bedroom with Tiled Floor',
+        isCover: false
+      }
+    ];
+  });
+
+  // Step 7: 4K Video Walkthrough (Single Source of Truth with Hostel Operation)
+  const [fourKVideo, setFourKVideo] = useState<FourKVideoData | null>(() => {
+    if (init?.fourKVideo) return init.fourKVideo;
+    const vUrl = init?.videoTourUrl || init?.video_tour_url;
+    if (vUrl) {
+      return {
+        id: `vid-${init?.id || Date.now()}`,
+        videoUrl: vUrl,
+        thumbnailUrl: init?.videoThumbnailUrl || init?.thumbnailUrl,
+        width: 3840,
+        height: 2160,
+        resolution: '3840×2160 (4K UHD)',
+        duration: 90,
+        caption: `${init?.title || 'Accommodation'} 4K Walkthrough Tour`,
+        status: (init?.videoVerificationStatus || 'PENDING') as any
+      };
+    }
+    const raw = init?.mediaItems || init?.media;
+    if (Array.isArray(raw)) {
+      const vid = raw.find((m: any) => m.mediaType === 'VIDEO' || m.type === 'VIDEO' || m.category === 'VIDEO_WALKTHROUGH');
+      if (vid && vid.url) {
+        return {
+          id: vid.id || `vid-${Date.now()}`,
+          videoUrl: vid.url,
+          thumbnailUrl: vid.thumbnailUrl,
+          width: 3840,
+          height: 2160,
+          resolution: '3840×2160 (4K UHD)',
+          duration: 90,
+          caption: vid.caption || `${init?.title || 'Accommodation'} 4K Walkthrough Tour`,
+          status: 'PENDING'
+        };
+      }
+    }
+    return null;
+  });
+
   const [isUploading, setIsUploading] = useState(false);
-  const [videoUploadProgress, setVideoUploadProgress] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   // Check duplicate on blur
@@ -218,66 +275,61 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
     const hasBed = mediaList.some(m => m.category === 'BEDROOM');
     const hasBath = mediaList.some(m => m.category === 'BATHROOM');
     const hasKit = mediaList.some(m => m.category === 'KITCHEN');
-    const hasVid = mediaList.some(m => m.mediaType === 'VIDEO' || m.category === 'VIDEO_WALKTHROUGH');
+    const hasVid = Boolean(fourKVideo?.videoUrl);
 
     if (hasExt) score += 10; else missing.push('Exterior photo');
     if (hasBed) score += 10; else missing.push('Bedroom photo');
     if (hasBath) score += 5; else missing.push('Bathroom photo');
     if (hasKit) score += 5; else missing.push('Kitchen photo');
-    if (hasVid) score += 5; else missing.push('Video walkthrough tour');
+    if (hasVid) score += 5; else missing.push('4K video walkthrough tour');
 
     return { score: Math.min(100, score), missing };
   };
 
   const completeness = calculateScore();
 
-  // Media Handlers (with Instant 0ms Local Previews, Canvas Compression & Resumable Chunked Video Uploads)
+  // Photo Upload Handler (exclusively for authentic photos with canvas compression)
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
-    const fileArray = Array.from(files);
+    const fileArray = Array.from(files).filter(f => f.type.startsWith('image/'));
+    if (fileArray.length === 0) {
+      onShowToast('Please select authentic image files (JPEG, PNG, WebP) for hostel photos.', 'error');
+      return;
+    }
+
     setIsUploading(true);
 
-    // 1. INSTANT 0ms LOCAL PREVIEW:
-    // Create local instant previews and immediately show them in UI with zero delay!
+    // 1. Instant 0ms preview for images
     const instantItems: MediaUploadItem[] = fileArray.map((file, idx) => {
       const isFirst = mediaList.length === 0 && idx === 0;
-      const isVideo = file.type.startsWith('video/');
-      let defaultCategory: MediaCategory = 'BEDROOM';
-      if (isVideo) defaultCategory = 'VIDEO_WALKTHROUGH';
-      else if (isFirst) defaultCategory = 'EXTERIOR';
-
       return {
-        id: `media-instant-${Date.now()}-${idx}-${Math.random().toString(36).substring(2, 6)}`,
+        id: `img-instant-${Date.now()}-${idx}-${Math.random().toString(36).substring(2, 6)}`,
         url: URL.createObjectURL(file),
         filename: file.name,
         originalName: file.name,
-        mediaType: isVideo ? 'VIDEO' : 'IMAGE',
-        category: defaultCategory,
+        mediaType: 'IMAGE',
+        category: isFirst ? 'EXTERIOR' : 'BEDROOM',
         caption: file.name.replace(/\.[^/.]+$/, ''),
         isCover: isFirst
       };
     });
 
     setMediaList(prev => [...prev, ...instantItems]);
-    onShowToast(`Instant preview loaded for ${fileArray.length} file(s). Optimizing in background...`, 'info');
+    onShowToast(`Instant preview loaded for ${fileArray.length} photo(s). Optimizing in background...`, 'info');
 
     try {
       // 2. High-speed parallel client-side compression (reduces 10MB camera photo to ~250KB WebP)
       const compressedFiles = await Promise.all(
         fileArray.map(async (f) => {
-          if (f.type.startsWith('image/')) {
-            return await compressImageFile(f, { maxWidth: 1600, quality: 0.82, format: 'image/webp' });
-          }
-          return f;
+          return await compressImageFile(f, { maxWidth: 1600, quality: 0.82, format: 'image/webp' });
         })
       );
 
       // 3. Fast network upload with compressed payload
       const res = await api.upload.multiple(compressedFiles);
       if (res && Array.isArray(res.files) && res.files.length > 0) {
-        // Update the instant items with server permanent URLs
         setMediaList(prev => prev.map(m => {
           const matchIndex = instantItems.findIndex(inst => inst.id === m.id);
           if (matchIndex >= 0 && res.files[matchIndex]) {
@@ -291,96 +343,13 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
           return m;
         }));
       }
-      onShowToast(`Uploaded ${instantItems.length} media item(s) successfully!`, 'success');
+      onShowToast(`Uploaded ${instantItems.length} photo(s) successfully!`, 'success');
     } catch (err: any) {
       console.warn('Network upload fallback to local preview data URL:', err);
-      onShowToast('Media saved locally for listing submission', 'info');
+      onShowToast('Photos saved locally for listing submission', 'info');
     } finally {
       setIsUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
-    }
-  };
-
-  const handleAddVideoTour = () => {
-    if (!customVideoUrl.trim()) return;
-    const newItem: MediaUploadItem = {
-      id: `vid-${Date.now()}`,
-      url: customVideoUrl.trim(),
-      filename: 'video_walkthrough',
-      originalName: 'Video Tour Link',
-      mediaType: 'VIDEO',
-      category: 'VIDEO_WALKTHROUGH',
-      caption: 'Online Walkthrough Video Tour',
-      isCover: false
-    };
-    setMediaList(prev => [...prev, newItem]);
-    setCustomVideoUrl('');
-    onShowToast('Video walkthrough tour added! Pending admin audit.', 'success');
-  };
-
-  const handleVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (file.size > 100 * 1024 * 1024) {
-      onShowToast('Video file exceeds 100MB maximum limit. Please choose a shorter walkthrough.', 'error');
-      return;
-    }
-
-    setIsUploading(true);
-    setVideoUploadProgress(1);
-
-    // 1. INSTANT 0ms LOCAL PREVIEW & THUMBNAIL EXTRACTION
-    const instantVideoId = `vid-instant-${Date.now()}`;
-    const localVideoUrl = URL.createObjectURL(file);
-    let thumbDataUrl = '';
-
-    try {
-      thumbDataUrl = await extractVideoThumbnail(file, 1.0);
-    } catch {}
-
-    const instantVideoItem: MediaUploadItem = {
-      id: instantVideoId,
-      url: localVideoUrl,
-      filename: file.name,
-      originalName: file.name,
-      mediaType: 'VIDEO',
-      category: 'VIDEO_WALKTHROUGH',
-      caption: '4K Room & Compound Walkthrough (Verified Video Tour)',
-      isCover: false
-    };
-
-    setMediaList(prev => [...prev.filter(m => m.mediaType !== 'VIDEO'), instantVideoItem]);
-
-    try {
-      // 2. High-performance chunked resumable upload with live progress bar
-      const uploaded = await api.upload.chunkedVideo(
-        file,
-        (percent) => setVideoUploadProgress(percent),
-        thumbDataUrl
-      );
-
-      if (uploaded && uploaded.url) {
-        setMediaList(prev => prev.map(m => {
-          if (m.id === instantVideoId) {
-            return {
-              ...m,
-              url: uploaded.url,
-              filename: uploaded.filename,
-              originalName: uploaded.originalName
-            };
-          }
-          return m;
-        }));
-        onShowToast('4K video walkthrough uploaded successfully! Ready for listing.', 'success');
-      }
-    } catch (err: any) {
-      console.error('Video upload error:', err);
-      onShowToast(err.message || 'Failed to upload video to server', 'error');
-    } finally {
-      setIsUploading(false);
-      setVideoUploadProgress(null);
-      if (videoInputRef.current) videoInputRef.current.value = '';
     }
   };
 
@@ -445,9 +414,21 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
         distanceFromCampusKm: parseFloat(distanceKm) || 1.0,
         selectedGate,
         walkingMinutes: parseInt(walkingMinutes, 10) || 5,
-        has4KVideo: mediaList.some(m => m.mediaType === 'VIDEO'),
-        videoTourUrl: mediaList.find(m => m.mediaType === 'VIDEO')?.url,
-        videoVerificationStatus: editingProperty?.videoVerificationStatus || (mediaList.some(m => m.mediaType === 'VIDEO') ? 'PENDING_AUDIT' : 'NONE'),
+        has4KVideo: Boolean(fourKVideo?.videoUrl),
+        videoTourUrl: fourKVideo?.videoUrl || undefined,
+        videoVerificationStatus: fourKVideo?.status || (fourKVideo?.videoUrl ? 'PENDING_AUDIT' : 'NONE'),
+        fourKVideo: fourKVideo ? {
+          id: fourKVideo.id,
+          videoUrl: fourKVideo.videoUrl,
+          thumbnailUrl: fourKVideo.thumbnailUrl,
+          width: fourKVideo.width || 3840,
+          height: fourKVideo.height || 2160,
+          resolution: fourKVideo.resolution || '3840x2160 (4K UHD)',
+          fileSize: fourKVideo.fileSize || 0,
+          duration: fourKVideo.duration || 0,
+          caption: fourKVideo.caption,
+          status: fourKVideo.status || 'PENDING'
+        } : undefined,
         propertyType,
         genderPreference,
         totalRooms: sanitizedRoomsList.reduce((acc, r) => acc + r.total, 0),
@@ -462,15 +443,27 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
           notes: pricingNotes.trim() || undefined
         },
         amenityKeys,
-        mediaItems: mediaList.map(m => ({
-          type: m.mediaType,
-          mediaType: m.mediaType,
-          category: m.category,
-          cat: m.category,
-          url: m.url,
-          caption: m.caption,
-          isCover: m.isCover
-        })),
+        mediaItems: [
+          ...mediaList.filter(m => m.mediaType === 'IMAGE').map(m => ({
+            type: 'IMAGE',
+            mediaType: 'IMAGE',
+            category: m.category,
+            cat: m.category,
+            url: m.url,
+            caption: m.caption,
+            isCover: m.isCover
+          })),
+          ...(fourKVideo?.videoUrl ? [{
+            type: 'VIDEO',
+            mediaType: 'VIDEO',
+            category: 'VIDEO_WALKTHROUGH' as MediaCategory,
+            cat: 'VIDEO_WALKTHROUGH' as MediaCategory,
+            url: fourKVideo.videoUrl,
+            thumbnailUrl: fourKVideo.thumbnailUrl,
+            caption: fourKVideo.caption || `${title.trim()} 4K Walkthrough Tour`,
+            isCover: false
+          }] : [])
+        ],
         roomsList: sanitizedRoomsList
       };
 
@@ -518,9 +511,10 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
     { num: 3, label: 'Rooms' },
     { num: 4, label: 'Facilities' },
     { num: 5, label: 'Pricing' },
-    { num: 6, label: 'Media' },
-    { num: 7, label: 'Preview' },
-    { num: 8, label: 'Submit' }
+    { num: 6, label: 'Photos' },
+    { num: 7, label: '4K Video' },
+    { num: 8, label: 'Preview' },
+    { num: 9, label: 'Submit' }
   ];
 
   const totalMandatory = (parseFloat(rentAmount) || 0) +
@@ -567,7 +561,7 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
                 {currentStep}
               </span>
               <span className="text-white font-bold">{steps[currentStep - 1]?.label}</span>
-              <span className="text-slate-400 text-[10px]">({currentStep} of 8)</span>
+              <span className="text-slate-400 text-[10px]">({currentStep} of {steps.length})</span>
             </span>
             <div className="flex items-center gap-1">
               {currentStep > 1 && (
@@ -579,7 +573,7 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
                   ‹ Prev
                 </button>
               )}
-              {currentStep < 8 && (
+              {currentStep < steps.length && (
                 <button
                   type="button"
                   onClick={() => setCurrentStep(prev => prev + 1)}
@@ -622,7 +616,7 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
         </div>
 
         {/* Desktop Step Indicator Bar (sm+) */}
-        <div className="hidden sm:grid sm:grid-cols-8 gap-1 pt-2 border-t border-slate-800 text-[10px]">
+        <div className="hidden sm:grid sm:grid-cols-9 gap-1 pt-2 border-t border-slate-800 text-[10px]">
           {steps.map(step => (
             <button
               key={step.num}
@@ -1434,13 +1428,15 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
           </div>
         )}
 
-        {/* STEP 6: Media */}
+        {/* STEP 6: Photos & Images */}
         {currentStep === 6 && (
           <div className="space-y-4 max-w-3xl">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between flex-wrap gap-2">
               <div>
-                <h3 className="font-bold text-base text-slate-900 dark:text-white">Step 6 — Photos & Video Walkthrough</h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400">Upload authentic photos and video tours.</p>
+                <h3 className="font-bold text-base text-slate-900 dark:text-white">Step 6 — Photos & Images</h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Upload clear, authentic photos of your accommodation (Exterior, Rooms, Kitchen, Bathroom).
+                </p>
               </div>
 
               <div>
@@ -1449,204 +1445,139 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
                   ref={fileInputRef}
                   onChange={handleFileUpload}
                   multiple
-                  accept="image/*,video/*"
+                  accept="image/*"
                   className="hidden"
                 />
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
                   disabled={isUploading}
-                  className="px-4 py-2 bg-emerald-600 text-white font-bold text-xs rounded-xl shadow flex items-center gap-1.5 disabled:opacity-50"
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow flex items-center gap-1.5 disabled:opacity-50 transition-colors cursor-pointer"
                 >
                   <Upload className="w-4 h-4" />
-                  {isUploading ? 'Uploading...' : 'Upload Media Files'}
+                  {isUploading ? 'Uploading Photos...' : 'Upload Photos'}
                 </button>
               </div>
             </div>
 
-            {/* 🎥 Dedicated 4K Verified Video Walkthrough Card */}
-            <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-emerald-950 p-5 rounded-2xl border border-emerald-500/30 text-white space-y-4 shadow-xl">
-              <div className="flex items-start justify-between gap-3">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-500 text-slate-950 uppercase tracking-wide flex items-center gap-1">
-                      <ShieldCheck className="w-3 h-3" />
-                      Virtual Campus Inspection
-                    </span>
-                    <span className="text-[10px] text-emerald-300 font-bold">Admin Verified Audit Standard</span>
-                  </div>
-                  <h4 className="text-sm font-black text-white flex items-center gap-1.5">
-                    <Video className="w-4 h-4 text-emerald-400" />
-                    4K Video Walkthrough Tour (For Student Confidence)
-                  </h4>
-                  <p className="text-[11px] text-slate-300 leading-relaxed">
-                    Upload an uncut 4K video showing the lodge compound, front gate, room interior, bathroom, and prepaid meter. Each video is reviewed and verified by the Hostel Ease admin team before going live on the homepage Virtual Campus Inspection.
-                  </p>
-                </div>
+            {/* Photo Quality Guidance Alert */}
+            <div className="bg-emerald-50/70 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 p-3.5 rounded-2xl flex items-start gap-2.5 text-xs text-emerald-950 dark:text-emerald-200">
+              <Camera className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+              <div className="space-y-0.5">
+                <p className="font-bold">Student Photo Guidelines</p>
+                <p className="text-[11px] leading-relaxed text-emerald-800 dark:text-emerald-300">
+                  Take bright, landscape photos in natural daylight. Ensure you include the front gate, room interior, bathroom, and kitchen. 4K video walkthrough will be uploaded in the next step.
+                </p>
               </div>
-
-              {/* Video Upload Actions */}
-              <div className="flex flex-col sm:flex-row gap-3">
-                <input
-                  type="file"
-                  ref={videoInputRef}
-                  onChange={handleVideoUpload}
-                  accept="video/mp4,video/webm,video/*"
-                  className="hidden"
-                />
-                <button
-                  type="button"
-                  onClick={() => videoInputRef.current?.click()}
-                  disabled={isUploading}
-                  className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
-                >
-                  <Camera className="w-4 h-4" />
-                  <span>{isUploading ? 'Uploading Video...' : 'Upload 4K Video from Device / Camera'}</span>
-                </button>
-
-                <div className="flex-1 flex gap-2">
-                  <input
-                    type="url"
-                    placeholder="Or paste 4K video link (YouTube, Drive, Cloud MP4)..."
-                    value={customVideoUrl}
-                    onChange={(e) => setCustomVideoUrl(e.target.value)}
-                    className="flex-1 text-xs bg-slate-900/90 border border-slate-700 rounded-xl px-3 py-2 text-white placeholder:text-slate-400 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleAddVideoTour}
-                    className="px-3 py-2 bg-slate-700 hover:bg-slate-600 text-white font-bold text-xs rounded-xl transition-colors cursor-pointer"
-                  >
-                    Add URL
-                  </button>
-                </div>
-              </div>
-
-              {/* Chunked Upload Live Progress Bar */}
-              {videoUploadProgress !== null && (
-                <div className="space-y-1.5 bg-slate-900/90 p-3.5 rounded-xl border border-emerald-500/40">
-                  <div className="flex justify-between text-xs text-emerald-400 font-bold">
-                    <span className="flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping inline-block" />
-                      Uploading 4K Video in High-Speed Resumable Chunks...
-                    </span>
-                    <span>{videoUploadProgress}%</span>
-                  </div>
-                  <div className="w-full bg-slate-800 rounded-full h-2 overflow-hidden">
-                    <div
-                      className="bg-gradient-to-r from-emerald-500 to-teal-400 h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${videoUploadProgress}%` }}
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* Active Video Tour Status Preview */}
-              {mediaList.some(m => m.mediaType === 'VIDEO') && (
-                <div className="bg-slate-950/80 p-3.5 rounded-xl border border-emerald-500/40 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-emerald-300 flex items-center gap-1.5">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                      4K Video Attached & Ready for Admin Audit
-                    </span>
-                    <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 animate-pulse">
-                      ⏳ Pending Admin Verification
-                    </span>
-                  </div>
-                  <div className="aspect-video max-w-sm rounded-lg overflow-hidden bg-black mx-auto">
-                    <video
-                      src={mediaList.find(m => m.mediaType === 'VIDEO')?.url}
-                      controls
-                      playsInline
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                </div>
-              )}
             </div>
 
-            {/* Uploaded Media Items */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-              {mediaList.map(item => (
-                <div key={item.id} className="bg-slate-50 dark:bg-slate-800/80 p-3 rounded-2xl border border-slate-200 dark:border-slate-700 flex gap-3 items-start">
-                  <div className="w-16 h-16 rounded-xl overflow-hidden bg-slate-200 dark:bg-slate-700 flex-shrink-0 relative">
-                    {item.mediaType === 'VIDEO' ? (
-                      <div className="w-full h-full bg-slate-900 text-emerald-400 flex flex-col items-center justify-center">
-                        <Video className="w-5 h-5" />
-                        <span className="text-[8px] text-white">VIDEO</span>
-                      </div>
-                    ) : (
+            {/* Uploaded Photos Grid */}
+            {mediaList.length === 0 ? (
+              <div className="text-center py-12 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-3xl p-6 space-y-3">
+                <div className="w-12 h-12 bg-slate-100 dark:bg-slate-800 text-slate-400 rounded-2xl flex items-center justify-center mx-auto">
+                  <Camera className="w-6 h-6" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-slate-700 dark:text-slate-300">No photos uploaded yet</h4>
+                  <p className="text-xs text-slate-400">Click "Upload Photos" above to add exterior, bedroom, and bathroom photos.</p>
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                {mediaList.map(item => (
+                  <div key={item.id} className="bg-slate-50 dark:bg-slate-800/80 p-3 rounded-2xl border border-slate-200 dark:border-slate-700 flex gap-3 items-start">
+                    <div className="w-16 h-16 rounded-xl overflow-hidden bg-slate-200 dark:bg-slate-700 flex-shrink-0 relative">
                       <img src={item.url} alt="media" className="w-full h-full object-cover" />
-                    )}
-                    {item.isCover && (
-                      <span className="absolute bottom-0.5 left-0.5 bg-emerald-600 text-white text-[8px] font-bold px-1 rounded">
-                        COVER
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="flex-1 min-w-0 space-y-1">
-                    <div className="flex items-center justify-between">
-                      <select
-                        value={item.category}
-                        onChange={(e) => {
-                          const updated = mediaList.map(m => m.id === item.id ? { ...m, category: e.target.value as MediaCategory } : m);
-                          setMediaList(updated);
-                        }}
-                        className="text-[10px] font-bold bg-white dark:bg-slate-900 text-slate-900 dark:text-white rounded border border-slate-200 dark:border-slate-700 px-1.5 py-0.5 cursor-pointer"
-                      >
-                        <option value="EXTERIOR">Exterior</option>
-                        <option value="BEDROOM">Bedroom</option>
-                        <option value="BATHROOM">Bathroom</option>
-                        <option value="KITCHEN">Kitchen</option>
-                        <option value="COMPOUND">Compound</option>
-                        <option value="FACILITY">Facility</option>
-                        <option value="VIDEO_WALKTHROUGH">🎥 Video Tour</option>
-                      </select>
-
-                      <button
-                        type="button"
-                        onClick={() => setMediaList(mediaList.filter(m => m.id !== item.id))}
-                        className="text-slate-400 hover:text-red-600 dark:hover:text-red-400"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                      {item.isCover && (
+                        <span className="absolute bottom-0.5 left-0.5 bg-emerald-600 text-white text-[8px] font-bold px-1 rounded shadow-xs">
+                          COVER
+                        </span>
+                      )}
                     </div>
 
-                    <input
-                      type="text"
-                      value={item.caption}
-                      onChange={(e) => {
-                        const updated = mediaList.map(m => m.id === item.id ? { ...m, caption: e.target.value } : m);
-                        setMediaList(updated);
-                      }}
-                      placeholder="Add caption..."
-                      className="w-full text-[10px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded px-1.5 py-0.5 text-slate-900 dark:text-white placeholder:text-slate-400"
-                    />
+                    <div className="flex-1 min-w-0 space-y-1">
+                      <div className="flex items-center justify-between">
+                        <select
+                          value={item.category}
+                          onChange={(e) => {
+                            const updated = mediaList.map(m => m.id === item.id ? { ...m, category: e.target.value as MediaCategory } : m);
+                            setMediaList(updated);
+                          }}
+                          className="text-[10px] font-bold bg-white dark:bg-slate-900 text-slate-900 dark:text-white rounded border border-slate-200 dark:border-slate-700 px-1.5 py-0.5 cursor-pointer"
+                        >
+                          <option value="EXTERIOR">Exterior</option>
+                          <option value="BEDROOM">Bedroom</option>
+                          <option value="BATHROOM">Bathroom</option>
+                          <option value="KITCHEN">Kitchen</option>
+                          <option value="COMPOUND">Compound</option>
+                          <option value="FACILITY">Facility</option>
+                        </select>
 
-                    {item.mediaType === 'IMAGE' && !item.isCover && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const updated = mediaList.map(m => ({ ...m, isCover: m.id === item.id }));
+                        <button
+                          type="button"
+                          onClick={() => setMediaList(mediaList.filter(m => m.id !== item.id))}
+                          className="text-slate-400 hover:text-red-600 dark:hover:text-red-400 cursor-pointer"
+                          title="Delete photo"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+
+                      <input
+                        type="text"
+                        value={item.caption}
+                        onChange={(e) => {
+                          const updated = mediaList.map(m => m.id === item.id ? { ...m, caption: e.target.value } : m);
                           setMediaList(updated);
                         }}
-                        className="text-[10px] text-emerald-700 dark:text-emerald-400 font-bold flex items-center gap-1"
-                      >
-                        <Star className="w-3 h-3" /> Set Cover
-                      </button>
-                    )}
+                        placeholder="Add photo caption..."
+                        className="w-full text-[10px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded px-1.5 py-0.5 text-slate-900 dark:text-white placeholder:text-slate-400"
+                      />
+
+                      {!item.isCover && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const updated = mediaList.map(m => ({ ...m, isCover: m.id === item.id }));
+                            setMediaList(updated);
+                          }}
+                          className="text-[10px] text-emerald-700 dark:text-emerald-400 font-bold flex items-center gap-1 cursor-pointer hover:underline"
+                        >
+                          <Star className="w-3 h-3" /> Set Cover
+                        </button>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
-        {/* STEP 7: Live Student Preview */}
+        {/* STEP 7: 4K Video Walkthrough */}
         {currentStep === 7 && (
+          <div className="space-y-4 max-w-3xl">
+            <div>
+              <h3 className="font-bold text-base text-slate-900 dark:text-white">Step 7 — 4K Video Walkthrough</h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Provide an uncut 4K video tour for the LAUTECH student Virtual Campus Inspection.
+              </p>
+            </div>
+
+            <FourKVideoUploader
+              initialVideo={fourKVideo}
+              onVideoChange={setFourKVideo}
+              onShowToast={onShowToast}
+              propertyId={editingProperty?.id || initialData?.id}
+              propertyName={title}
+            />
+          </div>
+        )}
+
+        {/* STEP 8: Live Student Preview */}
+        {currentStep === 8 && (
           <div className="space-y-4 max-w-2xl">
-            <h3 className="font-bold text-base text-slate-900 dark:text-white">Step 7 — Student Preview</h3>
+            <h3 className="font-bold text-base text-slate-900 dark:text-white">Step 8 — Student Preview</h3>
             <p className="text-xs text-slate-500 dark:text-slate-400">Here is exactly how your accommodation will appear to LAUTECH students.</p>
 
             <div className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-200 dark:border-slate-700 p-5 shadow-lg space-y-4">
@@ -1662,6 +1593,12 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
                 <span className="absolute top-3 right-3 bg-slate-900/80 text-white font-bold text-[10px] px-2.5 py-1 rounded-full">
                   {formatDistance(parseFloat(distanceKm))} to Campus
                 </span>
+                {fourKVideo?.videoUrl && (
+                  <span className="absolute bottom-3 left-3 bg-indigo-950/90 text-indigo-300 border border-indigo-400/40 font-black text-[10px] px-2.5 py-1 rounded-full flex items-center gap-1 shadow">
+                    <Sparkles className="w-3 h-3 text-indigo-400" />
+                    4K Walkthrough Attached
+                  </span>
+                )}
               </div>
 
               <div>
@@ -1693,6 +1630,35 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
                 )}
               </div>
 
+              {/* 4K Video Tour Preview Card inside Preview */}
+              {fourKVideo && fourKVideo.videoUrl ? (
+                <div className="p-3.5 bg-slate-900 rounded-2xl border border-emerald-500/30 text-white space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-emerald-300 flex items-center gap-1.5">
+                      <Video className="w-4 h-4 text-emerald-400" />
+                      4K Virtual Campus Inspection Tour
+                    </span>
+                    <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                      {fourKVideo.resolution || '4K UHD'}
+                    </span>
+                  </div>
+                  <div className="aspect-video max-h-56 rounded-xl overflow-hidden bg-black mx-auto">
+                    <video
+                      src={fourKVideo.videoUrl}
+                      poster={fourKVideo.thumbnailUrl}
+                      controls
+                      playsInline
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className="p-3 bg-slate-50 dark:bg-slate-900/60 rounded-xl border border-dashed border-slate-200 dark:border-slate-700 text-center text-xs text-slate-500">
+                  <p>No 4K Video Tour Attached</p>
+                  <p className="text-[10px] text-slate-400 mt-0.5">You can add a 4K walkthrough in Step 7 to boost student booking confidence.</p>
+                </div>
+              )}
+
               <div className="p-3 bg-slate-50 dark:bg-slate-900/80 rounded-xl flex items-center justify-between text-xs">
                 <div>
                   <span className="text-[10px] text-slate-500 dark:text-slate-400 block">Annual Rent</span>
@@ -1707,10 +1673,10 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
           </div>
         )}
 
-        {/* STEP 8: Submit & Completeness Review */}
-        {currentStep === 8 && (
+        {/* STEP 9: Submit & Completeness Review */}
+        {currentStep === 9 && (
           <div className="space-y-6 max-w-2xl">
-            <h3 className="font-bold text-base text-slate-900 dark:text-white">Step 8 — Review & Submission</h3>
+            <h3 className="font-bold text-base text-slate-900 dark:text-white">Step 9 — Review & Submission</h3>
 
             <div className="p-5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl space-y-3">
               <div className="flex items-center justify-between">
@@ -1782,7 +1748,7 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
             <Save className="w-3.5 h-3.5" /> Save Draft
           </button>
 
-          {currentStep < 8 ? (
+          {currentStep < 9 ? (
             <button
               type="button"
               onClick={() => setCurrentStep(prev => prev + 1)}
