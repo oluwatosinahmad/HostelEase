@@ -24,8 +24,6 @@
     "test:live": "tsx scripts/verify_live_system.ts"
   },
   "dependencies": {
-    "@netlify/blobs": "^11.0.3",
-    "@netlify/functions": "^6.0.0",
     "@types/bcryptjs": "^2.4.6",
     "@types/better-sqlite3": "^9.6.0",
     "@types/cors": "^2.8.19",
