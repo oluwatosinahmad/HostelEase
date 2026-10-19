@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   X, 
   MapPin, 
@@ -89,6 +89,8 @@ export const HostelDetailModal: React.FC<HostelDetailModalProps> = ({
   const [activeMediaCategory, setActiveMediaCategory] = useState<MediaCategory | 'ALL'>('ALL');
   const [activeMediaIndex, setActiveMediaIndex] = useState<number>(0);
   const [lightboxOpen, setLightboxOpen] = useState<boolean>(false);
+  const previewTouchStartX = useRef<number | null>(null);
+  const previewTouchStartY = useRef<number | null>(null);
 
   // Modals state
   const [inspectionModalOpen, setInspectionModalOpen] = useState<boolean>(false);
@@ -277,6 +279,31 @@ export const HostelDetailModal: React.FC<HostelDetailModalProps> = ({
     if (activeMediaCategory === 'ALL') return true;
     return m.category === activeMediaCategory;
   }) || [];
+
+  // Preview touch swipe handlers for mobile
+  const handlePreviewTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length !== 1) return;
+    previewTouchStartX.current = e.touches[0].clientX;
+    previewTouchStartY.current = e.touches[0].clientY;
+  };
+
+  const handlePreviewTouchEnd = (e: React.TouchEvent) => {
+    if (previewTouchStartX.current === null || previewTouchStartY.current === null) return;
+    const deltaX = e.changedTouches[0].clientX - previewTouchStartX.current;
+    const deltaY = e.changedTouches[0].clientY - previewTouchStartY.current;
+    previewTouchStartX.current = null;
+    previewTouchStartY.current = null;
+
+    if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 35 && filteredMedia.length > 1) {
+      if (deltaX < 0) {
+        // Swiped left -> next photo
+        setActiveMediaIndex((prev) => (prev < filteredMedia.length - 1 ? prev + 1 : 0));
+      } else {
+        // Swiped right -> prev photo
+        setActiveMediaIndex((prev) => (prev > 0 ? prev - 1 : filteredMedia.length - 1));
+      }
+    }
+  };
 
   const isBooked = Boolean(property?.isBooked || property?.availabilityStatus === 'BOOKED' || (property?.activeBookingCount !== undefined && property.activeBookingCount > 0));
 
@@ -501,7 +528,9 @@ export const HostelDetailModal: React.FC<HostelDetailModalProps> = ({
                 {/* Main Media Display Viewport */}
                 <div 
                   onClick={() => setLightboxOpen(true)}
-                  className="relative aspect-[16/9] md:aspect-[21/10] bg-slate-950 rounded-2xl overflow-hidden shadow-inner flex items-center justify-center cursor-pointer group/viewport"
+                  onTouchStart={handlePreviewTouchStart}
+                  onTouchEnd={handlePreviewTouchEnd}
+                  className="relative aspect-[16/9] md:aspect-[21/10] bg-slate-950 rounded-2xl overflow-hidden shadow-inner flex items-center justify-center cursor-pointer group/viewport touch-pan-y select-none"
                 >
                   {currentMedia.mediaType === 'VIDEO' ? (
                     <div 
@@ -555,14 +584,24 @@ export const HostelDetailModal: React.FC<HostelDetailModalProps> = ({
                   {filteredMedia.length > 1 && (
                     <>
                       <button
-                        onClick={() => setActiveMediaIndex((prev) => (prev > 0 ? prev - 1 : filteredMedia.length - 1))}
-                        className="absolute left-3 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/60 text-white hover:bg-black/80 transition-colors"
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActiveMediaIndex((prev) => (prev > 0 ? prev - 1 : filteredMedia.length - 1));
+                        }}
+                        className="absolute left-3 top-1/2 -translate-y-1/2 p-2.5 rounded-full bg-black/60 text-white hover:bg-black/85 transition-colors z-10 cursor-pointer shadow-lg active:scale-95"
+                        aria-label="Previous photo"
                       >
                         <ChevronLeft className="w-5 h-5" />
                       </button>
                       <button
-                        onClick={() => setActiveMediaIndex((prev) => (prev < filteredMedia.length - 1 ? prev + 1 : 0))}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/60 text-white hover:bg-black/80 transition-colors"
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActiveMediaIndex((prev) => (prev < filteredMedia.length - 1 ? prev + 1 : 0));
+                        }}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 p-2.5 rounded-full bg-black/60 text-white hover:bg-black/85 transition-colors z-10 cursor-pointer shadow-lg active:scale-95"
+                        aria-label="Next photo"
                       >
                         <ChevronRight className="w-5 h-5" />
                       </button>
@@ -576,9 +615,15 @@ export const HostelDetailModal: React.FC<HostelDetailModalProps> = ({
                     {filteredMedia.map((m, idx) => (
                       <button
                         key={m.id || idx}
-                        onClick={() => setActiveMediaIndex(idx)}
-                        className={`relative w-20 h-14 rounded-xl overflow-hidden flex-shrink-0 border-2 transition-all ${
-                          activeMediaIndex === idx ? 'border-emerald-600 scale-105 shadow-sm' : 'border-transparent opacity-70 hover:opacity-100'
+                        type="button"
+                        onClick={() => {
+                          setActiveMediaIndex(idx);
+                          setLightboxOpen(true);
+                        }}
+                        title={`View image ${idx + 1} of ${filteredMedia.length}`}
+                        aria-label={`View image ${idx + 1}`}
+                        className={`relative w-20 h-14 rounded-xl overflow-hidden flex-shrink-0 border-2 transition-all cursor-pointer ${
+                          activeMediaIndex === idx ? 'border-emerald-600 scale-105 shadow-sm ring-2 ring-emerald-500/30' : 'border-transparent opacity-70 hover:opacity-100'
                         }`}
                       >
                         {m.mediaType === 'VIDEO' ? (
@@ -1167,7 +1212,15 @@ export const HostelDetailModal: React.FC<HostelDetailModalProps> = ({
       {property && (
         <HostelImageGalleryModal
           isOpen={lightboxOpen}
-          onClose={() => setLightboxOpen(false)}
+          onClose={(finalIdx) => {
+            if (typeof finalIdx === 'number') {
+              setActiveMediaIndex(finalIdx);
+            }
+            setLightboxOpen(false);
+          }}
+          onIndexChange={(newIdx) => {
+            setActiveMediaIndex(newIdx);
+          }}
           media={filteredMedia.length > 0 ? filteredMedia : [{ id: property.id, url: property.coverImage, caption: property.title, mediaType: 'IMAGE' }]}
           hostelTitle={property.title}
           initialIndex={activeMediaIndex}

@@ -459,7 +459,11 @@ export const NotificationCenterModal: React.FC<NotificationCenterModalProps> = (
 
   return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-200"
+      className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 md:p-6 bg-slate-950/75 backdrop-blur-sm animate-in fade-in duration-200"
+      style={{
+        paddingTop: 'max(env(safe-area-inset-top), 0.75rem)',
+        paddingBottom: 'max(env(safe-area-inset-bottom), 0.75rem)'
+      }}
       onClick={onClose}
       role="dialog"
       aria-modal="true"
@@ -468,13 +472,13 @@ export const NotificationCenterModal: React.FC<NotificationCenterModalProps> = (
       <div
         ref={modalRef}
         onClick={(e) => e.stopPropagation()}
-        className="w-full sm:max-w-xl md:max-w-2xl bg-white dark:bg-slate-900 rounded-t-3xl sm:rounded-3xl shadow-2xl border-t sm:border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col max-h-[90vh] sm:max-h-[85vh] animate-in slide-in-from-bottom-6 sm:zoom-in-95 duration-200"
+        className="w-[94%] max-w-lg sm:max-w-xl md:max-w-2xl bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200/90 dark:border-slate-800 overflow-hidden flex flex-col my-auto animate-in zoom-in-95 duration-200"
+        style={{
+          maxHeight: 'min(86vh, calc(100dvh - 2rem))'
+        }}
       >
-        {/* Mobile Pull Handle */}
-        <div className="w-12 h-1.5 bg-slate-300 dark:bg-slate-700 rounded-full mx-auto my-2.5 sm:hidden shrink-0" />
-
         {/* Modal Header */}
-        <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/80 dark:bg-slate-900/80 backdrop-blur shrink-0">
+        <div className="px-4 py-3 sm:px-5 sm:py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/90 dark:bg-slate-900/90 backdrop-blur shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-2xl bg-emerald-600/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold">
               <Bell className="w-5 h-5" />
@@ -680,7 +684,7 @@ export const NotificationCenterModal: React.FC<NotificationCenterModalProps> = (
 
                   {/* Body Content */}
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-2 mb-1">
+                    <div className="flex items-start justify-between gap-2 mb-1">
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <span className="text-xs sm:text-sm font-extrabold text-slate-900 dark:text-white leading-tight">
                           {n.title}

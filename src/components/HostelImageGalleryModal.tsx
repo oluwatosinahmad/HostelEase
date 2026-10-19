@@ -27,11 +27,12 @@ export interface GalleryMediaItem {
 
 interface HostelImageGalleryModalProps {
   isOpen: boolean;
-  onClose: () => void;
+  onClose: (finalIndex?: number) => void;
   images?: GalleryMediaItem[];
   media?: GalleryMediaItem[];
   hostelTitle: string;
   initialIndex?: number;
+  onIndexChange?: (index: number) => void;
 }
 
 export const HostelImageGalleryModal: React.FC<HostelImageGalleryModalProps> = ({
@@ -40,15 +41,21 @@ export const HostelImageGalleryModal: React.FC<HostelImageGalleryModalProps> = (
   images = [],
   media,
   hostelTitle,
-  initialIndex = 0
+  initialIndex = 0,
+  onIndexChange
 }) => {
   // Support both images and media prop
   const items: GalleryMediaItem[] = (media && media.length > 0) ? media : images;
-  const [currentIndex, setCurrentIndex] = useState<number>(initialIndex);
+  const [currentIndex, setCurrentIndex] = useState<number>(() => {
+    return Math.max(0, Math.min(initialIndex, (items.length > 0 ? items.length - 1 : 0)));
+  });
   
   // Video player state
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const thumbnailStripRef = useRef<HTMLDivElement | null>(null);
+  const thumbnailItemRefs = useRef<(HTMLButtonElement | null)[]>([]);
+
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [currentTime, setCurrentTime] = useState<number>(0);
   const [duration, setDuration] = useState<number>(0);
@@ -57,9 +64,28 @@ export const HostelImageGalleryModal: React.FC<HostelImageGalleryModalProps> = (
   const [isVideoEnded, setIsVideoEnded] = useState<boolean>(false);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
 
+  // Touch swipe state
+  const touchStartX = useRef<number | null>(null);
+  const touchStartY = useRef<number | null>(null);
+
+  // Sync initialIndex when modal opens or index changes externally
   useEffect(() => {
-    setCurrentIndex(initialIndex);
-  }, [initialIndex, isOpen]);
+    if (isOpen && items.length > 0) {
+      const clamped = Math.max(0, Math.min(initialIndex, items.length - 1));
+      setCurrentIndex(clamped);
+    }
+  }, [initialIndex, isOpen, items.length]);
+
+  // Auto-scroll active thumbnail into view smoothly
+  useEffect(() => {
+    if (thumbnailItemRefs.current[currentIndex]) {
+      thumbnailItemRefs.current[currentIndex]?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'nearest',
+        inline: 'center'
+      });
+    }
+  }, [currentIndex]);
 
   // Reset video state when switching slides
   useEffect(() => {
@@ -84,13 +110,46 @@ export const HostelImageGalleryModal: React.FC<HostelImageGalleryModalProps> = (
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
   }, []);
 
-  // Keyboard navigation
+  const handleSelectIndex = (idx: number) => {
+    if (items.length === 0) return;
+    const clamped = Math.max(0, Math.min(idx, items.length - 1));
+    setCurrentIndex(clamped);
+    onIndexChange?.(clamped);
+  };
+
+  const handleNext = () => {
+    if (currentIndex < items.length - 1) {
+      handleSelectIndex(currentIndex + 1);
+    }
+  };
+
+  const handlePrev = () => {
+    if (currentIndex > 0) {
+      handleSelectIndex(currentIndex - 1);
+    }
+  };
+
+  const handleClose = () => {
+    onClose(currentIndex);
+  };
+
+  // Keyboard navigation (Arrow keys + Escape + Space for video)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (!isOpen) return;
-      if (e.key === 'Escape') onClose();
-      if (e.key === 'ArrowRight') handleNext();
-      if (e.key === 'ArrowLeft') handlePrev();
+      if (e.key === 'Escape') {
+        handleClose();
+      }
+      if (e.key === 'ArrowRight') {
+        if (currentIndex < items.length - 1) {
+          handleNext();
+        }
+      }
+      if (e.key === 'ArrowLeft') {
+        if (currentIndex > 0) {
+          handlePrev();
+        }
+      }
       if (e.key === ' ' && isCurrentVideo) {
         e.preventDefault();
         togglePlay();
@@ -100,15 +159,39 @@ export const HostelImageGalleryModal: React.FC<HostelImageGalleryModalProps> = (
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, currentIndex, items.length, isCurrentVideo, isPlaying]);
 
+  // Touch Swipe Gesture Handlers for mobile
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length !== 1) return;
+    touchStartX.current = e.touches[0].clientX;
+    touchStartY.current = e.touches[0].clientY;
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartX.current === null || touchStartY.current === null) return;
+    const deltaX = e.changedTouches[0].clientX - touchStartX.current;
+    const deltaY = e.changedTouches[0].clientY - touchStartY.current;
+
+    touchStartX.current = null;
+    touchStartY.current = null;
+
+    // Trigger only if horizontal swipe dominates vertical scroll and exceeds 35px
+    if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 35) {
+      if (deltaX < 0) {
+        // Swiped left -> Next image
+        handleNext();
+      } else {
+        // Swiped right -> Previous image
+        handlePrev();
+      }
+    }
+  };
+
+  const handleTouchCancel = () => {
+    touchStartX.current = null;
+    touchStartY.current = null;
+  };
+
   if (!isOpen || items.length === 0) return null;
-
-  const handleNext = () => {
-    setCurrentIndex((prev) => (prev + 1) % items.length);
-  };
-
-  const handlePrev = () => {
-    setCurrentIndex((prev) => (prev - 1 + items.length) % items.length);
-  };
 
   const togglePlay = () => {
     if (!videoRef.current) return;
@@ -184,17 +267,19 @@ export const HostelImageGalleryModal: React.FC<HostelImageGalleryModalProps> = (
       className="fixed inset-0 z-50 bg-black/95 flex flex-col justify-between select-none animate-in fade-in duration-200"
     >
       {/* Gallery Top Header */}
-      <div className="p-4 flex items-center justify-between text-white border-b border-white/10 bg-black/60 backdrop-blur-md z-20">
+      <div className="p-3 sm:p-4 flex items-center justify-between text-white border-b border-white/10 bg-black/60 backdrop-blur-md z-20">
         <div className="flex items-center gap-3 min-w-0">
           <div className="w-9 h-9 rounded-xl bg-emerald-600/30 border border-emerald-500/40 flex items-center justify-center text-emerald-400 shrink-0">
             {isCurrentVideo ? <Video className="w-5 h-5" /> : <ImageIcon className="w-5 h-5" />}
           </div>
           <div className="min-w-0">
             <h3 className="text-sm font-bold truncate max-w-xs sm:max-w-md">{hostelTitle}</h3>
-            <p className="text-xs text-white/60 flex items-center gap-1.5">
+            <p className="text-xs text-white/70 flex items-center gap-1.5 font-medium">
               <span>{isCurrentVideo ? '4K Verified Video Tour' : 'High-Res Photo'}</span>
               <span>•</span>
-              <span>{currentIndex + 1} of {items.length}</span>
+              <span className="font-extrabold text-white bg-white/15 px-2 py-0.5 rounded-full text-[11px] tracking-wide">
+                {currentIndex + 1} of {items.length}
+              </span>
             </p>
           </div>
         </div>
@@ -202,15 +287,15 @@ export const HostelImageGalleryModal: React.FC<HostelImageGalleryModalProps> = (
         <div className="flex items-center gap-2">
           <button
             onClick={toggleFullscreen}
-            className="p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors cursor-pointer"
+            className="min-w-[40px] min-h-[40px] w-10 h-10 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 active:scale-95 text-white transition-colors cursor-pointer"
             title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen View'}
             aria-label="Toggle fullscreen"
           >
             {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
           </button>
           <button
-            onClick={onClose}
-            className="p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors cursor-pointer"
+            onClick={handleClose}
+            className="min-w-[44px] min-h-[44px] w-11 h-11 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 active:scale-95 text-white transition-colors cursor-pointer"
             aria-label="Close media gallery"
           >
             <X className="w-5 h-5" />
@@ -219,21 +304,53 @@ export const HostelImageGalleryModal: React.FC<HostelImageGalleryModalProps> = (
       </div>
 
       {/* Main Media Stage */}
-      <div className="relative flex-1 flex items-center justify-center p-2 sm:p-6 overflow-hidden">
+      <div 
+        className="relative flex-1 flex items-center justify-center p-2 sm:p-6 overflow-hidden touch-pan-y select-none"
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+        onTouchCancel={handleTouchCancel}
+      >
+        {/* Floating Top-Left Counter Badge */}
+        <div className="absolute top-3 left-3 sm:top-4 sm:left-4 z-20 pointer-events-none">
+          <span className="px-3 py-1 rounded-full bg-black/75 backdrop-blur-md text-white text-xs font-bold border border-white/20 shadow-lg">
+            {currentIndex + 1} of {items.length}
+          </span>
+        </div>
+
         {/* Navigation Buttons */}
         {items.length > 1 && (
           <>
             <button
-              onClick={handlePrev}
-              className="absolute left-2 sm:left-4 z-20 p-3 rounded-full bg-black/60 hover:bg-black/90 text-white border border-white/20 transition-transform active:scale-95 cursor-pointer shadow-xl"
-              aria-label="Previous item"
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                handlePrev();
+              }}
+              disabled={currentIndex === 0}
+              className={`absolute left-2 sm:left-4 z-30 min-w-[48px] min-h-[48px] w-12 h-12 rounded-full flex items-center justify-center transition-all cursor-pointer shadow-2xl backdrop-blur-md border ${
+                currentIndex === 0
+                  ? 'bg-black/30 border-white/10 text-white/25 cursor-not-allowed'
+                  : 'bg-black/75 hover:bg-black/95 active:scale-95 text-white border-white/25 hover:border-emerald-400/60'
+              }`}
+              aria-label="Previous image"
+              title={currentIndex === 0 ? 'First image reached' : 'Previous image (Left arrow)'}
             >
               <ChevronLeft className="w-6 h-6" />
             </button>
             <button
-              onClick={handleNext}
-              className="absolute right-2 sm:right-4 z-20 p-3 rounded-full bg-black/60 hover:bg-black/90 text-white border border-white/20 transition-transform active:scale-95 cursor-pointer shadow-xl"
-              aria-label="Next item"
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleNext();
+              }}
+              disabled={currentIndex === items.length - 1}
+              className={`absolute right-2 sm:right-4 z-30 min-w-[48px] min-h-[48px] w-12 h-12 rounded-full flex items-center justify-center transition-all cursor-pointer shadow-2xl backdrop-blur-md border ${
+                currentIndex === items.length - 1
+                  ? 'bg-black/30 border-white/10 text-white/25 cursor-not-allowed'
+                  : 'bg-black/75 hover:bg-black/95 active:scale-95 text-white border-white/25 hover:border-emerald-400/60'
+              }`}
+              aria-label="Next image"
+              title={currentIndex === items.length - 1 ? 'Last image reached' : 'Next image (Right arrow)'}
             >
               <ChevronRight className="w-6 h-6" />
             </button>
@@ -363,7 +480,7 @@ export const HostelImageGalleryModal: React.FC<HostelImageGalleryModalProps> = (
       </div>
 
       {/* Gallery Bottom Thumbnail Strip */}
-      <div className="p-4 bg-black/80 border-t border-white/10 space-y-3 z-20">
+      <div className="p-3 sm:p-4 bg-black/80 border-t border-white/10 space-y-2.5 z-20">
         {currentItem?.caption && (
           <p className="text-xs text-center text-white/80 font-medium truncate max-w-xl mx-auto">
             {currentItem.caption}
@@ -372,16 +489,22 @@ export const HostelImageGalleryModal: React.FC<HostelImageGalleryModalProps> = (
 
         {/* Thumbnails */}
         {items.length > 1 && (
-          <div className="flex items-center justify-center gap-2 overflow-x-auto py-1 px-2 scrollbar-none">
+          <div 
+            ref={thumbnailStripRef}
+            className="flex items-center justify-center gap-2 overflow-x-auto py-1 px-2 scrollbar-none"
+          >
             {items.map((item, idx) => {
               const isVideo = item.mediaType === 'VIDEO' || item.category === 'VIDEO_WALKTHROUGH' || item.url?.endsWith('.mp4');
               return (
                 <button
                   key={item.id || idx}
-                  onClick={() => setCurrentIndex(idx)}
+                  ref={(el) => { thumbnailItemRefs.current[idx] = el; }}
+                  onClick={() => handleSelectIndex(idx)}
+                  title={`View item ${idx + 1} of ${items.length}`}
+                  aria-label={`View item ${idx + 1}`}
                   className={`relative w-14 h-14 rounded-xl overflow-hidden flex-shrink-0 border-2 transition-all cursor-pointer ${
                     idx === currentIndex
-                      ? 'border-emerald-400 scale-105 shadow-md shadow-emerald-500/40'
+                      ? 'border-emerald-400 scale-105 shadow-md shadow-emerald-500/40 ring-2 ring-emerald-400/50'
                       : 'border-transparent opacity-60 hover:opacity-100'
                   }`}
                 >
