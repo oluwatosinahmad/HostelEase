@@ -98,8 +98,10 @@ class RealtimeClient {
       es.addEventListener('notification:new', (e: MessageEvent) => {
         try {
           const data = JSON.parse(e.data);
-          console.log('[NOTIFICATION DEBUG] CLIENT EVENT RECEIVED: notification:new', data);
           if (data.notification?.id) {
+            if (this.seenNotifIds.has(data.notification.id)) {
+              return; // Already processed
+            }
             this.seenNotifIds.add(data.notification.id);
           }
           this.dispatchLocalEvent('hostel_ease_notification_updated', {
@@ -107,7 +109,6 @@ class RealtimeClient {
             notification: data.notification,
             unreadCount: data.unreadCount
           });
-          console.log('[NOTIFICATION DEBUG] FRONTEND STATE UPDATED: hostel_ease_notification_updated emitted');
         } catch (err) {
           console.warn('[NOTIFICATION DEBUG] Failed to parse notification:new event', err);
         }
@@ -136,41 +137,12 @@ class RealtimeClient {
         } catch {}
       });
 
-      // 4. New Message Arrived via SSE
+      // 4. New Message Arrived via SSE (authoritative notification arrives via notification:new)
       es.addEventListener('message:new', (e: MessageEvent) => {
         try {
           const data = JSON.parse(e.data);
-          console.log('[NOTIFICATION DEBUG] CLIENT EVENT RECEIVED: message:new', data);
           this.dispatchLocalEvent('hostel_ease_realtime_message', data);
           this.dispatchLocalEvent('hostel_ease_conversations_updated', data);
-          this.dispatchLocalEvent('hostel_ease_notification_updated', {
-            action: 'MESSAGE_RECEIVED',
-            conversationId: data.conversationId
-          });
-
-          // Check if current user is the recipient of the message to trigger on-screen toast HUD
-          const currentUserId = safeStorage.getItem('hostel_ease_user_id') || (() => {
-            try {
-              const u = JSON.parse(safeStorage.getItem('hostel_ease_user') || '{}');
-              return u.id || '';
-            } catch { return ''; }
-          })();
-
-          if (data.message && data.message.senderId && data.message.senderId !== currentUserId) {
-            const senderName = data.message.senderName || (data.message.senderRole === 'STUDENT' ? 'Student' : 'Agent');
-            this.dispatchLocalEvent('hostel_ease_notification_updated', {
-              action: 'CREATED',
-              notification: {
-                id: `toast-msg-${data.message.id || Date.now()}`,
-                type: 'message',
-                title: `New Message from ${senderName}`,
-                message: data.message.content || 'Sent you a message',
-                priority: 'high',
-                data: { conversationId: data.conversationId }
-              }
-            });
-          }
-          console.log('[NOTIFICATION DEBUG] FRONTEND STATE UPDATED: realtime message and notification dispatched');
         } catch (err) {
           console.warn('[NOTIFICATION DEBUG] Failed to parse message:new event', err);
         }
@@ -360,6 +332,7 @@ class RealtimeClient {
     this.currentToken = null;
     this.isConnecting = false;
     this.reconnectAttempts = 0;
+    this.seenNotifIds.clear();
   }
 
   public async sendTyping(conversationId: string, isTyping: boolean) {

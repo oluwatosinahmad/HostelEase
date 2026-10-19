@@ -319,48 +319,7 @@ export function setupClientMockApi() {
       // Handle Route Interceptions
       const method = (init?.method || 'GET').toUpperCase();
 
-      // 1. NOTIFICATIONS ENDPOINTS
-      if (urlString.includes('/api/notifications/unread-count')) {
-        const notifs = getStoredNotifications();
-        const unreadCount = notifs.filter(n => !n.isRead).length;
-        return new Response(JSON.stringify({ unreadCount }), {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' }
-        });
-      }
-
-      if (urlString.includes('/api/notifications/read-all')) {
-        const notifs = getStoredNotifications().map(n => ({ ...n, isRead: true, readAt: new Date().toISOString() }));
-        saveStoredNotifications(notifs);
-        window.dispatchEvent(new CustomEvent('hostel_ease_notification_updated', { detail: { action: 'MARK_ALL_READ', unreadCount: 0 } }));
-        return new Response(JSON.stringify({ success: true, unreadCount: 0, message: 'All notifications marked as read' }), {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' }
-        });
-      }
-
-      if (urlString.match(/\/api\/notifications\/[^/]+\/read/)) {
-        const notifId = urlString.split('/api/notifications/')[1].split('/read')[0];
-        const notifs = getStoredNotifications().map(n => n.id === notifId ? { ...n, isRead: true, readAt: new Date().toISOString() } : n);
-        saveStoredNotifications(notifs);
-        const unreadCount = notifs.filter(n => !n.isRead).length;
-        window.dispatchEvent(new CustomEvent('hostel_ease_notification_updated', { detail: { id: notifId, action: 'MARK_READ', unreadCount } }));
-        return new Response(JSON.stringify({ success: true, unreadCount, message: 'Notification marked as read' }), {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' }
-        });
-      }
-
-      if (urlString.includes('/api/notifications') && method === 'GET') {
-        const notifs = getStoredNotifications();
-        const unreadCount = notifs.filter(n => !n.isRead).length;
-        return new Response(JSON.stringify({ notifications: notifs, unreadCount }), {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' }
-        });
-      }
-
-      // 2. UTILITY RADAR ENDPOINTS
+      // 1. UTILITY RADAR ENDPOINTS
       if (urlString.includes('/api/utilities/overview')) {
         let storedReports: any[] = [];
         try {
@@ -624,33 +583,4 @@ export function setupClientMockApi() {
   };
 
   console.log('🛡️ [HOSTEL EASE] Resilient Client Mock API initialized for cloud environments.');
-
-  // Ambient campus notification simulation: every 60 seconds emits a realistic student event
-  if (typeof window !== 'undefined') {
-    setInterval(() => {
-      const ambientEvents = [
-        {
-          title: 'UtilityRadar™ Power Update',
-          message: 'Light currently ON along the main Adenike campus strip.',
-          type: 'SYSTEM',
-          linkUrl: '/utilities'
-        },
-        {
-          title: 'Campus SafeWalk™ Patrol',
-          message: 'Night security patrol stationed near Bovas filling station.',
-          type: 'SECURITY',
-          linkUrl: '/safewalk'
-        },
-        {
-          title: 'Verified Agent Online',
-          message: 'Agent Ahmad is currently active and answering hostel inspection inquiries.',
-          type: 'INSPECTION',
-          linkUrl: '/properties'
-        }
-      ];
-
-      const pick = ambientEvents[Math.floor(Math.random() * ambientEvents.length)];
-      triggerClientNotification(pick);
-    }, 60000);
-  }
 }

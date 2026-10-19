@@ -44,6 +44,7 @@ import { useTheme } from '../context/ThemeContext';
 import { AppView } from '../types/hostelEase';
 import { api } from '../services/api';
 import { UserAvatar } from './UserAvatar';
+import { NotificationCenterModal } from './NotificationCenterModal';
 
 interface NavbarProps {
   activeView: AppView;
@@ -77,17 +78,12 @@ export const Navbar: React.FC<NavbarProps> = ({
   const profileDropdownOpenRef = useRef<boolean>(false);
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const [unreadMsgCount, setUnreadMsgCount] = useState<number>(0);
-  const [notifications, setNotifications] = useState<any[]>([]);
   const [unreadNotifCount, setUnreadNotifCount] = useState<number>(0);
   const [notifDropdownOpen, setNotifDropdownOpen] = useState<boolean>(false);
-  const [notifFilter, setNotifFilter] = useState<'all' | 'unread'>('all');
   const [isLoggingOut, setIsLoggingOut] = useState<boolean>(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState<boolean>(false);
 
   const profileMenuRef = useRef<HTMLDivElement>(null);
-  const notifMenuRef = useRef<HTMLDivElement>(null);
-  const mobileNotifMenuRef = useRef<HTMLDivElement>(null);
-  const mobileNotifModalRef = useRef<HTMLDivElement>(null);
 
   const handleLogout = () => {
     setIsLoggingOut(true);
@@ -102,18 +98,11 @@ export const Navbar: React.FC<NavbarProps> = ({
     }, 1200);
   };
 
-  // Close dropdowns on outside click
+  // Close profile dropdown on outside click
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (profileMenuRef.current && !profileMenuRef.current.contains(e.target as Node)) {
         setProfileDropdownOpen(false);
-      }
-      if (
-        notifMenuRef.current && !notifMenuRef.current.contains(e.target as Node) &&
-        (!mobileNotifMenuRef.current || !mobileNotifMenuRef.current.contains(e.target as Node)) &&
-        (!mobileNotifModalRef.current || !mobileNotifModalRef.current.contains(e.target as Node))
-      ) {
-        setNotifDropdownOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -143,26 +132,6 @@ export const Navbar: React.FC<NavbarProps> = ({
       .catch(() => {});
   };
 
-  const fetchFullNotifs = () => {
-    if (!isAuthenticated) return;
-    api.notifications.getAll()
-      .then(res => {
-        setNotifications(res.notifications || []);
-        setUnreadNotifCount(res.unreadCount || 0);
-      })
-      .catch(() => {});
-  };
-
-  // Lazy-load notifications list when user opens the dropdown
-  useEffect(() => {
-    if (notifDropdownOpen && isAuthenticated) {
-      fetchFullNotifs();
-    }
-  }, [notifDropdownOpen, isAuthenticated]);
-
-  const notifDropdownOpenRef = useRef<boolean>(false);
-  notifDropdownOpenRef.current = notifDropdownOpen;
-
   // Poll lightweight unread message & notification count across devices
   useEffect(() => {
     if (isAuthenticated) {
@@ -183,28 +152,17 @@ export const Navbar: React.FC<NavbarProps> = ({
         const detail = e?.detail;
         if (detail?.unreadCount !== undefined) {
           setUnreadNotifCount(detail.unreadCount);
+        } else if (detail?.action === 'MARK_ALL_READ') {
+          setUnreadNotifCount(0);
+        } else if (detail?.action === 'MARK_READ') {
+          setUnreadNotifCount(prev => Math.max(0, prev - 1));
         } else {
           fetchUnreadCount();
-        }
-
-        if (detail?.action === 'MARK_ALL_READ') {
-          setUnreadNotifCount(0);
-          setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
-        } else if (detail?.action === 'MARK_READ' && detail?.notificationId) {
-          setNotifications(prev => prev.map(n => n.id === detail.notificationId ? { ...n, isRead: true } : n));
-        } else if (detail?.notification) {
-          setNotifications(prev => {
-            const newNotif = detail.notification;
-            if (prev.some(n => n.id === newNotif.id)) return prev;
-            return [newNotif, ...prev];
-          });
         }
 
         api.messages.getUnreadCount()
           .then(res => setUnreadMsgCount(res?.unreadCount || 0))
           .catch(() => {});
-
-        if (notifDropdownOpenRef.current) fetchFullNotifs();
       };
 
       window.addEventListener('hostel_ease_notification_updated', handleNotifEvent);
@@ -217,92 +175,9 @@ export const Navbar: React.FC<NavbarProps> = ({
       };
     } else {
       setUnreadMsgCount(0);
-      setNotifications([]);
       setUnreadNotifCount(0);
     }
   }, [isAuthenticated]);
-
-  const handleNotificationClick = async (n: any) => {
-    setNotifDropdownOpen(false);
-    try {
-      const res = await api.notifications.markRead(n.id);
-      setNotifications(prev => prev.map(item => item.id === n.id ? { ...item, isRead: true } : item));
-      if (typeof res?.unreadCount === 'number') {
-        setUnreadNotifCount(res.unreadCount);
-      } else {
-        setUnreadNotifCount(prev => Math.max(0, prev - 1));
-      }
-    } catch {}
-
-    const link = n.linkUrl || '';
-    if (link.includes('messages') || n.type === 'NEW_MESSAGE') {
-      const convMatch = link.match(/conversationId=([^&]+)/);
-      const convId = n.conversationId || (convMatch ? convMatch[1] : undefined);
-      const propMatch = link.match(/propertyId=([^&]+)/);
-      const propId = n.data?.propertyId || (propMatch ? propMatch[1] : undefined);
-
-      onNavigate('messages');
-      if (convId || propId) {
-        window.dispatchEvent(new CustomEvent('hostel_ease_open_conversation', { 
-          detail: { conversationId: convId, propertyId: propId } 
-        }));
-        setTimeout(() => {
-          window.dispatchEvent(new CustomEvent('hostel_ease_open_conversation', { 
-            detail: { conversationId: convId, propertyId: propId } 
-          }));
-        }, 120);
-      }
-    } else if (link.includes('inspections') || n.type.includes('INSPECTION') || (n as any).relatedEntityType === 'INSPECTION' || (n as any).data?.inspectionId) {
-      const inspMatch = link.match(/inspectionId=([^&]+)/);
-      const inspectionId = (n as any).relatedEntityId || (n as any).data?.inspectionId || (inspMatch ? inspMatch[1] : undefined);
-      if (isProvider) {
-        onNavigate('provider-portal');
-        setTimeout(() => {
-          window.dispatchEvent(new CustomEvent('hostel_ease_provider_tab', { 
-            detail: { tab: 'inspections', inspectionId } 
-          }));
-          if (inspectionId) {
-            window.dispatchEvent(new CustomEvent('hostel_ease_target_inspection', {
-              detail: { inspectionId }
-            }));
-          }
-        }, 100);
-      } else {
-        if (onNavigateToDashboardTab) {
-          onNavigate('student-dashboard');
-          onNavigateToDashboardTab('inspections');
-        } else {
-          onNavigate('inspections');
-        }
-        if (inspectionId) {
-          setTimeout(() => {
-            window.dispatchEvent(new CustomEvent('hostel_ease_target_inspection', {
-              detail: { inspectionId }
-            }));
-          }, 100);
-        }
-      }
-    } else if (link.includes('bookings') || n.type.includes('BOOKING')) {
-      if (isProvider) {
-        onNavigate('provider-portal');
-        setTimeout(() => {
-          window.dispatchEvent(new CustomEvent('hostel_ease_provider_tab', { detail: 'bookings' }));
-        }, 100);
-      } else {
-        onNavigate('bookings');
-      }
-    } else if (link.includes('community') || n.type.includes('COMMUNITY')) {
-      onNavigate('community');
-    }
-  };
-
-  const handleMarkAllNotifsRead = async () => {
-    try {
-      await api.notifications.markAllRead();
-      setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
-      setUnreadNotifCount(0);
-    } catch {}
-  };
 
   return (
     <header className="main-navbar sticky top-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur border-b border-slate-200 dark:border-slate-800 shadow-xs transition-colors">
@@ -523,11 +398,11 @@ export const Navbar: React.FC<NavbarProps> = ({
                   )}
                 </button>
 
-                {/* Notifications Bell & Dropdown */}
-                <div className="relative" ref={notifMenuRef}>
+                {/* Notifications Bell Button */}
+                <div className="relative">
                   <button
-                    onClick={() => setNotifDropdownOpen(!notifDropdownOpen)}
-                    className="p-2 text-slate-600 dark:text-slate-300 hover:text-emerald-700 dark:hover:text-emerald-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl relative transition-all"
+                    onClick={() => setNotifDropdownOpen(true)}
+                    className="p-2 text-slate-600 dark:text-slate-300 hover:text-emerald-700 dark:hover:text-emerald-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl relative transition-all cursor-pointer"
                     title="Notifications"
                     aria-label="Notifications"
                   >
@@ -538,57 +413,6 @@ export const Navbar: React.FC<NavbarProps> = ({
                       </span>
                     )}
                   </button>
-
-                  {notifDropdownOpen && (
-                    <div className="absolute right-0 mt-2 w-80 sm:w-96 max-w-[calc(100vw-1.5rem)] bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 py-2 z-50 animate-in fade-in slide-in-from-top-2">
-                      <div className="px-4 py-2.5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <Bell className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                          <span className="font-bold text-xs text-slate-900 dark:text-white">Notifications</span>
-                          {unreadNotifCount > 0 && (
-                            <span className="text-[10px] bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 px-1.5 py-0.5 rounded-full font-bold">
-                              {unreadNotifCount} new
-                            </span>
-                          )}
-                        </div>
-                        {unreadNotifCount > 0 && (
-                          <button
-                            onClick={handleMarkAllNotifsRead}
-                            className="text-[11px] font-semibold text-emerald-600 hover:text-emerald-700 dark:text-emerald-400"
-                          >
-                            Mark all read
-                          </button>
-                        )}
-                      </div>
-
-                      <div className="max-h-80 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800">
-                        {notifications.length === 0 ? (
-                          <div className="p-6 text-center text-xs text-slate-500 dark:text-slate-400">
-                            No notifications yet
-                          </div>
-                        ) : (
-                          notifications.slice(0, 10).map((n) => (
-                            <div
-                              key={n.id}
-                              onClick={() => handleNotificationClick(n)}
-                              className={`p-3 text-left cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors flex items-start gap-2.5 ${
-                                !n.isRead ? 'bg-emerald-50/40 dark:bg-emerald-950/20' : ''
-                              }`}
-                            >
-                              <div className={`mt-1 w-2 h-2 rounded-full shrink-0 ${!n.isRead ? 'bg-emerald-600' : 'bg-transparent'}`} />
-                              <div className="flex-1 min-w-0">
-                                <p className="text-xs font-bold text-slate-900 dark:text-white truncate">{n.title}</p>
-                                <p className="text-[11px] text-slate-600 dark:text-slate-300 line-clamp-2 mt-0.5">{n.message}</p>
-                                <span className="text-[10px] text-slate-400 dark:text-slate-500 mt-1 inline-block">
-                                  {new Date(n.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                </span>
-                              </div>
-                            </div>
-                          ))
-                        )}
-                      </div>
-                    </div>
-                  )}
                 </div>
 
                 {/* Agent Portal Quick Button (Only for Agent account) */}
@@ -866,10 +690,10 @@ export const Navbar: React.FC<NavbarProps> = ({
             )}
 
             {isAuthenticated && (
-              <div className="relative" ref={mobileNotifMenuRef}>
+              <div className="relative">
                 <button
-                  onClick={() => setNotifDropdownOpen(!notifDropdownOpen)}
-                  className="p-1.5 text-slate-600 dark:text-slate-300 relative rounded-xl transition-colors"
+                  onClick={() => setNotifDropdownOpen(true)}
+                  className="p-1.5 text-slate-600 dark:text-slate-300 relative rounded-xl transition-colors cursor-pointer"
                   aria-label="Notifications"
                 >
                   <Bell className="w-4 h-4 text-emerald-700 dark:text-emerald-400" />
@@ -879,118 +703,6 @@ export const Navbar: React.FC<NavbarProps> = ({
                     </span>
                   )}
                 </button>
-
-                {/* Mobile Notification Bottom Sheet with Backdrop rendered outside header via Portal */}
-                {notifDropdownOpen && createPortal(
-                  <div 
-                    ref={mobileNotifModalRef}
-                    className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-xs animate-in fade-in-50 duration-200 sm:hidden"
-                    onClick={() => setNotifDropdownOpen(false)}
-                  >
-                    <div 
-                      className="w-full max-w-lg bg-white dark:bg-slate-900 rounded-t-3xl sm:rounded-3xl shadow-2xl border-t sm:border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col max-h-[88vh] pb-[max(env(safe-area-inset-bottom),0.75rem)] animate-in slide-in-from-bottom-5 duration-200"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      {/* Pull handle for native mobile app feel */}
-                      <div className="w-12 h-1 bg-slate-300 dark:bg-slate-700 rounded-full mx-auto my-2.5 sm:hidden shrink-0" />
-
-                      <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-950 shrink-0">
-                        <div className="flex items-center gap-2">
-                          <Bell className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                          <span className="font-bold text-sm text-slate-900 dark:text-white">Notifications</span>
-                          {unreadNotifCount > 0 && (
-                            <span className="text-[10px] bg-rose-500 text-white px-2 py-0.5 rounded-full font-black">
-                              {unreadNotifCount} new
-                            </span>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {unreadNotifCount > 0 && (
-                            <button
-                              onClick={handleMarkAllNotifsRead}
-                              className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline cursor-pointer px-2 py-1 rounded-lg"
-                            >
-                              Mark all read
-                            </button>
-                          )}
-                          <button
-                            onClick={() => setNotifDropdownOpen(false)}
-                            className="p-1.5 min-w-[36px] min-h-[36px] flex items-center justify-center rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 cursor-pointer"
-                            aria-label="Close notifications"
-                          >
-                            <X className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Filter tabs: All vs Unread */}
-                      <div className="px-4 py-2 bg-slate-100/70 dark:bg-slate-900/80 border-b border-slate-200/60 dark:border-slate-800 flex items-center gap-2 shrink-0">
-                        <button
-                          type="button"
-                          onClick={() => setNotifFilter('all')}
-                          className={`px-3 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                            notifFilter === 'all'
-                              ? 'bg-emerald-600 text-white shadow-xs'
-                              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                          }`}
-                        >
-                          All ({notifications.length})
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setNotifFilter('unread')}
-                          className={`px-3 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                            notifFilter === 'unread'
-                              ? 'bg-emerald-600 text-white shadow-xs'
-                              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                          }`}
-                        >
-                          Unread ({unreadNotifCount})
-                        </button>
-                      </div>
-
-                      <div className="flex-1 min-h-0 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800 p-2">
-                        {(() => {
-                          const displayNotifs = notifFilter === 'unread'
-                            ? notifications.filter(n => !n.isRead)
-                            : notifications;
-
-                          if (displayNotifs.length === 0) {
-                            return (
-                              <div className="p-8 text-center text-xs text-slate-500 dark:text-slate-400 space-y-1">
-                                <p className="font-bold">No {notifFilter === 'unread' ? 'unread ' : ''}notifications</p>
-                                <p className="text-[11px]">You're all caught up!</p>
-                              </div>
-                            );
-                          }
-
-                          return displayNotifs.slice(0, 20).map((n) => (
-                            <div
-                              key={n.id}
-                              onClick={() => {
-                                handleNotificationClick(n);
-                                setNotifDropdownOpen(false);
-                              }}
-                              className={`p-3.5 rounded-2xl text-left cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors flex items-start gap-3 min-h-[48px] ${
-                                !n.isRead ? 'bg-emerald-50/70 dark:bg-emerald-950/40 border-l-3 border-emerald-500' : ''
-                              }`}
-                            >
-                              <div className={`mt-1 w-2.5 h-2.5 rounded-full shrink-0 ${!n.isRead ? 'bg-emerald-500 ring-2 ring-emerald-300 dark:ring-emerald-700' : 'bg-slate-300 dark:bg-slate-700'}`} />
-                              <div className="flex-1 min-w-0">
-                                <p className="text-xs font-bold text-slate-900 dark:text-white">{n.title}</p>
-                                <p className="text-[11px] text-slate-600 dark:text-slate-300 mt-1 leading-relaxed">{n.message}</p>
-                                <span className="text-[10px] text-slate-400 dark:text-slate-500 mt-1.5 inline-block font-medium">
-                                  {new Date(n.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • {new Date(n.createdAt).toLocaleDateString()}
-                                </span>
-                              </div>
-                            </div>
-                          ));
-                        })()}
-                      </div>
-                    </div>
-                  </div>,
-                  document.body
-                )}
               </div>
             )}
 
@@ -1076,6 +788,16 @@ export const Navbar: React.FC<NavbarProps> = ({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Centralized Notification Center Modal (Desktop & Mobile) */}
+      {isAuthenticated && (
+        <NotificationCenterModal
+          isOpen={notifDropdownOpen}
+          onClose={() => setNotifDropdownOpen(false)}
+          currentUser={user}
+          onNavigate={onNavigate}
+        />
       )}
     </header>
   );

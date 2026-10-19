@@ -7,6 +7,10 @@ export interface CreateNotificationParams {
   title: string;
   message: string;
   type?: string;
+  priority?: 'LOW' | 'NORMAL' | 'HIGH' | 'URGENT';
+  eventKey?: string | null;
+  propertyId?: string | null;
+  actionLabel?: string | null;
   linkUrl?: string | null;
   conversationId?: string | null;
   messageId?: string | null;
@@ -22,6 +26,10 @@ export interface NotificationRecord {
   title: string;
   message: string;
   type: string;
+  priority: 'LOW' | 'NORMAL' | 'HIGH' | 'URGENT';
+  eventKey: string | null;
+  propertyId: string | null;
+  actionLabel: string | null;
   isRead: boolean;
   readAt: string | null;
   linkUrl: string | null;
@@ -38,29 +46,48 @@ export const notificationEvents = new EventEmitter();
 
 export const notificationService = {
   /**
-   * Create a production notification stored directly in SQLite database
+   * Create an authoritative production notification stored directly in SQLite database.
+   * Enforces event-level idempotency via eventKey.
    */
   createNotification(params: CreateNotificationParams): NotificationRecord {
+    // 1. Idempotency Check: if eventKey provided, avoid creating duplicate notification
+    if (params.eventKey) {
+      const existing = db.prepare(`
+        SELECT * FROM notifications WHERE event_key = ?
+      `).get(params.eventKey) as any;
+
+      if (existing) {
+        console.log(`[NOTIFICATION IDEMPOTENCY] Notification with eventKey "${params.eventKey}" already exists (${existing.id}). Returning existing.`);
+        return this.getNotificationById(existing.id, existing.user_id)!;
+      }
+    }
+
     const id = `notif-${Date.now()}-${crypto.randomBytes(4).toString('hex')}`;
     const type = params.type || 'INFO';
+    const priority = params.priority || 'NORMAL';
     const metadataStr = params.metadata
       ? (typeof params.metadata === 'string' ? params.metadata : JSON.stringify(params.metadata))
       : null;
 
-    console.log(`[NOTIFICATION DEBUG] EVENT CREATED - notifId: ${id}, userId: ${params.userId}, type: ${type}, title: "${params.title}"`);
+    console.log(`[NOTIFICATION SERVICE] CREATING - id: ${id}, userId: ${params.userId}, type: ${type}, priority: ${priority}, title: "${params.title}"`);
 
     db.prepare(`
       INSERT INTO notifications (
-        id, user_id, title, message, type, is_read, read_at, link_url,
-        conversation_id, message_id, sender_id, related_entity_id, related_entity_type, metadata, created_at
+        id, user_id, title, message, type, priority, event_key, property_id, action_label,
+        is_read, read_at, link_url, conversation_id, message_id, sender_id,
+        related_entity_id, related_entity_type, metadata, created_at
       )
-      VALUES (?, ?, ?, ?, ?, 0, NULL, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, NULL, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
     `).run(
       id,
       params.userId,
       params.title,
       params.message,
       type,
+      priority,
+      params.eventKey || null,
+      params.propertyId || null,
+      params.actionLabel || null,
       params.linkUrl || null,
       params.conversationId || null,
       params.messageId || null,
@@ -70,28 +97,26 @@ export const notificationService = {
       metadataStr
     );
 
-    console.log(`[NOTIFICATION DEBUG] DATABASE INSERT SUCCESS - notifId: ${id}, userId: ${params.userId}`);
-
     const created = this.getNotificationById(id, params.userId);
     const unreadCount = this.getUnreadCount(params.userId);
 
-    // Emit event for real-time subscribers
+    // Emit event for real-time SSE stream delivery
     try {
-      console.log(`[NOTIFICATION DEBUG] REALTIME EMIT - notifId: ${id}, userId: ${params.userId}, unreadCount: ${unreadCount}`);
+      console.log(`[NOTIFICATION SERVICE] REALTIME EMIT - notifId: ${id}, userId: ${params.userId}, unreadCount: ${unreadCount}`);
       notificationEvents.emit('notification_created', {
         userId: params.userId,
         notification: created,
         unreadCount
       });
     } catch (err) {
-      console.error(`[NOTIFICATION DEBUG] REALTIME EMIT ERROR:`, err);
+      console.error(`[NOTIFICATION SERVICE] REALTIME EMIT ERROR:`, err);
     }
 
     return created!;
   },
 
   /**
-   * Retrieve single notification by ID and User ID
+   * Retrieve single notification by ID and User ID (verifies ownership)
    */
   getNotificationById(id: string, userId: string): NotificationRecord | null {
     try {
@@ -116,6 +141,10 @@ export const notificationService = {
         title: row.title,
         message: row.message,
         type: row.type,
+        priority: row.priority || 'NORMAL',
+        eventKey: row.event_key || null,
+        propertyId: row.property_id || null,
+        actionLabel: row.action_label || null,
         isRead: Boolean(row.is_read),
         readAt: row.read_at || null,
         linkUrl: row.link_url || null,
@@ -150,16 +179,55 @@ export const notificationService = {
   },
 
   /**
-   * Get paginated notifications for user with unread count
+   * Get paginated notifications for user with optional category filter
    */
-  getUserNotifications(userId: string, limit: number = 50, offset: number = 0): { notifications: NotificationRecord[]; unreadCount: number } {
+  getUserNotifications(
+    userId: string,
+    limit: number = 50,
+    offset: number = 0,
+    filter: string = 'all'
+  ): { notifications: NotificationRecord[]; unreadCount: number } {
     try {
-      const rows = db.prepare(`
-        SELECT * FROM notifications
-        WHERE user_id = ?
-        ORDER BY created_at DESC, rowid DESC
-        LIMIT ? OFFSET ?
-      `).all(userId, limit, offset) as any[];
+      let query = `SELECT * FROM notifications WHERE user_id = ?`;
+      const queryParams: any[] = [userId];
+
+      switch (filter.toLowerCase()) {
+        case 'unread':
+          query += ` AND is_read = 0`;
+          break;
+        case 'properties':
+          query += ` AND type IN ('PROPERTY_SUBMISSION', 'PROPERTY_APPROVED', 'PROPERTY_REJECTED', 'VERIFICATION', 'LISTING')`;
+          break;
+        case 'messages':
+          query += ` AND type IN ('NEW_MESSAGE', 'MESSAGE')`;
+          break;
+        case 'inspections':
+          query += ` AND type LIKE '%INSPECTION%'`;
+          break;
+        case 'bookings':
+          query += ` AND type LIKE '%BOOKING%'`;
+          break;
+        case 'maintenance':
+          query += ` AND type LIKE '%MAINTENANCE%'`;
+          break;
+        case 'reports':
+          query += ` AND type IN ('REPORT', 'DISPUTE', 'DISPUTE_OPENED', 'INCIDENT')`;
+          break;
+        case 'payments':
+          query += ` AND type IN ('PAYMENT', 'REFUND', 'PAYOUT')`;
+          break;
+        case 'system':
+          query += ` AND type IN ('SYSTEM', 'WELCOME', 'SECURITY', 'ALERT')`;
+          break;
+        default:
+          // 'all': no extra filter
+          break;
+      }
+
+      query += ` ORDER BY created_at DESC, rowid DESC LIMIT ? OFFSET ?`;
+      queryParams.push(limit, offset);
+
+      const rows = db.prepare(query).all(...queryParams) as any[];
 
       const notifications: NotificationRecord[] = rows.map(row => {
         let parsedMeta = null;
@@ -176,6 +244,10 @@ export const notificationService = {
           title: row.title,
           message: row.message,
           type: row.type,
+          priority: row.priority || 'NORMAL',
+          eventKey: row.event_key || null,
+          propertyId: row.property_id || null,
+          actionLabel: row.action_label || null,
           isRead: Boolean(row.is_read),
           readAt: row.read_at || null,
           linkUrl: row.link_url || null,
@@ -202,13 +274,20 @@ export const notificationService = {
    */
   markAsRead(userId: string, notificationId: string): { success: boolean; unreadCount: number } {
     try {
-      db.prepare(`
+      const result = db.prepare(`
         UPDATE notifications
         SET is_read = 1, read_at = datetime('now')
         WHERE id = ? AND user_id = ? AND is_read = 0
       `).run(notificationId, userId);
 
       const unreadCount = this.getUnreadCount(userId);
+
+      if (result.changes === 0) {
+        const existing = db.prepare(`SELECT user_id, is_read FROM notifications WHERE id = ?`).get(notificationId) as any;
+        if (!existing || existing.user_id !== userId) {
+          return { success: false, unreadCount };
+        }
+      }
 
       try {
         notificationEvents.emit('notification_updated', {
@@ -261,7 +340,7 @@ export const notificationService = {
   },
 
   /**
-   * Delete a notification permanently from database
+   * Delete a notification permanently from database (with ownership check)
    */
   deleteNotification(userId: string, notificationId: string): { success: boolean; unreadCount: number } {
     try {
@@ -279,28 +358,45 @@ export const notificationService = {
   },
 
   /**
-   * Create welcome notification on new user signup (persisted to database)
+   * Create personalized welcome notification strictly once upon new account registration.
+   * Addresses Student, Agent, or Admin with role-specific message, functional CTA, and stable idempotency key.
    */
-  createWelcomeNotificationOnSignup(userId: string, role: string, fullName?: string): NotificationRecord | null {
+  createWelcomeNotificationOnSignup(userId: string, role: string, _fullName?: string): NotificationRecord | null {
     try {
       const normalizedRole = (role || 'STUDENT').toUpperCase();
-      const firstName = fullName ? fullName.trim().split(' ')[0] : (normalizedRole === 'PROVIDER' ? 'Agent' : 'Student');
+      const eventKey = `welcome-${userId}`;
 
-      let title = `Welcome to Hostel Ease, ${firstName}!`;
+      // Check if welcome notification already exists for this user
+      const existing = db.prepare(`
+        SELECT id FROM notifications WHERE user_id = ? AND type = 'WELCOME' LIMIT 1
+      `).get(userId) as any;
+
+      if (existing) {
+        console.log(`[WELCOME NOTIFICATION] User ${userId} already received welcome notification (${existing.id}). Skipping.`);
+        return this.getNotificationById(existing.id, userId);
+      }
+
+      let title = '';
       let message = '';
-      let linkUrl = '/home';
+      let linkUrl = '';
+      let actionLabel = '';
 
       if (normalizedRole === 'PROVIDER' || normalizedRole === 'LANDLORD' || normalizedRole === 'AGENT') {
-        title = `Welcome to Hostel Ease Agent Portal, ${firstName}!`;
-        message = 'Your Agent Dashboard is ready. Add your hostel accommodations to start receiving student inquiries, scheduling physical inspections, and booking tours.';
+        title = 'Welcome to Hostelease, Agent! 🎉';
+        message = "Welcome to Hostelease! We're excited to have you on our platform. Set up your profile, add your hostel listings, upload your property photos and videos, manage inspection requests, respond to Student inquiries, and grow your property business with Hostelease.";
         linkUrl = '/provider';
+        actionLabel = 'Set Up My Listings';
       } else if (normalizedRole === 'ADMIN' || normalizedRole === 'OWNER') {
-        title = `Hostel Ease Administrative Access Granted`;
-        message = 'Your administrator console is initialized. You can verify listings, review student disputes, and manage platform safety.';
+        title = 'Welcome to Hostelease Administration';
+        message = 'Welcome to the Hostelease Administration Portal. Manage property reviews, Agent verification, platform reports, financial exceptions, and other important operational activities from your dashboard.';
         linkUrl = '/admin';
+        actionLabel = 'Open Admin Dashboard';
       } else {
-        message = 'Your student account is active! Browse verified hostels around LAUTECH with transparent pricing, schedule physical inspections, and message agents directly.';
-        linkUrl = '/home';
+        // Default: Student
+        title = 'Welcome to Hostelease! 🏡';
+        message = "Welcome to Hostelease! We're happy to have you here. Discover hostels, explore available rooms, connect with Agents, manage your bookings, and enjoy a simpler hostel-hunting experience. Your next home could be just a few clicks away!";
+        linkUrl = '/search';
+        actionLabel = 'Explore Hostels';
       }
 
       return this.createNotification({
@@ -308,66 +404,15 @@ export const notificationService = {
         title,
         message,
         type: 'WELCOME',
+        priority: 'NORMAL',
+        eventKey,
+        actionLabel,
         linkUrl,
         relatedEntityType: 'USER',
         relatedEntityId: userId
       });
     } catch (err) {
       console.error('Failed to create welcome notification on signup:', err);
-      return null;
-    }
-  },
-
-  /**
-   * Create instant welcome notification on existing user login.
-   * Debounced against rapid multi-clicks / React 18 StrictMode double-mount within 5 seconds.
-   * Delivers immediately to database and streams to client in real-time.
-   */
-  createWelcomeNotificationOnLogin(userId: string, role: string, fullName?: string): NotificationRecord | null {
-    try {
-      const recent = db.prepare(`
-        SELECT id FROM notifications
-        WHERE user_id = ? AND type = 'WELCOME'
-          AND datetime(created_at) > datetime('now', '-5 seconds')
-        ORDER BY created_at DESC
-        LIMIT 1
-      `).get(userId) as any;
-
-      if (recent && recent.id) {
-        // Return existing recent welcome notification record so client can render it immediately without creating a DB duplicate
-        console.log(`[NOTIFICATION DEBUG] RETURNING EXISTING WELCOME NOTIFICATION (DEBOUNCE PROTECTED): ${recent.id} for userId: ${userId}`);
-        return this.getNotificationById(recent.id, userId);
-      }
-
-      const normalizedRole = (role || 'STUDENT').toUpperCase();
-      const firstName = fullName ? fullName.trim().split(' ')[0] : '';
-      const greeting = firstName ? `Welcome to Hostel Ease, ${firstName}!` : 'Welcome to Hostel Ease!';
-
-      let message = '';
-      let linkUrl = '/home';
-
-      if (normalizedRole === 'PROVIDER' || normalizedRole === 'LANDLORD' || normalizedRole === 'AGENT') {
-        message = 'Welcome to Hostel Ease Agent Dashboard. Check your student inquiries, pending reservations, and upcoming inspection tours.';
-        linkUrl = '/provider';
-      } else if (normalizedRole === 'ADMIN' || normalizedRole === 'OWNER') {
-        message = 'Welcome to Hostel Ease Admin Console. Review pending listing approvals and active user safety reports.';
-        linkUrl = '/admin';
-      } else {
-        message = 'Welcome to Hostel Ease. Check your chat inquiries, scheduled inspections, and newly listed hostels near LAUTECH.';
-        linkUrl = '/home';
-      }
-
-      return this.createNotification({
-        userId,
-        title: greeting,
-        message,
-        type: 'WELCOME',
-        linkUrl,
-        relatedEntityType: 'USER',
-        relatedEntityId: userId
-      });
-    } catch (err) {
-      console.error('Failed to create welcome notification on login:', err);
       return null;
     }
   }

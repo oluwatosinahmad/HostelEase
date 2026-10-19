@@ -2,6 +2,7 @@ import { Router, Response } from 'express';
 import crypto from 'crypto';
 import db from '../db.js';
 import { authenticate, requireRole, AuthenticatedRequest } from '../middleware/auth.js';
+import { notificationService } from '../services/notificationService.js';
 
 const router = Router();
 
@@ -912,6 +913,34 @@ router.post(
         JSON.stringify({ title, status, completeness: comp.score })
       );
     })();
+
+    // Notify Admin when a property is submitted for review (Phase 3 & Phase 6)
+    if (!isDraft) {
+      try {
+        const agentUser = db.prepare('SELECT full_name FROM users WHERE id = ?').get(providerId) as any;
+        const agentName = agentUser?.full_name || 'Agent';
+        const adminRows = db.prepare("SELECT id FROM users WHERE role = 'ADMIN'").all() as any[];
+        for (const admin of adminRows) {
+          notificationService.createNotification({
+            userId: admin.id,
+            title: 'New Hostel Submitted for Review',
+            message: `Agent ${agentName} submitted "${title}" for verification review.`,
+            type: 'PROPERTY_SUBMISSION',
+            priority: 'NORMAL',
+            eventKey: `prop-submit-${propId}`,
+            propertyId: propId,
+            actionLabel: 'Review Hostel',
+            linkUrl: `/admin?tab=reviews&propertyId=${propId}`,
+            relatedEntityId: propId,
+            relatedEntityType: 'PROPERTY',
+            senderId: providerId,
+            metadata: { propertyId: propId, title, providerId, agentName }
+          });
+        }
+      } catch (adminNotifErr) {
+        console.warn('Could not dispatch admin property submission notification:', adminNotifErr);
+      }
+    }
 
     return res.status(201).json({
       message: isDraft ? 'Listing draft saved successfully' : 'Hostel added and submitted for review',

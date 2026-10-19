@@ -358,6 +358,17 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
     fetchAllAdminData();
   }, [userRoleFilter, userStatusFilter, providerFilter, hostelFilter, hostelAreaFilter, reportStatusFilter, reviewStatusFilter, bookingStatusFilter, ticketStatusFilter]);
 
+  useEffect(() => {
+    const handleAdminTab = (e: any) => {
+      const tab = typeof e.detail === 'string' ? e.detail : e.detail?.tab;
+      if (tab) {
+        setActiveTab(tab as AdminTab);
+      }
+    };
+    window.addEventListener('hostel_ease_admin_tab', handleAdminTab);
+    return () => window.removeEventListener('hostel_ease_admin_tab', handleAdminTab);
+  }, []);
+
   // Global Omnisearch Handler
   const handleGlobalSearch = async (term: string) => {
     setGlobalSearch(term);

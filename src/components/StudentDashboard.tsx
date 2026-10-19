@@ -129,6 +129,17 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
     }
   }, [initialTab]);
 
+  useEffect(() => {
+    const handleStudentTab = (e: any) => {
+      const tab = typeof e.detail === 'string' ? e.detail : e.detail?.tab;
+      if (tab) {
+        setActiveTab(tab as SubTab);
+      }
+    };
+    window.addEventListener('hostel_ease_student_tab', handleStudentTab);
+    return () => window.removeEventListener('hostel_ease_student_tab', handleStudentTab);
+  }, []);
+
   // Core Data
   const [dashboardData, setDashboardData] = useState<StudentDashboardData | null>(DEFAULT_STUDENT_DASHBOARD);
   const [loading, setLoading] = useState<boolean>(false);

@@ -2,6 +2,8 @@ import React, { useEffect, useState, useRef } from 'react';
 import { Bell, MessageSquare, Calendar, CheckCircle2, AlertTriangle, ShieldCheck, X, ArrowRight } from 'lucide-react';
 import { safeStorage } from '../utils/safeStorage';
 
+import { playNotificationSound } from '../utils/sound';
+
 export interface ToastNotification {
   id: string;
   type: string;
@@ -12,65 +14,16 @@ export interface ToastNotification {
   link?: string;
   priority?: 'low' | 'normal' | 'high' | 'urgent';
   data?: any;
+  createdAt?: string;
 }
 
 export const NotificationToastHUD: React.FC = () => {
   const [activeToasts, setActiveToasts] = useState<ToastNotification[]>([]);
-  const audioContextRef = useRef<AudioContext | null>(null);
-
-  // Play a gentle modern sound chime using Web Audio API (no external file needed)
-  const playChime = () => {
-    try {
-      if (typeof window === 'undefined') return;
-      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-      if (!AudioCtx) return;
-
-      if (!audioContextRef.current) {
-        audioContextRef.current = new AudioCtx();
-      }
-      const ctx = audioContextRef.current;
-      if (ctx.state === 'suspended') {
-        ctx.resume();
-      }
-
-      const now = ctx.currentTime;
-      // High-pitched pleasant dual-tone chime
-      const osc1 = ctx.createOscillator();
-      const osc2 = ctx.createOscillator();
-      const gain = ctx.createGain();
-
-      osc1.type = 'sine';
-      osc2.type = 'sine';
-
-      // 880Hz (A5) -> 1320Hz (E6) harmonic ping
-      osc1.frequency.setValueAtTime(880, now);
-      osc1.frequency.exponentialRampToValueAtTime(1320, now + 0.15);
-
-      osc2.frequency.setValueAtTime(440, now);
-      osc2.frequency.exponentialRampToValueAtTime(660, now + 0.15);
-
-      gain.gain.setValueAtTime(0.12, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
-
-      osc1.connect(gain);
-      osc2.connect(gain);
-      gain.connect(ctx.destination);
-
-      osc1.start(now);
-      osc2.start(now);
-      osc1.stop(now + 0.35);
-      osc2.stop(now + 0.35);
-    } catch {
-      // Audio autoplay policy might block before user interaction, safely ignore
-    }
-  };
 
   useEffect(() => {
     const handleNotificationUpdated = (e: any) => {
       const detail = e.detail;
       if (!detail) return;
-
-      console.log('[NOTIFICATION DEBUG] TOAST HUD EVENT RECEIVED:', detail.action, detail);
 
       if (detail.action === 'CREATED' && detail.notification) {
         const notif = detail.notification;
@@ -94,9 +47,10 @@ export const NotificationToastHUD: React.FC = () => {
           message: notif.message || notif.body || '',
           time: 'Just now',
           read: false,
-          link: notif.link,
-          priority: notif.priority || 'normal',
-          data: notif.data
+          link: notif.linkUrl || notif.link,
+          priority: (notif.priority || 'normal').toLowerCase() as any,
+          data: notif.data || notif.metadata,
+          createdAt: notif.createdAt
         };
 
         setActiveToasts(prev => {
@@ -105,8 +59,12 @@ export const NotificationToastHUD: React.FC = () => {
           return [newToast, ...prev.slice(0, 2)]; // Keep up to 3 toasts on screen
         });
 
-        playChime();
-        console.log('[NOTIFICATION DEBUG] NOTIFICATION RENDERED TO SCREEN:', newToast.title);
+        // Play synthesized sound through unified sound engine with volume, mute & freshness checks
+        playNotificationSound({
+          notificationId: newToast.id,
+          priority: newToast.priority,
+          createdAt: newToast.createdAt
+        });
 
         // Auto dismiss after 6 seconds
         setTimeout(() => {
@@ -128,17 +86,47 @@ export const NotificationToastHUD: React.FC = () => {
   const handleAction = (toast: ToastNotification) => {
     dismissToast(toast.id);
 
-    // If there is a conversation or message link
-    if (toast.type === 'message' || toast.data?.conversationId) {
-      const convId = toast.data?.conversationId || (toast.link?.includes('conversation=') ? toast.link.split('conversation=')[1] : null);
-      if (convId) {
-        window.dispatchEvent(new CustomEvent('hostel_ease_open_conversation', { detail: { conversationId: convId } }));
-        return;
-      }
+    const type = (toast.type || '').toUpperCase();
+    const link = toast.link || '';
+    const propId = toast.data?.propertyId || (link.match(/propertyId=([^&]+)/)?.[1]);
+    const convId = toast.data?.conversationId || (link.match(/conversationId=([^&]+)/)?.[1]);
+    const inspId = toast.data?.inspectionId || (link.match(/inspectionId=([^&]+)/)?.[1]);
+
+    if (type === 'WELCOME') {
+      window.dispatchEvent(new CustomEvent('hostel_ease_navigate', { detail: 'home' }));
+      return;
     }
 
-    if (toast.link) {
-      window.location.hash = toast.link;
+    if (type.includes('MESSAGE') || convId) {
+      window.dispatchEvent(new CustomEvent('hostel_ease_navigate', { detail: 'messages' }));
+      if (convId || propId) {
+        setTimeout(() => {
+          window.dispatchEvent(new CustomEvent('hostel_ease_open_conversation', {
+            detail: { conversationId: convId, propertyId: propId }
+          }));
+        }, 120);
+      }
+      return;
+    }
+
+    if (type.includes('INSPECTION') || inspId) {
+      window.dispatchEvent(new CustomEvent('hostel_ease_navigate', { detail: 'student-dashboard' }));
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent('hostel_ease_student_tab', { detail: 'inspections' }));
+        if (inspId) {
+          window.dispatchEvent(new CustomEvent('hostel_ease_target_inspection', { detail: { inspectionId: inspId } }));
+        }
+      }, 120);
+      return;
+    }
+
+    if (propId) {
+      window.dispatchEvent(new CustomEvent('hostel_ease_open_hostel_details', { detail: propId }));
+      return;
+    }
+
+    if (link) {
+      window.location.hash = link;
     }
   };
 

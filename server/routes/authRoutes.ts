@@ -284,19 +284,13 @@ router.post('/login', (req, res: Response) => {
 
   const token = generateToken(userPayload as any);
 
-  let welcomeNotification = null;
-  try {
-    welcomeNotification = notificationService.createWelcomeNotificationOnLogin(userPayload.id, userPayload.role, userPayload.fullName);
-  } catch {}
-
   return res.json({
     message: 'Login successful',
     token,
     user: {
       ...userPayload,
       profile
-    },
-    welcomeNotification
+    }
   });
 });
 
@@ -315,11 +309,6 @@ router.post('/login-demo', (req, res: Response) => {
   } else if (user.role === 'PROVIDER') {
     profile = db.prepare('SELECT * FROM provider_profiles WHERE user_id = ?').get(user.id);
   }
-
-  let welcomeNotification = null;
-  try {
-    welcomeNotification = notificationService.createWelcomeNotificationOnLogin(user.id, user.role, user.fullName);
-  } catch {}
 
   return res.json({
     message: 'Demo login successful',

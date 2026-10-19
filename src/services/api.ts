@@ -4096,9 +4096,10 @@ export const api = {
     /**
      * Fetch user notifications list with pagination from database
      */
-    async getAll(limit: number = 50, offset: number = 0): Promise<{ notifications: NotificationItem[]; unreadCount: number }> {
+    async getAll(limit: number = 50, offset: number = 0, filter?: string): Promise<{ notifications: NotificationItem[]; unreadCount: number }> {
       try {
-        const res = await fetch(`${API_BASE}/notifications?limit=${limit}&offset=${offset}`, {
+        const filterQuery = filter && filter !== 'all' ? `&filter=${encodeURIComponent(filter)}` : '';
+        const res = await fetch(`${API_BASE}/notifications?limit=${limit}&offset=${offset}${filterQuery}`, {
           headers: { ...getAuthHeader() }
         });
         if (res.ok) {

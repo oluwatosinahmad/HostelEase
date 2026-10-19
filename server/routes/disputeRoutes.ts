@@ -2,6 +2,7 @@ import { Router, Response } from 'express';
 import crypto from 'crypto';
 import db from '../db.js';
 import { authenticate, AuthenticatedRequest, requireRole, requirePermission } from '../middleware/auth.js';
+import { notificationService } from '../services/notificationService.js';
 
 const router = Router();
 
@@ -97,17 +98,42 @@ router.post('/', authenticate, (req: AuthenticatedRequest, res: Response) => {
         JSON.stringify(evidence)
       );
 
-      // 3. Notify Landlord
-      db.prepare(`
-        INSERT INTO notifications (id, user_id, title, message, type, link_url)
-        VALUES (?, ?, ?, ?, 'DISPUTE_OPENED', ?)
-      `).run(
-        `notif-${crypto.randomUUID()}`,
-        booking.provider_id,
-        '⚠️ Dispute Filed for Booking',
-        `A dispute (${disputeCode}) has been filed for ${booking.propertyTitle} (Booking Ref: ${booking.booking_reference}). Our trust & safety team is reviewing.`,
-        `/disputes/${disputeId}`
-      );
+      // 3. Notify Landlord & Admin
+      notificationService.createNotification({
+        userId: booking.provider_id,
+        title: '⚠️ Dispute Filed for Booking',
+        message: `A dispute (${disputeCode}) has been filed for ${booking.propertyTitle} (Booking Ref: ${booking.booking_reference}). Our trust & safety team is reviewing.`,
+        type: 'DISPUTE_OPENED',
+        priority: 'HIGH',
+        eventKey: `dispute-filed-agent-${disputeId}`,
+        actionLabel: 'View Dispute',
+        linkUrl: `/disputes/${disputeId}`,
+        relatedEntityId: disputeId,
+        relatedEntityType: 'DISPUTE',
+        propertyId: booking.property_id
+      });
+
+      // Notify Admin
+      try {
+        const adminRows = db.prepare("SELECT id FROM users WHERE role = 'ADMIN'").all() as any[];
+        for (const admin of adminRows) {
+          notificationService.createNotification({
+            userId: admin.id,
+            title: 'New Complaint/Dispute Lodged',
+            message: `Dispute (${disputeCode}) lodged for ${booking.propertyTitle} by Student: "${subject}".`,
+            type: 'DISPUTE_OPENED',
+            priority: 'HIGH',
+            eventKey: `dispute-filed-admin-${disputeId}`,
+            actionLabel: 'Review Dispute',
+            linkUrl: `/admin?tab=disputes&disputeId=${disputeId}`,
+            relatedEntityId: disputeId,
+            relatedEntityType: 'DISPUTE',
+            propertyId: booking.property_id
+          });
+        }
+      } catch (e) {
+        console.warn('Failed to notify admin of dispute in disputeRoutes:', e);
+      }
 
       // 4. Audit Log
       db.prepare(`

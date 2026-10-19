@@ -178,6 +178,9 @@ export interface NotificationItem {
   title: string;
   message: string;
   type: string;
+  priority?: 'LOW' | 'NORMAL' | 'HIGH' | 'URGENT';
+  propertyId?: string | null;
+  actionLabel?: string | null;
   isRead: boolean;
   readAt?: string | null;
   linkUrl?: string | null;

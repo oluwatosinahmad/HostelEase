@@ -4,6 +4,8 @@ import crypto from 'crypto';
 import db, { lazyStatement } from '../db.js';
 import { authenticate, requireRole, requirePermission, ROLE_DEFAULT_PERMISSIONS, AuthenticatedRequest } from '../middleware/auth.js';
 import { userDeletionService } from '../services/userDeletionService.js';
+import { notificationService } from '../services/notificationService.js';
+import { realtimeService } from '../services/realtimeService.js';
 
 const router = Router();
 
@@ -650,17 +652,54 @@ router.post(
         id
       );
 
-      // 3. Notify Landlord
-      const notifMsg = decision === 'APPROVED'
-        ? `Congratulations! Your hostel "${prop.title}" has been verified and awarded the VERIFIED badge on Hostel Ease.`
-        : decision === 'MORE_INFO_REQUIRED'
-        ? `Verification update on "${prop.title}": Additional documentation or clear photos are required. Note: ${notes || 'Please update details.'}`
-        : `Verification decision for "${prop.title}": Listing did not meet criteria. Note: ${notes || 'Contact support.'}`;
+      // 3. Notify Agent with Authoritative Notification (Phase 6)
+      const isStatusTransition = prop.verification_status !== propStatus;
+      
+      let notifTitle = 'Hostel Verification Update';
+      let notifMsg = '';
+      let notifType = 'VERIFICATION';
+      let notifAction = 'View Hostel';
+      
+      if (decision === 'APPROVED') {
+        notifTitle = 'Hostel Listing Approved!';
+        notifMsg = `Congratulations! Your hostel, ${prop.title}, has been reviewed and approved by the Hostelease Admin.`;
+        notifType = 'PROPERTY_APPROVED';
+        notifAction = 'View Listing';
+      } else if (decision === 'REJECTED') {
+        notifTitle = 'Hostel Listing Rejected';
+        notifMsg = `Your hostel, ${prop.title}, was not approved. Feedback: ${notes || 'Listing does not meet criteria. Contact support.'}`;
+        notifType = 'PROPERTY_REJECTED';
+        notifAction = 'Review Feedback';
+      } else {
+        notifTitle = 'Hostel Verification: More Info Required';
+        notifMsg = `Verification update for ${prop.title}: Additional documentation or clear photos are required. Note: ${notes || 'Please update details.'}`;
+        notifType = 'VERIFICATION';
+        notifAction = 'Update Details';
+      }
 
-      db.prepare(`
-        INSERT INTO notifications (id, user_id, title, message, type)
-        VALUES (?, ?, 'Hostel Verification Update', ?, 'VERIFICATION')
-      `).run(crypto.randomUUID(), prop.provider_id, notifMsg);
+      if (isStatusTransition) {
+        notificationService.createNotification({
+          userId: prop.provider_id,
+          title: notifTitle,
+          message: notifMsg,
+          type: notifType,
+          priority: 'HIGH',
+          eventKey: `prop-verify-${id}-${decision}-${prop.updated_at || Date.now()}`,
+          propertyId: id,
+          actionLabel: notifAction,
+          linkUrl: `/provider?tab=properties&propertyId=${id}`,
+          relatedEntityId: id,
+          relatedEntityType: 'PROPERTY',
+          senderId: adminId,
+          metadata: { propertyId: id, decision, notes, checklist }
+        });
+
+        // Broadcast property update so Agent dashboard updates in real time
+        realtimeService.sendToUser(prop.provider_id, 'property:availability_changed', {
+          propertyId: id,
+          verificationStatus: propStatus
+        });
+      }
 
       // 4. Audit Log
       db.prepare(`

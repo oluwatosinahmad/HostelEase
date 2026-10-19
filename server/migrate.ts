@@ -398,6 +398,10 @@ export function runMigrations() {
         title TEXT NOT NULL,
         message TEXT NOT NULL,
         type TEXT NOT NULL,
+        priority TEXT NOT NULL DEFAULT 'NORMAL',
+        event_key TEXT,
+        property_id TEXT,
+        action_label TEXT,
         is_read INTEGER NOT NULL DEFAULT 0,
         read_at TEXT,
         link_url TEXT,
@@ -413,6 +417,39 @@ export function runMigrations() {
       CREATE INDEX IF NOT EXISTS idx_notifs_user ON notifications(user_id, is_read);
       CREATE INDEX IF NOT EXISTS idx_notifs_user_type_created ON notifications(user_id, type, created_at);
     `);
+
+    // Ensure columns exist on already created notifications table
+    try {
+      const notifCols = new Set((db.prepare("PRAGMA table_info(notifications)").all() as any[]).map(c => c.name));
+      if (!notifCols.has('priority')) {
+        db.exec("ALTER TABLE notifications ADD COLUMN priority TEXT NOT NULL DEFAULT 'NORMAL'");
+      }
+      if (!notifCols.has('event_key')) {
+        db.exec("ALTER TABLE notifications ADD COLUMN event_key TEXT");
+      }
+      if (!notifCols.has('property_id')) {
+        db.exec("ALTER TABLE notifications ADD COLUMN property_id TEXT");
+      }
+      if (!notifCols.has('action_label')) {
+        db.exec("ALTER TABLE notifications ADD COLUMN action_label TEXT");
+      }
+      db.exec("CREATE INDEX IF NOT EXISTS idx_notifs_event_key ON notifications(event_key);");
+      db.exec("CREATE INDEX IF NOT EXISTS idx_notifs_user_unread ON notifications(user_id, is_read);");
+
+      // Deduplicate legacy redundant WELCOME notifications per user, keeping the earliest one
+      db.exec(`
+        DELETE FROM notifications
+        WHERE type = 'WELCOME'
+          AND id NOT IN (
+            SELECT MIN(id)
+            FROM notifications
+            WHERE type = 'WELCOME'
+            GROUP BY user_id
+          );
+      `);
+    } catch (e) {
+      console.warn('Notifications schema enhancement notice:', e);
+    }
 
     // 20. Audit Logs table
     db.exec(`

@@ -4,6 +4,7 @@ import db from '../db';
 import { authenticate, AuthenticatedRequest } from '../middleware/auth';
 import { getPaymentGateway } from '../services/paymentGateway';
 import { realtimeService } from '../services/realtimeService';
+import { notificationService } from '../services/notificationService';
 
 const router = Router();
 
@@ -457,28 +458,34 @@ router.get('/verify/:reference', authenticate, async (req: AuthenticatedRequest,
         );
 
         // 4. Send In-App Notification to Student
-        db.prepare(`
-          INSERT INTO notifications (id, user_id, title, message, type, link_url)
-          VALUES (?, ?, ?, ?, 'PAYMENT', ?)
-        `).run(
-          `notif-${crypto.randomUUID()}`,
-          payment.student_id,
-          'Payment Successful! 🎉',
-          `Your payment of ₦${Number(payment.amount).toLocaleString()} for ${payment.propertyTitle} was verified. Your room is 100% reserved!`,
-          `/payments/receipt/${payment.payment_reference}`
-        );
+        notificationService.createNotification({
+          userId: payment.student_id,
+          title: 'Payment Successful! 🎉',
+          message: `Your payment of ₦${Number(payment.amount).toLocaleString()} for ${payment.propertyTitle} was verified. Your room is 100% reserved!`,
+          type: 'PAYMENT',
+          priority: 'HIGH',
+          eventKey: `pay-success-student-${payment.id}`,
+          actionLabel: 'View Receipt',
+          linkUrl: `/payments/receipt/${payment.payment_reference}`,
+          relatedEntityId: payment.id,
+          relatedEntityType: 'PAYMENT',
+          propertyId: payment.property_id
+        });
 
         // 5. Send In-App Notification to Provider
-        db.prepare(`
-          INSERT INTO notifications (id, user_id, title, message, type, link_url)
-          VALUES (?, ?, ?, ?, 'PAYMENT', ?)
-        `).run(
-          `notif-${crypto.randomUUID()}`,
-          payment.provider_id,
-          'Student Payment Received! 💰',
-          `Student ${payment.studentName} paid ₦${Number(payment.amount).toLocaleString()} for ${payment.propertyTitle} (${payment.roomName}). Your net payout is ₦${Number(payment.provider_amount).toLocaleString()}.`,
-          `/provider/financials`
-        );
+        notificationService.createNotification({
+          userId: payment.provider_id,
+          title: 'Student Payment Received! 💰',
+          message: `Student ${payment.studentName} paid ₦${Number(payment.amount).toLocaleString()} for ${payment.propertyTitle} (${payment.roomName}). Your net payout is ₦${Number(payment.provider_amount).toLocaleString()}.`,
+          type: 'PAYMENT',
+          priority: 'HIGH',
+          eventKey: `pay-success-provider-${payment.id}`,
+          actionLabel: 'View Earnings',
+          linkUrl: `/provider/financials`,
+          relatedEntityId: payment.id,
+          relatedEntityType: 'PAYMENT',
+          propertyId: payment.property_id
+        });
 
         // 6. Record System Message in Chat Conversation
         const conv = db.prepare(`
@@ -1140,16 +1147,19 @@ router.post('/refund', authenticate, async (req: AuthenticatedRequest, res: Resp
       );
 
       // 5. Send Student Notification
-      db.prepare(`
-        INSERT INTO notifications (id, user_id, title, message, type, link_url)
-        VALUES (?, ?, ?, ?, 'PAYMENT', ?)
-      `).run(
-        `notif-${crypto.randomUUID()}`,
-        payment.student_id,
-        'Refund Processed 🔄',
-        `A refund of ₦${refundAmount.toLocaleString()} has been processed for ${payment.propertyTitle}. Ref: ${refundRef}`,
-        `/payments/receipt/${payment.payment_reference}`
-      );
+      notificationService.createNotification({
+        userId: payment.student_id,
+        title: 'Refund Processed 🔄',
+        message: `A refund of ₦${refundAmount.toLocaleString()} has been processed for ${payment.propertyTitle}. Ref: ${refundRef}`,
+        type: 'PAYMENT',
+        priority: 'NORMAL',
+        eventKey: `refund-student-${payment.id}-${refundRef}`,
+        actionLabel: 'View Receipt',
+        linkUrl: `/payments/receipt/${payment.payment_reference}`,
+        relatedEntityId: payment.id,
+        relatedEntityType: 'PAYMENT',
+        propertyId: payment.property_id
+      });
     })();
 
     res.json({
@@ -1254,16 +1264,43 @@ router.post('/dispute', authenticate, (req: AuthenticatedRequest, res: Response)
       reason
     );
 
-    // Notify Admin & Parties
-    db.prepare(`
-      INSERT INTO notifications (id, user_id, title, message, type, link_url)
-      VALUES (?, ?, 'Dispute Opened', ?, 'DISPUTE', ?)
-    `).run(
-      `notif-${crypto.randomUUID()}`,
-      booking.student_id === userId ? booking.provider_id : booking.student_id,
-      `A dispute (${disputeRef}) has been opened regarding booking ${booking.booking_reference}.`,
-      `/bookings/${booking.id}`
-    );
+    // Notify Counterparty
+    const counterpartyId = booking.student_id === userId ? booking.provider_id : booking.student_id;
+    notificationService.createNotification({
+      userId: counterpartyId,
+      title: 'Dispute Opened ⚠️',
+      message: `A dispute (${disputeRef}) has been opened regarding booking ${booking.booking_reference}.`,
+      type: 'DISPUTE',
+      priority: 'HIGH',
+      eventKey: `dispute-party-${disputeRef}`,
+      actionLabel: 'View Booking',
+      linkUrl: `/bookings/${booking.id}`,
+      relatedEntityId: booking.id,
+      relatedEntityType: 'DISPUTE',
+      propertyId: booking.property_id
+    });
+
+    // Notify Admin about payment dispute exception (Phase 3 & Phase 12)
+    try {
+      const adminRows = db.prepare("SELECT id FROM users WHERE role = 'ADMIN'").all() as any[];
+      for (const admin of adminRows) {
+        notificationService.createNotification({
+          userId: admin.id,
+          title: 'Payment Dispute Lodged',
+          message: `Dispute (${disputeRef}) lodged for booking ${booking.booking_reference}: ${reason ? reason.substring(0, 60) : 'Payment issue'}.`,
+          type: 'DISPUTE',
+          priority: 'HIGH',
+          eventKey: `dispute-admin-${disputeRef}`,
+          actionLabel: 'Review Dispute',
+          linkUrl: `/admin?tab=disputes&ref=${disputeRef}`,
+          relatedEntityId: booking.id,
+          relatedEntityType: 'DISPUTE',
+          propertyId: booking.property_id
+        });
+      }
+    } catch (e) {
+      console.warn('Failed to notify admin of dispute:', e);
+    }
 
     res.status(201).json({
       message: 'Payment dispute lodged successfully. Admin will review within 24 hours.',

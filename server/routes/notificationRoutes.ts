@@ -4,20 +4,21 @@ import { notificationService } from '../services/notificationService.js';
 
 const router = Router();
 
-// 1. Dedicated ultra-fast unread count endpoint (pure DB query)
+// 1. Dedicated ultra-fast unread count endpoint (pure DB query scoped strictly to authenticated user)
 router.get('/unread-count', authenticate, (req: AuthenticatedRequest, res: Response) => {
   const userId = req.user!.id;
   const count = notificationService.getUnreadCount(userId);
   return res.json({ unreadCount: count });
 });
 
-// 2. Get current user notifications list (with pagination support)
+// 2. Get current user notifications list with pagination & role-appropriate category filters
 router.get('/', authenticate, (req: AuthenticatedRequest, res: Response) => {
   const userId = req.user!.id;
   const limit = Math.min(parseInt(req.query.limit as string) || 50, 100);
   const offset = parseInt(req.query.offset as string) || 0;
+  const filter = (req.query.filter as string) || 'all';
 
-  const result = notificationService.getUserNotifications(userId, limit, offset);
+  const result = notificationService.getUserNotifications(userId, limit, offset, filter);
 
   return res.json({
     notifications: result.notifications.map(n => ({
@@ -26,6 +27,10 @@ router.get('/', authenticate, (req: AuthenticatedRequest, res: Response) => {
       title: n.title,
       message: n.message,
       type: n.type,
+      priority: n.priority,
+      eventKey: n.eventKey,
+      propertyId: n.propertyId,
+      actionLabel: n.actionLabel,
       isRead: n.isRead,
       readAt: n.readAt,
       linkUrl: n.linkUrl,
@@ -41,7 +46,7 @@ router.get('/', authenticate, (req: AuthenticatedRequest, res: Response) => {
   });
 });
 
-// 3. Mark all notifications as read (supports PATCH, PUT, and POST)
+// 3. Mark all notifications as read (strictly for authenticated caller)
 const handleMarkAllRead = (req: AuthenticatedRequest, res: Response) => {
   const userId = req.user!.id;
   const result = notificationService.markAllAsRead(userId);
@@ -56,7 +61,7 @@ router.patch('/read-all', authenticate, handleMarkAllRead);
 router.put('/read-all', authenticate, handleMarkAllRead);
 router.post('/read-all', authenticate, handleMarkAllRead);
 
-// 4. Mark single notification as read (supports PATCH, PUT, and POST)
+// 4. Mark single notification as read (strictly verifies user ownership)
 const handleMarkSingleRead = (req: AuthenticatedRequest, res: Response) => {
   const userId = req.user!.id;
   const { id } = req.params;
@@ -73,7 +78,7 @@ router.patch('/:id/read', authenticate, handleMarkSingleRead);
 router.put('/:id/read', authenticate, handleMarkSingleRead);
 router.post('/:id/read', authenticate, handleMarkSingleRead);
 
-// 5. Create notification endpoint (e.g. from client triggers or administrative alerts)
+// 5. Secure notification creation endpoint
 router.post('/', authenticate, (req: AuthenticatedRequest, res: Response) => {
   const caller = req.user!;
   const {
@@ -81,6 +86,10 @@ router.post('/', authenticate, (req: AuthenticatedRequest, res: Response) => {
     title,
     message,
     type,
+    priority,
+    eventKey,
+    propertyId,
+    actionLabel,
     linkUrl,
     conversationId,
     messageId,
@@ -90,8 +99,14 @@ router.post('/', authenticate, (req: AuthenticatedRequest, res: Response) => {
     metadata
   } = req.body;
 
-  // Normal users can only send to themselves or participants in their entities, admin can send to anyone
-  const targetUserId = userId || caller.id;
+  // Strict Security Enforcement (Phase 2 & Phase 12):
+  // Non-admin users can ONLY create notifications for themselves.
+  if (caller.role !== 'ADMIN' && userId && userId !== caller.id) {
+    return res.status(403).json({ error: 'Forbidden: Regular users cannot create notifications for other accounts.' });
+  }
+
+  const targetUserId = (caller.role === 'ADMIN' && userId) ? userId : caller.id;
+
   if (!title || !message) {
     return res.status(400).json({ error: 'Title and message are required' });
   }
@@ -101,6 +116,10 @@ router.post('/', authenticate, (req: AuthenticatedRequest, res: Response) => {
     title: String(title).trim(),
     message: String(message).trim(),
     type: type || 'SYSTEM',
+    priority: priority || 'NORMAL',
+    eventKey: eventKey || null,
+    propertyId: propertyId || null,
+    actionLabel: actionLabel || null,
     linkUrl: linkUrl || null,
     conversationId: conversationId || null,
     messageId: messageId || null,
@@ -117,7 +136,7 @@ router.post('/', authenticate, (req: AuthenticatedRequest, res: Response) => {
   });
 });
 
-// 6. Delete notification
+// 6. Delete notification (strictly verifies ownership)
 router.delete('/:id', authenticate, (req: AuthenticatedRequest, res: Response) => {
   const userId = req.user!.id;
   const { id } = req.params;
