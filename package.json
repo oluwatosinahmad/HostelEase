@@ -9,8 +9,8 @@
   "scripts": {
     "dev": "vite",
     "server": "tsx server/index.ts",
-    "start": "tsx server/index.ts",
-    "build": "tsc && vite build",
+    "build:worker": "esbuild src/worker.ts --bundle --format=esm --outfile=public/_worker.js --platform=browser --target=es2022",
+    "build": "npm run build:worker && tsc && vite build",
     "preview": "vite preview",
     "db:migrate": "tsx server/migrate.ts",
     "db:seed": "tsx server/seed.ts",
@@ -21,7 +21,9 @@
     "setup:owner": "tsx scripts/setup_single_owner.ts",
     "test:single-owner": "tsx scripts/test_single_owner_security.ts",
     "test:auth-roles": "tsx scripts/test_strict_auth_roles.ts",
-    "test:live": "tsx scripts/verify_live_system.ts"
+    "test:live": "tsx scripts/verify_live_system.ts",
+    "tunnel": "tsx scripts/start_tunnel.ts",
+    "snapshot": "tsx scripts/export_snapshot.ts"
   },
   "dependencies": {
     "@types/bcryptjs": "^2.4.6",

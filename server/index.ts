@@ -45,6 +45,7 @@ import { securityHeaders } from './middleware/securityHeaders';
 import { sanitizeInputs } from './middleware/sanitize';
 import { authRateLimiter, paymentRateLimiter, bookingRateLimiter, generalApiRateLimiter } from './middleware/rateLimiter';
 import monitoringRoutes from './routes/monitoringRoutes';
+import { syncService } from './services/syncService';
 
 dotenv.config();
 
@@ -251,6 +252,13 @@ app.use('/api/safewalk', safeWalkRoutes);
 app.use('/api/utilities', utilityRoutes);
 app.use('/api/maintenance', maintenanceRoutes);
 app.use('/api/split-rent', splitRentRoutes);
+app.get('/api/sync/status', (req: Request, res: Response) => {
+  res.json({
+    status: 'ok',
+    environment: NODE_ENV,
+    ...syncService.getStatus()
+  });
+});
 
 // Production Static Serving: Unified React SPA delivery
 const DIST_PATH = path.resolve(process.cwd(), 'dist');
@@ -294,11 +302,14 @@ const server = app.listen(Number(PORT), '0.0.0.0', () => {
   console.log(`🚀 Hostel Ease Production Server running on 0.0.0.0:${PORT} [${NODE_ENV}]`);
   console.log(`📍 Market: LAUTECH students | Ogbomoso, Oyo State, Nigeria`);
   console.log(`🌐 Health check: http://localhost:${PORT}/api/health`);
+  // Start background bidirectional synchronization with live site
+  syncService.start().catch((err: any) => console.warn('SyncService startup warning:', err.message));
 });
 
 // Graceful Shutdown for Process Managers (PM2, Docker, systemd)
 function handleGracefulShutdown(signal: string) {
   console.log(`\n🛑 Received ${signal}. Starting graceful shutdown...`);
+  syncService.stop();
   server.close(() => {
     console.log('🔒 HTTP server closed.');
     try {

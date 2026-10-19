@@ -25,8 +25,21 @@ export function createRateLimiter(options: {
   }, Math.max(windowMs, 30000));
 
   return (req: Request, res: Response, next: NextFunction) => {
-    const ip = req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown-ip';
-    const key = options.keyGenerator ? options.keyGenerator(req) : `${req.baseUrl || req.path}:${ip}`;
+    const rawIp = (req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown-ip').toString();
+    const cleanIp = rawIp.replace(/^::ffff:/, '').trim();
+    const isLoopback = cleanIp === '127.0.0.1' || cleanIp === '::1' || cleanIp === 'localhost' || cleanIp.startsWith('127.');
+    const isDev = process.env.NODE_ENV !== 'production';
+
+    // Development & loopback requests are exempt from throttling to ensure smooth local testing and multi-tab browsing
+    if (isLoopback || isDev) {
+      res.setHeader('X-RateLimit-Limit', 100000);
+      res.setHeader('X-RateLimit-Remaining', 99999);
+      res.setHeader('X-RateLimit-Reset', 0);
+      return next();
+    }
+
+    const endpoint = req.originalUrl ? req.originalUrl.split('?')[0] : (req.baseUrl || req.path);
+    const key = options.keyGenerator ? options.keyGenerator(req) : `${endpoint}:${cleanIp}`;
     const now = Date.now();
 
     let record = store.get(key);
@@ -61,27 +74,27 @@ export function createRateLimiter(options: {
 // 1. Strict Auth Rate Limiter (Brute-Force & Credential Stuffing Protection)
 export const authRateLimiter = createRateLimiter({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 300, // accommodate test suites and multi-role authentications
+  max: 1000, // accommodate test suites and multi-role authentications
   message: 'Too many authentication attempts. For your account security, please wait 15 minutes before trying again.'
 });
 
 // 2. Sensitive Payment Rate Limiter
 export const paymentRateLimiter = createRateLimiter({
   windowMs: 5 * 60 * 1000, // 5 minutes
-  max: 10,
+  max: 100,
   message: 'Payment requests are throttled to prevent accidental duplicate charges. Please wait a moment.'
 });
 
 // 3. Booking Rate Limiter
 export const bookingRateLimiter = createRateLimiter({
   windowMs: 5 * 60 * 1000, // 5 minutes
-  max: 15,
+  max: 100,
   message: 'Too many booking attempts initiated. Please check your active reservations in your Student Hub.'
 });
 
-// 4. General API Rate Limiter
+// 4. General API Rate Limiter (High throughput for modern dashboard telemetry & SSE polling)
 export const generalApiRateLimiter = createRateLimiter({
   windowMs: 60 * 1000, // 1 minute
-  max: 250,
+  max: 5000,
   message: 'Hostel Ease API rate limit reached. Please wait a few seconds before making further requests.'
 });

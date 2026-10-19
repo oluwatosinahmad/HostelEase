@@ -303,7 +303,25 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
 
       // SECONDARY PHASE: Stream list tables progressively in background
       Promise.allSettled([
-        api.admin.getUsers(undefined, userRoleFilter, userStatusFilter).then(res => setUsersList(res?.users || [])),
+        api.admin.getUsers(undefined, userRoleFilter, userStatusFilter).then(res => {
+          const users = res?.users || [];
+          setUsersList(users);
+          const studentCount = users.filter(u => (u.role || '').toUpperCase() === 'STUDENT').length;
+          const providerCount = users.filter(u => {
+            const r = (u.role || '').toUpperCase();
+            return r === 'LANDLORD' || r === 'AGENT' || r === 'PROVIDER';
+          }).length;
+          if (studentCount > 0 || providerCount > 0) {
+            setDashboardData(prev => ({
+              ...prev,
+              stats: {
+                ...prev.stats,
+                totalStudents: studentCount > 0 ? studentCount : prev.stats.totalStudents,
+                totalProviders: providerCount > 0 ? providerCount : prev.stats.totalProviders
+              }
+            }));
+          }
+        }),
         api.admin.getProviders(providerFilter).then(res => setProvidersList(res?.providers || [])),
         api.admin.getHostels(undefined, hostelFilter, hostelAreaFilter).then(res => setHostelsList(res?.hostels || [])),
         api.admin.getReports(reportStatusFilter).then(res => setReportsList(res?.reports || [])),

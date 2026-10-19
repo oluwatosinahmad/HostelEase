@@ -4,6 +4,7 @@ import crypto from 'crypto';
 import db from '../db';
 import { authenticate, generateToken, AuthenticatedRequest } from '../middleware/auth';
 import { notificationService } from '../services/notificationService.js';
+import { syncService } from '../services/syncService';
 
 const router = Router();
 
@@ -110,6 +111,9 @@ router.post('/register', (req, res: Response) => {
     };
 
     const token = generateToken(userRecord as any);
+
+    // Synchronize newly registered account to the live website Edge Store immediately
+    syncService.queueRecordPush('users', userRecord).catch(() => {});
 
     let welcomeNotification = null;
     try {

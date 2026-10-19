@@ -3,6 +3,7 @@ import crypto from 'crypto';
 import db from '../db.js';
 import { authenticate, requireRole, AuthenticatedRequest } from '../middleware/auth.js';
 import { notificationService } from '../services/notificationService.js';
+import { syncService } from '../services/syncService';
 
 const router = Router();
 
@@ -941,6 +942,12 @@ router.post(
         console.warn('Could not dispatch admin property submission notification:', adminNotifErr);
       }
     }
+
+    // Push new/updated property to live Edge Store
+    try {
+      const fullProp = db.prepare('SELECT * FROM properties WHERE id = ?').get(propId);
+      if (fullProp) syncService.queueRecordPush('properties', fullProp).catch(() => {});
+    } catch {}
 
     return res.status(201).json({
       message: isDraft ? 'Listing draft saved successfully' : 'Hostel added and submitted for review',

@@ -4214,12 +4214,15 @@ export const api = {
         const res = await fetch(`${API_BASE}/admin/users?${params.toString()}`, {
           headers: { ...getAuthHeader() }
         });
-        if (res.ok) {
+        const contentType = res.headers.get('content-type') || '';
+        if (res.ok && contentType.includes('application/json')) {
           const data = await res.json();
           if (data && Array.isArray(data.users)) {
             serverUsers = data.users;
             isServerOnline = true;
           }
+        } else if (res.ok && !contentType.includes('application/json')) {
+          console.warn(`[getUsers] API returned non-JSON response (${contentType || 'empty'}). Serving from synchronized store.`);
         }
       } catch (err) {
         console.warn('Backend getUsers offline, using registered & fallback store:', err);
