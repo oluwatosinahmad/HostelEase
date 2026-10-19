@@ -8,7 +8,8 @@ node_modules/
 .pnp.js
 
 # Production build outputs
-dist/
+dist/*
+!dist/.gitkeep
 dist-ssr/
 build/
 *.local
