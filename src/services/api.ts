@@ -1928,56 +1928,14 @@ export const api = {
 
         if (res.ok) {
           const json = await res.json();
-          safeStorage.setItem('hostel_ease_token', json.token, true);
-          safeStorage.setJSON('hostel_ease_user', json.user, true);
-          setActiveAuthToken(json.token);
-          // Save to local registered users
-          const existing = getLocalRegisteredUsers();
-          saveLocalRegisteredUsers([json.user, ...existing.filter(u => u.email?.toLowerCase() !== json.user.email?.toLowerCase())]);
-          return json;
-        }
-
-        const contentType = res.headers.get('content-type') || '';
-        // If on Netlify / static deployment where backend returns 404, 502, 503 or HTML
-        if (res.status === 404 || res.status === 502 || res.status === 503 || !contentType.includes('application/json')) {
-          if (data.role === 'ADMIN' || data.role === 'OWNER') {
-            const forbiddenErr: any = new Error('Admin accounts cannot be created via public registration. Contact a Super Administrator.');
-            forbiddenErr.code = 'PUBLIC_ADMIN_REGISTRATION_FORBIDDEN';
-            forbiddenErr.status = 403;
-            throw forbiddenErr;
+          if (json.token && json.user) {
+            safeStorage.setItem('hostel_ease_token', json.token, true);
+            safeStorage.setJSON('hostel_ease_user', json.user, true);
+            setActiveAuthToken(json.token);
+            const existing = getLocalRegisteredUsers();
+            saveLocalRegisteredUsers([json.user, ...existing.filter(u => u.email?.toLowerCase() !== json.user.email?.toLowerCase())]);
           }
-
-          const fallbackRole = data.role === 'PROVIDER' ? 'PROVIDER' : 'STUDENT';
-          const defaultAvatar = fallbackRole === 'STUDENT'
-            ? 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80'
-            : 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=300&q=80';
-          const mockUser = {
-            id: `usr-${fallbackRole.toLowerCase()}-${Date.now()}`,
-            fullName: data.fullName || (fallbackRole === 'PROVIDER' ? 'Hostel Agent' : 'Student User'),
-            email: data.email,
-            role: fallbackRole,
-            phone: data.phone || '',
-            avatarUrl: data.avatarUrl || defaultAvatar,
-            isActive: 1,
-            accountStatus: 'ACTIVE',
-            providerDetails: fallbackRole === 'PROVIDER' ? { businessName: data.providerDetails?.businessName || data.businessName || `${data.fullName || 'Agent'} Properties` } : undefined,
-            studentDetails: fallbackRole === 'STUDENT' ? { 
-              matricNo: data.studentDetails?.matricNo || data.matricNo || data.studentDetails?.matricNumber || '',
-              matricNumber: data.studentDetails?.matricNo || data.matricNo || data.studentDetails?.matricNumber || '',
-              department: data.studentDetails?.department || data.department || '',
-              level: data.studentDetails?.level || data.level || ''
-            } : undefined
-          };
-          const mockToken = createClientAuthToken(mockUser);
-          safeStorage.setItem('hostel_ease_token', mockToken, true);
-          safeStorage.setJSON('hostel_ease_user', mockUser, true);
-          setActiveAuthToken(mockToken);
-
-          // Save to persistent registered users
-          const existing = getLocalRegisteredUsers();
-          saveLocalRegisteredUsers([mockUser, ...existing.filter(u => u.email?.toLowerCase() !== mockUser.email?.toLowerCase())]);
-
-          return { message: 'Registration successful', token: mockToken, user: mockUser };
+          return json;
         }
 
         // Real backend error responses (400, 401, 403, 409)
@@ -1985,66 +1943,91 @@ export const api = {
         const err: any = new Error(errData.message || errData.error || `Registration failed (HTTP ${res.status})`);
         err.code = errData.code || errData.error;
         err.status = res.status;
+        err.verificationRequired = errData.verificationRequired;
+        err.email = errData.email;
         throw err;
       } catch (err: any) {
-        if (err.status === 403 || err.code === 'PUBLIC_ADMIN_REGISTRATION_FORBIDDEN') {
+        if (err.status === 409 || err.code === 'EMAIL_ALREADY_REGISTERED' || err.status === 403 || err.code === 'PUBLIC_ADMIN_REGISTRATION_FORBIDDEN' || err.status === 400 || err.code === 'INVALID_EMAIL') {
           throw err;
         }
 
         if (err.message && (err.message.includes('Failed to fetch') || err.message.includes('NetworkError') || err.message.includes('fetch') || err.message.includes('404') || err.message.includes('Unexpected token'))) {
-          if (data.role === 'ADMIN' || data.role === 'OWNER') {
-            const forbiddenErr: any = new Error('Admin accounts cannot be created via public registration. Contact a Super Administrator.');
-            forbiddenErr.code = 'PUBLIC_ADMIN_REGISTRATION_FORBIDDEN';
-            forbiddenErr.status = 403;
-            throw forbiddenErr;
-          }
-
-          const fallbackRole = data.role === 'PROVIDER' ? 'PROVIDER' : 'STUDENT';
-          const cleanEmail = (data.email || '').toLowerCase().trim();
-          const stableId = fallbackRole === 'PROVIDER'
-            ? `usr-prov-${cleanEmail.replace(/[^a-z0-9]/g, '-')}`
-            : `usr-stud-${cleanEmail.replace(/[^a-z0-9]/g, '-')}`;
-
-          const defaultAvatar = fallbackRole === 'STUDENT'
-            ? 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80'
-            : 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=300&q=80';
-          const mockUser = {
-            id: stableId,
-            fullName: data.fullName || (fallbackRole === 'PROVIDER' ? 'Hostel Agent' : 'Student User'),
-            email: cleanEmail,
-            role: fallbackRole,
-            phone: data.phone || '',
-            avatarUrl: data.avatarUrl || defaultAvatar,
-            isActive: 1,
-            accountStatus: 'ACTIVE',
-            providerDetails: fallbackRole === 'PROVIDER' ? { businessName: data.providerDetails?.businessName || `${data.fullName || 'Agent'} Accommodations` } : undefined,
-            studentDetails: fallbackRole === 'STUDENT' ? { 
-              matricNo: data.studentDetails?.matricNo || data.studentDetails?.matricNumber || '',
-              matricNumber: data.studentDetails?.matricNo || data.studentDetails?.matricNumber || '',
-              department: data.studentDetails?.department || '',
-              level: data.studentDetails?.level || ''
-            } : undefined
-          };
-
-          // CRITICAL: Persist newly registered accounts into local registered users database!
-          const registered = getLocalRegisteredUsers();
-          const existingIdx = registered.findIndex(u => u.email?.toLowerCase().trim() === cleanEmail);
-          if (existingIdx >= 0) {
-            registered[existingIdx] = mockUser;
-          } else {
-            registered.push(mockUser);
-          }
-          saveLocalRegisteredUsers(registered);
-
-          const mockToken = createClientAuthToken(mockUser);
-          safeStorage.setItem('hostel_ease_token', mockToken, true);
-          safeStorage.setJSON('hostel_ease_user', mockUser, true);
-          setActiveAuthToken(mockToken);
-          return { message: 'Registration successful', token: mockToken, user: mockUser };
+          // If offline/network error, still do not fabricate or bypass email uniqueness
+          throw new Error('Unable to connect to the authentication server. Please check your internet connection.');
         }
 
         throw err;
       }
+    },
+
+    async verifyEmail(data: { email: string; code: string }): Promise<{ success: boolean; message: string; token?: string; user?: any }> {
+      const res = await fetch(`${API_BASE}/auth/verify-email`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const err: any = new Error(json.message || json.error || 'Verification failed');
+        err.code = json.error;
+        err.status = res.status;
+        throw err;
+      }
+      if (json.token && json.user) {
+        safeStorage.setItem('hostel_ease_token', json.token, true);
+        safeStorage.setJSON('hostel_ease_user', json.user, true);
+        setActiveAuthToken(json.token);
+      }
+      return json;
+    },
+
+    async resendVerification(data: { email: string }): Promise<{ success: boolean; message: string }> {
+      const res = await fetch(`${API_BASE}/auth/resend-verification`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const err: any = new Error(json.message || json.error || 'Failed to resend code');
+        err.code = json.error;
+        err.status = res.status;
+        err.remainingSeconds = json.remainingSeconds;
+        throw err;
+      }
+      return json;
+    },
+
+    async forgotPassword(data: { email: string }): Promise<{ success: boolean; message: string; email?: string }> {
+      const res = await fetch(`${API_BASE}/auth/forgot-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const err: any = new Error(json.message || json.error || 'Failed to initiate password recovery');
+        err.code = json.error;
+        err.status = res.status;
+        throw err;
+      }
+      return json;
+    },
+
+    async resetPassword(data: { email: string; code?: string; token?: string; newPassword: string }): Promise<{ success: boolean; message: string }> {
+      const res = await fetch(`${API_BASE}/auth/reset-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const err: any = new Error(json.message || json.error || 'Failed to reset password');
+        err.code = json.error;
+        err.status = res.status;
+        throw err;
+      }
+      return json;
     },
 
     async login(emailOrData: string | { email?: string; username?: string; password?: string; role?: string; requestedRole?: string }, maybePassword?: string, selectedRole?: string): Promise<{ message: string; token: string; user: any; welcomeNotification?: any }> {
@@ -7749,6 +7732,45 @@ Hello Agent, a student has booked your accommodation under our standard 5% commi
         summary: `[Operational Summary] Entity #${entityId}: Records verified against LAUTECH physical catalog. No duplicate booking conflicts detected.`,
         disclaimer: 'AI summary is advisory only. All financial actions and user status changes require human admin authorization.'
       };
+    },
+
+    async resetEverything(confirmationPhrase: string): Promise<any> {
+      const res = await fetch(`${API_BASE}/admin/operations/reset-everything`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+        body: JSON.stringify({ confirmationPhrase })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Platform reset failed');
+      }
+
+      // Purge all frontend local storage caches and stores
+      try {
+        if (typeof window !== 'undefined' && window.localStorage) {
+          const keysToPurge = [
+            'hostel_ease_registered_users',
+            'hostel_ease_bookings',
+            'hostel_ease_properties',
+            'hostel_ease_conversations',
+            'hostel_ease_notifications',
+            'hostel_ease_recent_searches',
+            'hostel_ease_saved_properties',
+            'hostel_ease_reviews',
+            'hostel_ease_disputes'
+          ];
+          keysToPurge.forEach(k => localStorage.removeItem(k));
+        }
+      } catch {}
+
+      // Dispatch global refresh events
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('hostel_ease_platform_reset'));
+        window.dispatchEvent(new CustomEvent('hostel_ease_properties_updated'));
+        window.dispatchEvent(new CustomEvent('hostel_ease_notifications_updated'));
+      }
+
+      return data;
     }
   }
 };

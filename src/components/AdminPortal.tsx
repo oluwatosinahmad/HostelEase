@@ -125,33 +125,33 @@ const defaultDashboardData: AdminDashboardData = {
     isSuperAdmin: true
   },
   stats: {
-    totalStudents: 120,
-    totalProviders: 8,
-    totalHostels: 14,
-    verifiedHostels: 10,
-    pendingHostels: 4,
-    activeBookings: 18,
-    pendingBookings: 3,
-    successfulPayments: 18,
-    pendingPayments: 2,
-    totalGrossRevenue: 4500000,
-    openDisputes: 1,
+    totalStudents: 0,
+    totalProviders: 0,
+    totalHostels: 0,
+    verifiedHostels: 0,
+    pendingHostels: 0,
+    activeBookings: 0,
+    pendingBookings: 0,
+    successfulPayments: 0,
+    pendingPayments: 0,
+    totalGrossRevenue: 0,
+    openDisputes: 0,
     openReports: 0,
-    openSupportTickets: 2
+    openSupportTickets: 0
   },
   stressMetrics: {
-    searchToBookingConversion: '14.2%',
-    avgViewsPerBooking: '4.2',
-    bookingCancellationRate: '1.2%',
-    disputeEscalationRate: '0.6%',
-    avgProviderVerificationHours: '3.5 Hours'
+    searchToBookingConversion: '0.0%',
+    avgViewsPerBooking: '0.0',
+    bookingCancellationRate: '0.0%',
+    disputeEscalationRate: '0.0%',
+    avgProviderVerificationHours: '0.0 Hours'
   },
   telemetrySummary: {
-    totalSearches: 450,
-    totalViews: 1200,
-    totalInspections: 28,
-    totalBookingsAll: 18,
-    avgSearchToInspectionDays: '1.4 Days (LAUTECH Average)'
+    totalSearches: 0,
+    totalViews: 0,
+    totalInspections: 0,
+    totalBookingsAll: 0,
+    avgSearchToInspectionDays: '0.0 Days'
   }
 };
 

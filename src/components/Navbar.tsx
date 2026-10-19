@@ -50,7 +50,7 @@ interface NavbarProps {
   activeView: AppView;
   onNavigate: (view: AppView) => void;
   onNavigateToDashboardTab?: (tab: 'overview' | 'bookings' | 'inspections' | 'shortlist' | 'preferences' | 'search_history' | 'profile_security') => void;
-  onOpenAuth: (defaultRole?: 'STUDENT' | 'PROVIDER' | 'ADMIN') => void;
+  onOpenAuth: (defaultRole?: 'STUDENT' | 'PROVIDER' | 'ADMIN', initialMode?: 'login' | 'register') => void;
   savedCount: number;
   onOpenAI?: () => void;
   onOpenUtilityRadar?: () => void;
@@ -635,13 +635,13 @@ export const Navbar: React.FC<NavbarProps> = ({
             ) : (
               <div className="flex items-center gap-2.5">
                 <button
-                  onClick={() => onOpenAuth('STUDENT')}
+                  onClick={() => onOpenAuth('STUDENT', 'login')}
                   className="px-3.5 py-1.5 text-xs font-bold text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors"
                 >
                   Log In
                 </button>
                 <button
-                  onClick={() => onOpenAuth('STUDENT')}
+                  onClick={() => onOpenAuth('STUDENT', 'register')}
                   className="px-4 py-2 text-xs font-black text-slate-950 bg-emerald-400 hover:bg-emerald-300 rounded-xl shadow-sm transition-all"
                 >
                   Sign Up
@@ -681,12 +681,22 @@ export const Navbar: React.FC<NavbarProps> = ({
             )}
 
             {!isAuthenticated && (
-              <button
-                onClick={() => onOpenAuth('STUDENT')}
-                className="px-2.5 py-1 text-xs font-bold text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors"
-              >
-                Log In
-              </button>
+              <div className="flex items-center gap-1 sm:gap-1.5">
+                <button
+                  onClick={() => onOpenAuth('STUDENT', 'login')}
+                  className="px-2 py-1 text-xs font-bold text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/60 rounded-lg transition-colors"
+                  aria-label="Log In"
+                >
+                  Log In
+                </button>
+                <button
+                  onClick={() => onOpenAuth('STUDENT', 'register')}
+                  className="px-2.5 py-1 text-xs font-black text-slate-950 bg-emerald-400 hover:bg-emerald-300 active:scale-95 rounded-lg shadow-sm transition-all"
+                  aria-label="Sign Up"
+                >
+                  Sign Up
+                </button>
+              </div>
             )}
 
             {isAuthenticated && (

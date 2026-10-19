@@ -9,7 +9,11 @@ interface AuthContextType {
   token: string | null;
   isLoading: boolean;
   login: (usernameOrEmail: string, password: string, role?: UserRole) => Promise<User>;
-  register: (data: any) => Promise<User>;
+  register: (data: any) => Promise<any>;
+  verifyEmail: (email: string, code: string) => Promise<User>;
+  resendVerification: (email: string) => Promise<void>;
+  forgotPassword: (email: string) => Promise<{ success: boolean; message: string; email?: string }>;
+  resetPassword: (email: string, newPassword: string, code?: string, token?: string) => Promise<void>;
   logout: () => void;
   updateProfile: (data: any) => Promise<void>;
   loginDemo: (role: UserRole) => Promise<User>;
@@ -136,28 +140,60 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  const register = async (data: any): Promise<User> => {
+  const register = async (data: any): Promise<any> => {
     setIsLoading(true);
     try {
       const res = await api.auth.register(data);
-      safeStorage.setItem('hostel_ease_token', res.token, true);
-      safeStorage.setJSON('hostel_ease_user', res.user, true);
-      setActiveAuthToken(res.token);
-      setToken(res.token);
-      setUser(res.user);
-      realtimeClient.connect(res.token);
+      if (res.token && res.user) {
+        safeStorage.setItem('hostel_ease_token', res.token, true);
+        safeStorage.setJSON('hostel_ease_user', res.user, true);
+        setActiveAuthToken(res.token);
+        setToken(res.token);
+        setUser(res.user);
+        realtimeClient.connect(res.token);
 
-      if (res.welcomeNotification) {
-        window.dispatchEvent(new CustomEvent('hostel_ease_notification_updated', {
-          detail: { action: 'CREATED', notification: res.welcomeNotification }
-        }));
+        if (res.welcomeNotification) {
+          window.dispatchEvent(new CustomEvent('hostel_ease_notification_updated', {
+            detail: { action: 'CREATED', notification: res.welcomeNotification }
+          }));
+        }
       }
 
-      console.log(`[AUTH_SUCCESS] Registered and logged in: ${res.user.email} (${res.user.role})`);
-      return res.user;
+      return res;
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const verifyEmail = async (email: string, code: string): Promise<User> => {
+    setIsLoading(true);
+    try {
+      const res = await api.auth.verifyEmail({ email, code });
+      if (res.token && res.user) {
+        safeStorage.setItem('hostel_ease_token', res.token, true);
+        safeStorage.setJSON('hostel_ease_user', res.user, true);
+        setActiveAuthToken(res.token);
+        setToken(res.token);
+        setUser(res.user);
+        realtimeClient.connect(res.token);
+        return res.user;
+      }
+      throw new Error('Verification completed but user profile was not returned');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const resendVerification = async (email: string): Promise<void> => {
+    await api.auth.resendVerification({ email });
+  };
+
+  const forgotPassword = async (email: string): Promise<{ success: boolean; message: string; email?: string }> => {
+    return await api.auth.forgotPassword({ email });
+  };
+
+  const resetPassword = async (email: string, newPassword: string, code?: string, token?: string): Promise<void> => {
+    await api.auth.resetPassword({ email, newPassword, code, token });
   };
 
   const logout = () => {
@@ -221,6 +257,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     isLoading,
     login,
     register,
+    verifyEmail,
+    resendVerification,
+    forgotPassword,
+    resetPassword,
     logout,
     updateProfile,
     loginDemo,

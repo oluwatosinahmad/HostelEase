@@ -21,7 +21,7 @@ import { api } from '../services/api';
 interface MobileBottomNavProps {
   activeView: AppView;
   onNavigate: (view: AppView) => void;
-  onOpenAuth: (role?: any) => void;
+  onOpenAuth: (role?: any, mode?: any) => void;
   onOpenAI?: () => void;
   onToggleMenu?: () => void;
   unreadCount?: number;
@@ -467,7 +467,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
 
           {/* 5. Log In (Faithfully mirrors desktop Log In action) */}
           <button
-            onClick={() => onOpenAuth('STUDENT')}
+            onClick={() => onOpenAuth('STUDENT', 'login')}
             className="flex flex-col items-center justify-center w-full py-1 rounded-xl transition-all text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
           >
             <div className="p-1 rounded-xl transition-all">

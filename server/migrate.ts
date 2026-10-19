@@ -2609,6 +2609,52 @@ Your caution deposit is refundable upon move-out provided no unauthorized struct
       try { db.exec(`ALTER TABLE users ADD COLUMN ${col} TEXT`); } catch {}
     });
 
+    // Authentication, Email Verification & Password Recovery infrastructure
+    try { db.exec(`ALTER TABLE users ADD COLUMN email_verified INTEGER NOT NULL DEFAULT 1`); } catch {}
+
+    // Enforce case-insensitive unique email index at the database level across all roles
+    try {
+      db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email_lower ON users(LOWER(TRIM(email)))`);
+    } catch (idxErr) {
+      console.warn('idx_users_email_lower notice:', idxErr);
+    }
+
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS email_verifications (
+        id TEXT PRIMARY KEY,
+        email TEXT NOT NULL,
+        otp_hash TEXT NOT NULL,
+        role TEXT NOT NULL DEFAULT 'STUDENT',
+        full_name TEXT NOT NULL,
+        password_hash TEXT NOT NULL,
+        phone TEXT,
+        avatar_url TEXT,
+        metadata TEXT,
+        expires_at TEXT NOT NULL,
+        attempts INTEGER NOT NULL DEFAULT 0,
+        resend_count INTEGER NOT NULL DEFAULT 0,
+        last_sent_at TEXT NOT NULL DEFAULT (datetime('now')),
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+      CREATE INDEX IF NOT EXISTS idx_email_verif_email ON email_verifications(email);
+      CREATE INDEX IF NOT EXISTS idx_email_verif_expires ON email_verifications(expires_at);
+
+      CREATE TABLE IF NOT EXISTS password_resets (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        email TEXT NOT NULL,
+        token_hash TEXT NOT NULL,
+        otp_code_hash TEXT NOT NULL,
+        expires_at TEXT NOT NULL,
+        used INTEGER NOT NULL DEFAULT 0,
+        attempts INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      );
+      CREATE INDEX IF NOT EXISTS idx_pwd_resets_email ON password_resets(email);
+      CREATE INDEX IF NOT EXISTS idx_pwd_resets_token ON password_resets(token_hash);
+    `);
+
     // 4K Video Tour columns on properties
     try { db.exec(`ALTER TABLE properties ADD COLUMN has_4k_video INTEGER NOT NULL DEFAULT 0`); } catch {}
     try { db.exec(`ALTER TABLE properties ADD COLUMN video_tour_url TEXT`); } catch {}

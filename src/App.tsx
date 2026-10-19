@@ -51,7 +51,7 @@ import { InspectionModal } from './components/InspectionModal';
 import { LiveVirtualTourModal } from './components/LiveVirtualTourModal';
 import { HostelVideoTourModal } from './components/HostelVideoTourModal';
 import { VirtualToursView } from './components/VirtualToursView';
-import { AuthModal } from './components/AuthModal';
+import { AuthModal, AuthModalMode } from './components/AuthModal';
 import { Footer } from './components/Footer';
 import { MobileBottomNav } from './components/MobileBottomNav';
 import { NetworkStatusBanner } from './components/NetworkStatusBanner';
@@ -386,6 +386,10 @@ function MainApp() {
   const [featuredTouchStart, setFeaturedTouchStart] = useState<number | null>(null);
   const [authModalOpen, setAuthModalOpen] = useState<boolean>(false);
   const [authModalDefaultRole, setAuthModalDefaultRole] = useState<UserRole>('STUDENT');
+  const [authModalInitialMode, setAuthModalInitialMode] = useState<AuthModalMode>('login');
+  const [authModalInitialEmail, setAuthModalInitialEmail] = useState<string>('');
+  const [authModalInitialResetCode, setAuthModalInitialResetCode] = useState<string>('');
+  const [authModalInitialResetToken, setAuthModalInitialResetToken] = useState<string>('');
   const [aiModalOpen, setAiModalOpen] = useState<boolean>(false);
   const [aiPropertyContext, setAiPropertyContext] = useState<Property | null>(null);
   const [studentDashboardTab, setStudentDashboardTab] = useState<'overview' | 'bookings' | 'inspections' | 'shortlist' | 'preferences' | 'search_history' | 'profile_security'>('overview');
@@ -760,15 +764,47 @@ function MainApp() {
     }
   };
 
-  const handleOpenAuth = (role: UserRole = 'STUDENT') => {
+  const handleOpenAuth = (
+    role: UserRole = 'STUDENT',
+    mode: AuthModalMode = 'login',
+    initialEmail = '',
+    resetCode = '',
+    resetToken = ''
+  ) => {
     setAuthModalDefaultRole(role);
+    setAuthModalInitialMode(mode);
+    setAuthModalInitialEmail(initialEmail);
+    setAuthModalInitialResetCode(resetCode);
+    setAuthModalInitialResetToken(resetToken);
     setAuthModalOpen(true);
   };
+
+  // Automatically handle password reset and email verification query links
+  useEffect(() => {
+    try {
+      const search = new URLSearchParams(window.location.search);
+      const action = search.get('action');
+      if (action === 'reset-password') {
+        const email = search.get('email') || '';
+        const token = search.get('token') || '';
+        const code = search.get('code') || '';
+        handleOpenAuth('STUDENT', 'reset_password', email, code, token);
+      } else if (action === 'verify-email') {
+        const email = search.get('email') || '';
+        const code = search.get('code') || '';
+        handleOpenAuth('STUDENT', 'verify_email', email, code);
+      }
+    } catch {}
+  }, []);
 
   useEffect(() => {
     const handleAuthEvent = (e: any) => {
       const role = e.detail?.role || 'STUDENT';
-      handleOpenAuth(role);
+      const mode = e.detail?.mode || 'login';
+      const email = e.detail?.email || '';
+      const code = e.detail?.code || '';
+      const token = e.detail?.token || '';
+      handleOpenAuth(role, mode, email, code, token);
     };
     const handleAiEvent = (e: any) => {
       const prop = e.detail?.property || null;
@@ -2445,6 +2481,10 @@ function MainApp() {
         isOpen={authModalOpen}
         onClose={() => setAuthModalOpen(false)}
         defaultRole={authModalDefaultRole}
+        initialMode={authModalInitialMode}
+        initialEmail={authModalInitialEmail}
+        initialResetCode={authModalInitialResetCode}
+        initialResetToken={authModalInitialResetToken}
         onSuccess={(authedUser) => {
           const userName = authedUser?.fullName || authedUser?.name || (authedUser?.email ? authedUser.email.split('@')[0] : '');
           const welcomeMsg = userName ? `Welcome to HostelEase, ${userName}!` : 'Welcome to HostelEase!';

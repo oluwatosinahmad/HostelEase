@@ -5,136 +5,562 @@ import db from '../db';
 import { authenticate, generateToken, AuthenticatedRequest } from '../middleware/auth';
 import { notificationService } from '../services/notificationService.js';
 import { syncService } from '../services/syncService';
+import { emailService } from '../services/emailService.js';
 
 const router = Router();
 
-// 1. Register User (Student or Provider only - No Public Admin Registration)
-router.post('/register', (req, res: Response) => {
-  const { email, password, fullName, phone, role, studentDetails, providerDetails } = req.body;
+const EMAIL_REGEX = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$/;
 
-  if (!email || !password || !fullName || !role) {
-    return res.status(400).json({ error: 'Email, password, full name, and role are required' });
-  }
+function isValidEmail(email: string): boolean {
+  if (!email || typeof email !== 'string') return false;
+  const trimmed = email.trim();
+  if (trimmed.length < 5 || trimmed.length > 254) return false;
+  return EMAIL_REGEX.test(trimmed);
+}
 
-  // Security Rule: Public Admin Registration is STRICTLY FORBIDDEN
-  if (role === 'ADMIN' || role === 'OWNER') {
-    return res.status(403).json({ 
-      error: 'PUBLIC_ADMIN_REGISTRATION_FORBIDDEN',
-      message: 'Admin accounts cannot be registered publicly. Only an authorized Super Admin can provision administrative accounts.' 
-    });
-  }
+function normalizeEmail(email: string): string {
+  return (email || '').toLowerCase().trim();
+}
 
-  if (!['STUDENT', 'PROVIDER'].includes(role)) {
-    return res.status(400).json({ error: 'Role must be STUDENT or PROVIDER' });
-  }
+function hashOtp(code: string): string {
+  return crypto.createHash('sha256').update(code.trim()).digest('hex');
+}
 
-  if (password.length < 6) {
-    return res.status(400).json({ error: 'Password must be at least 6 characters long' });
-  }
-
-  const existing = db.prepare('SELECT id FROM users WHERE LOWER(email) = LOWER(?)').get(email.trim());
-  if (existing) {
-    return res.status(409).json({ error: 'An account with this email already exists' });
-  }
-
-  const userId = `user-${crypto.randomUUID()}`;
-  const salt = bcrypt.genSaltSync(10);
-  const passwordHash = bcrypt.hashSync(password, salt);
-  const avatarUrl = req.body.avatarUrl || req.body.avatar_url || studentDetails?.avatarUrl || null;
-
+// =============================================================================
+// 1. REGISTER USER (Sends Real 6-Digit Email OTP Verification)
+// =============================================================================
+router.post('/register', async (req, res: Response) => {
   try {
-    const studentDept = studentDetails?.department || null;
-    const studentLvl = studentDetails?.level || null;
-    const studentMatric = studentDetails?.matricNo || studentDetails?.matricNumber || null;
-    const studentGender = studentDetails?.gender || null;
+    const { email, password, fullName, phone, role, providerDetails } = req.body;
 
-    db.transaction(() => {
-      // Insert user with verified role and academic fields
-      db.prepare(`
-        INSERT INTO users (id, email, password_hash, full_name, phone, role, avatar_url, department, level, matric_no, gender, is_active)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
-      `).run(userId, email.toLowerCase().trim(), passwordHash, fullName.trim(), phone || null, role, avatarUrl, studentDept, studentLvl, studentMatric, studentGender);
-
-      // Create role profile
-      if (role === 'STUDENT') {
-        const profileId = `profile-${crypto.randomUUID()}`;
-        const defaultUni = db.prepare('SELECT id FROM universities LIMIT 1').get() as any;
-        db.prepare(`
-          INSERT INTO student_profiles (id, user_id, university_id, matric_no, department, level, gender)
-          VALUES (?, ?, ?, ?, ?, ?, ?)
-        `).run(
-          profileId,
-          userId,
-          studentDetails?.universityId || defaultUni?.id || 'uni-lautech-ogbomoso',
-          studentMatric,
-          studentDept,
-          studentLvl,
-          studentGender
-        );
-      } else if (role === 'PROVIDER') {
-        const profileId = `profile-${crypto.randomUUID()}`;
-        db.prepare(`
-          INSERT INTO provider_profiles (id, user_id, business_name, address, id_type, verification_status)
-          VALUES (?, ?, ?, ?, ?, 'PENDING')
-        `).run(
-          profileId,
-          userId,
-          providerDetails?.businessName || null,
-          providerDetails?.address || null,
-          providerDetails?.idType || 'NIN'
-        );
-      }
-    })();
-
-    const userRecord = {
-      id: userId,
-      email: email.toLowerCase().trim(),
-      fullName: fullName.trim(),
-      phone: phone || undefined,
-      role: role as 'STUDENT' | 'PROVIDER',
-      avatarUrl: avatarUrl || undefined,
-      department: studentDept || undefined,
-      level: studentLvl || undefined,
-      matricNo: studentMatric || undefined,
-      gender: studentGender || 'ANY',
-      isActive: 1,
-      studentDetails: role === 'STUDENT' ? {
-        matricNo: studentMatric,
-        matricNumber: studentMatric,
-        department: studentDept,
-        level: studentLvl,
-        gender: studentGender
-      } : undefined,
-      providerDetails: role === 'PROVIDER' ? {
-        businessName: providerDetails?.businessName || null
-      } : undefined
-    };
-
-    const token = generateToken(userRecord as any);
-
-    // Synchronize newly registered account to the live website Edge Store immediately
-    syncService.queueRecordPush('users', userRecord).catch(() => {});
-
-    let welcomeNotification = null;
-    try {
-      welcomeNotification = notificationService.createWelcomeNotificationOnSignup(userId, role, fullName);
-    } catch (notifErr) {
-      console.warn('Failed to seed welcome notification on signup:', notifErr);
+    if (!email || !password || !fullName || !role) {
+      return res.status(400).json({ error: 'Email, password, full name, and role are required' });
     }
 
-    return res.status(201).json({
-      message: 'Registration successful',
-      token,
-      user: userRecord,
-      welcomeNotification
+    // Security Rule: Public Admin Registration is STRICTLY FORBIDDEN
+    if (role === 'ADMIN' || role === 'OWNER') {
+      return res.status(403).json({ 
+        error: 'PUBLIC_ADMIN_REGISTRATION_FORBIDDEN',
+        message: 'Admin accounts cannot be registered publicly. Only an authorized Super Admin can provision administrative accounts.' 
+      });
+    }
+
+    if (!['STUDENT', 'PROVIDER'].includes(role)) {
+      return res.status(400).json({ error: 'Role must be STUDENT or PROVIDER' });
+    }
+
+    if (!isValidEmail(email)) {
+      return res.status(400).json({ 
+        error: 'INVALID_EMAIL', 
+        message: 'Please enter a valid, real email address.' 
+      });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters long' });
+    }
+
+    const cleanEmail = normalizeEmail(email);
+
+    // CRITICAL: Check whether the email address is already associated with an existing account.
+    // Case-insensitive, whitespace-trimmed comparison across all roles (STUDENT, PROVIDER, ADMIN).
+    const existingUser = db.prepare(`
+      SELECT id, role, email_verified as emailVerified, is_active as isActive 
+      FROM users 
+      WHERE LOWER(TRIM(email)) = ?
+    `).get(cleanEmail) as any;
+
+    if (existingUser) {
+      if (existingUser.emailVerified) {
+        return res.status(409).json({ 
+          error: 'EMAIL_ALREADY_REGISTERED',
+          message: 'This email address is already registered. Please log in or use Forgot Password if you cannot access your account.' 
+        });
+      }
+
+      // If existing account is unverified, allow the original registration to be safely resumed with fresh OTP
+      const otp = crypto.randomInt(100000, 999999).toString();
+      const hashedOtp = hashOtp(otp);
+      const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+      const newPasswordHash = bcrypt.hashSync(password, 10);
+
+      db.prepare(`
+        INSERT OR REPLACE INTO email_verifications 
+        (id, email, otp_hash, role, full_name, password_hash, phone, avatar_url, metadata, expires_at, attempts, resend_count, last_sent_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, datetime('now'))
+      `).run(
+        `verif-${crypto.randomUUID()}`,
+        cleanEmail,
+        hashedOtp,
+        role,
+        fullName.trim(),
+        newPasswordHash,
+        phone?.trim() || null,
+        req.body.avatarUrl || null,
+        JSON.stringify(providerDetails || {}),
+        expiresAt
+      );
+
+      // Send real email OTP
+      await emailService.sendVerificationOTP(cleanEmail, otp, fullName.trim());
+
+      return res.status(200).json({
+        success: true,
+        verificationRequired: true,
+        email: cleanEmail,
+        message: `An unverified account already exists with this email. A fresh verification code has been sent to ${cleanEmail}.`
+      });
+    }
+
+    // New user registration flow: Store pending registration data and send 6-digit OTP
+    const otp = crypto.randomInt(100000, 999999).toString();
+    const hashedOtp = hashOtp(otp);
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+    const passwordHash = bcrypt.hashSync(password, 10);
+    const avatarUrl = req.body.avatarUrl || req.body.avatar_url || null;
+
+    // Purge any stale pending verifications for this email
+    db.prepare('DELETE FROM email_verifications WHERE LOWER(TRIM(email)) = ?').run(cleanEmail);
+
+    const nowIso = new Date().toISOString();
+    db.prepare(`
+      INSERT INTO email_verifications 
+      (id, email, otp_hash, role, full_name, password_hash, phone, avatar_url, metadata, expires_at, attempts, resend_count, last_sent_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?)
+    `).run(
+      `verif-${crypto.randomUUID()}`,
+      cleanEmail,
+      hashedOtp,
+      role,
+      fullName.trim(),
+      passwordHash,
+      phone?.trim() || null,
+      avatarUrl,
+      JSON.stringify(providerDetails || {}),
+      expiresAt,
+      nowIso
+    );
+
+    // Send real email OTP via emailService
+    await emailService.sendVerificationOTP(cleanEmail, otp, fullName.trim());
+
+    return res.status(200).json({
+      success: true,
+      verificationRequired: true,
+      email: cleanEmail,
+      message: `A 6-digit verification code has been sent to ${cleanEmail}. Please enter it to activate your account.`
     });
   } catch (err: any) {
     console.error('Registration error:', err);
-    return res.status(500).json({ error: 'Failed to create account. Please try again.' });
+    return res.status(500).json({ 
+      error: 'REGISTRATION_FAILED',
+      message: err.message || 'Failed to complete registration. Please try again.' 
+    });
   }
 });
 
-// 2. Login User with Strict Role Verification (Database is Source of Truth)
+// =============================================================================
+// 2. VERIFY EMAIL OTP (Activates Account & Issues Session Token)
+// =============================================================================
+router.post('/verify-email', (req, res: Response) => {
+  try {
+    const { email, code } = req.body;
+
+    if (!email || !code) {
+      return res.status(400).json({ error: 'Email and verification code are required' });
+    }
+
+    const cleanEmail = normalizeEmail(email);
+    const enteredCode = String(code).trim();
+
+    const record = db.prepare(`
+      SELECT * FROM email_verifications 
+      WHERE LOWER(TRIM(email)) = ?
+      ORDER BY created_at DESC LIMIT 1
+    `).get(cleanEmail) as any;
+
+    if (!record) {
+      return res.status(400).json({ 
+        error: 'NO_PENDING_VERIFICATION', 
+        message: 'No pending registration found for this email. Please sign up or request a new code.' 
+      });
+    }
+
+    if (new Date(record.expires_at).getTime() < Date.now()) {
+      return res.status(400).json({ 
+        error: 'EXPIRED_CODE', 
+        message: 'Verification code has expired. Please click Resend Code to receive a new one.' 
+      });
+    }
+
+    if (record.attempts >= 5) {
+      return res.status(400).json({ 
+        error: 'TOO_MANY_ATTEMPTS', 
+        message: 'Too many incorrect attempts. Please request a fresh verification code.' 
+      });
+    }
+
+    // Verify OTP hash
+    if (hashOtp(enteredCode) !== record.otp_hash) {
+      db.prepare('UPDATE email_verifications SET attempts = attempts + 1 WHERE id = ?').run(record.id);
+      return res.status(400).json({ 
+        error: 'INVALID_CODE', 
+        message: 'Incorrect verification code. Please check your email and try again.' 
+      });
+    }
+
+    // Code matched! Activate/create the user atomically in SQLite
+    let userRecord: any;
+
+    db.transaction(() => {
+      const existingUser = db.prepare('SELECT id FROM users WHERE LOWER(TRIM(email)) = ?').get(cleanEmail) as any;
+
+      if (existingUser) {
+        db.prepare(`
+          UPDATE users 
+          SET email_verified = 1, is_active = 1, updated_at = datetime('now')
+          WHERE id = ?
+        `).run(existingUser.id);
+
+        userRecord = db.prepare(`
+          SELECT id, email, full_name as fullName, phone, role, avatar_url as avatarUrl, is_active as isActive, email_verified as emailVerified
+          FROM users WHERE id = ?
+        `).get(existingUser.id) as any;
+        if (userRecord) {
+          userRecord.emailVerified = true;
+        }
+      } else {
+        const userId = `user-${crypto.randomUUID()}`;
+
+        db.prepare(`
+          INSERT INTO users (id, email, password_hash, full_name, phone, role, avatar_url, is_active, email_verified, created_at, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, 1, 1, datetime('now'), datetime('now'))
+        `).run(
+          userId,
+          cleanEmail,
+          record.password_hash,
+          record.full_name,
+          record.phone || null,
+          record.role,
+          record.avatar_url || null
+        );
+
+        if (record.role === 'STUDENT') {
+          const profileId = `profile-${crypto.randomUUID()}`;
+          const defaultUni = db.prepare('SELECT id FROM universities LIMIT 1').get() as any;
+          db.prepare(`
+            INSERT INTO student_profiles (id, user_id, university_id)
+            VALUES (?, ?, ?)
+          `).run(profileId, userId, defaultUni?.id || 'uni-lautech-ogbomoso');
+        } else if (record.role === 'PROVIDER') {
+          const profileId = `profile-${crypto.randomUUID()}`;
+          let meta: any = {};
+          try { meta = JSON.parse(record.metadata || '{}'); } catch {}
+          db.prepare(`
+            INSERT INTO provider_profiles (id, user_id, business_name, address, id_type, verification_status)
+            VALUES (?, ?, ?, ?, ?, 'PENDING')
+          `).run(
+            profileId,
+            userId,
+            meta.businessName || null,
+            meta.address || null,
+            meta.idType || 'NIN'
+          );
+        }
+
+        userRecord = {
+          id: userId,
+          email: cleanEmail,
+          fullName: record.full_name,
+          phone: record.phone || undefined,
+          role: record.role,
+          avatarUrl: record.avatar_url || undefined,
+          isActive: 1,
+          emailVerified: true
+        };
+      }
+
+      // Invalidate the used verification code
+      db.prepare('DELETE FROM email_verifications WHERE LOWER(TRIM(email)) = ?').run(cleanEmail);
+    })();
+
+    const token = generateToken(userRecord);
+
+    // Synchronize to Cloudflare Edge Store immediately
+    syncService.queueRecordPush('users', userRecord).catch(() => {});
+
+    try {
+      notificationService.createWelcomeNotificationOnSignup(userRecord.id, userRecord.role, userRecord.fullName);
+    } catch {}
+
+    return res.status(200).json({
+      success: true,
+      message: 'Email verified successfully! Welcome to Hostel Ease.',
+      token,
+      user: userRecord
+    });
+  } catch (err: any) {
+    console.error('Verification error:', err);
+    return res.status(500).json({ error: 'Failed to verify code. Please try again.' });
+  }
+});
+
+// =============================================================================
+// 3. RESEND VERIFICATION OTP
+// =============================================================================
+router.post('/resend-verification', async (req, res: Response) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ error: 'Email address is required' });
+    }
+
+    const cleanEmail = normalizeEmail(email);
+
+    // Look up pending verification or unverified user
+    let record = db.prepare(`
+      SELECT * FROM email_verifications 
+      WHERE LOWER(TRIM(email)) = ? 
+      ORDER BY created_at DESC LIMIT 1
+    `).get(cleanEmail) as any;
+
+    if (!record) {
+      const unverifiedUser = db.prepare(`
+        SELECT id, email, full_name, role, phone, avatar_url, password_hash
+        FROM users 
+        WHERE LOWER(TRIM(email)) = ? AND email_verified = 0
+      `).get(cleanEmail) as any;
+
+      if (!unverifiedUser) {
+        return res.status(404).json({ 
+          error: 'NO_PENDING_REGISTRATION', 
+          message: 'No pending registration found for this email address. Please sign up.' 
+        });
+      }
+
+      record = {
+        id: `verif-${crypto.randomUUID()}`,
+        email: cleanEmail,
+        full_name: unverifiedUser.full_name,
+        role: unverifiedUser.role,
+        password_hash: unverifiedUser.password_hash,
+        phone: unverifiedUser.phone,
+        avatar_url: unverifiedUser.avatar_url,
+        last_sent_at: '2000-01-01 00:00:00'
+      };
+    }
+
+    // Rate-limiting: Enforce 60-second cooldown
+    const rawLastSent = record.last_sent_at || '';
+    const lastSentString = rawLastSent.endsWith('Z') 
+      ? rawLastSent 
+      : (rawLastSent.includes('T') ? rawLastSent + 'Z' : rawLastSent.replace(' ', 'T') + 'Z');
+    const lastSentTime = new Date(lastSentString).getTime();
+    const elapsedSeconds = isNaN(lastSentTime) ? 999 : (Date.now() - lastSentTime) / 1000;
+    if (elapsedSeconds < 60) {
+      const waitSeconds = Math.max(1, Math.ceil(60 - elapsedSeconds));
+      return res.status(429).json({
+        error: 'RESEND_COOLDOWN',
+        message: `Please wait ${waitSeconds} seconds before requesting another verification code.`,
+        remainingSeconds: waitSeconds
+      });
+    }
+
+    const otp = crypto.randomInt(100000, 999999).toString();
+    const hashedOtp = hashOtp(otp);
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+    const nowIso = new Date().toISOString();
+
+    db.prepare(`
+      INSERT OR REPLACE INTO email_verifications 
+      (id, email, otp_hash, role, full_name, password_hash, phone, avatar_url, metadata, expires_at, attempts, resend_count, last_sent_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, COALESCE((SELECT resend_count + 1 FROM email_verifications WHERE id = ?), 1), ?)
+    `).run(
+      record.id,
+      cleanEmail,
+      hashedOtp,
+      record.role,
+      record.full_name,
+      record.password_hash,
+      record.phone,
+      record.avatar_url,
+      record.metadata || '{}',
+      expiresAt,
+      record.id,
+      nowIso
+    );
+
+    await emailService.sendVerificationOTP(cleanEmail, otp, record.full_name);
+
+    return res.status(200).json({
+      success: true,
+      message: `A fresh 6-digit verification code has been sent to ${cleanEmail}.`
+    });
+  } catch (err: any) {
+    console.error('Resend verification error:', err);
+    return res.status(500).json({ error: err.message || 'Failed to resend verification code' });
+  }
+});
+
+// =============================================================================
+// 4. FORGOT PASSWORD (Initiates Recovery & Sends 6-Digit Code)
+// =============================================================================
+router.post('/forgot-password', async (req, res: Response) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ error: 'Email address is required' });
+    }
+
+    const cleanEmail = normalizeEmail(email);
+
+    // Look up user
+    const user = db.prepare(`
+      SELECT id, full_name as fullName, email 
+      FROM users 
+      WHERE LOWER(TRIM(email)) = ?
+    `).get(cleanEmail) as any;
+
+    // Security best practice: If user does not exist, do not reveal account non-existence
+    if (!user) {
+      return res.status(200).json({
+        success: true,
+        message: 'If an account exists with this email address, a password recovery code has been sent.'
+      });
+    }
+
+    // Rate-limiting: Check if a recovery request was issued < 60s ago
+    const recentReset = db.prepare(`
+      SELECT created_at FROM password_resets 
+      WHERE user_id = ? AND datetime(created_at) > datetime('now', '-60 seconds')
+      ORDER BY created_at DESC LIMIT 1
+    `).get(user.id) as any;
+
+    if (recentReset) {
+      return res.status(429).json({
+        error: 'RECOVERY_RATE_LIMITED',
+        message: 'A recovery code was recently requested. Please check your spam folder or wait 60 seconds.'
+      });
+    }
+
+    const resetCode = crypto.randomInt(100000, 999999).toString();
+    const resetToken = crypto.randomBytes(24).toString('hex');
+    const tokenHash = hashOtp(resetToken);
+    const codeHash = hashOtp(resetCode);
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+
+    db.prepare(`
+      INSERT INTO password_resets (id, user_id, email, token_hash, otp_code_hash, expires_at, used, attempts)
+      VALUES (?, ?, ?, ?, ?, ?, 0, 0)
+    `).run(
+      `pwd-${crypto.randomUUID()}`,
+      user.id,
+      cleanEmail,
+      tokenHash,
+      codeHash,
+      expiresAt
+    );
+
+    // Send password recovery email
+    await emailService.sendPasswordResetEmail(cleanEmail, resetCode, resetToken, user.fullName);
+
+    return res.status(200).json({
+      success: true,
+      message: 'A 6-digit password recovery code has been sent to your registered email address.',
+      email: cleanEmail
+    });
+  } catch (err: any) {
+    console.error('Forgot password error:', err);
+    return res.status(500).json({ error: err.message || 'Failed to initiate password recovery' });
+  }
+});
+
+// =============================================================================
+// 5. RESET PASSWORD (Validates Code/Token & Updates User Password)
+// =============================================================================
+router.post('/reset-password', (req, res: Response) => {
+  try {
+    const { email, code, token, newPassword } = req.body;
+
+    if (!email || (!code && !token) || !newPassword) {
+      return res.status(400).json({ error: 'Email, verification code or token, and new password are required' });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({ error: 'New password must be at least 6 characters long' });
+    }
+
+    const cleanEmail = normalizeEmail(email);
+
+    const resetRecord = db.prepare(`
+      SELECT * FROM password_resets 
+      WHERE LOWER(TRIM(email)) = ? AND used = 0
+      ORDER BY created_at DESC LIMIT 1
+    `).get(cleanEmail) as any;
+
+    if (!resetRecord) {
+      return res.status(400).json({ 
+        error: 'INVALID_RESET_REQUEST', 
+        message: 'No active password recovery request found for this email. Please request a new code.' 
+      });
+    }
+
+    if (new Date(resetRecord.expires_at).getTime() < Date.now()) {
+      return res.status(400).json({ 
+        error: 'EXPIRED_RESET_REQUEST', 
+        message: 'Password reset code has expired. Please request a fresh code.' 
+      });
+    }
+
+    if (resetRecord.attempts >= 5) {
+      return res.status(400).json({ 
+        error: 'TOO_MANY_ATTEMPTS', 
+        message: 'Too many incorrect attempts. Please request a new recovery code.' 
+      });
+    }
+
+    // Validate either 6-digit code or reset token
+    const codeMatch = code && hashOtp(String(code).trim()) === resetRecord.otp_code_hash;
+    const tokenMatch = token && hashOtp(String(token).trim()) === resetRecord.token_hash;
+
+    if (!codeMatch && !tokenMatch) {
+      db.prepare('UPDATE password_resets SET attempts = attempts + 1 WHERE id = ?').run(resetRecord.id);
+      return res.status(400).json({ 
+        error: 'INVALID_CODE', 
+        message: 'Incorrect verification code. Please check your email and try again.' 
+      });
+    }
+
+    // Success: Update password in database
+    const newPasswordHash = bcrypt.hashSync(newPassword, 10);
+
+    db.transaction(() => {
+      db.prepare(`
+        UPDATE users 
+        SET password_hash = ?, updated_at = datetime('now')
+        WHERE id = ?
+      `).run(newPasswordHash, resetRecord.user_id);
+
+      // Invalidate all reset requests for this user
+      db.prepare('UPDATE password_resets SET used = 1 WHERE user_id = ?').run(resetRecord.user_id);
+    })();
+
+    // Synchronize to Cloudflare Edge Store immediately
+    syncService.queueRecordPush('users', { id: resetRecord.user_id, password_hash: newPasswordHash }).catch(() => {});
+
+    return res.status(200).json({
+      success: true,
+      message: 'Password has been updated successfully! You can now log in with your new password.'
+    });
+  } catch (err: any) {
+    console.error('Reset password error:', err);
+    return res.status(500).json({ error: 'Failed to reset password. Please try again.' });
+  }
+});
+
+// =============================================================================
+// 6. LOGIN USER (Database is Single Source of Truth; Checks Email Verification)
+// =============================================================================
 router.post('/login', (req, res: Response) => {
   const { email, username, password, role, requestedRole } = req.body;
   const targetRole = requestedRole || role;
@@ -150,19 +576,18 @@ router.post('/login', (req, res: Response) => {
 
   if (isAdminIdentifier) {
     user = db.prepare(`
-      SELECT id, email, password_hash as passwordHash, full_name as fullName, phone, role, is_active as isActive
+      SELECT id, email, password_hash as passwordHash, full_name as fullName, phone, role, is_active as isActive, email_verified as emailVerified
       FROM users
       WHERE role = 'ADMIN' OR LOWER(email) = 'admin@hostelease.ng' OR id = 'usr-admin-master' OR id = 'user-admin-1'
       ORDER BY id ASC LIMIT 1
     `).get() as any;
 
-    // If no admin exists in DB yet, create or use single admin account
     if (!user && isAdminIdentifier) {
       const defaultHash = bcrypt.hashSync(process.env.ADMIN_PASSWORD || 'admin123', 10);
       try {
         db.prepare(`
-          INSERT OR REPLACE INTO users (id, email, password_hash, full_name, phone, role, is_active)
-          VALUES ('usr-admin-master', 'admin@hostelease.ng', ?, 'Platform Administrator', '+2348000000000', 'ADMIN', 1)
+          INSERT OR REPLACE INTO users (id, email, password_hash, full_name, phone, role, is_active, email_verified)
+          VALUES ('usr-admin-master', 'admin@hostelease.ng', ?, 'Platform Administrator', '+2348000000000', 'ADMIN', 1, 1)
         `).run(defaultHash);
         user = {
           id: 'usr-admin-master',
@@ -171,7 +596,8 @@ router.post('/login', (req, res: Response) => {
           fullName: 'Platform Administrator',
           phone: '+2348000000000',
           role: 'ADMIN',
-          isActive: 1
+          isActive: 1,
+          emailVerified: 1
         };
       } catch (e) {}
     }
@@ -182,10 +608,11 @@ router.post('/login', (req, res: Response) => {
              COALESCE(u.level, sp.level, '') as level,
              COALESCE(u.matric_no, sp.matric_no, '') as matricNo,
              COALESCE(u.gender, sp.gender, 'ANY') as gender,
-             u.is_active as isActive
+             u.is_active as isActive,
+             u.email_verified as emailVerified
       FROM users u
       LEFT JOIN student_profiles sp ON sp.user_id = u.id
-      WHERE LOWER(u.email) = LOWER(?)
+      WHERE LOWER(TRIM(u.email)) = LOWER(TRIM(?))
          OR (LOWER(?) IN ('provider@hostelease.ng', 'landlord@hostelease.ng') AND LOWER(u.email) IN ('provider@hostelease.ng', 'landlord@hostelease.ng'))
       ORDER BY u.id ASC LIMIT 1
     `).get(identifier, identifier) as any;
@@ -194,7 +621,7 @@ router.post('/login', (req, res: Response) => {
   if (!user) {
     return res.status(401).json({ 
       error: 'INVALID_CREDENTIALS',
-      message: 'Invalid credentials' 
+      message: 'Invalid email or password' 
     });
   }
 
@@ -210,18 +637,24 @@ router.post('/login', (req, res: Response) => {
   if (!passwordValid) {
     return res.status(401).json({ 
       error: 'INVALID_CREDENTIALS',
-      message: 'Invalid credentials' 
+      message: 'Invalid email or password' 
     });
   }
 
-  // =========================================================================
-  // STRICT ROLE & PERMISSION AUTHORIZATION CHECK
-  // The database role is the single source of truth.
-  // =========================================================================
+  // Check email verification status
+  if (user.emailVerified === 0) {
+    return res.status(403).json({
+      error: 'EMAIL_NOT_VERIFIED',
+      code: 'EMAIL_NOT_VERIFIED',
+      message: 'Your email address has not been verified yet. Please enter the verification code sent to your email to continue.',
+      email: user.email
+    });
+  }
+
+  // Strict role check
   if (targetRole) {
     const requested = (targetRole as string).toUpperCase();
     if (requested === 'ADMIN') {
-      // Must be an authorized ADMIN or OWNER in database
       if (user.role !== 'ADMIN' && user.role !== 'OWNER') {
         return res.status(403).json({
           error: 'ACCESS_RESTRICTED',
@@ -263,7 +696,6 @@ router.post('/login', (req, res: Response) => {
   const mat = user.matricNo || (profile as any)?.matric_no || undefined;
   const gen = user.gender || (profile as any)?.gender || 'ANY';
 
-  // Build authenticated user payload strictly with the database role (user.role)
   const userPayload = {
     id: user.role === 'ADMIN' ? 'usr-admin-master' : user.id,
     username: user.role === 'ADMIN' ? 'admin' : undefined,
@@ -277,6 +709,7 @@ router.post('/login', (req, res: Response) => {
     matricNo: mat,
     gender: gen,
     isActive: user.isActive,
+    emailVerified: user.emailVerified,
     studentDetails: user.role === 'STUDENT' ? {
       matricNo: mat,
       matricNumber: mat,
@@ -301,7 +734,7 @@ router.post('/login', (req, res: Response) => {
 // Demo Login Shortcut
 router.post('/login-demo', (req, res: Response) => {
   const { role = 'STUDENT' } = req.body;
-  const user = db.prepare('SELECT id, email, full_name as fullName, phone, role, is_active as isActive FROM users WHERE role = ? LIMIT 1').get(role) as any;
+  const user = db.prepare('SELECT id, email, full_name as fullName, phone, role, is_active as isActive, email_verified as emailVerified FROM users WHERE role = ? LIMIT 1').get(role) as any;
   if (!user) {
     return res.status(404).json({ error: `Demo user for role ${role} not found` });
   }
@@ -320,12 +753,11 @@ router.post('/login-demo', (req, res: Response) => {
     user: {
       ...user,
       profile
-    },
-    welcomeNotification
+    }
   });
 });
 
-// 3. Get Current User Info
+// Get Current User Info
 router.get('/me', authenticate, (req: AuthenticatedRequest, res: Response) => {
   if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
 
@@ -367,7 +799,7 @@ router.get('/me', authenticate, (req: AuthenticatedRequest, res: Response) => {
   });
 });
 
-// 4. Update Profile
+// Update Profile
 router.put('/profile', authenticate, (req: AuthenticatedRequest, res: Response) => {
   if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
 

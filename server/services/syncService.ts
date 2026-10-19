@@ -6,6 +6,11 @@
  * (hostelease.oluwatosinahmad.workers.dev).
  */
 
+import dns from 'dns';
+try {
+  dns.setDefaultResultOrder('ipv4first');
+} catch {}
+
 import db from '../db';
 
 interface SyncPayload {
@@ -126,16 +131,21 @@ export class SyncService {
         payload.bookings = [record];
       }
 
-      await fetch(`${this.liveUrl}/api/sync/push`, {
+      const res = await fetch(`${this.liveUrl}/api/sync/push`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'X-Sync-Secret': this.syncSecret
         },
         body: JSON.stringify(payload)
-      }).catch(() => {});
-    } catch (e) {
-      console.warn(`[SyncService] Failed to push ${table} record:`, e);
+      });
+      if (res.ok) {
+        console.log(`📤 [SyncService] Pushed ${table} record to live site:`, record.id || record.email);
+      } else {
+        console.warn(`⚠️ [SyncService] Push ${table} returned HTTP ${res.status}`);
+      }
+    } catch (e: any) {
+      console.warn(`[SyncService] Failed to push ${table} record:`, e.message);
     }
   }
 
@@ -188,7 +198,7 @@ export class SyncService {
         }
       }
     } catch (err: any) {
-      // Live site temporarily unreachable; fail silently and retry on next interval
+      console.warn(`[SyncService] pullLiveChanges error:`, err.message);
     } finally {
       this.isSyncing = false;
     }

@@ -24,7 +24,7 @@ router.get(
 
     // Platform Counts
     const totalStudents = (db.prepare("SELECT COUNT(*) as count FROM users WHERE role = 'STUDENT'").get() as any).count;
-    const totalProviders = (db.prepare("SELECT COUNT(*) as count FROM users WHERE role = 'PROVIDER'").get() as any).count;
+    const totalProviders = (db.prepare("SELECT COUNT(*) as count FROM users WHERE role IN ('PROVIDER', 'LANDLORD', 'AGENT')").get() as any).count;
     const totalHostels = (db.prepare('SELECT COUNT(*) as count FROM properties').get() as any).count;
     const verifiedHostels = (db.prepare("SELECT COUNT(*) as count FROM properties WHERE verification_status = 'APPROVED'").get() as any).count;
     const pendingHostels = (db.prepare("SELECT COUNT(*) as count FROM properties WHERE verification_status IN ('PENDING_REVIEW', 'PENDING')").get() as any).count;
@@ -52,7 +52,7 @@ router.get(
 
     const bookingCancellationRate = totalBookingsAll > 0 ? ((cancelledBookings / totalBookingsAll) * 100).toFixed(1) + '%' : '0%';
     const searchToBookingConversion = totalSearches > 0 ? ((totalBookingsAll / totalSearches) * 100).toFixed(1) + '%' : '0%';
-    const avgViewsPerBooking = totalBookingsAll > 0 ? (totalViews / totalBookingsAll).toFixed(1) : '4.2';
+    const avgViewsPerBooking = totalBookingsAll > 0 ? (totalViews / totalBookingsAll).toFixed(1) : '0.0';
 
     res.json({
       admin: {
@@ -87,7 +87,7 @@ router.get(
         totalViews,
         totalInspections,
         totalBookingsAll,
-        avgSearchToInspectionDays: '1.4 Days (LAUTECH Average)'
+        avgSearchToInspectionDays: totalInspections > 0 ? '1.4 Days (LAUTECH Average)' : '0.0 Days'
       }
     });
   }
@@ -104,7 +104,7 @@ router.get(
     const pendingProperties = db.prepare("SELECT COUNT(*) as count FROM properties WHERE verification_status IN ('PENDING_REVIEW', 'PENDING')").get() as { count: number };
     const pendingProviders = db.prepare("SELECT COUNT(*) as count FROM provider_profiles WHERE verification_status IN ('PENDING', 'UNDER_REVIEW')").get() as { count: number };
     const totalStudents = db.prepare("SELECT COUNT(*) as count FROM users WHERE role = 'STUDENT'").get() as { count: number };
-    const totalProviders = db.prepare("SELECT COUNT(*) as count FROM users WHERE role = 'PROVIDER'").get() as { count: number };
+    const totalProviders = db.prepare("SELECT COUNT(*) as count FROM users WHERE role IN ('PROVIDER', 'LANDLORD', 'AGENT')").get() as { count: number };
     const totalInspections = db.prepare('SELECT COUNT(*) as count FROM inspection_requests').get() as { count: number };
     const openReports = db.prepare("SELECT COUNT(*) as count FROM listing_reports WHERE status IN ('OPEN', 'PENDING', 'UNDER_REVIEW')").get() as { count: number };
 

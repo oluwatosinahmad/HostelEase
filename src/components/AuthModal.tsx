@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   X, 
   Building2, 
@@ -7,8 +7,6 @@ import {
   User as UserIcon, 
   Phone, 
   ShieldCheck, 
-  GraduationCap, 
-  Home, 
   AlertCircle,
   ShieldAlert,
   ArrowLeft,
@@ -17,7 +15,11 @@ import {
   Check,
   Upload,
   Trash2,
-  Image as ImageIcon
+  Eye,
+  EyeOff,
+  RefreshCw,
+  Send,
+  Sparkles
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { UserRole } from '../types/hostelEase';
@@ -37,12 +39,17 @@ const PRESET_AGENT_AVATARS = [
   { id: 'l-3', url: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=300&q=80', label: 'Agent 3' },
   { id: 'l-4', url: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=300&q=80', label: 'Agent 4' }
 ];
-const PRESET_LANDLORD_AVATARS = PRESET_AGENT_AVATARS;
+
+export type AuthModalMode = 'login' | 'register' | 'verify_email' | 'forgot_password' | 'reset_password';
 
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
   defaultRole?: UserRole;
+  initialMode?: AuthModalMode;
+  initialEmail?: string;
+  initialResetCode?: string;
+  initialResetToken?: string;
   onSuccess?: (user?: any) => void;
 }
 
@@ -50,30 +57,82 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   isOpen,
   onClose,
   defaultRole = 'STUDENT',
+  initialMode = 'login',
+  initialEmail = '',
+  initialResetCode = '',
+  initialResetToken = '',
   onSuccess
 }) => {
-  const { login, register } = useAuth();
+  const { login, register, verifyEmail, resendVerification, forgotPassword, resetPassword } = useAuth();
 
-  const [mode, setMode] = useState<'login' | 'register'>('login');
+  // Mode state: login, register, verify_email, forgot_password, reset_password
+  const [mode, setMode] = useState<AuthModalMode>(initialMode);
   const [role, setRole] = useState<UserRole>(defaultRole);
 
-  // Form fields
-  const [email, setEmail] = useState('');
-  const [emailManuallyEdited, setEmailManuallyEdited] = useState(false);
-  const [password, setPassword] = useState('');
-  const [fullName, setFullName] = useState('');
-  const [phone, setPhone] = useState('');
-  const [department, setDepartment] = useState('');
-  const [matricNo, setMatricNo] = useState('');
-  const [level, setLevel] = useState('100L');
-  const [avatarUrl, setAvatarUrl] = useState('');
-  const [customAvatarInput, setCustomAvatarInput] = useState(false);
-  const [businessName, setBusinessName] = useState('');
-  const [submitting, setSubmitting] = useState(false);
-  const [isLoggingIn, setIsLoggingIn] = useState(false);
+  // Common Form Fields
+  const [email, setEmail] = useState<string>(initialEmail);
+  const [password, setPassword] = useState<string>('');
+  const [fullName, setFullName] = useState<string>('');
+  const [phone, setPhone] = useState<string>('');
+  const [avatarUrl, setAvatarUrl] = useState<string>('');
+  const [businessName, setBusinessName] = useState<string>('');
+
+  // Password Visibility States (Eye icon toggle)
+  const [showPassword, setShowPassword] = useState<boolean>(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState<boolean>(false);
+
+  // Email Verification OTP State
+  const [verificationEmail, setVerificationEmail] = useState<string>(initialEmail);
+  const [verificationCode, setVerificationCode] = useState<string>('');
+  const [resendCooldown, setResendCooldown] = useState<number>(0);
+  const [resendingCode, setResendingCode] = useState<boolean>(false);
+
+  // Password Recovery States
+  const [recoveryEmail, setRecoveryEmail] = useState<string>(initialEmail);
+  const [resetCode, setResetCode] = useState<string>(initialResetCode);
+  const [resetToken, setResetToken] = useState<string>(initialResetToken);
+  const [newPassword, setNewPassword] = useState<string>('');
+  const [confirmPassword, setConfirmPassword] = useState<string>('');
+  const [resetSuccessMessage, setResetSuccessMessage] = useState<string | null>(null);
+
+  // UI & Loading States
+  const [submitting, setSubmitting] = useState<boolean>(false);
+  const [isLoggingIn, setIsLoggingIn] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [infoMessage, setInfoMessage] = useState<string | null>(null);
   const [accessRestricted, setAccessRestricted] = useState<boolean>(false);
+  const [customAvatarInput, setCustomAvatarInput] = useState<boolean>(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Sync props when modal opens or initialMode changes
+  useEffect(() => {
+    if (isOpen) {
+      setMode(initialMode);
+      setRole(defaultRole);
+      setError(null);
+      setInfoMessage(null);
+      setShowPassword(false);
+      setShowConfirmPassword(false);
+      if (initialEmail) {
+        setEmail(initialEmail);
+        setVerificationEmail(initialEmail);
+        setRecoveryEmail(initialEmail);
+      }
+      if (initialResetCode) setResetCode(initialResetCode);
+      if (initialResetToken) setResetToken(initialResetToken);
+    }
+  }, [isOpen, initialMode, defaultRole, initialEmail, initialResetCode, initialResetToken]);
+
+  // Resend OTP Cooldown Timer
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const timer = setInterval(() => {
+      setResendCooldown((prev) => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [resendCooldown]);
+
+  if (!isOpen) return null;
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -92,7 +151,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       img.onload = () => {
         try {
           const canvas = document.createElement('canvas');
-          const maxDim = 150;
+          const maxDim = 200;
           let width = img.width;
           let height = img.height;
           if (width > height) {
@@ -111,7 +170,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           const ctx = canvas.getContext('2d');
           if (ctx) {
             ctx.drawImage(img, 0, 0, width, height);
-            const compressed = canvas.toDataURL('image/jpeg', 0.8);
+            const compressed = canvas.toDataURL('image/jpeg', 0.85);
             setAvatarUrl(compressed);
             setError(null);
           } else {
@@ -123,176 +182,241 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           setError(null);
         }
       };
-      img.onerror = () => {
-        setAvatarUrl(dataUri);
-        setError(null);
-      };
       img.src = dataUri;
     };
     reader.readAsDataURL(file);
   };
 
-  if (!isOpen) return null;
-
-  const formatEmailFromName = (name: string, targetRole: UserRole): string => {
-    const clean = name.toLowerCase().trim().replace(/[^a-z0-9]+/g, '.').replace(/^\.+|\.+$/g, '');
-    if (!clean) return '';
-    if (targetRole === 'STUDENT') return `${clean}@lautech.edu.ng`;
-    if (targetRole === 'PROVIDER') return `${clean}@hostelease.ng`;
-    if (targetRole === 'ADMIN') return `${clean}@hostelease.ng`;
-    return `${clean}@lautech.edu.ng`;
-  };
-
-  const getCleanUsernamePrefix = (inputEmail: string): string => {
-    return inputEmail.toLowerCase().trim().split('@')[0].replace(/[^a-z0-9.]/g, '');
-  };
-
-  const handleFullNameChange = (val: string) => {
-    setFullName(val);
-    setError(null);
-    if (!emailManuallyEdited || !email || email.endsWith('@lautech.edu.ng') || email.endsWith('@hostelease.ng')) {
-      setEmail(formatEmailFromName(val, role));
-    }
-  };
-
-  const handleRoleSelect = (newRole: UserRole) => {
-    setRole(newRole);
-    setError(null);
-    setAccessRestricted(false);
-    
-    // Clear avatar preset if switching roles and preset belongs to previous role
-    if (newRole === 'ADMIN') {
-      setMode('login');
-      setEmail('');
-      setPassword('');
-    }
-
-    if (fullName && (!emailManuallyEdited || email.endsWith('@lautech.edu.ng') || email.endsWith('@hostelease.ng'))) {
-      setEmail(formatEmailFromName(fullName, newRole));
-    } else if (newRole === 'ADMIN') {
-      setMode('login');
-      setEmail('');
-      setPassword('');
-    }
-  };
-
-  const handleResetToLogin = () => {
-    setError(null);
-    setAccessRestricted(false);
-    setRole('STUDENT');
-    setMode('login');
-    setEmail('');
-    setEmailManuallyEdited(false);
-    setPassword('');
-    setFullName('');
-  };
-
-  const normalizeEmailBeforeSubmit = (rawEmail: string, targetRole: UserRole, currentMode: 'login' | 'register'): string => {
-    const trimmed = rawEmail.toLowerCase().trim();
-    if (!trimmed) return '';
-    if (targetRole === 'ADMIN') {
-      return trimmed;
-    }
-    if (!trimmed.includes('@')) {
-      if (currentMode === 'register') {
-        if (targetRole === 'STUDENT') return `${trimmed}@lautech.edu.ng`;
-        if (targetRole === 'PROVIDER') return `${trimmed}@hostelease.ng`;
-      } else {
-        if (targetRole === 'PROVIDER' || trimmed.includes('agent') || trimmed.includes('landlord') || trimmed.includes('provider')) return `${trimmed}@hostelease.ng`;
-        return `${trimmed}@lautech.edu.ng`;
-      }
-    }
-    return trimmed;
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
+  // 1. Submit Login Flow
+  const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (submitting || isLoggingIn) return;
     setError(null);
+    setInfoMessage(null);
     setAccessRestricted(false);
     setSubmitting(true);
 
-    const resolvedEmail = normalizeEmailBeforeSubmit(email, role, mode);
+    const cleanEmail = email.trim();
 
     try {
-      let authedUser: any = null;
-      if (mode === 'login') {
-        // Backend database is single source of truth for account role
-        authedUser = await login(resolvedEmail, password, role === 'ADMIN' ? 'ADMIN' : undefined);
-      } else {
-        authedUser = await register({
-          email: resolvedEmail,
-          password,
-          fullName: fullName.trim(),
-          phone: phone.trim() || undefined,
-          role,
-          avatarUrl: avatarUrl || undefined,
-          studentDetails: role === 'STUDENT' ? { 
-            matricNo: matricNo.trim() || undefined,
-            matricNumber: matricNo.trim() || undefined,
-            department: department.trim(),
-            level,
-            avatarUrl
-          } : undefined,
-          providerDetails: role === 'PROVIDER' ? { 
-            businessName: businessName.trim() || undefined,
-            avatarUrl 
-          } : undefined
-        });
-      }
-
+      const authedUser = await login(cleanEmail, password, role === 'ADMIN' ? 'ADMIN' : undefined);
       setSubmitting(false);
       setIsLoggingIn(false);
       if (onSuccess) onSuccess(authedUser);
       onClose();
     } catch (err: any) {
-      let errMsg = err.message || 'Authentication failed. Please check your credentials.';
-      if (/quota/i.test(errMsg)) {
-        errMsg = 'Storage quota reached. Cache has been freed. Please try again.';
-      }
-      setError(errMsg);
       setSubmitting(false);
       setIsLoggingIn(false);
+      const errMsg = err.message || 'Authentication failed. Please check your email and password.';
+      
+      if (err.code === 'EMAIL_NOT_VERIFIED' || errMsg.toLowerCase().includes('not yet verified')) {
+        setVerificationEmail(cleanEmail);
+        setMode('verify_email');
+        setInfoMessage('Please enter the 6-digit verification code sent to your email to activate your account.');
+        setResendCooldown(60);
+        return;
+      }
 
-      // Check if this was an unauthorized admin or role access attempt
+      setError(errMsg);
+
       if (
         errMsg.toLowerCase().includes('not authorized to access the admin portal') ||
         err.code === 'UNAUTHORIZED_ADMIN_ACCESS' ||
-        (role === 'ADMIN' && (errMsg.includes('403') || errMsg.toLowerCase().includes('restricted') || errMsg.toLowerCase().includes('authorized')))
+        (role === 'ADMIN' && (err.status === 403 || errMsg.includes('403')))
       ) {
         setAccessRestricted(true);
       }
     }
   };
 
+  // 2. Submit Sign-Up Flow
+  const handleRegisterSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (submitting) return;
+    setError(null);
+    setInfoMessage(null);
+
+    const cleanEmail = email.trim().toLowerCase();
+    if (!cleanEmail || !cleanEmail.includes('@') || !cleanEmail.includes('.')) {
+      setError('Please enter a valid, real email address.');
+      return;
+    }
+
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters long.');
+      return;
+    }
+
+    setSubmitting(true);
+
+    try {
+      const res = await register({
+        email: cleanEmail,
+        password,
+        fullName: fullName.trim(),
+        phone: phone.trim() || undefined,
+        role,
+        avatarUrl: avatarUrl || undefined,
+        providerDetails: role === 'PROVIDER' ? {
+          businessName: businessName.trim() || `${fullName.trim()} Accommodations`
+        } : undefined
+      });
+
+      setSubmitting(false);
+
+      if (res.verificationRequired || !res.token) {
+        setVerificationEmail(cleanEmail);
+        setVerificationCode('');
+        setMode('verify_email');
+        setResendCooldown(60);
+        setInfoMessage(`We've sent a 6-digit verification code to ${cleanEmail}. Please enter it below to complete registration.`);
+      } else {
+        if (onSuccess) onSuccess(res.user);
+        onClose();
+      }
+    } catch (err: any) {
+      setSubmitting(false);
+      if (err.code === 'EMAIL_ALREADY_REGISTERED' || err.status === 409) {
+        setError('This email address is already registered. Please log in or use Forgot Password if you cannot access your account.');
+      } else {
+        setError(err.message || 'Registration failed. Please check your details and try again.');
+      }
+    }
+  };
+
+  // 3. Submit Email OTP Verification Flow
+  const handleVerifyOtpSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (submitting) return;
+    setError(null);
+    setInfoMessage(null);
+
+    const code = verificationCode.trim();
+    if (!code || code.length < 6) {
+      setError('Please enter the complete 6-digit verification code.');
+      return;
+    }
+
+    setSubmitting(true);
+
+    try {
+      const verifiedUser = await verifyEmail(verificationEmail.trim().toLowerCase(), code);
+      setSubmitting(false);
+      if (onSuccess) onSuccess(verifiedUser);
+      onClose();
+    } catch (err: any) {
+      setSubmitting(false);
+      setError(err.message || 'Incorrect verification code. Please check your email and try again.');
+    }
+  };
+
+  // 4. Resend Verification OTP
+  const handleResendOtp = async () => {
+    if (resendingCode || resendCooldown > 0) return;
+    setError(null);
+    setResendingCode(true);
+
+    try {
+      await resendVerification(verificationEmail.trim().toLowerCase());
+      setResendingCode(false);
+      setResendCooldown(60);
+      setInfoMessage(`A fresh 6-digit verification code has been sent to ${verificationEmail}.`);
+    } catch (err: any) {
+      setResendingCode(false);
+      if (err.remainingSeconds) {
+        setResendCooldown(err.remainingSeconds);
+      }
+      setError(err.message || 'Failed to resend verification code. Please wait and try again.');
+    }
+  };
+
+  // 5. Submit Forgot Password Request
+  const handleForgotPasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (submitting) return;
+    setError(null);
+    setInfoMessage(null);
+
+    const cleanEmail = recoveryEmail.trim().toLowerCase();
+    if (!cleanEmail || !cleanEmail.includes('@')) {
+      setError('Please enter a valid email address.');
+      return;
+    }
+
+    setSubmitting(true);
+
+    try {
+      const res = await forgotPassword(cleanEmail);
+      setSubmitting(false);
+      setVerificationEmail(cleanEmail);
+      setMode('reset_password');
+      setInfoMessage('If an account exists with this email address, a 6-digit recovery code has been sent. Please enter it below.');
+    } catch (err: any) {
+      setSubmitting(false);
+      setError(err.message || 'Failed to send recovery code. Please try again.');
+    }
+  };
+
+  // 6. Submit Password Reset
+  const handleResetPasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (submitting) return;
+    setError(null);
+    setInfoMessage(null);
+
+    if (!resetCode.trim() && !resetToken.trim()) {
+      setError('Please enter the 6-digit recovery code from your email.');
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      setError('New password must be at least 6 characters long.');
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setError('Passwords do not match. Please re-enter.');
+      return;
+    }
+
+    setSubmitting(true);
+
+    try {
+      await resetPassword(recoveryEmail.trim().toLowerCase(), newPassword, resetCode.trim() || undefined, resetToken.trim() || undefined);
+      setSubmitting(false);
+      setResetSuccessMessage('Your password has been successfully reset! You can now log in with your new password.');
+      setPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (err: any) {
+      setSubmitting(false);
+      setError(err.message || 'Failed to reset password. Please check your code or request a new one.');
+    }
+  };
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-sm overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/75 backdrop-blur-sm overflow-y-auto">
       <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden animate-in zoom-in-95 duration-150 my-6 relative">
-        {/* Logging In Transition Overlay */}
-        {isLoggingIn && (
-          <div className="absolute inset-0 z-50 bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm flex flex-col items-center justify-center p-6 space-y-4 animate-in fade-in duration-150">
-            <div className="w-14 h-14 rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shadow-inner">
-              <div className="w-7 h-7 border-3 border-emerald-600 dark:border-emerald-400 border-t-transparent rounded-full animate-spin" />
-            </div>
-            <div className="text-center space-y-1">
-              <h3 className="text-base font-black text-slate-900 dark:text-white">
-                {mode === 'login' ? 'Authenticating & Verifying Role...' : 'Account Created Successfully!'}
-              </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                Verifying authorization with database security...
-              </p>
-            </div>
-            <div className="w-48 bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
-              <div className="bg-emerald-500 h-full w-3/4 animate-pulse rounded-full" />
-            </div>
+        
+        {/* Loading Overlay */}
+        {submitting && (
+          <div className="absolute inset-0 z-40 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xs flex flex-col items-center justify-center p-6 space-y-3">
+            <RefreshCw className="w-8 h-8 text-emerald-600 dark:text-emerald-400 animate-spin" />
+            <p className="text-xs font-bold text-slate-800 dark:text-slate-200">
+              {mode === 'login' ? 'Authenticating credentials...' : 
+               mode === 'register' ? 'Sending verification code...' : 
+               mode === 'verify_email' ? 'Activating account...' : 
+               mode === 'forgot_password' ? 'Sending recovery email...' : 'Updating password...'}
+            </p>
           </div>
         )}
 
-        {/* Header */}
+        {/* Modal Header */}
         <div className="bg-slate-900 dark:bg-black text-white p-6 pb-5 relative">
           <button
             onClick={onClose}
-            className="absolute top-4 right-4 p-1.5 rounded-full text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+            className="absolute top-4 right-4 p-1.5 rounded-full text-slate-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+            aria-label="Close modal"
           >
             <X className="w-5 h-5" />
           </button>
@@ -305,469 +429,717 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               <h2 className="text-xl font-black tracking-tight">
                 Hostel <span className="text-emerald-400">Ease</span>
               </h2>
-              <p className="text-xs text-slate-400">Find your hostel. Stress less.</p>
+              <p className="text-xs text-slate-400">LAUTECH Student & Agent Accommodation Platform</p>
             </div>
           </div>
 
-          {/* Role selector pills (Student | Agent | Admin) */}
-          <div className="grid grid-cols-3 gap-1.5 bg-white/10 p-1 rounded-xl mt-4 text-xs">
-            <button
-              type="button"
-              onClick={() => handleRoleSelect('STUDENT')}
-              className={`py-2 px-2 rounded-lg font-bold transition-all flex items-center justify-center gap-1.5 ${
-                role === 'STUDENT' ? 'bg-emerald-600 text-white shadow' : 'text-slate-300 hover:text-white'
-              }`}
-            >
-              👨‍🎓 Student
-            </button>
-            <button
-              type="button"
-              onClick={() => handleRoleSelect('PROVIDER')}
-              className={`py-2 px-2 rounded-lg font-bold transition-all flex items-center justify-center gap-1.5 ${
-                role === 'PROVIDER' ? 'bg-emerald-600 text-white shadow' : 'text-slate-300 hover:text-white'
-              }`}
-            >
-              🏠 Agent
-            </button>
-            <button
-              type="button"
-              onClick={() => handleRoleSelect('ADMIN')}
-              className={`py-2 px-2 rounded-lg font-bold transition-all flex items-center justify-center gap-1.5 ${
-                role === 'ADMIN' ? 'bg-purple-600 text-white shadow' : 'text-slate-300 hover:text-white'
-              }`}
-            >
-              👑 Admin
-            </button>
-          </div>
+          {/* Role selector pills - only for login or register */}
+          {(mode === 'login' || mode === 'register') && (
+            <div className="grid grid-cols-3 gap-1.5 bg-white/10 p-1 rounded-xl mt-4 text-xs">
+              <button
+                type="button"
+                onClick={() => { setRole('STUDENT'); setError(null); }}
+                className={`py-2 px-2 rounded-lg font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                  role === 'STUDENT' ? 'bg-emerald-600 text-white shadow' : 'text-slate-300 hover:text-white'
+                }`}
+              >
+                👨‍🎓 Student
+              </button>
+              <button
+                type="button"
+                onClick={() => { setRole('PROVIDER'); setError(null); }}
+                className={`py-2 px-2 rounded-lg font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                  role === 'PROVIDER' ? 'bg-emerald-600 text-white shadow' : 'text-slate-300 hover:text-white'
+                }`}
+              >
+                🏢 Agent
+              </button>
+              <button
+                type="button"
+                onClick={() => { setRole('ADMIN'); setMode('login'); setError(null); }}
+                className={`py-2 px-2 rounded-lg font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                  role === 'ADMIN' ? 'bg-purple-600 text-white shadow' : 'text-slate-300 hover:text-white'
+                }`}
+              >
+                👑 Admin
+              </button>
+            </div>
+          )}
         </div>
 
-        {/* Form Body or Access Restricted View */}
-        {accessRestricted ? (
-          <div className="p-8 text-center space-y-5 animate-in zoom-in-95 duration-150">
-            <div className="w-16 h-16 rounded-2xl bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center mx-auto shadow-inner border border-rose-200 dark:border-rose-800">
-              <ShieldAlert className="w-8 h-8" />
+        {/* Modal Body */}
+        <div className="p-6 space-y-4">
+
+          {/* Access Restricted Warning View */}
+          {accessRestricted ? (
+            <div className="p-4 text-center space-y-4">
+              <div className="w-14 h-14 rounded-2xl bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center mx-auto shadow-inner border border-rose-200 dark:border-rose-800">
+                <ShieldAlert className="w-7 h-7" />
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-base font-black text-slate-900 dark:text-white">Access Restricted</h3>
+                <p className="text-xs text-slate-600 dark:text-slate-300">
+                  This account is not authorized to access the Admin Portal.
+                </p>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                  Administrative privileges are managed strictly by the Super Administrator.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => { setAccessRestricted(false); setRole('STUDENT'); setMode('login'); }}
+                className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl transition-all cursor-pointer"
+              >
+                Return to Student Login
+              </button>
             </div>
-            
-            <div className="space-y-2">
-              <h3 className="text-xl font-black text-slate-900 dark:text-white flex items-center justify-center gap-2">
-                <span>🔒 Access Restricted</span>
-              </h3>
-              <p className="text-xs font-semibold text-slate-700 dark:text-slate-300 max-w-sm mx-auto leading-relaxed">
-                This account is not authorized to access the Admin Portal.
-              </p>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                Administrative privileges are managed strictly in the backend database. Public accounts cannot access the administrative command console.
-              </p>
-            </div>
-
-            <button
-              type="button"
-              onClick={handleResetToLogin}
-              className="w-full py-3 px-4 bg-slate-900 hover:bg-slate-800 dark:bg-emerald-600 dark:hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow transition-all flex items-center justify-center gap-2"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              <span>Return to Login</span>
-            </button>
-          </div>
-        ) : (
-          <div className="p-6 space-y-4">
-            {/* Mode toggle (Login / Register) */}
-            {role === 'ADMIN' ? (
-              <div className="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-800">
-                <h3 className="text-sm font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
-                  <ShieldCheck className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-                  <span>Admin Login</span>
-                </h3>
-              </div>
-            ) : (
-              <div className="flex border-b border-slate-200 dark:border-slate-800 pb-2">
-                <button
-                  type="button"
-                  onClick={() => { setMode('login'); setError(null); }}
-                  className={`flex-1 pb-2 text-xs font-bold transition-all border-b-2 text-center ${
-                    mode === 'login'
-                      ? 'border-emerald-600 text-emerald-600 dark:text-emerald-400'
-                      : 'border-transparent text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
-                  }`}
-                >
-                  Log In
-                </button>
-                <button
-                  type="button"
-                  onClick={() => { setMode('register'); setError(null); }}
-                  className={`flex-1 pb-2 text-xs font-bold transition-all border-b-2 text-center ${
-                    mode === 'register'
-                      ? 'border-emerald-600 text-emerald-600 dark:text-emerald-400'
-                      : 'border-transparent text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
-                  }`}
-                >
-                  Register Account
-                </button>
-              </div>
-            )}
-
-            {error && (
-              <div className="p-3 bg-red-50 dark:bg-red-950/60 border border-red-200 dark:border-red-800 rounded-xl text-red-700 dark:text-red-300 text-xs flex flex-col gap-1.5">
-                <div className="flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                  <span className="font-medium">{error}</span>
-                </div>
-                {error.toLowerCase().includes('already exists') && (
-                  <button
-                    type="button"
-                    onClick={() => { setMode('login'); setError(null); }}
-                    className="self-start text-xs font-bold text-emerald-700 dark:text-emerald-400 underline hover:text-emerald-800"
-                  >
-                    Click here to Log In instead →
-                  </button>
-                )}
-              </div>
-            )}
-
-            <form onSubmit={handleSubmit} className="space-y-3">
-              {mode === 'register' && role !== 'ADMIN' && (
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase">
-                      Full Name {role === 'PROVIDER' ? '(Agent)' : '(Student)'}
-                    </label>
-                    <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">
-                      ✨ Auto-generates email
-                    </span>
+          ) : (
+            <>
+              {/* Error and Info Banners */}
+              {error && (
+                <div className="p-3 bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 rounded-xl text-rose-700 dark:text-rose-300 text-xs flex flex-col gap-2">
+                  <div className="flex items-start gap-2">
+                    <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+                    <span className="font-medium leading-relaxed">{error}</span>
                   </div>
-                  <div className="relative flex items-center">
-                    <UserIcon className="w-4 h-4 text-slate-400 absolute left-3" />
-                    <input
-                      type="text"
-                      placeholder={role === 'PROVIDER' ? 'e.g. Ahmad Oladimeji' : 'e.g. Adelopo Ahmad'}
-                      value={fullName}
-                      onChange={(e) => handleFullNameChange(e.target.value)}
-                      className="w-full text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pl-9 pr-3 py-2.5 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                      required
-                    />
-                  </div>
+                  {error.toLowerCase().includes('already registered') && (
+                    <div className="flex items-center gap-2 pt-1 border-t border-rose-200 dark:border-rose-800/80">
+                      <button
+                        type="button"
+                        onClick={() => { setMode('login'); setError(null); }}
+                        className="text-xs font-bold text-emerald-700 dark:text-emerald-400 underline hover:text-emerald-800 cursor-pointer"
+                      >
+                        Log in now →
+                      </button>
+                      <span className="text-slate-300 dark:text-slate-600">•</span>
+                      <button
+                        type="button"
+                        onClick={() => { 
+                          setRecoveryEmail(email);
+                          setMode('forgot_password'); 
+                          setError(null); 
+                        }}
+                        className="text-xs font-bold text-rose-700 dark:text-rose-300 underline hover:text-rose-800 cursor-pointer"
+                      >
+                        Forgot Password?
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
 
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase">
-                    {role === 'ADMIN' ? 'Username' : 'Email Address'}
-                  </label>
-                  {role !== 'ADMIN' && email && !email.includes('@') && (
-                    <span className="text-[10px] text-amber-600 dark:text-amber-400 font-bold">
-                      Domain required
-                    </span>
-                  )}
-                </div>
-                <div className="relative flex items-center">
-                  {role === 'ADMIN' ? (
-                    <UserIcon className="w-4 h-4 text-slate-400 absolute left-3" />
-                  ) : (
-                    <Mail className="w-4 h-4 text-slate-400 absolute left-3" />
-                  )}
-                  <input
-                    type="text"
-                    placeholder={
-                      role === 'ADMIN'
-                        ? 'Enter username'
-                        : role === 'STUDENT' 
-                        ? 'adelopo@lautech.edu.ng' 
-                        : 'ahmad@hostelease.ng'
-                    }
-                    value={email}
-                    autoCapitalize="none"
-                    autoCorrect="off"
-                    onChange={(e) => { 
-                      setEmail(e.target.value); 
-                      setEmailManuallyEdited(true); 
-                      setError(null); 
-                    }}
-                    className="w-full text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pl-9 pr-3 py-2.5 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                    required
-                  />
-                </div>
-
-                {/* Smart Auto-Complete Domain Chip (Only for Student and Provider) */}
-                {role !== 'ADMIN' && email && !email.includes('@') && (
-                  <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
-                    <span className="text-[10px] text-slate-500 dark:text-slate-400">Click to complete:</span>
-                    {role === 'STUDENT' && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const clean = getCleanUsernamePrefix(email);
-                          setEmail(`${clean || 'student'}@lautech.edu.ng`);
-                          setError(null);
-                        }}
-                        className="px-2 py-0.5 bg-emerald-100 hover:bg-emerald-200 dark:bg-emerald-950/60 dark:hover:bg-emerald-900/80 text-emerald-800 dark:text-emerald-200 text-[10px] font-bold rounded-lg transition-colors flex items-center gap-1 border border-emerald-300 dark:border-emerald-700"
-                      >
-                        <span>⚡ @lautech.edu.ng</span>
-                      </button>
-                    )}
-                    {role === 'PROVIDER' && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const clean = getCleanUsernamePrefix(email);
-                          setEmail(`${clean || 'agent'}@hostelease.ng`);
-                          setError(null);
-                        }}
-                        className="px-2 py-0.5 bg-emerald-100 hover:bg-emerald-200 dark:bg-emerald-950/60 dark:hover:bg-emerald-900/80 text-emerald-800 dark:text-emerald-200 text-[10px] font-bold rounded-lg transition-colors flex items-center gap-1 border border-emerald-300 dark:border-emerald-700"
-                      >
-                        <span>⚡ @hostelease.ng</span>
-                      </button>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase">Password</label>
-                  {mode === 'register' && (
-                    <span className="text-[10px] text-slate-400 dark:text-slate-500">Min. 6 characters</span>
-                  )}
-                </div>
-                <div className="relative flex items-center">
-                  <Lock className="w-4 h-4 text-slate-400 absolute left-3" />
-                  <input
-                    type="password"
-                    placeholder="••••••••"
-                    minLength={6}
-                    value={password}
-                    onChange={(e) => { setPassword(e.target.value); setError(null); }}
-                    className="w-full text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pl-9 pr-3 py-2.5 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                    required
-                  />
-                </div>
-              </div>
-
-              {mode === 'register' && role !== 'ADMIN' && (
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">Phone / WhatsApp Number</label>
-                  <div className="relative flex items-center">
-                    <Phone className="w-4 h-4 text-slate-400 absolute left-3" />
-                    <input
-                      type="tel"
-                      placeholder="e.g. +234 803 000 0000"
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      className="w-full text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pl-9 pr-3 py-2.5 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                    />
-                  </div>
+              {infoMessage && (
+                <div className="p-3 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 rounded-xl text-emerald-800 dark:text-emerald-200 text-xs flex items-start gap-2">
+                  <Sparkles className="w-4 h-4 mt-0.5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                  <span className="font-medium leading-relaxed">{infoMessage}</span>
                 </div>
               )}
 
-              {mode === 'register' && role === 'STUDENT' && (
-                <div className="space-y-3 pt-1 border-t border-slate-100 dark:border-slate-800">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* ========================================================================= */}
+              {/* FLOW 1: LOGIN (Dedicated Login Flow) */}
+              {/* ========================================================================= */}
+              {mode === 'login' && (
+                <div className="space-y-4">
+                  <div className="border-b border-slate-100 dark:border-slate-800 pb-2">
+                    <h3 className="text-base font-black text-slate-900 dark:text-white">
+                      {role === 'ADMIN' ? '👑 Admin Login' : role === 'PROVIDER' ? '🏢 Agent Login' : '👨‍🎓 Student Login'}
+                    </h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      Sign in to your existing account. Cross-device access enabled.
+                    </p>
+                  </div>
+
+                  <form onSubmit={handleLoginSubmit} className="space-y-3.5">
                     <div>
                       <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
-                        Matriculation No. <span className="text-emerald-600 dark:text-emerald-400">*</span>
+                        {role === 'ADMIN' ? 'Username / Email' : 'Email Address'}
                       </label>
                       <div className="relative flex items-center">
-                        <GraduationCap className="w-4 h-4 text-slate-400 absolute left-3" />
+                        <Mail className="w-4 h-4 text-slate-400 absolute left-3" />
                         <input
                           type="text"
-                          placeholder="e.g. 2024/09876"
-                          value={matricNo}
-                          onChange={(e) => setMatricNo(e.target.value)}
-                          className="w-full text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pl-9 pr-3 py-2.5 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:ring-2 focus:ring-emerald-500 focus:outline-none uppercase font-mono font-bold"
                           required
+                          value={email}
+                          onChange={(e) => { setEmail(e.target.value); setError(null); }}
+                          placeholder={role === 'ADMIN' ? 'admin or admin@hostelease.ng' : 'e.g. yourname@gmail.com'}
+                          className="w-full text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pl-9 pr-3 py-2.5 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                         />
                       </div>
                     </div>
 
                     <div>
-                      <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
-                        Academic Level
-                      </label>
-                      <select
-                        value={level}
-                        onChange={(e) => setLevel(e.target.value)}
-                        className="w-full text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:outline-none font-bold"
-                      >
-                        <option value="100L">100 Level (Fresher)</option>
-                        <option value="200L">200 Level</option>
-                        <option value="300L">300 Level</option>
-                        <option value="400L">400 Level (Finalist / Clinical)</option>
-                        <option value="500L">500 Level (Engineering / Agri)</option>
-                        <option value="Postgraduate">Postgraduate / Masters</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
-                      LAUTECH Department
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="e.g. Computer Science, Accounting, Med Lab, Mechanical Eng"
-                      value={department}
-                      onChange={(e) => setDepartment(e.target.value)}
-                      className="w-full text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                    />
-                  </div>
-                </div>
-              )}
-
-              {mode === 'register' && role === 'PROVIDER' && (
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">Business / Housing Name</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Adeleke Student Lodges"
-                    value={businessName}
-                    onChange={(e) => setBusinessName(e.target.value)}
-                    className="w-full text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                  />
-                </div>
-              )}
-
-              {/* Profile Picture Upload for Both Students and Agents */}
-              {mode === 'register' && role !== 'ADMIN' && (
-                <div className="space-y-3 bg-slate-50 dark:bg-slate-800/70 p-3.5 rounded-2xl border border-slate-200 dark:border-slate-700">
-                  <div className="flex items-center justify-between">
-                    <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase flex items-center gap-1.5">
-                      <Camera className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                      <span>{role === 'PROVIDER' ? 'Agent Display Picture' : 'Student Profile Photo'}</span>
-                    </label>
-                    <button
-                      type="button"
-                      onClick={() => setCustomAvatarInput(!customAvatarInput)}
-                      className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline cursor-pointer"
-                    >
-                      {customAvatarInput ? 'Use file/presets' : 'Paste web URL'}
-                    </button>
-                  </div>
-
-                  {/* Hidden File Input for Device / Camera Upload */}
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*"
-                    onChange={handleImageUpload}
-                    className="hidden"
-                  />
-
-                  {customAvatarInput ? (
-                    <input
-                      type="url"
-                      placeholder="Paste image URL (https://...)"
-                      value={avatarUrl}
-                      onChange={(e) => setAvatarUrl(e.target.value)}
-                      className="w-full text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-slate-900 dark:text-white placeholder:text-slate-400 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                    />
-                  ) : (
-                    <div className="flex items-center gap-3.5">
-                      {/* Avatar Preview */}
-                      <div className="relative flex-shrink-0">
-                        {avatarUrl ? (
-                          <img
-                            src={avatarUrl}
-                            alt="Profile Preview"
-                            className="w-14 h-14 rounded-full object-cover ring-2 ring-emerald-500 shadow-md"
-                          />
-                        ) : (
-                          <div className="w-14 h-14 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center ring-2 ring-slate-300 dark:ring-slate-600 shadow-inner text-slate-500 dark:text-slate-400">
-                            <UserIcon className="w-7 h-7" />
-                          </div>
-                        )}
-                        {avatarUrl && (
-                          <div className="absolute -bottom-1 -right-1 bg-emerald-600 text-white rounded-full p-1 shadow">
-                            <Check className="w-2.5 h-2.5" />
-                          </div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase">
+                          Password
+                        </label>
+                        {role !== 'ADMIN' && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setRecoveryEmail(email);
+                              setMode('forgot_password');
+                              setError(null);
+                              setInfoMessage(null);
+                            }}
+                            className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline cursor-pointer"
+                          >
+                            Forgot Password?
+                          </button>
                         )}
                       </div>
+                      <div className="relative flex items-center">
+                        <Lock className="w-4 h-4 text-slate-400 absolute left-3" />
+                        <input
+                          type={showPassword ? 'text' : 'password'}
+                          required
+                          value={password}
+                          onChange={(e) => { setPassword(e.target.value); setError(null); }}
+                          placeholder="••••••••"
+                          className="w-full text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pl-9 pr-10 py-2.5 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 absolute right-2.5 transition-colors cursor-pointer"
+                          aria-label={showPassword ? 'Hide password' : 'Show password'}
+                        >
+                          {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                    </div>
 
-                      {/* Upload CTA and Actions */}
-                      <div className="space-y-1.5 flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
+                    <button
+                      type="submit"
+                      disabled={submitting}
+                      className={`w-full py-3 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-2 mt-2 cursor-pointer ${
+                        role === 'ADMIN'
+                          ? 'bg-purple-600 hover:bg-purple-700 shadow-purple-600/30'
+                          : 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/30'
+                      }`}
+                    >
+                      <span>{submitting ? 'Authenticating...' : role === 'ADMIN' ? 'Log in as Admin' : role === 'PROVIDER' ? 'Log in as Agent' : 'Log in as Student'}</span>
+                    </button>
+                  </form>
+
+                  {role !== 'ADMIN' && (
+                    <div className="pt-3 border-t border-slate-100 dark:border-slate-800 text-center">
+                      <p className="text-xs text-slate-600 dark:text-slate-400">
+                        Don't have an account?{' '}
+                        <button
+                          type="button"
+                          onClick={() => { setMode('register'); setError(null); setInfoMessage(null); }}
+                          className="font-bold text-emerald-600 dark:text-emerald-400 hover:underline cursor-pointer"
+                        >
+                          Sign Up here
+                        </button>
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* ========================================================================= */}
+              {/* FLOW 2: SIGN UP (Simplified Student & Agent Registration) */}
+              {/* ========================================================================= */}
+              {mode === 'register' && (
+                <div className="space-y-4">
+                  <div className="border-b border-slate-100 dark:border-slate-800 pb-2">
+                    <h3 className="text-base font-black text-slate-900 dark:text-white">
+                      {role === 'PROVIDER' ? '🏢 Create Agent Account' : '👨‍🎓 Create Student Account'}
+                    </h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      Join Hostel Ease. A real verification code will be sent to your email.
+                    </p>
+                  </div>
+
+                  <form onSubmit={handleRegisterSubmit} className="space-y-3">
+                    {/* Full Name */}
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
+                        Full Name {role === 'PROVIDER' ? '(Agent / Property Owner)' : '(Student)'}
+                      </label>
+                      <div className="relative flex items-center">
+                        <UserIcon className="w-4 h-4 text-slate-400 absolute left-3" />
+                        <input
+                          type="text"
+                          required
+                          value={fullName}
+                          onChange={(e) => { setFullName(e.target.value); setError(null); }}
+                          placeholder={role === 'PROVIDER' ? 'e.g. Engr. Segun Adeyemi' : 'e.g. Tunde Adeyemi'}
+                          className="w-full text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pl-9 pr-3 py-2.5 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Real Email Address */}
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
+                        Real Email Address
+                      </label>
+                      <div className="relative flex items-center">
+                        <Mail className="w-4 h-4 text-slate-400 absolute left-3" />
+                        <input
+                          type="email"
+                          required
+                          value={email}
+                          onChange={(e) => { setEmail(e.target.value); setError(null); }}
+                          placeholder="e.g. yourname@gmail.com or student@lautech.edu.ng"
+                          className="w-full text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pl-9 pr-3 py-2.5 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                        />
+                      </div>
+                      <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
+                        Your real email is required for 6-digit OTP verification and password recovery.
+                      </p>
+                    </div>
+
+                    {/* Password with Eye Icon */}
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase">
+                          Password
+                        </label>
+                        <span className="text-[10px] text-slate-400">Min. 6 characters</span>
+                      </div>
+                      <div className="relative flex items-center">
+                        <Lock className="w-4 h-4 text-slate-400 absolute left-3" />
+                        <input
+                          type={showPassword ? 'text' : 'password'}
+                          required
+                          minLength={6}
+                          value={password}
+                          onChange={(e) => { setPassword(e.target.value); setError(null); }}
+                          placeholder="••••••••"
+                          className="w-full text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pl-9 pr-10 py-2.5 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 absolute right-2.5 transition-colors cursor-pointer"
+                          aria-label={showPassword ? 'Hide password' : 'Show password'}
+                        >
+                          {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Phone Number */}
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
+                        Phone / WhatsApp Number
+                      </label>
+                      <div className="relative flex items-center">
+                        <Phone className="w-4 h-4 text-slate-400 absolute left-3" />
+                        <input
+                          type="tel"
+                          required
+                          value={phone}
+                          onChange={(e) => setPhone(e.target.value)}
+                          placeholder="e.g. 08012345678"
+                          className="w-full text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pl-9 pr-3 py-2.5 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Agent Specific Fields */}
+                    {role === 'PROVIDER' && (
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
+                          Agency / Business Name
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          value={businessName}
+                          onChange={(e) => setBusinessName(e.target.value)}
+                          placeholder="e.g. Destiny Accommodations Ogbomoso"
+                          className="w-full text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                        />
+                      </div>
+                    )}
+
+                    {/* Profile Picture Upload Section (Camera, File, or Presets) */}
+                    <div className="space-y-2.5 bg-slate-50 dark:bg-slate-800/70 p-3 rounded-2xl border border-slate-200 dark:border-slate-700">
+                      <div className="flex items-center justify-between">
+                        <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase flex items-center gap-1.5">
+                          <Camera className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                          <span>Profile Photo</span>
+                        </label>
+                        <span className="text-[10px] text-slate-400">Optional</span>
+                      </div>
+
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*"
+                        onChange={handleImageUpload}
+                        className="hidden"
+                      />
+
+                      <div className="flex items-center gap-3">
+                        <div className="relative shrink-0">
+                          {avatarUrl ? (
+                            <img
+                              src={avatarUrl}
+                              alt="Profile Preview"
+                              className="w-12 h-12 rounded-full object-cover ring-2 ring-emerald-500 shadow"
+                            />
+                          ) : (
+                            <div className="w-12 h-12 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-slate-500 dark:text-slate-400 shadow-inner">
+                              <UserIcon className="w-6 h-6" />
+                            </div>
+                          )}
+                          {avatarUrl && (
+                            <div className="absolute -bottom-0.5 -right-0.5 bg-emerald-600 text-white rounded-full p-0.5 shadow">
+                              <Check className="w-2.5 h-2.5" />
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-2 flex-wrap flex-1">
                           <button
                             type="button"
                             onClick={() => fileInputRef.current?.click()}
-                            className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all cursor-pointer hover:scale-105"
+                            className="px-3 py-1.5 bg-slate-900 dark:bg-slate-700 hover:bg-slate-800 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs transition-all cursor-pointer"
                           >
                             <Upload className="w-3.5 h-3.5" />
-                            <span>Upload Your Photo</span>
+                            <span>Upload Photo</span>
                           </button>
-
                           {avatarUrl && (
                             <button
                               type="button"
                               onClick={() => setAvatarUrl('')}
                               className="p-1.5 text-slate-400 hover:text-rose-500 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors cursor-pointer"
-                              title="Remove selected photo"
+                              title="Remove photo"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
                           )}
                         </div>
-                        <p className="text-[10px] text-slate-500 dark:text-slate-400">
-                          {avatarUrl ? 'Photo selected. Click presets below to change.' : 'Optional. Supports camera selfies, JPG, PNG & WebP (Max 8MB)'}
-                        </p>
                       </div>
-                    </div>
-                  )}
 
-                  {/* Preset Avatars Bar */}
-                  {!customAvatarInput && (
-                    <div className="pt-2 border-t border-slate-200/60 dark:border-slate-700/60">
-                      <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider block mb-1.5">
-                        Or select quick preset avatar:
-                      </span>
-                      <div className="flex items-center gap-2 overflow-x-auto py-1 scrollbar-none">
-                        {(role === 'PROVIDER' ? PRESET_LANDLORD_AVATARS : PRESET_STUDENT_AVATARS).map((av) => (
-                          <button
-                            key={av.id}
-                            type="button"
-                            onClick={() => setAvatarUrl(av.url)}
-                            className={`relative rounded-full p-0.5 transition-all flex-shrink-0 cursor-pointer ${
-                              avatarUrl === av.url
-                                ? 'ring-2 ring-emerald-500 scale-110 shadow-sm'
-                                : 'opacity-70 hover:opacity-100'
-                            }`}
-                            title={av.label}
-                          >
-                            <img
-                              src={av.url}
-                              alt={av.label}
-                              className="w-8 h-8 rounded-full object-cover"
-                            />
-                            {avatarUrl === av.url && (
-                              <div className="absolute -bottom-0.5 -right-0.5 bg-emerald-600 text-white rounded-full p-0.5">
-                                <Check className="w-2 h-2" />
-                              </div>
-                            )}
-                          </button>
-                        ))}
+                      {/* Quick Presets */}
+                      <div className="pt-2 border-t border-slate-200/60 dark:border-slate-700/60">
+                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                          Or pick an avatar:
+                        </span>
+                        <div className="flex items-center gap-1.5 overflow-x-auto py-0.5 scrollbar-none">
+                          {(role === 'PROVIDER' ? PRESET_AGENT_AVATARS : PRESET_STUDENT_AVATARS).map((av) => (
+                            <button
+                              key={av.id}
+                              type="button"
+                              onClick={() => setAvatarUrl(av.url)}
+                              className={`rounded-full p-0.5 transition-all shrink-0 cursor-pointer ${
+                                avatarUrl === av.url ? 'ring-2 ring-emerald-500 scale-105' : 'opacity-70 hover:opacity-100'
+                              }`}
+                            >
+                              <img src={av.url} alt={av.label} className="w-7 h-7 rounded-full object-cover" />
+                            </button>
+                          ))}
+                        </div>
                       </div>
                     </div>
-                  )}
+
+                    <button
+                      type="submit"
+                      disabled={submitting}
+                      className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md shadow-emerald-600/30 transition-all flex items-center justify-center gap-2 mt-3 cursor-pointer"
+                    >
+                      <Sparkles className="w-4 h-4" />
+                      <span>{submitting ? 'Creating account...' : `Create ${role === 'PROVIDER' ? 'Agent' : 'Student'} Account`}</span>
+                    </button>
+                  </form>
+
+                  <div className="pt-3 border-t border-slate-100 dark:border-slate-800 text-center">
+                    <p className="text-xs text-slate-600 dark:text-slate-400">
+                      Already have an account?{' '}
+                      <button
+                        type="button"
+                        onClick={() => { setMode('login'); setError(null); setInfoMessage(null); }}
+                        className="font-bold text-emerald-600 dark:text-emerald-400 hover:underline cursor-pointer"
+                      >
+                        Log In here
+                      </button>
+                    </p>
+                  </div>
                 </div>
               )}
 
-              <button
-                type="submit"
-                disabled={submitting}
-                className={`w-full py-3 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-2 mt-4 disabled:opacity-50 cursor-pointer ${
-                  role === 'ADMIN' 
-                    ? 'bg-purple-600 hover:bg-purple-700 shadow-purple-600/30' 
-                    : 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/30'
-                }`}
-              >
-                {submitting 
-                  ? 'Authenticating...' 
-                  : mode === 'login' 
-                  ? (role === 'PROVIDER' ? 'Log in as Agent' : role === 'ADMIN' ? 'Log In' : 'Log in as Student') 
-                  : `Create ${role === 'PROVIDER' ? 'Agent' : 'Student'} Account`}
-              </button>
-            </form>
-          </div>
-        )}
+              {/* ========================================================================= */}
+              {/* FLOW 3: EMAIL OTP VERIFICATION */}
+              {/* ========================================================================= */}
+              {mode === 'verify_email' && (
+                <div className="space-y-4">
+                  <div className="text-center space-y-1.5">
+                    <div className="w-12 h-12 rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto shadow-inner border border-emerald-200 dark:border-emerald-800">
+                      <Mail className="w-6 h-6" />
+                    </div>
+                    <h3 className="text-base font-black text-slate-900 dark:text-white">Verify Your Email Address</h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 max-w-xs mx-auto">
+                      We've sent a 6-digit confirmation code to{' '}
+                      <strong className="text-slate-800 dark:text-slate-200">{verificationEmail}</strong>.
+                    </p>
+                  </div>
+
+                  <form onSubmit={handleVerifyOtpSubmit} className="space-y-4">
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-1.5 text-center">
+                        Enter 6-Digit Verification Code
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          maxLength={6}
+                          autoFocus
+                          required
+                          value={verificationCode}
+                          onChange={(e) => {
+                            const val = e.target.value.replace(/\D/g, '').slice(0, 6);
+                            setVerificationCode(val);
+                            setError(null);
+                          }}
+                          placeholder="123456"
+                          className="w-full text-center text-2xl font-mono tracking-widest bg-slate-50 dark:bg-slate-800 border-2 border-emerald-500/50 rounded-2xl py-3 text-slate-900 dark:text-white placeholder:text-slate-300 dark:placeholder:text-slate-600 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                        />
+                      </div>
+                      <p className="text-[10px] text-slate-400 dark:text-slate-500 text-center mt-1">
+                        Code expires in 10 minutes.
+                      </p>
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={submitting || verificationCode.length < 6}
+                      className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      <Check className="w-4 h-4" />
+                      <span>{submitting ? 'Verifying...' : 'Verify & Activate Account'}</span>
+                    </button>
+                  </form>
+
+                  <div className="flex flex-col items-center gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                    <button
+                      type="button"
+                      disabled={resendingCode || resendCooldown > 0}
+                      onClick={handleResendOtp}
+                      className="text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:underline disabled:opacity-50 flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 ${resendingCode ? 'animate-spin' : ''}`} />
+                      <span>
+                        {resendCooldown > 0 
+                          ? `Resend code in ${resendCooldown}s` 
+                          : 'Resend Verification Code'}
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => { setMode('register'); setError(null); }}
+                      className="text-xs text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 cursor-pointer"
+                    >
+                      Wrong email? Change email address
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* ========================================================================= */}
+              {/* FLOW 4: FORGOT PASSWORD */}
+              {/* ========================================================================= */}
+              {mode === 'forgot_password' && (
+                <div className="space-y-4">
+                  <div className="text-center space-y-1.5">
+                    <div className="w-12 h-12 rounded-2xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center mx-auto shadow-inner border border-amber-200 dark:border-amber-800">
+                      <KeyRound className="w-6 h-6" />
+                    </div>
+                    <h3 className="text-base font-black text-slate-900 dark:text-white">Recover Password</h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 max-w-xs mx-auto">
+                      Enter your account email address and we'll send a 6-digit recovery code.
+                    </p>
+                  </div>
+
+                  <form onSubmit={handleForgotPasswordSubmit} className="space-y-3.5">
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
+                        Registered Email
+                      </label>
+                      <div className="relative flex items-center">
+                        <Mail className="w-4 h-4 text-slate-400 absolute left-3" />
+                        <input
+                          type="email"
+                          required
+                          value={recoveryEmail}
+                          onChange={(e) => { setRecoveryEmail(e.target.value); setError(null); }}
+                          placeholder="e.g. yourname@gmail.com"
+                          className="w-full text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pl-9 pr-3 py-2.5 text-slate-900 dark:text-white placeholder:text-slate-400 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                        />
+                      </div>
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={submitting}
+                      className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      <Send className="w-4 h-4" />
+                      <span>{submitting ? 'Sending code...' : 'Send Password Recovery Code'}</span>
+                    </button>
+                  </form>
+
+                  <div className="text-center pt-2 border-t border-slate-100 dark:border-slate-800">
+                    <button
+                      type="button"
+                      onClick={() => { setMode('login'); setError(null); }}
+                      className="text-xs font-bold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white flex items-center justify-center gap-1.5 mx-auto cursor-pointer"
+                    >
+                      <ArrowLeft className="w-3.5 h-3.5" />
+                      <span>Return to Log In</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* ========================================================================= */}
+              {/* FLOW 5: RESET PASSWORD */}
+              {/* ========================================================================= */}
+              {mode === 'reset_password' && (
+                <div className="space-y-4">
+                  {resetSuccessMessage ? (
+                    <div className="p-4 text-center space-y-4">
+                      <div className="w-14 h-14 rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto shadow-inner border border-emerald-200 dark:border-emerald-800">
+                        <Check className="w-7 h-7" />
+                      </div>
+                      <div className="space-y-1">
+                        <h3 className="text-base font-black text-slate-900 dark:text-white">Password Updated!</h3>
+                        <p className="text-xs text-slate-600 dark:text-slate-300">
+                          {resetSuccessMessage}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => { 
+                          setResetSuccessMessage(null);
+                          setMode('login'); 
+                          setError(null); 
+                          setInfoMessage('You can now log in with your new password.');
+                        }}
+                        className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow transition-all cursor-pointer"
+                      >
+                        Proceed to Log In
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="border-b border-slate-100 dark:border-slate-800 pb-2">
+                        <h3 className="text-base font-black text-slate-900 dark:text-white">Set New Password</h3>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                          Enter the 6-digit recovery code sent to <strong>{recoveryEmail}</strong> and your new password.
+                        </p>
+                      </div>
+
+                      <form onSubmit={handleResetPasswordSubmit} className="space-y-3">
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
+                            6-Digit Recovery Code
+                          </label>
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            maxLength={6}
+                            required
+                            value={resetCode}
+                            onChange={(e) => {
+                              setResetCode(e.target.value.replace(/\D/g, '').slice(0, 6));
+                              setError(null);
+                            }}
+                            placeholder="123456"
+                            className="w-full text-center text-lg font-mono tracking-widest bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl py-2 text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
+                            New Password
+                          </label>
+                          <div className="relative flex items-center">
+                            <Lock className="w-4 h-4 text-slate-400 absolute left-3" />
+                            <input
+                              type={showPassword ? 'text' : 'password'}
+                              required
+                              minLength={6}
+                              value={newPassword}
+                              onChange={(e) => { setNewPassword(e.target.value); setError(null); }}
+                              placeholder="Min. 6 characters"
+                              className="w-full text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pl-9 pr-10 py-2.5 text-slate-900 dark:text-white placeholder:text-slate-400 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowPassword(!showPassword)}
+                              className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 absolute right-2.5 transition-colors cursor-pointer"
+                              aria-label={showPassword ? 'Hide password' : 'Show password'}
+                            >
+                              {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                            </button>
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
+                            Confirm New Password
+                          </label>
+                          <div className="relative flex items-center">
+                            <Lock className="w-4 h-4 text-slate-400 absolute left-3" />
+                            <input
+                              type={showConfirmPassword ? 'text' : 'password'}
+                              required
+                              minLength={6}
+                              value={confirmPassword}
+                              onChange={(e) => { setConfirmPassword(e.target.value); setError(null); }}
+                              placeholder="Re-enter new password"
+                              className="w-full text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pl-9 pr-10 py-2.5 text-slate-900 dark:text-white placeholder:text-slate-400 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                              className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 absolute right-2.5 transition-colors cursor-pointer"
+                              aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+                            >
+                              {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                            </button>
+                          </div>
+                        </div>
+
+                        <button
+                          type="submit"
+                          disabled={submitting}
+                          className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-2 mt-2 cursor-pointer"
+                        >
+                          <Check className="w-4 h-4" />
+                          <span>{submitting ? 'Updating...' : 'Update Password & Log In'}</span>
+                        </button>
+                      </form>
+
+                      <div className="text-center pt-2 border-t border-slate-100 dark:border-slate-800">
+                        <button
+                          type="button"
+                          onClick={() => { setMode('login'); setError(null); }}
+                          className="text-xs font-bold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white flex items-center justify-center gap-1.5 mx-auto cursor-pointer"
+                        >
+                          <ArrowLeft className="w-3.5 h-3.5" />
+                          <span>Back to Log In</span>
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+            </>
+          )}
+
+        </div>
       </div>
     </div>
   );
 };
+
+export default AuthModal;

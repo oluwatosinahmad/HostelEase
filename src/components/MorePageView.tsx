@@ -41,7 +41,7 @@ import { api } from '../services/api';
 interface MorePageViewProps {
   onNavigate: (view: AppView) => void;
   onNavigateToDashboardTab?: (tab: 'overview' | 'bookings' | 'inspections' | 'shortlist' | 'preferences' | 'search_history' | 'profile_security') => void;
-  onOpenAuth: (defaultRole?: 'STUDENT' | 'PROVIDER' | 'ADMIN') => void;
+  onOpenAuth: (defaultRole?: 'STUDENT' | 'PROVIDER' | 'ADMIN', initialMode?: 'login' | 'register') => void;
   savedCount: number;
   onOpenAI?: () => void;
   onOpenUtilityRadar?: () => void;
@@ -1294,13 +1294,13 @@ export const MorePageView: React.FC<MorePageViewProps> = ({
 
               <div className="grid grid-cols-2 gap-2.5 pt-1">
                 <button
-                  onClick={() => onOpenAuth('STUDENT')}
+                  onClick={() => onOpenAuth('STUDENT', 'login')}
                   className="w-full py-3 text-xs font-bold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-2xl transition-colors text-center"
                 >
                   Log In
                 </button>
                 <button
-                  onClick={() => onOpenAuth('STUDENT')}
+                  onClick={() => onOpenAuth('STUDENT', 'register')}
                   className="w-full py-3 text-xs font-black text-slate-950 bg-emerald-400 hover:bg-emerald-300 rounded-2xl shadow-xs transition-colors text-center"
                 >
                   Sign Up

@@ -9,6 +9,11 @@
 import { spawn } from 'child_process';
 import path from 'path';
 import fs from 'fs';
+import dns from 'dns';
+
+try {
+  dns.setDefaultResultOrder('ipv4first');
+} catch {}
 
 const CLOUDFLARED_BIN = path.resolve(process.cwd(), 'cloudflared.exe');
 const LIVE_URL = (process.env.LIVE_SITE_URL || 'https://hostelease.oluwatosinahmad.workers.dev').replace(/\/+$/, '');
