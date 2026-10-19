@@ -87,6 +87,7 @@ import { SplitRentModal } from './components/SplitRentModal';
 import { SafetyEscrowModal } from './components/SafetyEscrowModal';
 import { WomensLivingModal } from './components/WomensLivingModal';
 import { HostelEaseBrandedLoader } from './components/HostelEaseBrandedLoader';
+import { AuthPageView } from './components/AuthPageView';
 
 const initialFilters: SearchFilterState = {
   search: '',
@@ -124,7 +125,8 @@ function MainApp() {
         const validViews: AppView[] = [
           'home', 'search', 'saved', 'community', 'student-dashboard', 
           'provider-portal', 'admin-portal', 'messages', 'inspections', 
-          'bookings', 'payments', 'move-in', 'history', 'more', 'virtual-tours'
+          'bookings', 'payments', 'move-in', 'history', 'more', 'virtual-tours',
+          'login', 'signup', 'verify-email', 'forgot-password', 'reset-password'
         ];
         if (validViews.includes(cleanHash)) return cleanHash;
       }
@@ -332,7 +334,8 @@ function MainApp() {
         const validViews: AppView[] = [
           'home', 'search', 'saved', 'community', 'student-dashboard', 
           'provider-portal', 'admin-portal', 'messages', 'inspections', 
-          'bookings', 'payments', 'move-in', 'history', 'more', 'virtual-tours'
+          'bookings', 'payments', 'move-in', 'history', 'more', 'virtual-tours',
+          'login', 'signup', 'verify-email', 'forgot-password', 'reset-password'
         ];
         if (validViews.includes(cleanHash)) {
           setCurrentView(cleanHash);
@@ -569,6 +572,15 @@ function MainApp() {
       if (currentView === 'provider-portal' && user.role !== 'PROVIDER' && (user.role as string) !== 'AGENT') {
         showToast('Agent Management Center requires an Agent account.', 'info');
       }
+      if (['login', 'signup', 'forgot-password'].includes(currentView)) {
+        if (user.role === 'PROVIDER' || (user.role as string) === 'AGENT') {
+          setCurrentView('provider-portal');
+        } else if (user.role === 'ADMIN') {
+          setCurrentView('admin-portal');
+        } else {
+          setCurrentView('student-dashboard');
+        }
+      }
     }
   }, [currentView, isAuthenticated, user]);
 
@@ -788,10 +800,12 @@ function MainApp() {
         const email = search.get('email') || '';
         const token = search.get('token') || '';
         const code = search.get('code') || '';
+        setCurrentView('reset-password');
         handleOpenAuth('STUDENT', 'reset_password', email, code, token);
       } else if (action === 'verify-email') {
         const email = search.get('email') || '';
         const code = search.get('code') || '';
+        setCurrentView('verify-email');
         handleOpenAuth('STUDENT', 'verify_email', email, code);
       }
     } catch {}
@@ -2280,6 +2294,40 @@ function MainApp() {
             />
           </ErrorBoundary>
         )}
+
+        {/* VIEW 12: DEDICATED FULL-PAGE AUTHENTICATION VIEW */}
+        {['login', 'signup', 'verify-email', 'forgot-password', 'reset-password'].includes(currentView) && (
+          <ErrorBoundary
+            isolated
+            title="Authentication Portal"
+            message="Unable to load the authentication portal right now. Please try again."
+            onReturnHome={() => setCurrentView('home')}
+          >
+            <AuthPageView
+              initialMode={
+                currentView === 'signup' ? 'signup' :
+                currentView === 'verify-email' ? 'verify-email' :
+                currentView === 'forgot-password' ? 'forgot-password' :
+                currentView === 'reset-password' ? 'reset-password' : 'login'
+              }
+              onNavigate={(v) => {
+                setCurrentView(v);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+              onSuccess={(verifiedUser) => {
+                const targetRole = verifiedUser?.role || user?.role;
+                if (targetRole === 'PROVIDER' || (targetRole as string) === 'AGENT') {
+                  setCurrentView('provider-portal');
+                } else if (targetRole === 'ADMIN') {
+                  setCurrentView('admin-portal');
+                } else {
+                  setCurrentView('student-dashboard');
+                }
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+            />
+          </ErrorBoundary>
+        )}
       </main>
       </Suspense>
 
@@ -2501,17 +2549,19 @@ function MainApp() {
         }}
       />
 
-      {/* Global Footer */}
-      <Footer 
-        onNavigate={setCurrentView} 
-        onOpenAuth={handleOpenAuth}
-        onSelectArea={handleSelectArea}
-        onOpenUtilityRadar={() => setUtilityRadarOpen(true)}
-        onOpenSafeWalk={() => setSafeWalkOpen(true)}
-        onOpenMaintenance={() => setMaintenanceOpen(true)}
-        onOpenSplitRent={() => setSplitRentOpen(true)}
-        onOpenSafetyEscrow={() => setSafetyEscrowOpen(true)}
-      />
+      {/* Global Footer (Hidden on dedicated full-page authentication views) */}
+      {!['login', 'signup', 'verify-email', 'forgot-password', 'reset-password'].includes(currentView) && (
+        <Footer 
+          onNavigate={setCurrentView} 
+          onOpenAuth={handleOpenAuth}
+          onSelectArea={handleSelectArea}
+          onOpenUtilityRadar={() => setUtilityRadarOpen(true)}
+          onOpenSafeWalk={() => setSafeWalkOpen(true)}
+          onOpenMaintenance={() => setMaintenanceOpen(true)}
+          onOpenSplitRent={() => setSplitRentOpen(true)}
+          onOpenSafetyEscrow={() => setSafetyEscrowOpen(true)}
+        />
+      )}
 
       {/* Revolutionary Innovation 1: UtilityRadar Live Index Modal */}
       <UtilityRadarModal

@@ -465,15 +465,19 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
             <span className="text-[10px] mt-0.5 tracking-tight">Ask AI</span>
           </button>
 
-          {/* 5. Log In (Faithfully mirrors desktop Log In action) */}
+          {/* 5. Sign Up */}
           <button
-            onClick={() => onOpenAuth('STUDENT', 'login')}
-            className="flex flex-col items-center justify-center w-full py-1 rounded-xl transition-all text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+            onClick={() => onNavigate('signup')}
+            className={`flex flex-col items-center justify-center w-full py-1 rounded-xl transition-all cursor-pointer ${
+              activeView === 'signup' || activeView === 'login'
+                ? 'text-emerald-600 dark:text-emerald-400 font-extrabold'
+                : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+            }`}
           >
-            <div className="p-1 rounded-xl transition-all">
+            <div className={`p-1 rounded-xl transition-all ${activeView === 'signup' || activeView === 'login' ? 'bg-emerald-50 dark:bg-emerald-950/60' : ''}`}>
               <User className="w-5 h-5" />
             </div>
-            <span className="text-[10px] mt-0.5 tracking-tight font-bold">Log In</span>
+            <span className="text-[10px] mt-0.5 tracking-tight font-bold">Sign Up</span>
           </button>
         </div>
       )}

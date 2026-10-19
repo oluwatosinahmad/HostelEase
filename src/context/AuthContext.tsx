@@ -3,6 +3,7 @@ import { User, UserRole } from '../types/hostelEase';
 import { api, setActiveAuthToken } from '../services/api';
 import { safeStorage } from '../utils/safeStorage';
 import { realtimeClient } from '../services/realtime';
+import { supabase, isSupabaseConfigured } from '../services/supabase';
 
 interface AuthContextType {
   user: User | null;
@@ -119,6 +120,29 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const login = async (usernameOrEmail: string, password: string, role?: UserRole): Promise<User> => {
     setIsLoading(true);
     try {
+      const cleanEmail = (usernameOrEmail || '').trim().toLowerCase();
+
+      // If Supabase is configured and input is an email, attempt Supabase authentication
+      if (isSupabaseConfigured() && cleanEmail.includes('@') && role !== 'ADMIN') {
+        try {
+          const { error: sbError } = await supabase.auth.signInWithPassword({
+            email: cleanEmail,
+            password
+          });
+          if (sbError) {
+            if (sbError.message.toLowerCase().includes('email not confirmed')) {
+              const err: any = new Error('Your email address has not been verified yet. Please enter the verification code sent to your email.');
+              err.code = 'EMAIL_NOT_VERIFIED';
+              throw err;
+            }
+            console.warn('Supabase auth sign-in notice:', sbError.message);
+          }
+        } catch (sbErr: any) {
+          if (sbErr.code === 'EMAIL_NOT_VERIFIED') throw sbErr;
+          console.warn('Supabase auth sign-in notice:', sbErr.message);
+        }
+      }
+
       const res = await api.auth.login({ username: usernameOrEmail, email: usernameOrEmail, password, role });
       safeStorage.setItem('hostel_ease_token', res.token, true);
       safeStorage.setJSON('hostel_ease_user', res.user, true);
@@ -143,6 +167,40 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const register = async (data: any): Promise<any> => {
     setIsLoading(true);
     try {
+      const cleanEmail = (data.email || '').trim().toLowerCase();
+
+      // If Supabase is configured, trigger Supabase Auth signUp to send official OTP email
+      if (isSupabaseConfigured()) {
+        try {
+          const { error: sbError } = await supabase.auth.signUp({
+            email: cleanEmail,
+            password: data.password,
+            options: {
+              data: {
+                fullName: data.fullName,
+                role: data.role,
+                phone: data.phone,
+                avatarUrl: data.avatarUrl,
+                businessName: data.providerDetails?.businessName
+              }
+            }
+          });
+
+          if (sbError) {
+            if (sbError.message.toLowerCase().includes('already registered')) {
+              const err: any = new Error('This email address is already registered. Please log in or use Forgot Password if you cannot access your account.');
+              err.code = 'EMAIL_ALREADY_REGISTERED';
+              err.status = 409;
+              throw err;
+            }
+            console.warn('Supabase signUp notice:', sbError.message);
+          }
+        } catch (sbErr: any) {
+          if (sbErr.code === 'EMAIL_ALREADY_REGISTERED') throw sbErr;
+          console.warn('Supabase signUp error caught:', sbErr);
+        }
+      }
+
       const res = await api.auth.register(data);
       if (res.token && res.user) {
         safeStorage.setItem('hostel_ease_token', res.token, true);
@@ -168,7 +226,26 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const verifyEmail = async (email: string, code: string): Promise<User> => {
     setIsLoading(true);
     try {
-      const res = await api.auth.verifyEmail({ email, code });
+      const cleanEmail = (email || '').trim().toLowerCase();
+      const cleanCode = (code || '').trim();
+
+      // If Supabase is configured, verify OTP with Supabase Auth
+      if (isSupabaseConfigured()) {
+        try {
+          const { error: sbError } = await supabase.auth.verifyOtp({
+            email: cleanEmail,
+            token: cleanCode,
+            type: 'signup'
+          });
+          if (sbError) {
+            console.warn('Supabase verifyOtp signup notice:', sbError.message);
+          }
+        } catch (sbErr) {
+          console.warn('Supabase verifyOtp error caught:', sbErr);
+        }
+      }
+
+      const res = await api.auth.verifyEmail({ email: cleanEmail, code: cleanCode });
       if (res.token && res.user) {
         safeStorage.setItem('hostel_ease_token', res.token, true);
         safeStorage.setJSON('hostel_ease_user', res.user, true);
@@ -185,18 +262,62 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const resendVerification = async (email: string): Promise<void> => {
-    await api.auth.resendVerification({ email });
+    const cleanEmail = (email || '').trim().toLowerCase();
+    if (isSupabaseConfigured()) {
+      try {
+        await supabase.auth.resend({
+          type: 'signup',
+          email: cleanEmail
+        });
+      } catch (sbErr) {
+        console.warn('Supabase resend notice:', sbErr);
+      }
+    }
+    await api.auth.resendVerification({ email: cleanEmail });
   };
 
   const forgotPassword = async (email: string): Promise<{ success: boolean; message: string; email?: string }> => {
-    return await api.auth.forgotPassword({ email });
+    const cleanEmail = (email || '').trim().toLowerCase();
+    if (isSupabaseConfigured()) {
+      try {
+        await supabase.auth.resetPasswordForEmail(cleanEmail);
+      } catch (sbErr) {
+        console.warn('Supabase resetPasswordForEmail notice:', sbErr);
+      }
+    }
+    return await api.auth.forgotPassword({ email: cleanEmail });
   };
 
   const resetPassword = async (email: string, newPassword: string, code?: string, token?: string): Promise<void> => {
-    await api.auth.resetPassword({ email, newPassword, code, token });
+    const cleanEmail = (email || '').trim().toLowerCase();
+    const cleanCode = (code || '').trim();
+
+    // If Supabase is configured and 6-digit recovery code provided, verify OTP recovery in Supabase
+    if (isSupabaseConfigured() && cleanCode) {
+      try {
+        const { error: sbError } = await supabase.auth.verifyOtp({
+          email: cleanEmail,
+          token: cleanCode,
+          type: 'recovery'
+        });
+        if (!sbError) {
+          // Update password in Supabase Auth recovery session
+          await supabase.auth.updateUser({ password: newPassword });
+        } else {
+          console.warn('Supabase recovery verifyOtp notice:', sbError.message);
+        }
+      } catch (sbErr) {
+        console.warn('Supabase recovery error caught:', sbErr);
+      }
+    }
+
+    await api.auth.resetPassword({ email: cleanEmail, newPassword, code: cleanCode, token });
   };
 
   const logout = () => {
+    if (isSupabaseConfigured()) {
+      supabase.auth.signOut().catch(() => {});
+    }
     api.presence.setOffline().catch(() => {});
     realtimeClient.disconnect();
     safeStorage.purgeUserSessionData();

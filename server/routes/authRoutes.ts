@@ -6,8 +6,22 @@ import { authenticate, generateToken, AuthenticatedRequest } from '../middleware
 import { notificationService } from '../services/notificationService.js';
 import { syncService } from '../services/syncService';
 import { emailService } from '../services/emailService.js';
+import { supabaseServer, isServerSupabaseConfigured } from '../services/supabaseClient';
 
 const router = Router();
+
+// =============================================================================
+// DIAGNOSTIC STATUS (Checks Resend & Supabase Auth Configuration)
+// =============================================================================
+router.get('/email-status', (_req, res: Response) => {
+  const status = emailService.getConfigStatus();
+  return res.json({
+    ...status,
+    supabaseAuth: {
+      isServerConfigured: isServerSupabaseConfigured()
+    }
+  });
+});
 
 const EMAIL_REGEX = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$/;
 

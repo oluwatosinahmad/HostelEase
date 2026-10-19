@@ -53,6 +53,16 @@ interface AuthModalProps {
   onSuccess?: (user?: any) => void;
 }
 
+function maskEmail(emailStr: string): string {
+  if (!emailStr || !emailStr.includes('@')) return emailStr;
+  const [local, domain] = emailStr.split('@');
+  if (local.length <= 2) return `${local[0]}*@${domain}`;
+  const visibleStart = local.slice(0, 2);
+  const visibleEnd = local.slice(-1);
+  const maskedPart = '*'.repeat(Math.max(3, local.length - 3));
+  return `${visibleStart}${maskedPart}${visibleEnd}@${domain}`;
+}
+
 export const AuthModal: React.FC<AuthModalProps> = ({
   isOpen,
   onClose,
@@ -876,7 +886,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     <h3 className="text-base font-black text-slate-900 dark:text-white">Verify Your Email Address</h3>
                     <p className="text-xs text-slate-500 dark:text-slate-400 max-w-xs mx-auto">
                       We've sent a 6-digit confirmation code to{' '}
-                      <strong className="text-slate-800 dark:text-slate-200">{verificationEmail}</strong>.
+                      <strong className="text-slate-800 dark:text-slate-200">{maskEmail(verificationEmail)}</strong>.
                     </p>
                   </div>
 
@@ -897,6 +907,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                             const val = e.target.value.replace(/\D/g, '').slice(0, 6);
                             setVerificationCode(val);
                             setError(null);
+                          }}
+                          onPaste={(e) => {
+                            e.preventDefault();
+                            const pasted = e.clipboardData.getData('text');
+                            const digits = pasted.replace(/\D/g, '').slice(0, 6);
+                            if (digits) {
+                              setVerificationCode(digits);
+                              setError(null);
+                            }
                           }}
                           placeholder="123456"
                           className="w-full text-center text-2xl font-mono tracking-widest bg-slate-50 dark:bg-slate-800 border-2 border-emerald-500/50 rounded-2xl py-3 text-slate-900 dark:text-white placeholder:text-slate-300 dark:placeholder:text-slate-600 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
@@ -1033,7 +1052,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       <div className="border-b border-slate-100 dark:border-slate-800 pb-2">
                         <h3 className="text-base font-black text-slate-900 dark:text-white">Set New Password</h3>
                         <p className="text-xs text-slate-500 dark:text-slate-400">
-                          Enter the 6-digit recovery code sent to <strong>{recoveryEmail}</strong> and your new password.
+                          Enter the 6-digit recovery code sent to <strong>{maskEmail(recoveryEmail)}</strong> and your new password.
                         </p>
                       </div>
 
@@ -1051,6 +1070,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                             onChange={(e) => {
                               setResetCode(e.target.value.replace(/\D/g, '').slice(0, 6));
                               setError(null);
+                            }}
+                            onPaste={(e) => {
+                              e.preventDefault();
+                              const pasted = e.clipboardData.getData('text');
+                              const digits = pasted.replace(/\D/g, '').slice(0, 6);
+                              if (digits) {
+                                setResetCode(digits);
+                                setError(null);
+                              }
                             }}
                             placeholder="123456"
                             className="w-full text-center text-lg font-mono tracking-widest bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl py-2 text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
