@@ -130,15 +130,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             password
           });
           if (sbError) {
-            if (sbError.message.toLowerCase().includes('email not confirmed')) {
-              const err: any = new Error('Your email address has not been verified yet. Please enter the verification code sent to your email.');
-              err.code = 'EMAIL_NOT_VERIFIED';
-              throw err;
-            }
             console.warn('Supabase auth sign-in notice:', sbError.message);
           }
         } catch (sbErr: any) {
-          if (sbErr.code === 'EMAIL_NOT_VERIFIED') throw sbErr;
           console.warn('Supabase auth sign-in notice:', sbErr.message);
         }
       }
@@ -292,12 +286,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const cleanEmail = (email || '').trim().toLowerCase();
     const cleanCode = (code || '').trim();
 
-    // If Supabase is configured and 6-digit recovery code provided, verify OTP recovery in Supabase
-    if (isSupabaseConfigured() && cleanCode) {
+    // If Supabase is configured and recovery token/code provided, verify recovery in Supabase
+    if (isSupabaseConfigured() && (cleanCode || token)) {
       try {
         const { error: sbError } = await supabase.auth.verifyOtp({
           email: cleanEmail,
-          token: cleanCode,
+          token: cleanCode || (token as string),
           type: 'recovery'
         });
         if (!sbError) {
@@ -311,7 +305,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
     }
 
-    await api.auth.resetPassword({ email: cleanEmail, newPassword, code: cleanCode, token });
+    await api.auth.resetPassword({ email: cleanEmail, newPassword, code: cleanCode || undefined, token: token || undefined });
   };
 
   const logout = () => {

@@ -126,7 +126,7 @@ function MainApp() {
           'home', 'search', 'saved', 'community', 'student-dashboard', 
           'provider-portal', 'admin-portal', 'messages', 'inspections', 
           'bookings', 'payments', 'move-in', 'history', 'more', 'virtual-tours',
-          'login', 'signup', 'verify-email', 'forgot-password', 'reset-password'
+          'login', 'signup', 'forgot-password', 'reset-password'
         ];
         if (validViews.includes(cleanHash)) return cleanHash;
       }
@@ -335,7 +335,7 @@ function MainApp() {
           'home', 'search', 'saved', 'community', 'student-dashboard', 
           'provider-portal', 'admin-portal', 'messages', 'inspections', 
           'bookings', 'payments', 'move-in', 'history', 'more', 'virtual-tours',
-          'login', 'signup', 'verify-email', 'forgot-password', 'reset-password'
+          'login', 'signup', 'forgot-password', 'reset-password'
         ];
         if (validViews.includes(cleanHash)) {
           setCurrentView(cleanHash);
@@ -804,9 +804,8 @@ function MainApp() {
         handleOpenAuth('STUDENT', 'reset_password', email, code, token);
       } else if (action === 'verify-email') {
         const email = search.get('email') || '';
-        const code = search.get('code') || '';
-        setCurrentView('verify-email');
-        handleOpenAuth('STUDENT', 'verify_email', email, code);
+        setCurrentView('login');
+        handleOpenAuth('STUDENT', 'login', email);
       }
     } catch {}
   }, []);
@@ -2296,7 +2295,7 @@ function MainApp() {
         )}
 
         {/* VIEW 12: DEDICATED FULL-PAGE AUTHENTICATION VIEW */}
-        {['login', 'signup', 'verify-email', 'forgot-password', 'reset-password'].includes(currentView) && (
+        {['login', 'signup', 'forgot-password', 'reset-password'].includes(currentView) && (
           <ErrorBoundary
             isolated
             title="Authentication Portal"
@@ -2306,7 +2305,6 @@ function MainApp() {
             <AuthPageView
               initialMode={
                 currentView === 'signup' ? 'signup' :
-                currentView === 'verify-email' ? 'verify-email' :
                 currentView === 'forgot-password' ? 'forgot-password' :
                 currentView === 'reset-password' ? 'reset-password' : 'login'
               }
@@ -2550,7 +2548,7 @@ function MainApp() {
       />
 
       {/* Global Footer (Hidden on dedicated full-page authentication views) */}
-      {!['login', 'signup', 'verify-email', 'forgot-password', 'reset-password'].includes(currentView) && (
+      {!['login', 'signup', 'forgot-password', 'reset-password'].includes(currentView) && (
         <Footer 
           onNavigate={setCurrentView} 
           onOpenAuth={handleOpenAuth}

@@ -85,84 +85,84 @@ router.post('/register', async (req, res: Response) => {
     `).get(cleanEmail) as any;
 
     if (existingUser) {
-      if (existingUser.emailVerified) {
-        return res.status(409).json({ 
-          error: 'EMAIL_ALREADY_REGISTERED',
-          message: 'This email address is already registered. Please log in or use Forgot Password if you cannot access your account.' 
-        });
-      }
-
-      // If existing account is unverified, allow the original registration to be safely resumed with fresh OTP
-      const otp = crypto.randomInt(100000, 999999).toString();
-      const hashedOtp = hashOtp(otp);
-      const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
-      const newPasswordHash = bcrypt.hashSync(password, 10);
-
-      db.prepare(`
-        INSERT OR REPLACE INTO email_verifications 
-        (id, email, otp_hash, role, full_name, password_hash, phone, avatar_url, metadata, expires_at, attempts, resend_count, last_sent_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, datetime('now'))
-      `).run(
-        `verif-${crypto.randomUUID()}`,
-        cleanEmail,
-        hashedOtp,
-        role,
-        fullName.trim(),
-        newPasswordHash,
-        phone?.trim() || null,
-        req.body.avatarUrl || null,
-        JSON.stringify(providerDetails || {}),
-        expiresAt
-      );
-
-      // Send real email OTP
-      await emailService.sendVerificationOTP(cleanEmail, otp, fullName.trim());
-
-      return res.status(200).json({
-        success: true,
-        verificationRequired: true,
-        email: cleanEmail,
-        message: `An unverified account already exists with this email. A fresh verification code has been sent to ${cleanEmail}.`
+      return res.status(409).json({ 
+        error: 'EMAIL_ALREADY_REGISTERED',
+        message: 'This email address is already registered. Please log in or use Forgot Password if you cannot access your account.' 
       });
     }
 
-    // New user registration flow: Store pending registration data and send 6-digit OTP
-    const otp = crypto.randomInt(100000, 999999).toString();
-    const hashedOtp = hashOtp(otp);
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+    // New user registration flow: Immediately create account and issue session token (NO OTP REQUIRED)
+    const userId = `user-${crypto.randomUUID()}`;
     const passwordHash = bcrypt.hashSync(password, 10);
     const avatarUrl = req.body.avatarUrl || req.body.avatar_url || null;
 
-    // Purge any stale pending verifications for this email
-    db.prepare('DELETE FROM email_verifications WHERE LOWER(TRIM(email)) = ?').run(cleanEmail);
+    let userRecord: any;
 
-    const nowIso = new Date().toISOString();
-    db.prepare(`
-      INSERT INTO email_verifications 
-      (id, email, otp_hash, role, full_name, password_hash, phone, avatar_url, metadata, expires_at, attempts, resend_count, last_sent_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?)
-    `).run(
-      `verif-${crypto.randomUUID()}`,
-      cleanEmail,
-      hashedOtp,
-      role,
-      fullName.trim(),
-      passwordHash,
-      phone?.trim() || null,
-      avatarUrl,
-      JSON.stringify(providerDetails || {}),
-      expiresAt,
-      nowIso
-    );
+    db.transaction(() => {
+      db.prepare(`
+        INSERT INTO users (id, email, password_hash, full_name, phone, role, avatar_url, is_active, email_verified, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, 1, 1, datetime('now'), datetime('now'))
+      `).run(
+        userId,
+        cleanEmail,
+        passwordHash,
+        fullName.trim(),
+        phone?.trim() || null,
+        role,
+        avatarUrl
+      );
 
-    // Send real email OTP via emailService
-    await emailService.sendVerificationOTP(cleanEmail, otp, fullName.trim());
+      if (role === 'STUDENT') {
+        const profileId = `profile-${crypto.randomUUID()}`;
+        const defaultUni = db.prepare('SELECT id FROM universities LIMIT 1').get() as any;
+        db.prepare(`
+          INSERT INTO student_profiles (id, user_id, university_id, created_at, updated_at)
+          VALUES (?, ?, ?, datetime('now'), datetime('now'))
+        `).run(profileId, userId, defaultUni?.id || 'uni-lautech-ogbomoso');
+      } else if (role === 'PROVIDER') {
+        const profileId = `profile-${crypto.randomUUID()}`;
+        const businessName = providerDetails?.businessName?.trim() || `${fullName.trim()} Properties`;
+        db.prepare(`
+          INSERT INTO provider_profiles (id, user_id, business_name, address, id_type, verification_status, created_at, updated_at)
+          VALUES (?, ?, ?, ?, ?, 'PENDING', datetime('now'), datetime('now'))
+        `).run(
+          profileId,
+          userId,
+          businessName,
+          providerDetails?.address?.trim() || null,
+          providerDetails?.idType || 'NIN'
+        );
+      }
 
-    return res.status(200).json({
+      userRecord = db.prepare(`
+        SELECT id, email, full_name as fullName, phone, role, avatar_url as avatarUrl, is_active as isActive, email_verified as emailVerified
+        FROM users WHERE id = ?
+      `).get(userId) as any;
+
+      if (userRecord) {
+        userRecord.emailVerified = true;
+      }
+    })();
+
+    // Invalidate any stale pending verification records
+    try {
+      db.prepare('DELETE FROM email_verifications WHERE LOWER(TRIM(email)) = ?').run(cleanEmail);
+    } catch {}
+
+    const token = generateToken(userRecord);
+
+    // Synchronize to Cloudflare Edge Store immediately
+    syncService.queueRecordPush('users', userRecord).catch(() => {});
+
+    try {
+      notificationService.createWelcomeNotificationOnSignup(userRecord.id, userRecord.role, userRecord.fullName);
+    } catch {}
+
+    return res.status(201).json({
       success: true,
-      verificationRequired: true,
-      email: cleanEmail,
-      message: `A 6-digit verification code has been sent to ${cleanEmail}. Please enter it to activate your account.`
+      message: 'Account created successfully! Welcome to Hostel Ease.',
+      token,
+      user: userRecord
     });
   } catch (err: any) {
     console.error('Registration error:', err);
@@ -174,246 +174,23 @@ router.post('/register', async (req, res: Response) => {
 });
 
 // =============================================================================
-// 2. VERIFY EMAIL OTP (Activates Account & Issues Session Token)
+// 2. VERIFY EMAIL (Retired — Immediate Access Granted Without OTP)
 // =============================================================================
 router.post('/verify-email', (req, res: Response) => {
-  try {
-    const { email, code } = req.body;
-
-    if (!email || !code) {
-      return res.status(400).json({ error: 'Email and verification code are required' });
-    }
-
-    const cleanEmail = normalizeEmail(email);
-    const enteredCode = String(code).trim();
-
-    const record = db.prepare(`
-      SELECT * FROM email_verifications 
-      WHERE LOWER(TRIM(email)) = ?
-      ORDER BY created_at DESC LIMIT 1
-    `).get(cleanEmail) as any;
-
-    if (!record) {
-      return res.status(400).json({ 
-        error: 'NO_PENDING_VERIFICATION', 
-        message: 'No pending registration found for this email. Please sign up or request a new code.' 
-      });
-    }
-
-    if (new Date(record.expires_at).getTime() < Date.now()) {
-      return res.status(400).json({ 
-        error: 'EXPIRED_CODE', 
-        message: 'Verification code has expired. Please click Resend Code to receive a new one.' 
-      });
-    }
-
-    if (record.attempts >= 5) {
-      return res.status(400).json({ 
-        error: 'TOO_MANY_ATTEMPTS', 
-        message: 'Too many incorrect attempts. Please request a fresh verification code.' 
-      });
-    }
-
-    // Verify OTP hash
-    if (hashOtp(enteredCode) !== record.otp_hash) {
-      db.prepare('UPDATE email_verifications SET attempts = attempts + 1 WHERE id = ?').run(record.id);
-      return res.status(400).json({ 
-        error: 'INVALID_CODE', 
-        message: 'Incorrect verification code. Please check your email and try again.' 
-      });
-    }
-
-    // Code matched! Activate/create the user atomically in SQLite
-    let userRecord: any;
-
-    db.transaction(() => {
-      const existingUser = db.prepare('SELECT id FROM users WHERE LOWER(TRIM(email)) = ?').get(cleanEmail) as any;
-
-      if (existingUser) {
-        db.prepare(`
-          UPDATE users 
-          SET email_verified = 1, is_active = 1, updated_at = datetime('now')
-          WHERE id = ?
-        `).run(existingUser.id);
-
-        userRecord = db.prepare(`
-          SELECT id, email, full_name as fullName, phone, role, avatar_url as avatarUrl, is_active as isActive, email_verified as emailVerified
-          FROM users WHERE id = ?
-        `).get(existingUser.id) as any;
-        if (userRecord) {
-          userRecord.emailVerified = true;
-        }
-      } else {
-        const userId = `user-${crypto.randomUUID()}`;
-
-        db.prepare(`
-          INSERT INTO users (id, email, password_hash, full_name, phone, role, avatar_url, is_active, email_verified, created_at, updated_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, 1, 1, datetime('now'), datetime('now'))
-        `).run(
-          userId,
-          cleanEmail,
-          record.password_hash,
-          record.full_name,
-          record.phone || null,
-          record.role,
-          record.avatar_url || null
-        );
-
-        if (record.role === 'STUDENT') {
-          const profileId = `profile-${crypto.randomUUID()}`;
-          const defaultUni = db.prepare('SELECT id FROM universities LIMIT 1').get() as any;
-          db.prepare(`
-            INSERT INTO student_profiles (id, user_id, university_id)
-            VALUES (?, ?, ?)
-          `).run(profileId, userId, defaultUni?.id || 'uni-lautech-ogbomoso');
-        } else if (record.role === 'PROVIDER') {
-          const profileId = `profile-${crypto.randomUUID()}`;
-          let meta: any = {};
-          try { meta = JSON.parse(record.metadata || '{}'); } catch {}
-          db.prepare(`
-            INSERT INTO provider_profiles (id, user_id, business_name, address, id_type, verification_status)
-            VALUES (?, ?, ?, ?, ?, 'PENDING')
-          `).run(
-            profileId,
-            userId,
-            meta.businessName || null,
-            meta.address || null,
-            meta.idType || 'NIN'
-          );
-        }
-
-        userRecord = {
-          id: userId,
-          email: cleanEmail,
-          fullName: record.full_name,
-          phone: record.phone || undefined,
-          role: record.role,
-          avatarUrl: record.avatar_url || undefined,
-          isActive: 1,
-          emailVerified: true
-        };
-      }
-
-      // Invalidate the used verification code
-      db.prepare('DELETE FROM email_verifications WHERE LOWER(TRIM(email)) = ?').run(cleanEmail);
-    })();
-
-    const token = generateToken(userRecord);
-
-    // Synchronize to Cloudflare Edge Store immediately
-    syncService.queueRecordPush('users', userRecord).catch(() => {});
-
-    try {
-      notificationService.createWelcomeNotificationOnSignup(userRecord.id, userRecord.role, userRecord.fullName);
-    } catch {}
-
-    return res.status(200).json({
-      success: true,
-      message: 'Email verified successfully! Welcome to Hostel Ease.',
-      token,
-      user: userRecord
-    });
-  } catch (err: any) {
-    console.error('Verification error:', err);
-    return res.status(500).json({ error: 'Failed to verify code. Please try again.' });
-  }
+  return res.status(200).json({
+    success: true,
+    message: 'Email verification is no longer required. You may log in directly.'
+  });
 });
 
 // =============================================================================
-// 3. RESEND VERIFICATION OTP
+// 3. RESEND VERIFICATION (Retired — Email Verification Disabled)
 // =============================================================================
-router.post('/resend-verification', async (req, res: Response) => {
-  try {
-    const { email } = req.body;
-    if (!email) {
-      return res.status(400).json({ error: 'Email address is required' });
-    }
-
-    const cleanEmail = normalizeEmail(email);
-
-    // Look up pending verification or unverified user
-    let record = db.prepare(`
-      SELECT * FROM email_verifications 
-      WHERE LOWER(TRIM(email)) = ? 
-      ORDER BY created_at DESC LIMIT 1
-    `).get(cleanEmail) as any;
-
-    if (!record) {
-      const unverifiedUser = db.prepare(`
-        SELECT id, email, full_name, role, phone, avatar_url, password_hash
-        FROM users 
-        WHERE LOWER(TRIM(email)) = ? AND email_verified = 0
-      `).get(cleanEmail) as any;
-
-      if (!unverifiedUser) {
-        return res.status(404).json({ 
-          error: 'NO_PENDING_REGISTRATION', 
-          message: 'No pending registration found for this email address. Please sign up.' 
-        });
-      }
-
-      record = {
-        id: `verif-${crypto.randomUUID()}`,
-        email: cleanEmail,
-        full_name: unverifiedUser.full_name,
-        role: unverifiedUser.role,
-        password_hash: unverifiedUser.password_hash,
-        phone: unverifiedUser.phone,
-        avatar_url: unverifiedUser.avatar_url,
-        last_sent_at: '2000-01-01 00:00:00'
-      };
-    }
-
-    // Rate-limiting: Enforce 60-second cooldown
-    const rawLastSent = record.last_sent_at || '';
-    const lastSentString = rawLastSent.endsWith('Z') 
-      ? rawLastSent 
-      : (rawLastSent.includes('T') ? rawLastSent + 'Z' : rawLastSent.replace(' ', 'T') + 'Z');
-    const lastSentTime = new Date(lastSentString).getTime();
-    const elapsedSeconds = isNaN(lastSentTime) ? 999 : (Date.now() - lastSentTime) / 1000;
-    if (elapsedSeconds < 60) {
-      const waitSeconds = Math.max(1, Math.ceil(60 - elapsedSeconds));
-      return res.status(429).json({
-        error: 'RESEND_COOLDOWN',
-        message: `Please wait ${waitSeconds} seconds before requesting another verification code.`,
-        remainingSeconds: waitSeconds
-      });
-    }
-
-    const otp = crypto.randomInt(100000, 999999).toString();
-    const hashedOtp = hashOtp(otp);
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
-    const nowIso = new Date().toISOString();
-
-    db.prepare(`
-      INSERT OR REPLACE INTO email_verifications 
-      (id, email, otp_hash, role, full_name, password_hash, phone, avatar_url, metadata, expires_at, attempts, resend_count, last_sent_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, COALESCE((SELECT resend_count + 1 FROM email_verifications WHERE id = ?), 1), ?)
-    `).run(
-      record.id,
-      cleanEmail,
-      hashedOtp,
-      record.role,
-      record.full_name,
-      record.password_hash,
-      record.phone,
-      record.avatar_url,
-      record.metadata || '{}',
-      expiresAt,
-      record.id,
-      nowIso
-    );
-
-    await emailService.sendVerificationOTP(cleanEmail, otp, record.full_name);
-
-    return res.status(200).json({
-      success: true,
-      message: `A fresh 6-digit verification code has been sent to ${cleanEmail}.`
-    });
-  } catch (err: any) {
-    console.error('Resend verification error:', err);
-    return res.status(500).json({ error: err.message || 'Failed to resend verification code' });
-  }
+router.post('/resend-verification', (req, res: Response) => {
+  return res.status(200).json({
+    success: true,
+    message: 'Email verification is no longer required. You may log in directly.'
+  });
 });
 
 // =============================================================================
@@ -439,7 +216,7 @@ router.post('/forgot-password', async (req, res: Response) => {
     if (!user) {
       return res.status(200).json({
         success: true,
-        message: 'If an account exists with this email address, a password recovery code has been sent.'
+        message: 'If an account exists with this email address, a password reset link has been sent.'
       });
     }
 
@@ -453,15 +230,15 @@ router.post('/forgot-password', async (req, res: Response) => {
     if (recentReset) {
       return res.status(429).json({
         error: 'RECOVERY_RATE_LIMITED',
-        message: 'A recovery code was recently requested. Please check your spam folder or wait 60 seconds.'
+        message: 'A recovery link was recently requested. Please check your spam folder or wait 60 seconds.'
       });
     }
 
     const resetCode = crypto.randomInt(100000, 999999).toString();
-    const resetToken = crypto.randomBytes(24).toString('hex');
+    const resetToken = crypto.randomBytes(32).toString('hex');
     const tokenHash = hashOtp(resetToken);
     const codeHash = hashOtp(resetCode);
-    const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString(); // 1 hour
 
     db.prepare(`
       INSERT INTO password_resets (id, user_id, email, token_hash, otp_code_hash, expires_at, used, attempts)
@@ -475,12 +252,12 @@ router.post('/forgot-password', async (req, res: Response) => {
       expiresAt
     );
 
-    // Send password recovery email
-    await emailService.sendPasswordResetEmail(cleanEmail, resetCode, resetToken, user.fullName);
+    // Send password recovery email with direct reset link
+    await emailService.sendPasswordResetEmail(cleanEmail, resetToken, user.fullName, resetCode);
 
     return res.status(200).json({
       success: true,
-      message: 'A 6-digit password recovery code has been sent to your registered email address.',
+      message: 'A password reset link has been sent to your registered email address.',
       email: cleanEmail
     });
   } catch (err: any) {
@@ -497,7 +274,7 @@ router.post('/reset-password', (req, res: Response) => {
     const { email, code, token, newPassword } = req.body;
 
     if (!email || (!code && !token) || !newPassword) {
-      return res.status(400).json({ error: 'Email, verification code or token, and new password are required' });
+      return res.status(400).json({ error: 'Email, reset token, and new password are required' });
     }
 
     if (newPassword.length < 6) {
@@ -515,25 +292,25 @@ router.post('/reset-password', (req, res: Response) => {
     if (!resetRecord) {
       return res.status(400).json({ 
         error: 'INVALID_RESET_REQUEST', 
-        message: 'No active password recovery request found for this email. Please request a new code.' 
+        message: 'No active password recovery request found for this email. Please request a new reset link.' 
       });
     }
 
     if (new Date(resetRecord.expires_at).getTime() < Date.now()) {
       return res.status(400).json({ 
         error: 'EXPIRED_RESET_REQUEST', 
-        message: 'Password reset code has expired. Please request a fresh code.' 
+        message: 'Password reset link has expired. Please request a fresh reset link.' 
       });
     }
 
     if (resetRecord.attempts >= 5) {
       return res.status(400).json({ 
         error: 'TOO_MANY_ATTEMPTS', 
-        message: 'Too many incorrect attempts. Please request a new recovery code.' 
+        message: 'Too many incorrect attempts. Please request a new recovery link.' 
       });
     }
 
-    // Validate either 6-digit code or reset token
+    // Validate either token or code
     const codeMatch = code && hashOtp(String(code).trim()) === resetRecord.otp_code_hash;
     const tokenMatch = token && hashOtp(String(token).trim()) === resetRecord.token_hash;
 
@@ -541,7 +318,7 @@ router.post('/reset-password', (req, res: Response) => {
       db.prepare('UPDATE password_resets SET attempts = attempts + 1 WHERE id = ?').run(resetRecord.id);
       return res.status(400).json({ 
         error: 'INVALID_CODE', 
-        message: 'Incorrect verification code. Please check your email and try again.' 
+        message: 'Invalid or expired password reset link. Please request a new reset link.' 
       });
     }
 
@@ -655,14 +432,12 @@ router.post('/login', (req, res: Response) => {
     });
   }
 
-  // Check email verification status
+  // Ensure existing unconfirmed accounts are automatically active and accessible
   if (user.emailVerified === 0) {
-    return res.status(403).json({
-      error: 'EMAIL_NOT_VERIFIED',
-      code: 'EMAIL_NOT_VERIFIED',
-      message: 'Your email address has not been verified yet. Please enter the verification code sent to your email to continue.',
-      email: user.email
-    });
+    try {
+      db.prepare('UPDATE users SET email_verified = 1 WHERE id = ?').run(user.id);
+      user.emailVerified = 1;
+    } catch {}
   }
 
   // Strict role check

@@ -2609,8 +2609,8 @@ Your caution deposit is refundable upon move-out provided no unauthorized struct
       try { db.exec(`ALTER TABLE users ADD COLUMN ${col} TEXT`); } catch {}
     });
 
-    // Authentication, Email Verification & Password Recovery infrastructure
     try { db.exec(`ALTER TABLE users ADD COLUMN email_verified INTEGER NOT NULL DEFAULT 1`); } catch {}
+    try { db.exec(`UPDATE users SET email_verified = 1 WHERE email_verified = 0`); } catch {}
 
     // Enforce case-insensitive unique email index at the database level across all roles
     try {

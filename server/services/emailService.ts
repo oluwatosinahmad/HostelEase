@@ -225,16 +225,16 @@ class EmailService {
   }
 
   /**
-   * Send Password Reset Code & Link to registered user
+   * Send Password Reset Link to registered user
    */
-  async sendPasswordResetEmail(email: string, resetCode: string, resetToken: string, fullName: string): Promise<SendEmailResult> {
+  async sendPasswordResetEmail(email: string, resetToken: string, fullName: string, resetCode?: string): Promise<SendEmailResult> {
     const cleanEmail = email.trim().toLowerCase();
     const cleanName = fullName.trim() || 'User';
     const appUrl = (process.env.APP_URL || 'http://localhost:3000').replace(/\/+$/, '');
-    const resetUrl = `${appUrl}/#reset-password?email=${encodeURIComponent(cleanEmail)}&code=${resetCode}&token=${resetToken}`;
+    const resetUrl = `${appUrl}/#reset-password?email=${encodeURIComponent(cleanEmail)}&token=${resetToken}${resetCode ? `&code=${resetCode}` : ''}`;
 
-    const subject = `${resetCode} is your Hostel Ease password recovery code`;
-    const text = `Hello ${cleanName},\n\nWe received a request to reset your Hostel Ease password.\nYour 6-digit recovery code is: ${resetCode}\n\nReset link: ${resetUrl}\n\nThis code expires in 15 minutes. If you did not request this, your account is safe.\n\nHostel Ease • LAUTECH, Ogbomoso`;
+    const subject = `Reset Your Hostel Ease Password`;
+    const text = `Hello ${cleanName},\n\nWe received a request to reset the password for your Hostel Ease account.\n\nClick the link below to set a new password:\n${resetUrl}\n\nThis link expires in 1 hour. If you did not request this, your account is safe and you can ignore this email.\n\nHostel Ease • LAUTECH, Ogbomoso`;
     const html = `
       <!DOCTYPE html>
       <html>
@@ -245,13 +245,12 @@ class EmailService {
         <style>
           body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #0f172a; margin: 0; padding: 24px; color: #f8fafc; }
           .container { max-width: 520px; margin: 0 auto; background: #1e293b; border-radius: 24px; padding: 36px 28px; border: 1px solid #334155; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5); }
-          .badge { display: inline-block; background: rgba(244, 63, 94, 0.15); color: #fb7185; font-size: 11px; font-weight: 800; padding: 6px 14px; border-radius: 9999px; text-transform: uppercase; letter-spacing: 0.05em; border: 1px solid rgba(244, 63, 94, 0.3); }
+          .badge { display: inline-block; background: rgba(16, 185, 129, 0.15); color: #34d399; font-size: 11px; font-weight: 800; padding: 6px 14px; border-radius: 9999px; text-transform: uppercase; letter-spacing: 0.05em; border: 1px solid rgba(16, 185, 129, 0.3); }
           h1 { font-size: 22px; font-weight: 900; margin: 20px 0 8px 0; color: #ffffff; }
           p { font-size: 14px; line-height: 1.6; color: #94a3b8; margin: 8px 0; }
-          .otp-box { background: #0f172a; border: 2px dashed #f43f5e; border-radius: 16px; padding: 24px; text-align: center; margin: 24px 0; }
-          .otp-code { font-family: 'Courier New', Courier, monospace; font-size: 38px; font-weight: 900; letter-spacing: 8px; color: #fb7185; margin: 0; }
-          .otp-note { font-size: 12px; color: #64748b; margin-top: 8px; }
-          .btn { display: inline-block; background: #10b981; color: #042f2e; text-decoration: none; font-weight: 800; font-size: 14px; padding: 14px 28px; border-radius: 12px; margin: 16px 0; text-align: center; }
+          .btn-container { text-align: center; margin: 28px 0; }
+          .btn { display: inline-block; background: #10b981; color: #042f2e; text-decoration: none; font-weight: 800; font-size: 15px; padding: 14px 32px; border-radius: 14px; text-align: center; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3); }
+          .link-box { background: #0f172a; border: 1px solid #334155; border-radius: 12px; padding: 14px; margin-top: 20px; word-break: break-all; font-size: 11px; color: #94a3b8; }
           .footer { border-top: 1px solid #334155; margin-top: 32px; padding-top: 20px; font-size: 11px; color: #64748b; text-align: center; }
         </style>
       </head>
@@ -263,18 +262,18 @@ class EmailService {
           <h1>Reset Your Password</h1>
           <p>Hello <strong>${cleanName}</strong>,</p>
           <p>We received a request to reset the password for your Hostel Ease account (<strong>${cleanEmail}</strong>).</p>
-          <p>Enter the 6-digit recovery code below on the password reset screen:</p>
+          <p>Click the secure button below to set a new password. No verification code is required:</p>
           
-          <div class="otp-box">
-            <div class="otp-code">${resetCode}</div>
-            <div class="otp-note">Code expires in <strong>15 minutes</strong>. If you did not request this, your account is safe and no changes have been made.</div>
+          <div class="btn-container">
+            <a href="${resetUrl}" class="btn">Reset Password Securely</a>
           </div>
 
-          <div style="text-align: center;">
-            <a href="${resetUrl}" class="btn">Reset Password Directly</a>
-          </div>
+          <p style="font-size: 12px; color: #64748b;">This reset link will expire in <strong>1 hour</strong>. If you did not request this, your account is safe and no changes have been made.</p>
 
-          <p style="font-size: 11px; color: #64748b; margin-top: 20px;">Or copy and paste this link into your browser:<br/><span style="word-break: break-all; color: #94a3b8;">${resetUrl}</span></p>
+          <div class="link-box">
+            If the button doesn't work, copy and paste this link into your browser:<br/>
+            <a href="${resetUrl}" style="color: #38bdf8;">${resetUrl}</a>
+          </div>
           
           <div class="footer">
             Hostel Ease Security Team • LAUTECH, Ogbomoso<br/>

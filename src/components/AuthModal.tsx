@@ -6,7 +6,6 @@ import {
   Lock, 
   User as UserIcon, 
   Phone, 
-  ShieldCheck, 
   AlertCircle,
   ShieldAlert,
   ArrowLeft,
@@ -40,7 +39,7 @@ const PRESET_AGENT_AVATARS = [
   { id: 'l-4', url: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=300&q=80', label: 'Agent 4' }
 ];
 
-export type AuthModalMode = 'login' | 'register' | 'verify_email' | 'forgot_password' | 'reset_password';
+export type AuthModalMode = 'login' | 'register' | 'forgot_password' | 'reset_password';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -73,10 +72,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   initialResetToken = '',
   onSuccess
 }) => {
-  const { login, register, verifyEmail, resendVerification, forgotPassword, resetPassword } = useAuth();
+  const { login, register, forgotPassword, resetPassword } = useAuth();
 
-  // Mode state: login, register, verify_email, forgot_password, reset_password
-  const [mode, setMode] = useState<AuthModalMode>(initialMode);
+  // Mode state: login, register, forgot_password, reset_password
+  const [mode, setMode] = useState<AuthModalMode>(initialMode === 'verify_email' as any ? 'login' : initialMode);
   const [role, setRole] = useState<UserRole>(defaultRole);
 
   // Common Form Fields
@@ -91,16 +90,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [showPassword, setShowPassword] = useState<boolean>(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState<boolean>(false);
 
-  // Email Verification OTP State
-  const [verificationEmail, setVerificationEmail] = useState<string>(initialEmail);
-  const [verificationCode, setVerificationCode] = useState<string>('');
-  const [resendCooldown, setResendCooldown] = useState<number>(0);
-  const [resendingCode, setResendingCode] = useState<boolean>(false);
-
   // Password Recovery States
   const [recoveryEmail, setRecoveryEmail] = useState<string>(initialEmail);
-  const [resetCode, setResetCode] = useState<string>(initialResetCode);
   const [resetToken, setResetToken] = useState<string>(initialResetToken);
+  const [resetCode, setResetCode] = useState<string>(initialResetCode);
   const [newPassword, setNewPassword] = useState<string>('');
   const [confirmPassword, setConfirmPassword] = useState<string>('');
   const [resetSuccessMessage, setResetSuccessMessage] = useState<string | null>(null);
@@ -111,13 +104,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [infoMessage, setInfoMessage] = useState<string | null>(null);
   const [accessRestricted, setAccessRestricted] = useState<boolean>(false);
-  const [customAvatarInput, setCustomAvatarInput] = useState<boolean>(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Sync props when modal opens or initialMode changes
   useEffect(() => {
     if (isOpen) {
-      setMode(initialMode);
+      setMode(initialMode === 'verify_email' as any ? 'login' : initialMode);
       setRole(defaultRole);
       setError(null);
       setInfoMessage(null);
@@ -125,22 +117,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       setShowConfirmPassword(false);
       if (initialEmail) {
         setEmail(initialEmail);
-        setVerificationEmail(initialEmail);
         setRecoveryEmail(initialEmail);
       }
       if (initialResetCode) setResetCode(initialResetCode);
       if (initialResetToken) setResetToken(initialResetToken);
     }
   }, [isOpen, initialMode, defaultRole, initialEmail, initialResetCode, initialResetToken]);
-
-  // Resend OTP Cooldown Timer
-  useEffect(() => {
-    if (resendCooldown <= 0) return;
-    const timer = setInterval(() => {
-      setResendCooldown((prev) => (prev > 0 ? prev - 1 : 0));
-    }, 1000);
-    return () => clearInterval(timer);
-  }, [resendCooldown]);
 
   if (!isOpen) return null;
 
@@ -218,15 +200,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       setSubmitting(false);
       setIsLoggingIn(false);
       const errMsg = err.message || 'Authentication failed. Please check your email and password.';
-      
-      if (err.code === 'EMAIL_NOT_VERIFIED' || errMsg.toLowerCase().includes('not yet verified')) {
-        setVerificationEmail(cleanEmail);
-        setMode('verify_email');
-        setInfoMessage('Please enter the 6-digit verification code sent to your email to activate your account.');
-        setResendCooldown(60);
-        return;
-      }
-
       setError(errMsg);
 
       if (
@@ -239,7 +212,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     }
   };
 
-  // 2. Submit Sign-Up Flow
+  // 2. Submit Sign-Up Flow (Immediate Registration without OTP)
   const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (submitting) return;
@@ -248,12 +221,17 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
     const cleanEmail = email.trim().toLowerCase();
     if (!cleanEmail || !cleanEmail.includes('@') || !cleanEmail.includes('.')) {
-      setError('Please enter a valid, real email address.');
+      setError('Please enter a valid email address.');
       return;
     }
 
     if (password.length < 6) {
       setError('Password must be at least 6 characters long.');
+      return;
+    }
+
+    if (!fullName.trim()) {
+      setError('Please enter your full name.');
       return;
     }
 
@@ -274,13 +252,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
       setSubmitting(false);
 
-      if (res.verificationRequired || !res.token) {
-        setVerificationEmail(cleanEmail);
-        setVerificationCode('');
-        setMode('verify_email');
-        setResendCooldown(60);
-        setInfoMessage(`We've sent a 6-digit verification code to ${cleanEmail}. Please enter it below to complete registration.`);
-      } else {
+      if (res.user) {
         if (onSuccess) onSuccess(res.user);
         onClose();
       }
@@ -294,53 +266,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     }
   };
 
-  // 3. Submit Email OTP Verification Flow
-  const handleVerifyOtpSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (submitting) return;
-    setError(null);
-    setInfoMessage(null);
-
-    const code = verificationCode.trim();
-    if (!code || code.length < 6) {
-      setError('Please enter the complete 6-digit verification code.');
-      return;
-    }
-
-    setSubmitting(true);
-
-    try {
-      const verifiedUser = await verifyEmail(verificationEmail.trim().toLowerCase(), code);
-      setSubmitting(false);
-      if (onSuccess) onSuccess(verifiedUser);
-      onClose();
-    } catch (err: any) {
-      setSubmitting(false);
-      setError(err.message || 'Incorrect verification code. Please check your email and try again.');
-    }
-  };
-
-  // 4. Resend Verification OTP
-  const handleResendOtp = async () => {
-    if (resendingCode || resendCooldown > 0) return;
-    setError(null);
-    setResendingCode(true);
-
-    try {
-      await resendVerification(verificationEmail.trim().toLowerCase());
-      setResendingCode(false);
-      setResendCooldown(60);
-      setInfoMessage(`A fresh 6-digit verification code has been sent to ${verificationEmail}.`);
-    } catch (err: any) {
-      setResendingCode(false);
-      if (err.remainingSeconds) {
-        setResendCooldown(err.remainingSeconds);
-      }
-      setError(err.message || 'Failed to resend verification code. Please wait and try again.');
-    }
-  };
-
-  // 5. Submit Forgot Password Request
+  // 3. Submit Forgot Password Request (Sends Direct Reset Link)
   const handleForgotPasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (submitting) return;
@@ -356,26 +282,24 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     setSubmitting(true);
 
     try {
-      const res = await forgotPassword(cleanEmail);
+      await forgotPassword(cleanEmail);
       setSubmitting(false);
-      setVerificationEmail(cleanEmail);
-      setMode('reset_password');
-      setInfoMessage('If an account exists with this email address, a 6-digit recovery code has been sent. Please enter it below.');
+      setInfoMessage('If an account exists with this email address, a secure password reset link has been sent. Please check your inbox and spam folder.');
     } catch (err: any) {
       setSubmitting(false);
-      setError(err.message || 'Failed to send recovery code. Please try again.');
+      setError(err.message || 'Failed to send recovery link. Please try again.');
     }
   };
 
-  // 6. Submit Password Reset
+  // 4. Submit Password Reset
   const handleResetPasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (submitting) return;
     setError(null);
     setInfoMessage(null);
 
-    if (!resetCode.trim() && !resetToken.trim()) {
-      setError('Please enter the 6-digit recovery code from your email.');
+    if (!resetToken && !resetCode) {
+      setError('Password reset token is missing. Please click the reset link sent to your email.');
       return;
     }
 
@@ -400,7 +324,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       setConfirmPassword('');
     } catch (err: any) {
       setSubmitting(false);
-      setError(err.message || 'Failed to reset password. Please check your code or request a new one.');
+      setError(err.message || 'Failed to reset password. Please request a fresh reset link.');
     }
   };
 
@@ -414,9 +338,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             <RefreshCw className="w-8 h-8 text-emerald-600 dark:text-emerald-400 animate-spin" />
             <p className="text-xs font-bold text-slate-800 dark:text-slate-200">
               {mode === 'login' ? 'Authenticating credentials...' : 
-               mode === 'register' ? 'Sending verification code...' : 
-               mode === 'verify_email' ? 'Activating account...' : 
-               mode === 'forgot_password' ? 'Sending recovery email...' : 'Updating password...'}
+               mode === 'register' ? 'Creating your account...' : 
+               mode === 'forgot_password' ? 'Sending reset link...' : 'Updating password...'}
             </p>
           </div>
         )}
@@ -439,7 +362,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               <h2 className="text-xl font-black tracking-tight">
                 Hostel <span className="text-emerald-400">Ease</span>
               </h2>
-              <p className="text-xs text-slate-400">LAUTECH Student & Agent Accommodation Platform</p>
+              <p className="text-xs text-slate-400">LAUTECH Accommodation Platform</p>
             </div>
           </div>
 
@@ -480,7 +403,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         {/* Modal Body */}
         <div className="p-6 space-y-4">
 
-          {/* Access Restricted Warning View */}
+          {/* Access Restricted Warning */}
           {accessRestricted ? (
             <div className="p-4 text-center space-y-4">
               <div className="w-14 h-14 rounded-2xl bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center mx-auto shadow-inner border border-rose-200 dark:border-rose-800">
@@ -529,7 +452,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                           setMode('forgot_password'); 
                           setError(null); 
                         }}
-                        className="text-xs font-bold text-rose-700 dark:text-rose-300 underline hover:text-rose-800 cursor-pointer"
+                        className="text-xs font-bold text-emerald-700 dark:text-emerald-400 underline hover:text-emerald-800 cursor-pointer"
                       >
                         Forgot Password?
                       </button>
@@ -546,7 +469,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               )}
 
               {/* ========================================================================= */}
-              {/* FLOW 1: LOGIN (Dedicated Login Flow) */}
+              {/* FLOW 1: LOGIN */}
               {/* ========================================================================= */}
               {mode === 'login' && (
                 <div className="space-y-4">
@@ -555,7 +478,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       {role === 'ADMIN' ? '👑 Admin Login' : role === 'PROVIDER' ? '🏢 Agent Login' : '👨‍🎓 Student Login'}
                     </h3>
                     <p className="text-xs text-slate-500 dark:text-slate-400">
-                      Sign in to your existing account. Cross-device access enabled.
+                      Sign in to your account. Fast and secure access.
                     </p>
                   </div>
 
@@ -649,7 +572,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               )}
 
               {/* ========================================================================= */}
-              {/* FLOW 2: SIGN UP (Simplified Student & Agent Registration) */}
+              {/* FLOW 2: SIGN UP (Immediate Student & Agent Registration) */}
               {/* ========================================================================= */}
               {mode === 'register' && (
                 <div className="space-y-4">
@@ -658,7 +581,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       {role === 'PROVIDER' ? '🏢 Create Agent Account' : '👨‍🎓 Create Student Account'}
                     </h3>
                     <p className="text-xs text-slate-500 dark:text-slate-400">
-                      Join Hostel Ease. A real verification code will be sent to your email.
+                      Join Hostel Ease. Instant registration with direct access to your dashboard.
                     </p>
                   </div>
 
@@ -681,10 +604,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       </div>
                     </div>
 
-                    {/* Real Email Address */}
+                    {/* Email Address */}
                     <div>
                       <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
-                        Real Email Address
+                        Email Address
                       </label>
                       <div className="relative flex items-center">
                         <Mail className="w-4 h-4 text-slate-400 absolute left-3" />
@@ -693,12 +616,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                           required
                           value={email}
                           onChange={(e) => { setEmail(e.target.value); setError(null); }}
-                          placeholder="e.g. yourname@gmail.com or student@lautech.edu.ng"
+                          placeholder="Enter your email address"
                           className="w-full text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pl-9 pr-3 py-2.5 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                         />
                       </div>
                       <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
-                        Your real email is required for 6-digit OTP verification and password recovery.
+                        We'll use this email address for account security and notifications.
                       </p>
                     </div>
 
@@ -741,7 +664,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                         <Phone className="w-4 h-4 text-slate-400 absolute left-3" />
                         <input
                           type="tel"
-                          required
                           value={phone}
                           onChange={(e) => setPhone(e.target.value)}
                           placeholder="e.g. 08012345678"
@@ -767,7 +689,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       </div>
                     )}
 
-                    {/* Profile Picture Upload Section (Camera, File, or Presets) */}
+                    {/* Profile Picture Upload Section */}
                     <div className="space-y-2.5 bg-slate-50 dark:bg-slate-800/70 p-3 rounded-2xl border border-slate-200 dark:border-slate-700">
                       <div className="flex items-center justify-between">
                         <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase flex items-center gap-1.5">
@@ -855,7 +777,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md shadow-emerald-600/30 transition-all flex items-center justify-center gap-2 mt-3 cursor-pointer"
                     >
                       <Sparkles className="w-4 h-4" />
-                      <span>{submitting ? 'Creating account...' : `Create ${role === 'PROVIDER' ? 'Agent' : 'Student'} Account`}</span>
+                      <span>{submitting ? 'Creating account...' : `Create Account`}</span>
                     </button>
                   </form>
 
@@ -875,95 +797,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               )}
 
               {/* ========================================================================= */}
-              {/* FLOW 3: EMAIL OTP VERIFICATION */}
-              {/* ========================================================================= */}
-              {mode === 'verify_email' && (
-                <div className="space-y-4">
-                  <div className="text-center space-y-1.5">
-                    <div className="w-12 h-12 rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto shadow-inner border border-emerald-200 dark:border-emerald-800">
-                      <Mail className="w-6 h-6" />
-                    </div>
-                    <h3 className="text-base font-black text-slate-900 dark:text-white">Verify Your Email Address</h3>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 max-w-xs mx-auto">
-                      We've sent a 6-digit confirmation code to{' '}
-                      <strong className="text-slate-800 dark:text-slate-200">{maskEmail(verificationEmail)}</strong>.
-                    </p>
-                  </div>
-
-                  <form onSubmit={handleVerifyOtpSubmit} className="space-y-4">
-                    <div>
-                      <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-1.5 text-center">
-                        Enter 6-Digit Verification Code
-                      </label>
-                      <div className="relative">
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          maxLength={6}
-                          autoFocus
-                          required
-                          value={verificationCode}
-                          onChange={(e) => {
-                            const val = e.target.value.replace(/\D/g, '').slice(0, 6);
-                            setVerificationCode(val);
-                            setError(null);
-                          }}
-                          onPaste={(e) => {
-                            e.preventDefault();
-                            const pasted = e.clipboardData.getData('text');
-                            const digits = pasted.replace(/\D/g, '').slice(0, 6);
-                            if (digits) {
-                              setVerificationCode(digits);
-                              setError(null);
-                            }
-                          }}
-                          placeholder="123456"
-                          className="w-full text-center text-2xl font-mono tracking-widest bg-slate-50 dark:bg-slate-800 border-2 border-emerald-500/50 rounded-2xl py-3 text-slate-900 dark:text-white placeholder:text-slate-300 dark:placeholder:text-slate-600 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                        />
-                      </div>
-                      <p className="text-[10px] text-slate-400 dark:text-slate-500 text-center mt-1">
-                        Code expires in 10 minutes.
-                      </p>
-                    </div>
-
-                    <button
-                      type="submit"
-                      disabled={submitting || verificationCode.length < 6}
-                      className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
-                    >
-                      <Check className="w-4 h-4" />
-                      <span>{submitting ? 'Verifying...' : 'Verify & Activate Account'}</span>
-                    </button>
-                  </form>
-
-                  <div className="flex flex-col items-center gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
-                    <button
-                      type="button"
-                      disabled={resendingCode || resendCooldown > 0}
-                      onClick={handleResendOtp}
-                      className="text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:underline disabled:opacity-50 flex items-center gap-1.5 cursor-pointer"
-                    >
-                      <RefreshCw className={`w-3.5 h-3.5 ${resendingCode ? 'animate-spin' : ''}`} />
-                      <span>
-                        {resendCooldown > 0 
-                          ? `Resend code in ${resendCooldown}s` 
-                          : 'Resend Verification Code'}
-                      </span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => { setMode('register'); setError(null); }}
-                      className="text-xs text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 cursor-pointer"
-                    >
-                      Wrong email? Change email address
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* ========================================================================= */}
-              {/* FLOW 4: FORGOT PASSWORD */}
+              {/* FLOW 3: FORGOT PASSWORD (Link Based) */}
               {/* ========================================================================= */}
               {mode === 'forgot_password' && (
                 <div className="space-y-4">
@@ -973,7 +807,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     </div>
                     <h3 className="text-base font-black text-slate-900 dark:text-white">Recover Password</h3>
                     <p className="text-xs text-slate-500 dark:text-slate-400 max-w-xs mx-auto">
-                      Enter your account email address and we'll send a 6-digit recovery code.
+                      Enter your account email address and we'll send a secure password reset link.
                     </p>
                   </div>
 
@@ -1001,7 +835,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
                     >
                       <Send className="w-4 h-4" />
-                      <span>{submitting ? 'Sending code...' : 'Send Password Recovery Code'}</span>
+                      <span>{submitting ? 'Sending link...' : 'Send Password Reset Link'}</span>
                     </button>
                   </form>
 
@@ -1019,7 +853,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               )}
 
               {/* ========================================================================= */}
-              {/* FLOW 5: RESET PASSWORD */}
+              {/* FLOW 4: RESET PASSWORD (Direct Link / Token Based) */}
               {/* ========================================================================= */}
               {mode === 'reset_password' && (
                 <div className="space-y-4">
@@ -1047,44 +881,33 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                         Proceed to Log In
                       </button>
                     </div>
+                  ) : !resetToken && !resetCode ? (
+                    <div className="p-4 text-center space-y-3">
+                      <div className="w-12 h-12 rounded-2xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center mx-auto border border-amber-200 dark:border-amber-800">
+                        <KeyRound className="w-6 h-6" />
+                      </div>
+                      <h3 className="text-base font-black text-slate-900 dark:text-white">Reset Link Required</h3>
+                      <p className="text-xs text-slate-600 dark:text-slate-400">
+                        Please use the password reset link sent to your email to set a new password.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => { setMode('forgot_password'); setError(null); }}
+                        className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl transition-all cursor-pointer"
+                      >
+                        Request Password Reset Link
+                      </button>
+                    </div>
                   ) : (
                     <>
                       <div className="border-b border-slate-100 dark:border-slate-800 pb-2">
                         <h3 className="text-base font-black text-slate-900 dark:text-white">Set New Password</h3>
                         <p className="text-xs text-slate-500 dark:text-slate-400">
-                          Enter the 6-digit recovery code sent to <strong>{maskEmail(recoveryEmail)}</strong> and your new password.
+                          Create a strong new password for your account ({maskEmail(recoveryEmail)}).
                         </p>
                       </div>
 
                       <form onSubmit={handleResetPasswordSubmit} className="space-y-3">
-                        <div>
-                          <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
-                            6-Digit Recovery Code
-                          </label>
-                          <input
-                            type="text"
-                            inputMode="numeric"
-                            maxLength={6}
-                            required
-                            value={resetCode}
-                            onChange={(e) => {
-                              setResetCode(e.target.value.replace(/\D/g, '').slice(0, 6));
-                              setError(null);
-                            }}
-                            onPaste={(e) => {
-                              e.preventDefault();
-                              const pasted = e.clipboardData.getData('text');
-                              const digits = pasted.replace(/\D/g, '').slice(0, 6);
-                              if (digits) {
-                                setResetCode(digits);
-                                setError(null);
-                              }
-                            }}
-                            placeholder="123456"
-                            className="w-full text-center text-lg font-mono tracking-widest bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl py-2 text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                          />
-                        </div>
-
                         <div>
                           <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
                             New Password
