@@ -157,7 +157,8 @@ router.get(
       params.push(s, s, s, s);
     }
 
-    query += ' ORDER BY u.created_at DESC LIMIT 100';
+    const limit = parseInt(req.query.limit as string, 10) || 1000;
+    query += ` ORDER BY u.created_at DESC LIMIT ${limit}`;
 
     const users = db.prepare(query).all(...params) as any[];
 
@@ -174,7 +175,8 @@ router.get(
         studentBookingsCount: u.student_bookings_count,
         providerHostelsCount: u.provider_hostels_count,
         createdAt: u.created_at
-      }))
+      })),
+      total: users.length
     });
   }
 );
