@@ -91,8 +91,21 @@ function formatPropertySummary(p: any, savedPropertyIds: Set<string> = new Set()
   const videoUrl = videoMedia ? videoMedia.url : (p.video_tour_url || null);
   const hasVideo = Boolean(videoUrl);
 
-  const mediaList: any[] = [];
-  if (coverMedia) {
+  const allMediaRows = getMediaByPropIdStmt.all(p.id) as any[];
+  let mediaList: any[] = [];
+  if (allMediaRows && allMediaRows.length > 0) {
+    mediaList = allMediaRows.map((m: any) => ({
+      id: m.id,
+      mediaType: m.media_type,
+      category: m.category,
+      url: m.url,
+      thumbnailUrl: m.thumbnail_url,
+      caption: m.caption,
+      displayOrder: m.display_order,
+      isCover: Boolean(m.is_cover),
+      isVerified: Boolean(m.is_verified)
+    }));
+  } else if (coverMedia) {
     mediaList.push({
       id: `media-${p.id}-cover`,
       url: coverMedia.url,
@@ -102,7 +115,7 @@ function formatPropertySummary(p: any, savedPropertyIds: Set<string> = new Set()
       isCover: true
     });
   }
-  if (videoUrl) {
+  if (videoUrl && !mediaList.some((m: any) => m.mediaType === 'VIDEO' || m.category === 'VIDEO_WALKTHROUGH')) {
     mediaList.push({
       id: videoMedia?.id || `media-${p.id}-video`,
       url: videoUrl,

@@ -190,7 +190,14 @@ function MainApp() {
 
 
   // Modals
-  const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null);
+  const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(() => {
+    try {
+      const hash = window.location.hash;
+      const hostelMatch = hash.match(/^#hostel\/([^/?#]+)/);
+      if (hostelMatch) return hostelMatch[1];
+    } catch {}
+    return null;
+  });
   const [bookingModalOpen, setBookingModalOpen] = useState<boolean>(false);
   const [bookingTargetProperty, setBookingTargetProperty] = useState<Property | null>(null);
   const [standaloneInspectionModalOpen, setStandaloneInspectionModalOpen] = useState<boolean>(false);
@@ -206,9 +213,9 @@ function MainApp() {
       localStorage.setItem('hostel_ease_current_view', currentView);
     } catch {}
 
-    // Only update history state if video tour is NOT active, preserving #virtual-tour/:id
+    // Only update history state if video tour or hostel modal is NOT active
     try {
-      if (!selectedVideoTourProperty) {
+      if (!selectedVideoTourProperty && !selectedPropertyId && !window.location.hash.startsWith('#hostel/') && !window.location.hash.startsWith('#agent/')) {
         const currentHash = window.location.hash;
         let expectedHash = currentView === 'home' ? '' : `#${currentView}`;
         if (currentView === 'messages' && messagingTargetPropertyId) {
@@ -219,7 +226,32 @@ function MainApp() {
         }
       }
     } catch {}
-  }, [currentView, selectedVideoTourProperty, messagingTargetPropertyId]);
+  }, [currentView, selectedVideoTourProperty, selectedPropertyId, messagingTargetPropertyId]);
+
+  // Open Hostel Details with natural browser history push
+  const handleOpenPropertyDetails = (propertyId: string) => {
+    setSelectedPropertyId(propertyId);
+    try {
+      window.history.pushState(
+        { view: currentView, propertyId, modal: 'hostel-detail' },
+        '',
+        `#hostel/${propertyId}`
+      );
+    } catch {}
+  };
+
+  // Close Hostel Details with browser history back or replace
+  const handleClosePropertyDetails = () => {
+    setSelectedPropertyId(null);
+    if (window.location.hash.startsWith('#hostel/') || window.location.hash.startsWith('#agent/') || window.history.state?.modal === 'hostel-detail') {
+      window.history.back();
+    } else {
+      const expectedHash = currentView === 'home' ? '/' : `#${currentView}`;
+      try {
+        window.history.replaceState({ view: currentView }, '', expectedHash);
+      } catch {}
+    }
+  };
 
   // Open 4K video tour and push history entry so browser/mobile Back button navigates back cleanly
   const handleOpenVideoTour = (property: Property) => {
@@ -322,7 +354,23 @@ function MainApp() {
         }
       }
 
-      // 3. Normal view navigation
+      // 3. Hostel details or agent modal navigation
+      const hostelMatch = hash.match(/^#hostel\/([^/?#]+)/);
+      const agentMatch = hash.match(/^#agent\/([^/?#]+)/);
+      if (hostelMatch) {
+        setSelectedPropertyId(hostelMatch[1]);
+        if (state?.view) setCurrentView(state.view);
+        return;
+      } else if (agentMatch) {
+        if (state?.propertyId || state?.hostelId) {
+          setSelectedPropertyId(state.propertyId || state.hostelId);
+        }
+        return;
+      } else {
+        setSelectedPropertyId(null);
+      }
+
+      // 4. Normal view navigation
       if (state && state.view) {
         setCurrentView(state.view);
         if (state.view === 'messages') {
@@ -831,7 +879,7 @@ function MainApp() {
     };
     const handleOpenDetailsEvent = (e: any) => {
       if (e.detail) {
-        setSelectedPropertyId(e.detail);
+        handleOpenPropertyDetails(e.detail);
       }
     };
     const handleLiveTourEvent = (e: any) => {
@@ -991,7 +1039,7 @@ function MainApp() {
   ].filter(Boolean).length;
 
   return (
-    <div className="min-h-screen w-full max-w-full overflow-x-hidden bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-sans antialiased selection:bg-emerald-500 selection:text-white transition-colors duration-200 relative">
+    <div className="min-h-screen w-full max-w-full overflow-x-clip bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-sans antialiased selection:bg-emerald-500 selection:text-white transition-colors duration-200 relative">
       {/* 3D Branded Initial Platform Loading Animation */}
       {isInitialLoading && (
         <HostelEaseBrandedLoader
@@ -1300,7 +1348,7 @@ function MainApp() {
                         <HostelCard
                           key={`featured-roll-${property.id}-${offset}`}
                           property={property}
-                          onViewDetails={(p) => setSelectedPropertyId(p.id)}
+                          onViewDetails={(p) => handleOpenPropertyDetails(p.id)}
                           onToggleSave={handleToggleSave}
                           onToggleCompare={handleToggleCompare}
                           onOpenConversation={handleOpenConversation}
@@ -1635,7 +1683,7 @@ function MainApp() {
                 <CampusMapExplorer
                   filters={filters}
                   areas={areas}
-                  onSelectProperty={(id) => setSelectedPropertyId(id)}
+                  onSelectProperty={(id) => handleOpenPropertyDetails(id)}
                   onToggleCompare={handleToggleCompare}
                   onOpenConversation={handleOpenConversation}
                   comparedIds={comparedPropertyIds}
@@ -1727,7 +1775,7 @@ function MainApp() {
                         <HostelCard
                           key={property.id}
                           property={property}
-                          onViewDetails={(p) => setSelectedPropertyId(p.id)}
+                          onViewDetails={(p) => handleOpenPropertyDetails(p.id)}
                           onToggleSave={handleToggleSave}
                           onToggleCompare={handleToggleCompare}
                           onOpenConversation={handleOpenConversation}
@@ -1751,7 +1799,7 @@ function MainApp() {
             properties={properties}
             areas={areas}
             onOpenVideoTour={(prop) => handleOpenVideoTour(prop)}
-            onViewDetails={(prop) => setSelectedPropertyId(prop.id)}
+            onViewDetails={(prop) => handleOpenPropertyDetails(prop.id)}
             onOpenBookingModal={(prop) => handleOpenBookingModal(prop)}
             onOpenInspectionModal={(prop) => handleOpenInspectionModal(prop)}
             onNavigateHome={() => {
@@ -1770,7 +1818,7 @@ function MainApp() {
             onReturnHome={() => setCurrentView('home')}
           >
             <SavedHostelsView
-              onViewDetails={(p) => setSelectedPropertyId(p.id)}
+              onViewDetails={(p) => handleOpenPropertyDetails(p.id)}
               onNavigateToSearch={() => {
                 setCurrentView('search');
                 window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -1834,9 +1882,9 @@ function MainApp() {
               initialPropertyId={messagingTargetPropertyId}
               initialConversationId={messagingTargetConversationId}
               initialProperty={messagingTargetProperty}
-              onSelectProperty={(id) => setSelectedPropertyId(id)}
+              onSelectProperty={(id) => handleOpenPropertyDetails(id)}
               onRequestInspection={(id) => {
-                setSelectedPropertyId(id);
+                handleOpenPropertyDetails(id);
               }}
               onShowToast={showToast}
               onViewOnMap={(address) => {
@@ -1879,7 +1927,7 @@ function MainApp() {
             </div>
           ) : (
             <StudentBookingDashboard
-              onSelectProperty={(id) => setSelectedPropertyId(id)}
+              onSelectProperty={(id) => handleOpenPropertyDetails(id)}
               onOpenConversation={handleOpenConversation}
               onBrowseHostels={() => {
                 setCurrentView('search');
@@ -1919,6 +1967,22 @@ function MainApp() {
             <div className="flex-1 flex flex-col items-center justify-center min-h-[50vh] p-8">
               <HostelEaseBrandedLoader />
               <p className="mt-4 text-xs font-bold text-slate-500 tracking-wider uppercase animate-pulse">Loading student dashboard...</p>
+            </div>
+          ) : !isAuthenticated && !isLoading ? (
+            <div className="max-w-md mx-auto my-20 p-8 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-xl text-center space-y-4">
+              <div className="w-16 h-16 rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto border border-emerald-200 dark:border-emerald-800 shadow-inner">
+                <ShieldCheck className="w-8 h-8" />
+              </div>
+              <h2 className="text-xl font-black text-slate-900 dark:text-white">Authentication Required</h2>
+              <p className="text-xs text-slate-600 dark:text-slate-300">
+                Please log in to your student account to view your dashboard, bookings, and inspection schedules.
+              </p>
+              <button
+                onClick={() => handleOpenAuth('STUDENT', 'login')}
+                className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow transition-colors cursor-pointer"
+              >
+                Log In to Student Account
+              </button>
             </div>
           ) : (
             <ErrorBoundary
@@ -1975,7 +2039,7 @@ function MainApp() {
                     window.scrollTo({ top: 0, behavior: 'smooth' });
                   }}
                   onOpenConversation={handleOpenConversation}
-                  onSelectProperty={(id) => setSelectedPropertyId(id)}
+                  onSelectProperty={(id) => handleOpenPropertyDetails(id)}
                   onApplyPreferencesToSearch={(prefs) => {
                     setFilters(prev => ({
                       ...prev,
@@ -2349,7 +2413,7 @@ function MainApp() {
               setComparedPropertyIds([]);
               setComparisonModalOpen(false);
             }}
-            onSelectProperty={(id) => setSelectedPropertyId(id)}
+            onSelectProperty={(id) => handleOpenPropertyDetails(id)}
             onOpenAI={() => handleOpenAI()}
           />
         )}
@@ -2367,7 +2431,7 @@ function MainApp() {
               savedProperties.find(p => p.id === selectedPropertyId || p.slug === selectedPropertyId) || null
             }
             isOpen={Boolean(selectedPropertyId)}
-            onClose={() => setSelectedPropertyId(null)}
+            onClose={handleClosePropertyDetails}
             onToggleSave={handleToggleSave}
             onToggleCompare={handleToggleCompare}
             onOpenConversation={handleOpenConversation}
@@ -2378,7 +2442,7 @@ function MainApp() {
             isCompared={comparedPropertyIds.includes(selectedPropertyId)}
             onShowToast={showToast}
             onViewOnMap={(address) => {
-              setSelectedPropertyId(null);
+              handleClosePropertyDetails();
               setCurrentView('search');
               setSearchViewMode('map');
               setTargetMapAddress(address);
@@ -2498,7 +2562,7 @@ function MainApp() {
               initialPropertyContext={aiPropertyContext}
               onSelectProperty={(id) => {
                 setAiModalOpen(false);
-                setSelectedPropertyId(id);
+                handleOpenPropertyDetails(id);
               }}
               onOpenComparison={() => {
                 setAiModalOpen(false);
@@ -2611,7 +2675,7 @@ function MainApp() {
         onClose={() => setWomensLivingOpen(false)}
         properties={properties}
         onSelectProperty={(property) => {
-          setSelectedPropertyId(property.id);
+          handleOpenPropertyDetails(property.id);
         }}
         onOpenSafeWalk={() => {
           setSafeWalkOpen(true);

@@ -180,9 +180,14 @@ export const Navbar: React.FC<NavbarProps> = ({
   }, [isAuthenticated]);
 
   return (
-    <header className="main-navbar sticky top-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur border-b border-slate-200 dark:border-slate-800 shadow-xs transition-colors">
+    <header 
+      className="main-navbar sticky top-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur border-b border-slate-200 dark:border-slate-800 shadow-xs transition-colors"
+      style={{
+        paddingTop: 'env(safe-area-inset-top, 0px)'
+      }}
+    >
       {/* LAUTECH Focus Announcement Bar */}
-      <div className="announcement-bar bg-emerald-950 dark:bg-black text-emerald-50 px-4 py-1 text-xs font-medium flex items-center justify-between border-b border-emerald-900/30">
+      <div className="announcement-bar bg-emerald-950 dark:bg-black text-emerald-50 px-4 py-1.5 text-xs font-medium flex items-center justify-between border-b border-emerald-900/30">
         <div className="flex items-center gap-2 truncate">
           <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-400 text-amber-950 uppercase tracking-wide">
             LAUTECH Edition

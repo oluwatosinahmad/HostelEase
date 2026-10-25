@@ -12,6 +12,10 @@ if (!fs.existsSync(DB_DIR)) {
 }
 
 const DB_PATH = process.env.DATABASE_PATH || path.join(DB_DIR, 'hostel_ease.db');
+const targetDir = path.dirname(path.resolve(DB_PATH));
+if (!fs.existsSync(targetDir)) {
+  fs.mkdirSync(targetDir, { recursive: true });
+}
 
 export const db = new Database(DB_PATH);
 

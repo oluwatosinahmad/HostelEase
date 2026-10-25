@@ -28,6 +28,7 @@ import {
   Share2,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   Maximize2,
   UserCheck,
   SlidersHorizontal,
@@ -97,13 +98,48 @@ export const HostelDetailModal: React.FC<HostelDetailModalProps> = ({
   const [inspectionType, setInspectionType] = useState<InspectionType>('PHYSICAL');
   const [inspectionRoomId, setInspectionRoomId] = useState<string | undefined>(undefined);
   const [reportModalOpen, setReportModalOpen] = useState<boolean>(false);
-  const [providerProfileModalOpen, setProviderProfileModalOpen] = useState<boolean>(false);
+  const [providerProfileModalOpen, setProviderProfileModalOpen] = useState<boolean>(() => {
+    try {
+      return typeof window !== 'undefined' && window.location.hash.startsWith('#agent/');
+    } catch {
+      return false;
+    }
+  });
+
+  const handleOpenProviderProfile = (providerId: string) => {
+    setProviderProfileModalOpen(true);
+    try {
+      window.history.pushState(
+        { modal: 'agent-profile', providerId, hostelId: propertyId },
+        '',
+        `#agent/${providerId}`
+      );
+    } catch {}
+  };
+
+  const handleCloseProviderProfile = () => {
+    setProviderProfileModalOpen(false);
+    if (typeof window !== 'undefined' && window.location.hash.startsWith('#agent/')) {
+      window.history.back();
+    }
+  };
+
+  // Synchronize browser Back/Forward with Agent Profile modal
+  useEffect(() => {
+    const handlePopStateAgent = () => {
+      const isAgentHash = window.location.hash.startsWith('#agent/');
+      setProviderProfileModalOpen(isAgentHash);
+    };
+    window.addEventListener('popstate', handlePopStateAgent);
+    return () => window.removeEventListener('popstate', handlePopStateAgent);
+  }, []);
   const [isSaved, setIsSaved] = useState<boolean>(false);
   const [saveLoading, setSaveLoading] = useState<boolean>(false);
 
   // Direct DM & Inquiry State
   const [inquiryText, setInquiryText] = useState<string>('');
   const [sendingInquiry, setSendingInquiry] = useState<boolean>(false);
+  const [isUtilityExpanded, setIsUtilityExpanded] = useState<boolean>(false);
 
   const handleInspectClick = (type: InspectionType = 'PHYSICAL', roomId?: string) => {
     if (!isAuthenticated) {
@@ -274,11 +310,75 @@ export const HostelDetailModal: React.FC<HostelDetailModalProps> = ({
     }
   };
 
-  // Filter media by category
-  const filteredMedia = property?.media?.filter(m => {
-    if (activeMediaCategory === 'ALL') return true;
-    return m.category === activeMediaCategory;
-  }) || [];
+  // Normalize property media list
+  const mediaList = React.useMemo(() => {
+    if (property?.media && property.media.length > 0) {
+      return property.media;
+    }
+    if (property?.coverImage) {
+      return [{
+        id: `media-${property.id}-cover`,
+        url: property.coverImage,
+        caption: property.title || 'Hostel Front View',
+        mediaType: 'IMAGE' as const,
+        category: 'EXTERIOR' as const,
+        isCover: true
+      }];
+    }
+    return [];
+  }, [property?.media, property?.coverImage, property?.id, property?.title]);
+
+  // Compute available categories with item counts (hide empty categories)
+  const availableCategories = React.useMemo(() => {
+    if (mediaList.length === 0) return [];
+
+    const categoryDefs: { key: MediaCategory | 'ALL'; label: string }[] = [
+      { key: 'ALL', label: 'All Media' },
+      { key: 'EXTERIOR', label: 'Exterior' },
+      { key: 'BEDROOM', label: 'Bedroom' },
+      { key: 'BATHROOM', label: 'Bathroom' },
+      { key: 'KITCHEN', label: 'Kitchen' },
+      { key: 'COMPOUND', label: 'Compound' },
+      { key: 'VIDEO_WALKTHROUGH', label: '🎥 Video Tour' }
+    ];
+
+    return categoryDefs.filter(cat => {
+      if (cat.key === 'ALL') return true;
+      return mediaList.some(m => {
+        if (cat.key === 'VIDEO_WALKTHROUGH') {
+          return m.category === 'VIDEO_WALKTHROUGH' || m.mediaType === 'VIDEO';
+        }
+        return m.category === cat.key;
+      });
+    }).map(cat => {
+      const count = cat.key === 'ALL'
+        ? mediaList.length
+        : mediaList.filter(m => {
+            if (cat.key === 'VIDEO_WALKTHROUGH') {
+              return m.category === 'VIDEO_WALKTHROUGH' || m.mediaType === 'VIDEO';
+            }
+            return m.category === cat.key;
+          }).length;
+      return {
+        ...cat,
+        count,
+        displayLabel: cat.key === 'ALL' ? `All Media (${count})` : `${cat.label} (${count})`
+      };
+    });
+  }, [mediaList]);
+
+  // Filter media by active category
+  const filteredMedia = React.useMemo(() => {
+    if (mediaList.length === 0) return [];
+    if (activeMediaCategory === 'ALL') return mediaList;
+    const items = mediaList.filter(m => {
+      if (activeMediaCategory === 'VIDEO_WALKTHROUGH') {
+        return m.category === 'VIDEO_WALKTHROUGH' || m.mediaType === 'VIDEO';
+      }
+      return m.category === activeMediaCategory;
+    });
+    return items.length > 0 ? items : mediaList;
+  }, [mediaList, activeMediaCategory]);
 
   // Preview touch swipe handlers for mobile
   const handlePreviewTouchStart = (e: React.TouchEvent) => {
@@ -307,10 +407,12 @@ export const HostelDetailModal: React.FC<HostelDetailModalProps> = ({
 
   const isBooked = Boolean(property?.isBooked || property?.availabilityStatus === 'BOOKED' || (property?.activeBookingCount !== undefined && property.activeBookingCount > 0));
 
-  const currentMedia = filteredMedia[activeMediaIndex] || filteredMedia[0] || {
+  const safeIndex = (activeMediaIndex >= 0 && activeMediaIndex < filteredMedia.length) ? activeMediaIndex : 0;
+
+  const currentMedia = filteredMedia[safeIndex] || {
     url: property?.coverImage || 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=1200&q=80',
-    mediaType: 'IMAGE',
-    caption: 'Lodge View'
+    mediaType: 'IMAGE' as const,
+    caption: property?.title || 'Lodge View'
   };
 
   const renderAmenityIcon = (iconName: string) => {
@@ -340,7 +442,10 @@ export const HostelDetailModal: React.FC<HostelDetailModalProps> = ({
     >
       <div className="bg-white dark:bg-slate-900 w-full max-w-5xl md:rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 min-h-screen md:min-h-0 md:max-h-[92vh] flex flex-col overflow-hidden text-slate-900 dark:text-slate-100">
         {/* Sticky Header Bar */}
-        <div className="sticky top-0 z-30 bg-white/95 dark:bg-slate-900/95 backdrop-blur border-b border-slate-200 dark:border-slate-800 px-4 md:px-6 py-3.5 flex items-center justify-between">
+        <div 
+          className="sticky top-0 z-30 bg-white/95 dark:bg-slate-900/95 backdrop-blur border-b border-slate-200 dark:border-slate-800 px-4 md:px-6 py-3.5 flex items-center justify-between"
+          style={{ paddingTop: 'max(env(safe-area-inset-top), 0.875rem)' }}
+        >
           <div className="flex items-center gap-2 truncate">
             <span className="font-extrabold text-xs text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded uppercase">
               Hostel Ease Verified
@@ -496,46 +601,41 @@ export const HostelDetailModal: React.FC<HostelDetailModalProps> = ({
               </div>
 
               {/* 1. Categorized Media Gallery & Walkthrough */}
-              <div className="space-y-3">
-                {/* Media Category Tabs */}
-                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-                  {[
-                    { key: 'ALL', label: 'All Media' },
-                    { key: 'EXTERIOR', label: 'Exterior' },
-                    { key: 'BEDROOM', label: 'Bedroom' },
-                    { key: 'BATHROOM', label: 'Bathroom' },
-                    { key: 'KITCHEN', label: 'Kitchen' },
-                    { key: 'COMPOUND', label: 'Compound' },
-                    { key: 'VIDEO_WALKTHROUGH', label: '🎥 Video Tour' }
-                  ].map(tab => (
-                    <button
-                      key={tab.key}
-                      onClick={() => {
-                        setActiveMediaCategory(tab.key as any);
-                        setActiveMediaIndex(0);
-                      }}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
-                        activeMediaCategory === tab.key
-                          ? 'bg-slate-900 text-white shadow-sm'
-                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                      }`}
-                    >
-                      {tab.label}
-                    </button>
-                  ))}
-                </div>
+              <div className="space-y-3 pt-1 sm:pt-0">
+                {/* Media Category Tabs (Only display categories that have items for this property + All Media) */}
+                {availableCategories.length > 1 && (
+                  <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none mb-1">
+                    {availableCategories.map(tab => (
+                      <button
+                        key={tab.key}
+                        type="button"
+                        onClick={() => {
+                          setActiveMediaCategory(tab.key as any);
+                          setActiveMediaIndex(0);
+                        }}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
+                          activeMediaCategory === tab.key
+                            ? 'bg-slate-900 text-white shadow-sm'
+                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                        }`}
+                      >
+                        {tab.displayLabel}
+                      </button>
+                    ))}
+                  </div>
+                )}
 
-                {/* Main Media Display Viewport */}
+                {/* Main Media Display Viewport (Mobile: Complete Uncropped Photo with object-contain; Desktop: Preserved md:aspect-[21/10] md:object-cover) */}
                 <div 
                   onClick={() => setLightboxOpen(true)}
                   onTouchStart={handlePreviewTouchStart}
                   onTouchEnd={handlePreviewTouchEnd}
-                  className="relative aspect-[16/9] md:aspect-[21/10] bg-slate-950 rounded-2xl overflow-hidden shadow-inner flex items-center justify-center cursor-pointer group/viewport touch-pan-y select-none"
+                  className="relative w-full aspect-[4/3] sm:aspect-[16/10] md:aspect-[21/10] max-h-[58vh] md:max-h-none bg-slate-950 rounded-2xl overflow-hidden shadow-inner flex items-center justify-center cursor-pointer group/viewport touch-pan-y select-none"
                 >
                   {currentMedia.mediaType === 'VIDEO' ? (
                     <div 
                       onClick={(e) => e.stopPropagation()}
-                      className="w-full h-full bg-black relative flex items-center justify-center cursor-default"
+                      className="w-full h-full bg-black relative flex items-center justify-center cursor-default z-1"
                     >
                       <video
                         src={getMediaUrl(currentMedia.url)}
@@ -546,39 +646,54 @@ export const HostelDetailModal: React.FC<HostelDetailModalProps> = ({
                       />
                     </div>
                   ) : (
-                    <img
-                      src={getMediaUrl(currentMedia.url) || 'https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?auto=format&fit=crop&w=1000&q=80'}
-                      alt={currentMedia.caption || property.title}
-                      onError={(e) => {
-                        e.currentTarget.src = 'https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?auto=format&fit=crop&w=1000&q=80';
-                      }}
-                      className="w-full h-full object-cover group-hover/viewport:scale-102 transition-transform duration-300"
-                    />
+                    <>
+                      {/* Mobile subtle ambient backdrop to fill viewport edges smoothly without cropping */}
+                      <div 
+                        className="absolute inset-0 block md:hidden bg-cover bg-center filter blur-xl opacity-20 scale-110 pointer-events-none"
+                        style={{ backgroundImage: `url(${getMediaUrl(currentMedia.url) || 'https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?auto=format&fit=crop&w=1000&q=80'})` }}
+                        aria-hidden="true"
+                      />
+                      <img
+                        src={getMediaUrl(currentMedia.url) || 'https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?auto=format&fit=crop&w=1000&q=80'}
+                        alt={currentMedia.caption || property.title}
+                        onError={(e) => {
+                          e.currentTarget.src = 'https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?auto=format&fit=crop&w=1000&q=80';
+                        }}
+                        className="relative z-1 w-full h-full object-contain md:object-cover group-hover/viewport:scale-102 transition-transform duration-300 select-none"
+                      />
+                    </>
                   )}
 
-                  {/* Click to Expand Lightbox Badge */}
+                  {/* Top-Right Lightbox / Fullscreen Button (Compact on mobile so it doesn't obstruct the photograph) */}
                   <button
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
                       setLightboxOpen(true);
                     }}
-                    className="absolute top-3 right-3 px-3 py-1.5 rounded-xl bg-black/70 hover:bg-black/90 text-white backdrop-blur-md transition-all flex items-center gap-1.5 text-xs font-bold shadow-lg cursor-pointer z-10"
+                    className="absolute top-2.5 right-2.5 md:top-3 md:right-3 p-2 md:px-3 md:py-1.5 rounded-xl bg-black/60 hover:bg-black/85 text-white backdrop-blur-md transition-all flex items-center gap-1.5 text-xs font-bold shadow-lg cursor-pointer z-10"
                     title="Open Full 4K Lightbox Gallery"
                   >
                     <Maximize2 className="w-3.5 h-3.5 text-emerald-400" />
-                    <span>View Lightbox & 4K Tour</span>
+                    <span className="hidden sm:inline">View Lightbox & 4K Tour</span>
+                    <span className="sm:hidden text-[10px]">Full Size</span>
                   </button>
 
-                  {/* Caption & Counter */}
-                  <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between text-white text-xs pointer-events-none">
-                    <span className="bg-slate-950/80 backdrop-blur px-2.5 py-1 rounded-lg font-medium">
-                      {currentMedia.caption || 'Verified Hostel Photo'}
-                    </span>
-                    <span className="bg-slate-950/80 backdrop-blur px-2.5 py-1 rounded-lg font-bold">
-                      {activeMediaIndex + 1} / {filteredMedia.length || 1}
+                  {/* Photo Counter Badge (Discreet, Top-Left Corner) */}
+                  <div className="absolute top-2.5 left-2.5 z-10 pointer-events-none">
+                    <span className="bg-slate-950/80 backdrop-blur px-2 py-0.5 rounded-md font-bold text-[10px] sm:text-xs text-white/90 shadow-sm border border-white/10">
+                      {safeIndex + 1} / {filteredMedia.length || 1}
                     </span>
                   </div>
+
+                  {/* Subtle Caption Bar (Only shown if specific custom caption is provided) */}
+                  {currentMedia.caption && currentMedia.caption !== 'Verified Hostel Photo' && (
+                    <div className="absolute bottom-2.5 left-2.5 right-2.5 z-10 pointer-events-none flex justify-center">
+                      <span className="bg-slate-950/85 backdrop-blur px-2.5 py-0.5 rounded-lg text-[10px] sm:text-xs text-white/90 font-medium truncate max-w-[85%] shadow-sm border border-white/10">
+                        {currentMedia.caption}
+                      </span>
+                    </div>
+                  )}
 
                   {/* Nav Arrows */}
                   {filteredMedia.length > 1 && (
@@ -589,10 +704,10 @@ export const HostelDetailModal: React.FC<HostelDetailModalProps> = ({
                           e.stopPropagation();
                           setActiveMediaIndex((prev) => (prev > 0 ? prev - 1 : filteredMedia.length - 1));
                         }}
-                        className="absolute left-3 top-1/2 -translate-y-1/2 p-2.5 rounded-full bg-black/60 text-white hover:bg-black/85 transition-colors z-10 cursor-pointer shadow-lg active:scale-95"
+                        className="absolute left-2 sm:left-3 top-1/2 -translate-y-1/2 p-2 sm:p-2.5 rounded-full bg-black/60 text-white hover:bg-black/85 transition-colors z-10 cursor-pointer shadow-lg active:scale-95"
                         aria-label="Previous photo"
                       >
-                        <ChevronLeft className="w-5 h-5" />
+                        <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5" />
                       </button>
                       <button
                         type="button"
@@ -600,16 +715,16 @@ export const HostelDetailModal: React.FC<HostelDetailModalProps> = ({
                           e.stopPropagation();
                           setActiveMediaIndex((prev) => (prev < filteredMedia.length - 1 ? prev + 1 : 0));
                         }}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 p-2.5 rounded-full bg-black/60 text-white hover:bg-black/85 transition-colors z-10 cursor-pointer shadow-lg active:scale-95"
+                        className="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 p-2 sm:p-2.5 rounded-full bg-black/60 text-white hover:bg-black/85 transition-colors z-10 cursor-pointer shadow-lg active:scale-95"
                         aria-label="Next photo"
                       >
-                        <ChevronRight className="w-5 h-5" />
+                        <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5" />
                       </button>
                     </>
                   )}
                 </div>
 
-                {/* Thumbnails Row */}
+                {/* Thumbnails Row (Tapping selects photo in main viewport without forcing lightbox) */}
                 {filteredMedia.length > 1 && (
                   <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
                     {filteredMedia.map((m, idx) => (
@@ -618,12 +733,11 @@ export const HostelDetailModal: React.FC<HostelDetailModalProps> = ({
                         type="button"
                         onClick={() => {
                           setActiveMediaIndex(idx);
-                          setLightboxOpen(true);
                         }}
                         title={`View image ${idx + 1} of ${filteredMedia.length}`}
                         aria-label={`View image ${idx + 1}`}
                         className={`relative w-20 h-14 rounded-xl overflow-hidden flex-shrink-0 border-2 transition-all cursor-pointer ${
-                          activeMediaIndex === idx ? 'border-emerald-600 scale-105 shadow-sm ring-2 ring-emerald-500/30' : 'border-transparent opacity-70 hover:opacity-100'
+                          safeIndex === idx ? 'border-emerald-600 scale-105 shadow-sm ring-2 ring-emerald-500/30' : 'border-transparent opacity-70 hover:opacity-100'
                         }`}
                       >
                         {m.mediaType === 'VIDEO' ? (
@@ -632,8 +746,8 @@ export const HostelDetailModal: React.FC<HostelDetailModalProps> = ({
                           </div>
                         ) : (
                           <img 
-                            src={m.url} 
-                            alt="thumb" 
+                            src={getMediaUrl(m.url)} 
+                            alt={m.caption || `Thumbnail ${idx + 1}`} 
                             onError={(e) => {
                               e.currentTarget.src = 'https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?auto=format&fit=crop&w=400&q=80';
                             }}
@@ -761,65 +875,88 @@ export const HostelDetailModal: React.FC<HostelDetailModalProps> = ({
                     </div>
                   </div>
 
-                  {/* UtilityRadar: Verified Power & Water Intelligence */}
-                  <div className="bg-gradient-to-br from-amber-50/50 via-white to-sky-50/50 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800 rounded-2xl p-5 border border-amber-200/80 dark:border-slate-700 space-y-4 shadow-sm">
+                  {/* UtilityRadar: Verified Power & Water Intelligence (Mobile Compact Side-by-Side + Expandable Details) */}
+                  <div className="bg-gradient-to-br from-amber-50/50 via-white to-sky-50/50 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800 rounded-2xl p-3.5 sm:p-5 border border-amber-200/80 dark:border-slate-700 space-y-3 sm:space-y-4 shadow-sm">
                     <div className="flex items-center justify-between">
-                      <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
-                        <Zap className="w-4 h-4 text-amber-500 fill-amber-500" />
-                        <span>UtilityRadar™ Power & Water Reliability Index</span>
+                      <h3 className="text-xs sm:text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-1.5 sm:gap-2">
+                        <Zap className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-500 fill-amber-500" />
+                        <span>UtilityRadar™ Power & Water Specs</span>
                       </h3>
-                      <span className="text-[10px] font-black px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 uppercase">
+                      <span className="text-[9px] sm:text-[10px] font-black px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 uppercase">
                         Verified Specs
                       </span>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                    {/* Side-by-Side Grid on Mobile and Desktop */}
+                    <div className="grid grid-cols-2 gap-2 sm:gap-3.5">
                       {/* Power Supply Box */}
-                      <div className="bg-white dark:bg-slate-800 p-3.5 rounded-xl border border-amber-100 dark:border-slate-700 space-y-1.5">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-                            <Zap className="w-3.5 h-3.5 text-amber-500" />
-                            Electricity & Power
-                          </span>
-                          <span className="text-[11px] font-black text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/60 px-2 py-0.5 rounded-md">
-                            {property.utilityRating?.dailyLightHoursAvg || 16} hrs/day avg
-                          </span>
-                        </div>
-                        <p className="text-[11px] text-slate-600 dark:text-slate-400">
-                          <strong>Source:</strong> {property.utilityRating?.powerSource === 'SOLAR_INVERTER' ? 'Solar Inverter Backup + NEPA' : property.utilityRating?.powerSource === 'HYBRID_SOLAR_GEN' ? 'Hybrid Solar + Inverter + Generator' : 'Dedicated Commercial Feeder Line'}
-                        </p>
-                        {property.utilityRating?.generatorSchedule && (
-                          <p className="text-[10px] text-slate-500 dark:text-slate-400">
-                            • Generator Schedule: {property.utilityRating.generatorSchedule}
+                      <div className="bg-white dark:bg-slate-800 p-2.5 sm:p-3.5 rounded-xl border border-amber-100 dark:border-slate-700 flex flex-col justify-between space-y-1 sm:space-y-1.5">
+                        <div>
+                          <div className="flex items-center justify-between flex-wrap gap-1">
+                            <span className="text-[11px] sm:text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1">
+                              <Zap className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-amber-500 shrink-0" />
+                              <span>Electricity</span>
+                            </span>
+                            <span className="text-[10px] sm:text-[11px] font-black text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/60 px-1.5 py-0.5 rounded">
+                              {property.utilityRating?.dailyLightHoursAvg || 16}h/day avg
+                            </span>
+                          </div>
+                          <p className="text-[10px] sm:text-[11px] text-slate-600 dark:text-slate-400 mt-1">
+                            <strong>Source:</strong> {property.utilityRating?.powerSource === 'SOLAR_INVERTER' ? 'Solar + NEPA' : property.utilityRating?.powerSource === 'HYBRID_SOLAR_GEN' ? 'Solar + Gen' : 'Commercial Feeder'}
                           </p>
-                        )}
-                        <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">
-                          ✓ {property.utilityRating?.prepaidSubMeter ? 'Individual prepaid sub-meter per room' : 'Compound utility management'}
-                        </p>
+                        </div>
+
+                        {/* Detailed breakdown: always visible on desktop, expandable on mobile */}
+                        <div className={`${isUtilityExpanded ? 'block' : 'hidden sm:block'} space-y-1 pt-1.5 border-t border-slate-100 dark:border-slate-700/60 animate-in fade-in duration-200`}>
+                          {property.utilityRating?.generatorSchedule && (
+                            <p className="text-[9px] sm:text-[10px] text-slate-500 dark:text-slate-400">
+                              • Gen: {property.utilityRating.generatorSchedule}
+                            </p>
+                          )}
+                          <p className="text-[9px] sm:text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">
+                            ✓ {property.utilityRating?.prepaidSubMeter ? 'Individual prepaid sub-meter' : 'Compound management'}
+                          </p>
+                        </div>
                       </div>
 
                       {/* Water Supply Box */}
-                      <div className="bg-white dark:bg-slate-800 p-3.5 rounded-xl border border-sky-100 dark:border-slate-700 space-y-1.5">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-                            <Droplets className="w-3.5 h-3.5 text-sky-500" />
-                            Running Water Security
-                          </span>
-                          <span className="text-[11px] font-black text-sky-700 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/60 px-2 py-0.5 rounded-md">
-                            {property.utilityRating?.waterSource === 'SOLAR_BOREHOLE' ? 'Solar Powered Borehole' : 'Motorized Deep Borehole'}
-                          </span>
+                      <div className="bg-white dark:bg-slate-800 p-2.5 sm:p-3.5 rounded-xl border border-sky-100 dark:border-slate-700 flex flex-col justify-between space-y-1 sm:space-y-1.5">
+                        <div>
+                          <div className="flex items-center justify-between flex-wrap gap-1">
+                            <span className="text-[11px] sm:text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1">
+                              <Droplets className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-sky-500 shrink-0" />
+                              <span>Water Supply</span>
+                            </span>
+                            <span className="text-[10px] sm:text-[11px] font-black text-sky-700 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/60 px-1.5 py-0.5 rounded truncate max-w-[100px] sm:max-w-none">
+                              {property.utilityRating?.waterSource === 'SOLAR_BOREHOLE' ? 'Solar Borehole' : 'Deep Borehole'}
+                            </span>
+                          </div>
+                          <p className="text-[10px] sm:text-[11px] text-slate-600 dark:text-slate-400 mt-1">
+                            <strong>Storage:</strong> {property.utilityRating?.waterStorageLitres ? `${property.utilityRating.waterStorageLitres.toLocaleString()}L Tanks` : 'Overhead Tanks'}
+                          </p>
                         </div>
-                        <p className="text-[11px] text-slate-600 dark:text-slate-400">
-                          <strong>Storage:</strong> {property.utilityRating?.waterStorageLitres ? `${property.utilityRating.waterStorageLitres.toLocaleString()} Litres Capacity` : 'Multiple Overhead Reserve Tanks'}
-                        </p>
-                        <p className="text-[10px] text-slate-500 dark:text-slate-400">
-                          • Pumping Frequency: {property.utilityRating?.waterPumpingSchedule || 'Twice Daily (Morning & Evening)'}
-                        </p>
-                        <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">
-                          ✓ Continuous running water to ensuite bathrooms
-                        </p>
+
+                        {/* Detailed breakdown: always visible on desktop, expandable on mobile */}
+                        <div className={`${isUtilityExpanded ? 'block' : 'hidden sm:block'} space-y-1 pt-1.5 border-t border-slate-100 dark:border-slate-700/60 animate-in fade-in duration-200`}>
+                          <p className="text-[9px] sm:text-[10px] text-slate-500 dark:text-slate-400">
+                            • Pumping: {property.utilityRating?.waterPumpingSchedule || 'Twice Daily'}
+                          </p>
+                          <p className="text-[9px] sm:text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">
+                            ✓ Continuous running water
+                          </p>
+                        </div>
                       </div>
                     </div>
+
+                    {/* Mobile Expand / Collapse Button */}
+                    <button
+                      type="button"
+                      onClick={() => setIsUtilityExpanded(!isUtilityExpanded)}
+                      className="sm:hidden w-full py-1.5 px-3 rounded-xl bg-white/80 dark:bg-slate-800/80 hover:bg-white dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[11px] font-bold text-slate-700 dark:text-slate-200 flex items-center justify-center gap-1 transition-colors cursor-pointer"
+                    >
+                      <span>{isUtilityExpanded ? 'Hide Schedule Details' : 'View Full Schedule & Metering'}</span>
+                      <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${isUtilityExpanded ? 'rotate-180' : ''}`} />
+                    </button>
                   </div>
 
                   {/* Provider / Agent Information Card */}
@@ -844,9 +981,9 @@ export const HostelDetailModal: React.FC<HostelDetailModalProps> = ({
                         </div>
 
                         <div className="flex items-center gap-2 flex-wrap">
-                          {property.provider.id && (
+                          {property.provider?.id && (
                             <button
-                              onClick={() => setProviderProfileModalOpen(true)}
+                              onClick={() => property?.provider?.id && handleOpenProviderProfile(property.provider.id)}
                               className="px-3 py-1.5 bg-white dark:bg-slate-800 border border-emerald-300 dark:border-emerald-700 text-emerald-900 dark:text-emerald-300 text-xs font-bold rounded-xl hover:bg-emerald-100 dark:hover:bg-slate-700 flex items-center gap-1 shadow-sm"
                             >
                               <UserCheck className="w-3.5 h-3.5" /> Profile
@@ -1204,12 +1341,12 @@ export const HostelDetailModal: React.FC<HostelDetailModalProps> = ({
         <ProviderPublicProfileModal
           providerId={property.provider.id}
           isOpen={providerProfileModalOpen}
-          onClose={() => setProviderProfileModalOpen(false)}
+          onClose={handleCloseProviderProfile}
         />
       )}
 
       {/* 4K Video Tour & Photo Lightbox Gallery */}
-      {property && (
+      {property && lightboxOpen && (
         <HostelImageGalleryModal
           isOpen={lightboxOpen}
           onClose={(finalIdx) => {
@@ -1223,7 +1360,7 @@ export const HostelDetailModal: React.FC<HostelDetailModalProps> = ({
           }}
           media={filteredMedia.length > 0 ? filteredMedia : [{ id: property.id, url: property.coverImage, caption: property.title, mediaType: 'IMAGE' }]}
           hostelTitle={property.title}
-          initialIndex={activeMediaIndex}
+          initialIndex={safeIndex}
         />
       )}
     </div>

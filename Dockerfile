@@ -25,11 +25,16 @@ COPY --from=builder /app/package*.json ./
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/server ./server
+COPY --from=builder /app/uploads ./uploads
+COPY --from=builder /app/data ./data
 COPY --from=builder /app/tsconfig.json ./
 
-# Ensure data directory exists
-RUN mkdir -p /app/data
+# Ensure data, uploads, and logs directories exist with write permissions
+RUN mkdir -p /app/data /app/uploads /app/logs
 
 EXPOSE 5000
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD curl -f http://localhost:5000/api/health || exit 1
 
 CMD ["npm", "run", "start"]

@@ -33,6 +33,10 @@ export class SyncService {
   }
 
   public async start() {
+    if (process.env.DISABLE_SYNC === 'true') {
+      console.log('📡 [SyncService] Sync disabled via DISABLE_SYNC=true (Standalone Production Node).');
+      return;
+    }
     console.log(`📡 [SyncService] Initializing bidirectional sync with live site (${this.liveUrl})...`);
     await this.pushAllLocalData();
     this.startPolling();
