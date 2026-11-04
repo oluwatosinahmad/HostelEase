@@ -27,11 +27,15 @@ import {
   Meh,
   Frown,
   LogOut,
-  Layers
+  Layers,
+  Check,
+  BookOpen,
+  GraduationCap,
+  Flag
 } from 'lucide-react';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
-import { formatNaira, formatDistance } from '../utils/formatters';
+import { formatNaira, formatDistance, calculateHostelTravelTime } from '../utils/formatters';
 import { MoveInDashboardData, MoveInChecklistItem, MoveInIssue } from '../types/hostelEase';
 
 interface MoveInCenterProps {
@@ -222,7 +226,7 @@ export const MoveInCenter: React.FC<MoveInCenterProps> = ({
     if (!data) return;
     try {
       await api.moveIn.confirmAcceptance(data.bookingId);
-      onShowToast('🎉 Move-in officially accepted! Welcome to your new hostel.', 'success');
+      onShowToast('Move-in officially accepted! Welcome to your new hostel.', 'success');
       fetchMoveInData();
     } catch (err: any) {
       onShowToast(err.message || 'Failed to accept accommodation', 'error');
@@ -442,7 +446,10 @@ export const MoveInCenter: React.FC<MoveInCenterProps> = ({
               </div>
             ) : (
               <div className="px-4 py-2 bg-white/10 backdrop-blur rounded-2xl border border-white/20 text-center">
-                <span className="text-xs font-black text-emerald-300">✅ Move-In Accepted</span>
+                <span className="text-xs font-black text-emerald-300 flex items-center justify-center gap-1">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-300 shrink-0" />
+                  <span>Move-In Accepted</span>
+                </span>
                 <p className="text-[10px] text-emerald-100 mt-0.5">Welcome to your accommodation!</p>
               </div>
             )}
@@ -503,9 +510,12 @@ export const MoveInCenter: React.FC<MoveInCenterProps> = ({
               <span className="text-gray-400">Booking Ref:</span>
               <span className="font-bold text-gray-900">#{data.bookingId ? data.bookingId.slice(0, 10) : 'HE-BOOK'}</span>
             </div>
-            <div className="flex justify-between">
+            <div className="flex justify-between items-center">
               <span className="text-gray-400">Payment Status:</span>
-              <span className="font-bold text-emerald-700">✅ {data.payment?.status || 'PAID'}</span>
+              <span className="font-bold text-emerald-700 flex items-center gap-1">
+                <Check className="w-3.5 h-3.5" />
+                <span>{data.payment?.status || 'PAID'}</span>
+              </span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-400">Balance Remaining:</span>
@@ -562,7 +572,10 @@ export const MoveInCenter: React.FC<MoveInCenterProps> = ({
           </div>
 
           <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-3 text-xs text-emerald-950 space-y-1">
-            <p className="font-bold">📍 Pickup Point: {data.keyCollectionPoint}</p>
+            <p className="font-bold flex items-center gap-1">
+              <MapPin className="w-3.5 h-3.5 text-[#FD8003] shrink-0" />
+              <span>Pickup Point: {data.keyCollectionPoint}</span>
+            </p>
             <p className="text-emerald-800">{data.instructions}</p>
           </div>
 
@@ -652,9 +665,10 @@ export const MoveInCenter: React.FC<MoveInCenterProps> = ({
                           e.stopPropagation();
                           setRulesModalOpen(true);
                         }}
-                        className="text-[11px] text-emerald-700 font-extrabold hover:underline mt-1 block"
+                        className="text-[11px] text-emerald-700 font-extrabold hover:underline mt-1 flex items-center gap-1"
                       >
-                        📖 View Hostel House Rules Document
+                        <BookOpen className="w-3.5 h-3.5 shrink-0" />
+                        <span>View Hostel House Rules Document</span>
                       </button>
                     )}
                   </div>
@@ -764,9 +778,9 @@ export const MoveInCenter: React.FC<MoveInCenterProps> = ({
               <h4 className="text-xs font-black uppercase text-gray-400">Hostel Address & Proximity</h4>
               <p className="text-sm font-bold text-gray-900">{data.hostel?.address || 'Under-G, Ogbomoso'}</p>
               <div className="space-y-1 text-xs text-gray-600">
-                <p>📍 Area: <strong className="text-gray-800">{data.hostel?.areaName || 'Under G'}</strong></p>
-                <p>🏫 Campus Distance: <strong className="text-emerald-800">{formatDistance(data.hostel?.distanceFromCampusKm || 0.6)}</strong> from LAUTECH Main Gate</p>
-                <p>🚩 Key Landmark: <strong className="text-gray-800">{data.hostel?.nearbyLandmark || 'LAUTECH Under G Gate'}</strong></p>
+                <p className="flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5 text-[#FD8003] shrink-0" /> Area: <strong className="text-gray-800">{data.hostel?.areaName || 'Under G'}</strong></p>
+                <p className="flex items-center gap-1.5"><GraduationCap className="w-3.5 h-3.5 text-emerald-600 shrink-0" /> Travel to Campus: <strong className="text-emerald-800">{calculateHostelTravelTime(data.hostel?.distanceFromCampusKm || 0.6).primaryText}</strong></p>
+                <p className="flex items-center gap-1.5"><Flag className="w-3.5 h-3.5 text-blue-600 shrink-0" /> Key Landmark: <strong className="text-gray-800">{data.hostel?.nearbyLandmark || 'LAUTECH Under G Gate'}</strong></p>
               </div>
             </div>
 
@@ -915,15 +929,17 @@ export const MoveInCenter: React.FC<MoveInCenterProps> = ({
                     <div className="flex items-center gap-2 pt-2 border-t border-gray-200">
                       <button
                         onClick={() => handleConfirmIssueResolution(issue.id, true)}
-                        className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-lg transition-colors"
+                        className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-lg transition-colors flex items-center gap-1.5"
                       >
-                        ✅ Problem Resolved
+                        <Check className="w-3.5 h-3.5 shrink-0" />
+                        <span>Problem Resolved</span>
                       </button>
                       <button
                         onClick={() => handleConfirmIssueResolution(issue.id, false)}
-                        className="px-3 py-1.5 bg-rose-100 hover:bg-rose-200 text-rose-800 text-xs font-bold rounded-lg transition-colors"
+                        className="px-3 py-1.5 bg-rose-100 hover:bg-rose-200 text-rose-800 text-xs font-bold rounded-lg transition-colors flex items-center gap-1.5"
                       >
-                        ⚠️ Still Unresolved (Escalate Dispute)
+                        <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                        <span>Still Unresolved (Escalate Dispute)</span>
                       </button>
                     </div>
                   )}
@@ -986,7 +1002,7 @@ export const MoveInCenter: React.FC<MoveInCenterProps> = ({
             }`}
           >
             <Smile className="w-4 h-4 text-emerald-500" />
-            <span>😊 Good</span>
+            <span>Good</span>
           </button>
           <button
             onClick={() => handleCheckInRating('MINOR_PROBLEMS')}
@@ -995,7 +1011,7 @@ export const MoveInCenter: React.FC<MoveInCenterProps> = ({
             }`}
           >
             <Meh className="w-4 h-4 text-amber-500" />
-            <span>😐 Some Problems</span>
+            <span>Some Problems</span>
           </button>
           <button
             onClick={() => {
@@ -1007,7 +1023,7 @@ export const MoveInCenter: React.FC<MoveInCenterProps> = ({
             }`}
           >
             <Frown className="w-4 h-4 text-rose-500" />
-            <span>😞 Serious Problem</span>
+            <span>Serious Problem</span>
           </button>
         </div>
       </div>

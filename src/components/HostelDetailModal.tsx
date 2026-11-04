@@ -23,6 +23,7 @@ import {
   Phone, 
   User as UserIcon, 
   Footprints, 
+  Route,
   Info, 
   Check, 
   Share2,
@@ -37,12 +38,13 @@ import {
   Send,
   Receipt,
   Sparkles,
-  Navigation
+  Navigation,
+  Clock
 } from 'lucide-react';
 import { Property, MediaCategory, UserRole, InspectionType } from '../types/hostelEase';
 import { api, getMediaUrl } from '../services/api';
 import { useAuth } from '../context/AuthContext';
-import { formatNaira, formatDistance, getAvailabilityBadgeInfo, getPropertyTypeLabel } from '../utils/formatters';
+import { formatNaira, formatDistance, getAvailabilityBadgeInfo, getPropertyTypeLabel, calculateHostelTravelTime } from '../utils/formatters';
 import { InspectionModal } from './InspectionModal';
 import { ReportListingModal } from './ReportListingModal';
 import { ProviderPublicProfileModal } from './ProviderPublicProfileModal';
@@ -92,6 +94,7 @@ export const HostelDetailModal: React.FC<HostelDetailModalProps> = ({
   const [lightboxOpen, setLightboxOpen] = useState<boolean>(false);
   const previewTouchStartX = useRef<number | null>(null);
   const previewTouchStartY = useRef<number | null>(null);
+  const contentBodyRef = useRef<HTMLDivElement>(null);
 
   // Modals state
   const [inspectionModalOpen, setInspectionModalOpen] = useState<boolean>(false);
@@ -281,6 +284,13 @@ export const HostelDetailModal: React.FC<HostelDetailModalProps> = ({
     };
   }, [isOpen, propertyId, initialProperty]);
 
+  // Ensure modal always opens scrolled cleanly to the top on mobile & desktop
+  useEffect(() => {
+    if (isOpen && contentBodyRef.current) {
+      contentBodyRef.current.scrollTop = 0;
+    }
+  }, [isOpen, propertyId]);
+
   if (!isOpen) return null;
 
   const handleSaveToggle = async () => {
@@ -339,7 +349,7 @@ export const HostelDetailModal: React.FC<HostelDetailModalProps> = ({
       { key: 'BATHROOM', label: 'Bathroom' },
       { key: 'KITCHEN', label: 'Kitchen' },
       { key: 'COMPOUND', label: 'Compound' },
-      { key: 'VIDEO_WALKTHROUGH', label: '🎥 Video Tour' }
+      { key: 'VIDEO_WALKTHROUGH', label: 'Video Tour' }
     ];
 
     return categoryDefs.filter(cat => {
@@ -415,6 +425,13 @@ export const HostelDetailModal: React.FC<HostelDetailModalProps> = ({
     caption: property?.title || 'Lodge View'
   };
 
+  // Accurately calculated travel estimate to LAUTECH
+  const travelEstimate = calculateHostelTravelTime(
+    property?.latitude && property?.longitude
+      ? { lat: property.latitude, lng: property.longitude }
+      : property?.distanceFromCampusKm
+  );
+
   const renderAmenityIcon = (iconName: string) => {
     switch (iconName) {
       case 'Zap': return <Zap className="w-4 h-4 text-amber-500" />;
@@ -438,12 +455,12 @@ export const HostelDetailModal: React.FC<HostelDetailModalProps> = ({
       aria-modal="true"
       aria-label="Hostel Details"
       data-testid="hostel-detail-modal"
-      className="fixed inset-0 z-50 flex items-center justify-center p-0 md:p-4 bg-slate-900/70 backdrop-blur-sm overflow-y-auto"
+      className="fixed inset-0 z-50 flex items-start md:items-center justify-center p-0 md:p-4 bg-slate-900/70 backdrop-blur-sm overflow-y-auto"
     >
-      <div className="bg-white dark:bg-slate-900 w-full max-w-5xl md:rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 min-h-screen md:min-h-0 md:max-h-[92vh] flex flex-col overflow-hidden text-slate-900 dark:text-slate-100">
+      <div className="bg-white dark:bg-slate-900 w-full max-w-5xl md:rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 h-[100dvh] md:h-auto md:max-h-[92vh] flex flex-col overflow-hidden text-slate-900 dark:text-slate-100">
         {/* Sticky Header Bar */}
         <div 
-          className="sticky top-0 z-30 bg-white/95 dark:bg-slate-900/95 backdrop-blur border-b border-slate-200 dark:border-slate-800 px-4 md:px-6 py-3.5 flex items-center justify-between"
+          className="sticky top-0 z-30 flex-shrink-0 bg-white/95 dark:bg-slate-900/95 backdrop-blur border-b border-slate-200 dark:border-slate-800 px-4 md:px-6 py-3.5 flex items-center justify-between"
           style={{ paddingTop: 'max(env(safe-area-inset-top), 0.875rem)' }}
         >
           <div className="flex items-center gap-2 truncate">
@@ -500,7 +517,7 @@ export const HostelDetailModal: React.FC<HostelDetailModalProps> = ({
         </div>
 
         {/* Scrollable Content Body */}
-        <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6">
+        <div ref={contentBodyRef} className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6">
           {loading && (
             <div className="py-20 text-center space-y-3">
               <div className="w-10 h-10 border-4 border-emerald-600 border-t-transparent rounded-full animate-spin mx-auto" />
@@ -579,12 +596,15 @@ export const HostelDetailModal: React.FC<HostelDetailModalProps> = ({
 
                 <div className="flex items-center gap-3 text-xs text-slate-600 flex-wrap">
                   <span className="flex items-center gap-1 font-medium">
-                    <MapPin className="w-3.5 h-3.5 text-emerald-600" />
+                    <MapPin className="w-3.5 h-3.5 text-[#FD8003]" />
                     {property.address}, {property.area.name}
                   </span>
-                  <span className="flex items-center gap-1 font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">
-                    <Footprints className="w-3.5 h-3.5" />
-                    {formatDistance(property.distanceFromCampusKm)}
+                  <span 
+                    className="flex items-center gap-1 font-black text-emerald-800 bg-emerald-50 border border-emerald-200/80 px-2.5 py-1 rounded-xl"
+                    title={travelEstimate.clarificationText}
+                  >
+                    <Clock className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>{travelEstimate.primaryText}</span>
                   </span>
                   {onViewOnMap && (
                     <button
@@ -613,24 +633,25 @@ export const HostelDetailModal: React.FC<HostelDetailModalProps> = ({
                           setActiveMediaCategory(tab.key as any);
                           setActiveMediaIndex(0);
                         }}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
+                        className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1.5 ${
                           activeMediaCategory === tab.key
                             ? 'bg-slate-900 text-white shadow-sm'
                             : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                         }`}
                       >
-                        {tab.displayLabel}
+                        {tab.key === 'VIDEO_WALKTHROUGH' && <Video className="w-3.5 h-3.5 text-amber-400" />}
+                        <span>{tab.displayLabel}</span>
                       </button>
                     ))}
                   </div>
                 )}
 
-                {/* Main Media Display Viewport (Mobile: Complete Uncropped Photo with object-contain; Desktop: Preserved md:aspect-[21/10] md:object-cover) */}
+                {/* Main Media Display Viewport (Mobile: Complete Uncropped Photo with object-contain & centered; Desktop: Preserved md:aspect-[21/10] md:object-cover) */}
                 <div 
                   onClick={() => setLightboxOpen(true)}
                   onTouchStart={handlePreviewTouchStart}
                   onTouchEnd={handlePreviewTouchEnd}
-                  className="relative w-full aspect-[4/3] sm:aspect-[16/10] md:aspect-[21/10] max-h-[58vh] md:max-h-none bg-slate-950 rounded-2xl overflow-hidden shadow-inner flex items-center justify-center cursor-pointer group/viewport touch-pan-y select-none"
+                  className="relative w-full aspect-[4/3] sm:aspect-[16/10] md:aspect-[21/10] bg-slate-950 rounded-2xl overflow-hidden shadow-inner flex items-center justify-center cursor-pointer group/viewport touch-pan-y select-none"
                 >
                   {currentMedia.mediaType === 'VIDEO' ? (
                     <div 
@@ -646,22 +667,15 @@ export const HostelDetailModal: React.FC<HostelDetailModalProps> = ({
                       />
                     </div>
                   ) : (
-                    <>
-                      {/* Mobile subtle ambient backdrop to fill viewport edges smoothly without cropping */}
-                      <div 
-                        className="absolute inset-0 block md:hidden bg-cover bg-center filter blur-xl opacity-20 scale-110 pointer-events-none"
-                        style={{ backgroundImage: `url(${getMediaUrl(currentMedia.url) || 'https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?auto=format&fit=crop&w=1000&q=80'})` }}
-                        aria-hidden="true"
-                      />
-                      <img
-                        src={getMediaUrl(currentMedia.url) || 'https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?auto=format&fit=crop&w=1000&q=80'}
-                        alt={currentMedia.caption || property.title}
-                        onError={(e) => {
-                          e.currentTarget.src = 'https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?auto=format&fit=crop&w=1000&q=80';
-                        }}
-                        className="relative z-1 w-full h-full object-contain md:object-cover group-hover/viewport:scale-102 transition-transform duration-300 select-none"
-                      />
-                    </>
+                    <img
+                      src={getMediaUrl(currentMedia.url) || 'https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?auto=format&fit=crop&w=1000&q=80'}
+                      alt={currentMedia.caption || property.title}
+                      onError={(e) => {
+                        e.currentTarget.src = 'https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?auto=format&fit=crop&w=1000&q=80';
+                      }}
+                      className="relative z-1 max-w-full max-h-full w-full h-full object-contain object-center md:object-cover md:object-center group-hover/viewport:scale-102 transition-transform duration-300 select-none block"
+                      style={{ objectPosition: 'center center' }}
+                    />
                   )}
 
                   {/* Top-Right Lightbox / Fullscreen Button (Compact on mobile so it doesn't obstruct the photograph) */}
@@ -679,9 +693,14 @@ export const HostelDetailModal: React.FC<HostelDetailModalProps> = ({
                     <span className="sm:hidden text-[10px]">Full Size</span>
                   </button>
 
-                  {/* Photo Counter Badge (Discreet, Top-Left Corner) */}
-                  <div className="absolute top-2.5 left-2.5 z-10 pointer-events-none">
-                    <span className="bg-slate-950/80 backdrop-blur px-2 py-0.5 rounded-md font-bold text-[10px] sm:text-xs text-white/90 shadow-sm border border-white/10">
+                  {/* Image Badges: Cover Image Label & Counter (Top-Left Corner) */}
+                  <div className="absolute top-2.5 left-2.5 md:top-3 md:left-3 z-10 pointer-events-none flex items-center gap-1.5 flex-wrap max-w-[70%]">
+                    {(safeIndex === 0 || currentMedia.isCover) && (
+                      <span className="bg-emerald-600/95 text-white font-extrabold text-[10px] sm:text-xs px-2.5 py-1 rounded-lg shadow-md border border-emerald-400/30 backdrop-blur-sm tracking-wide">
+                        Cover Image
+                      </span>
+                    )}
+                    <span className="bg-slate-950/80 backdrop-blur-md px-2.5 py-1 rounded-lg font-bold text-[10px] sm:text-xs text-white/90 shadow-md border border-white/10">
                       {safeIndex + 1} / {filteredMedia.length || 1}
                     </span>
                   </div>
@@ -848,8 +867,14 @@ export const HostelDetailModal: React.FC<HostelDetailModalProps> = ({
                         <p className="font-bold text-sm text-slate-900 dark:text-white">{property.area.name}</p>
                       </div>
                       <div>
-                        <p className="text-slate-400 dark:text-slate-400 font-semibold uppercase text-[10px]">Distance to Campus</p>
-                        <p className="font-bold text-sm text-emerald-700 dark:text-emerald-400">{formatDistance(property.distanceFromCampusKm)}</p>
+                        <p className="text-slate-400 dark:text-slate-400 font-semibold uppercase text-[10px]">Travel Time to LAUTECH</p>
+                        <p className="font-black text-sm text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5">
+                          <Clock className="w-3.5 h-3.5" />
+                          <span>{travelEstimate.primaryText}</span>
+                        </p>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                          {travelEstimate.clarificationText}
+                        </p>
                       </div>
                       <div className="sm:col-span-2">
                         <p className="text-slate-400 dark:text-slate-400 font-semibold uppercase text-[10px]">Landmark / Directions</p>
@@ -1031,7 +1056,10 @@ export const HostelDetailModal: React.FC<HostelDetailModalProps> = ({
                               }}
                               className="text-[10px] font-medium bg-slate-100 dark:bg-slate-800 hover:bg-emerald-50 dark:hover:bg-emerald-950/60 text-slate-700 dark:text-slate-300 hover:text-emerald-700 dark:hover:text-emerald-300 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1 transition-colors text-left"
                             >
-                              💬 {chip}
+                              <span className="inline-flex items-center gap-1">
+                                <MessageCircle className="w-3 h-3 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                                <span>{chip}</span>
+                              </span>
                             </button>
                           ))}
                         </div>

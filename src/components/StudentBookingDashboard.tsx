@@ -18,12 +18,14 @@ import {
   ShieldCheck,
   X,
   CreditCard,
-  KeyRound
+  KeyRound,
+  Bed,
+  Route
 } from 'lucide-react';
 import { BookingItem, BookingStatus } from '../types/hostelEase';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
-import { formatNaira, formatDistance } from '../utils/formatters';
+import { formatNaira, formatDistance, calculateHostelTravelTime } from '../utils/formatters';
 import { BookingDetailModal } from './BookingDetailModal';
 import { PaymentModal } from './PaymentModal';
 
@@ -277,11 +279,17 @@ export const StudentBookingDashboard: React.FC<StudentBookingDashboardProps> = (
                     <h3 className="font-black text-sm text-slate-900 truncate">
                       {b.propertyTitle}
                     </h3>
-                    <p className="text-xs text-slate-500 truncate">
-                      📍 {b.areaName} ({formatDistance(b.distanceFromCampusKm)} to Gate)
+                    <p className="text-xs text-slate-500 truncate flex items-center gap-1">
+                      <MapPin className="w-3 h-3 text-[#FD8003] shrink-0" />
+                      <span>{b.areaName}</span>
+                      <span className="text-slate-500 font-semibold flex items-center gap-1">
+                        • <Clock className="w-2.5 h-2.5 text-emerald-600 shrink-0" />
+                        <span>{calculateHostelTravelTime(b.distanceFromCampusKm).primaryText}</span>
+                      </span>
                     </p>
-                    <p className="text-xs font-bold text-emerald-800 truncate">
-                      🛏️ {b.roomName} {b.bedspaceNumber ? `• Bedspace ${b.bedspaceNumber}` : ''}
+                    <p className="text-xs font-bold text-emerald-800 truncate flex items-center gap-1">
+                      <Bed className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
+                      <span>{b.roomName} {b.bedspaceNumber ? `• Bedspace ${b.bedspaceNumber}` : ''}</span>
                     </p>
                   </div>
                 </div>
@@ -303,7 +311,10 @@ export const StudentBookingDashboard: React.FC<StudentBookingDashboardProps> = (
               <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
                 <div className="min-w-0 text-xs">
                   <span className="text-[10px] text-slate-400 font-bold">Agent</span>
-                  <p className="font-bold text-slate-800 truncate">🏡 {b.providerName}</p>
+                  <p className="font-bold text-slate-800 truncate flex items-center gap-1">
+                    <Building2 className="w-3 h-3 text-[#FD8003] shrink-0" />
+                    <span>{b.providerName}</span>
+                  </p>
                 </div>
 
                 <div className="flex items-center gap-1.5 flex-shrink-0">
@@ -368,7 +379,7 @@ export const StudentBookingDashboard: React.FC<StudentBookingDashboardProps> = (
           booking={payingBooking}
           onPaymentSuccess={() => {
             fetchBookings();
-            onShowToast('Payment received and space confirmed! 🎉', 'success');
+            onShowToast('Payment received and space confirmed!', 'success');
           }}
           onShowToast={onShowToast}
         />

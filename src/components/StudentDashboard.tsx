@@ -45,7 +45,9 @@ import {
   Zap,
   Calculator,
   Shield,
-  Wrench
+  Wrench,
+  Route,
+  Check
 } from 'lucide-react';
 import { 
   StudentDashboardData, 
@@ -66,6 +68,7 @@ import { SmartSearchBar } from './SmartSearchBar';
 import { SmartShortlistManager } from './SmartShortlistManager';
 import { AccommodationProgressTracker } from './AccommodationProgressTracker';
 import { UserAvatar } from './UserAvatar';
+import { ScrollReveal } from './ScrollReveal';
 import { ErrorBoundary } from './ErrorBoundary';
 import { DEFAULT_STUDENT_DASHBOARD } from '../services/offlineFallback';
 import { safeStorage } from '../utils/safeStorage';
@@ -214,7 +217,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
         window.dispatchEvent(new CustomEvent('hostel_ease_user_updated', { detail: updatedUser }));
       }
 
-      onShowToast('Profile picture uploaded & synchronized! 📸', 'success');
+      onShowToast('Profile picture uploaded & synchronized!', 'success');
       loadDashboard();
     } catch (err: any) {
       console.error('Failed to upload avatar:', err);
@@ -684,8 +687,15 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                 <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
                 Profile Progress: {profileCompleteness?.score ?? 100}% Complete
               </span>
-              <span className="font-bold text-emerald-300 text-[10px]">
-                {(profileCompleteness?.score ?? 100) === 100 ? 'Verified 🛡️' : 'Basic Level'}
+              <span className="font-bold text-emerald-300 text-[10px] flex items-center gap-1">
+                {(profileCompleteness?.score ?? 100) === 100 ? (
+                  <>
+                    <span>Verified</span>
+                    <ShieldCheck className="w-3 h-3 text-emerald-400 shrink-0" />
+                  </>
+                ) : (
+                  'Basic Level'
+                )}
               </span>
             </div>
             <div className="w-full bg-white/20 h-1.5 rounded-full overflow-hidden">
@@ -719,163 +729,185 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
 
       {/* QUICK ACTIONS RIBBON (Section 12) */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
-        <button
-          onClick={onNavigateToSearch}
-          className="p-3 bg-white hover:bg-emerald-50/50 border border-slate-200 hover:border-emerald-300 rounded-2xl text-left flex items-center gap-2.5 transition group shadow-xs"
-        >
-          <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-black group-hover:scale-105 transition-transform">
-            <Search className="w-4 h-4" />
-          </div>
-          <div>
-            <span className="text-xs font-bold text-slate-900 block leading-tight">Find Hostels</span>
-            <span className="text-[10px] text-slate-400">Search zones</span>
-          </div>
-        </button>
+        <ScrollReveal animation="fade-up" staggerIndex={0} staggerIntervalMs={45} className="h-full">
+          <button
+            onClick={onNavigateToSearch}
+            className="w-full p-3 bg-white hover:bg-emerald-50/50 border border-slate-200 hover:border-emerald-300 rounded-2xl text-left flex items-center gap-2.5 transition group shadow-xs cursor-pointer h-full"
+          >
+            <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-black group-hover:scale-105 transition-transform">
+              <Search className="w-4 h-4" />
+            </div>
+            <div>
+              <span className="text-xs font-bold text-slate-900 block leading-tight">Find Hostels</span>
+              <span className="text-[10px] text-slate-400">Search zones</span>
+            </div>
+          </button>
+        </ScrollReveal>
 
-        <button
-          onClick={() => setActiveTab('shortlist')}
-          className="p-3 bg-white hover:bg-rose-50/50 border border-slate-200 hover:border-rose-300 rounded-2xl text-left flex items-center gap-2.5 transition group shadow-xs"
-        >
-          <div className="w-8 h-8 rounded-xl bg-rose-100 text-rose-800 flex items-center justify-center font-black group-hover:scale-105 transition-transform">
-            <Bookmark className="w-4 h-4" />
-          </div>
-          <div>
-            <span className="text-xs font-bold text-slate-900 block leading-tight">Saved ({summary?.savedCount ?? 0})</span>
-            <span className="text-[10px] text-slate-400">Your shortlist</span>
-          </div>
-        </button>
+        <ScrollReveal animation="fade-up" staggerIndex={1} staggerIntervalMs={45} className="h-full">
+          <button
+            onClick={() => setActiveTab('shortlist')}
+            className="w-full p-3 bg-white hover:bg-rose-50/50 border border-slate-200 hover:border-rose-300 rounded-2xl text-left flex items-center gap-2.5 transition group shadow-xs cursor-pointer h-full"
+          >
+            <div className="w-8 h-8 rounded-xl bg-rose-100 text-rose-800 flex items-center justify-center font-black group-hover:scale-105 transition-transform">
+              <Bookmark className="w-4 h-4" />
+            </div>
+            <div>
+              <span className="text-xs font-bold text-slate-900 block leading-tight">Saved ({summary?.savedCount ?? 0})</span>
+              <span className="text-[10px] text-slate-400">Your shortlist</span>
+            </div>
+          </button>
+        </ScrollReveal>
 
-        <button
-          onClick={() => setActiveTab('bookings')}
-          className="p-3 bg-white hover:bg-sky-50/50 border border-slate-200 hover:border-sky-300 rounded-2xl text-left flex items-center gap-2.5 transition group shadow-xs"
-        >
-          <div className="w-8 h-8 rounded-xl bg-sky-100 text-sky-800 flex items-center justify-center font-black group-hover:scale-105 transition-transform">
-            <Receipt className="w-4 h-4" />
-          </div>
-          <div>
-            <span className="text-xs font-bold text-slate-900 block leading-tight">My Bookings</span>
-            <span className="text-[10px] text-slate-400">{summary?.activeBookingsCount ?? 0} active</span>
-          </div>
-        </button>
+        <ScrollReveal animation="fade-up" staggerIndex={2} staggerIntervalMs={45} className="h-full">
+          <button
+            onClick={() => setActiveTab('bookings')}
+            className="w-full p-3 bg-white hover:bg-sky-50/50 border border-slate-200 hover:border-sky-300 rounded-2xl text-left flex items-center gap-2.5 transition group shadow-xs cursor-pointer h-full"
+          >
+            <div className="w-8 h-8 rounded-xl bg-sky-100 text-sky-800 flex items-center justify-center font-black group-hover:scale-105 transition-transform">
+              <Receipt className="w-4 h-4" />
+            </div>
+            <div>
+              <span className="text-xs font-bold text-slate-900 block leading-tight">My Bookings</span>
+              <span className="text-[10px] text-slate-400">{summary?.activeBookingsCount ?? 0} active</span>
+            </div>
+          </button>
+        </ScrollReveal>
 
-        <button
-          onClick={() => onNavigateToMessages ? onNavigateToMessages() : onOpenConversation ? onOpenConversation('') : null}
-          className="p-3 bg-white hover:bg-teal-50/50 border border-slate-200 hover:border-teal-300 rounded-2xl text-left flex items-center gap-2.5 transition group shadow-xs"
-        >
-          <div className="w-8 h-8 rounded-xl bg-teal-100 text-teal-800 flex items-center justify-center font-black group-hover:scale-105 transition-transform relative">
-            <MessageSquare className="w-4 h-4" />
-            {(summary?.unreadMessagesCount ?? 0) > 0 && (
-              <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-rose-600 rounded-full border-2 border-white" />
-            )}
-          </div>
-          <div>
-            <span className="text-xs font-bold text-slate-900 block leading-tight">Messages</span>
-            <span className="text-[10px] text-slate-400">{(summary?.unreadMessagesCount ?? 0) > 0 ? `${summary.unreadMessagesCount} unread` : 'Agents'}</span>
-          </div>
-        </button>
+        <ScrollReveal animation="fade-up" staggerIndex={3} staggerIntervalMs={45} className="h-full">
+          <button
+            onClick={() => onNavigateToMessages ? onNavigateToMessages() : onOpenConversation ? onOpenConversation('') : null}
+            className="w-full p-3 bg-white hover:bg-teal-50/50 border border-slate-200 hover:border-teal-300 rounded-2xl text-left flex items-center gap-2.5 transition group shadow-xs cursor-pointer h-full"
+          >
+            <div className="w-8 h-8 rounded-xl bg-teal-100 text-teal-800 flex items-center justify-center font-black group-hover:scale-105 transition-transform relative">
+              <MessageSquare className="w-4 h-4" />
+              {(summary?.unreadMessagesCount ?? 0) > 0 && (
+                <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-rose-600 rounded-full border-2 border-white" />
+              )}
+            </div>
+            <div>
+              <span className="text-xs font-bold text-slate-900 block leading-tight">Messages</span>
+              <span className="text-[10px] text-slate-400">{(summary?.unreadMessagesCount ?? 0) > 0 ? `${summary.unreadMessagesCount} unread` : 'Agents'}</span>
+            </div>
+          </button>
+        </ScrollReveal>
 
-        <button
-          onClick={() => onNavigateToMoveIn ? onNavigateToMoveIn() : null}
-          className="p-3 bg-white hover:bg-amber-50/50 border border-slate-200 hover:border-amber-300 rounded-2xl text-left flex items-center gap-2.5 transition group shadow-xs"
-        >
-          <div className="w-8 h-8 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center font-black group-hover:scale-105 transition-transform">
-            <KeyRound className="w-4 h-4" />
-          </div>
-          <div>
-            <span className="text-xs font-bold text-slate-900 block leading-tight">Move-In Hub</span>
-            <span className="text-[10px] text-slate-400">Checklist & Key</span>
-          </div>
-        </button>
+        <ScrollReveal animation="fade-up" staggerIndex={4} staggerIntervalMs={45} className="h-full">
+          <button
+            onClick={() => onNavigateToMoveIn ? onNavigateToMoveIn() : null}
+            className="w-full p-3 bg-white hover:bg-amber-50/50 border border-slate-200 hover:border-amber-300 rounded-2xl text-left flex items-center gap-2.5 transition group shadow-xs cursor-pointer h-full"
+          >
+            <div className="w-8 h-8 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center font-black group-hover:scale-105 transition-transform">
+              <KeyRound className="w-4 h-4" />
+            </div>
+            <div>
+              <span className="text-xs font-bold text-slate-900 block leading-tight">Move-In Hub</span>
+              <span className="text-[10px] text-slate-400">Checklist & Key</span>
+            </div>
+          </button>
+        </ScrollReveal>
 
-        <button
-          onClick={() => setShowSupportModal(true)}
-          className="p-3 bg-white hover:bg-purple-50/50 border border-slate-200 hover:border-purple-300 rounded-2xl text-left flex items-center gap-2.5 transition group shadow-xs"
-        >
-          <div className="w-8 h-8 rounded-xl bg-purple-100 text-purple-800 flex items-center justify-center font-black group-hover:scale-105 transition-transform">
-            <HelpCircle className="w-4 h-4" />
-          </div>
-          <div>
-            <span className="text-xs font-bold text-slate-900 block leading-tight">Get Help</span>
-            <span className="text-[10px] text-slate-400">24/7 Support</span>
-          </div>
-        </button>
+        <ScrollReveal animation="fade-up" staggerIndex={5} staggerIntervalMs={45} className="h-full">
+          <button
+            onClick={() => setShowSupportModal(true)}
+            className="w-full p-3 bg-white hover:bg-purple-50/50 border border-slate-200 hover:border-purple-300 rounded-2xl text-left flex items-center gap-2.5 transition group shadow-xs cursor-pointer h-full"
+          >
+            <div className="w-8 h-8 rounded-xl bg-purple-100 text-purple-800 flex items-center justify-center font-black group-hover:scale-105 transition-transform">
+              <HelpCircle className="w-4 h-4" />
+            </div>
+            <div>
+              <span className="text-xs font-bold text-slate-900 block leading-tight">Get Help</span>
+              <span className="text-[10px] text-slate-400">24/7 Support</span>
+            </div>
+          </button>
+        </ScrollReveal>
       </div>
 
       {/* 2. REAL SUMMARY METRICS RIBBON */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-        <button
-          onClick={() => setActiveTab('shortlist')}
-          className="bg-white p-4 rounded-2xl border border-slate-200 hover:border-emerald-500 hover:shadow-sm text-left transition-all group space-y-1"
-        >
-          <div className="flex items-center justify-between text-slate-400 group-hover:text-emerald-600">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Saved Hostels</span>
-            <Bookmark className="w-4 h-4" />
-          </div>
-          <div className="text-2xl font-black text-slate-900">{summary?.savedCount ?? 0}</div>
-          <span className="text-[10px] text-slate-400 font-medium">On your shortlist</span>
-        </button>
+        <ScrollReveal animation="fade-up" staggerIndex={0} staggerIntervalMs={50} className="h-full">
+          <button
+            onClick={() => setActiveTab('shortlist')}
+            className="w-full bg-white p-4 rounded-2xl border border-slate-200 hover:border-emerald-500 hover:shadow-sm text-left transition-all group space-y-1 cursor-pointer h-full"
+          >
+            <div className="flex items-center justify-between text-slate-400 group-hover:text-emerald-600">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Saved Hostels</span>
+              <Bookmark className="w-4 h-4" />
+            </div>
+            <div className="text-2xl font-black text-slate-900">{summary?.savedCount ?? 0}</div>
+            <span className="text-[10px] text-slate-400 font-medium">On your shortlist</span>
+          </button>
+        </ScrollReveal>
 
-        <button
-          onClick={() => setActiveTab('inspections')}
-          className="bg-white p-4 rounded-2xl border border-slate-200 hover:border-emerald-500 hover:shadow-sm text-left transition-all group space-y-1"
-        >
-          <div className="flex items-center justify-between text-slate-400 group-hover:text-emerald-600">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Inspections</span>
-            <Calendar className="w-4 h-4" />
-          </div>
-          <div className="text-2xl font-black text-slate-900">{summary?.pendingInspectionsCount ?? 0}</div>
-          <span className="text-[10px] text-slate-400 font-medium">Pending agent reply</span>
-        </button>
+        <ScrollReveal animation="fade-up" staggerIndex={1} staggerIntervalMs={50} className="h-full">
+          <button
+            onClick={() => setActiveTab('inspections')}
+            className="w-full bg-white p-4 rounded-2xl border border-slate-200 hover:border-emerald-500 hover:shadow-sm text-left transition-all group space-y-1 cursor-pointer h-full"
+          >
+            <div className="flex items-center justify-between text-slate-400 group-hover:text-emerald-600">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Inspections</span>
+              <Calendar className="w-4 h-4" />
+            </div>
+            <div className="text-2xl font-black text-slate-900">{summary?.pendingInspectionsCount ?? 0}</div>
+            <span className="text-[10px] text-slate-400 font-medium">Pending agent reply</span>
+          </button>
+        </ScrollReveal>
 
-        <button
-          onClick={() => setActiveTab('bookings')}
-          className="bg-white p-4 rounded-2xl border border-slate-200 hover:border-emerald-500 hover:shadow-sm text-left transition-all group space-y-1"
-        >
-          <div className="flex items-center justify-between text-slate-400 group-hover:text-emerald-600">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Active Bookings</span>
-            <Building2 className="w-4 h-4" />
-          </div>
-          <div className="text-2xl font-black text-slate-900">{summary?.activeBookingsCount ?? 0}</div>
-          <span className="text-[10px] text-slate-400 font-medium">Reserved room spaces</span>
-        </button>
+        <ScrollReveal animation="fade-up" staggerIndex={2} staggerIntervalMs={50} className="h-full">
+          <button
+            onClick={() => setActiveTab('bookings')}
+            className="w-full bg-white p-4 rounded-2xl border border-slate-200 hover:border-emerald-500 hover:shadow-sm text-left transition-all group space-y-1 cursor-pointer h-full"
+          >
+            <div className="flex items-center justify-between text-slate-400 group-hover:text-emerald-600">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Active Bookings</span>
+              <Building2 className="w-4 h-4" />
+            </div>
+            <div className="text-2xl font-black text-slate-900">{summary?.activeBookingsCount ?? 0}</div>
+            <span className="text-[10px] text-slate-400 font-medium">Reserved room spaces</span>
+          </button>
+        </ScrollReveal>
 
-        <button
-          onClick={() => setActiveTab('bookings')}
-          className={`p-4 rounded-2xl border text-left transition-all space-y-1 ${
-            (summary?.pendingPaymentsCount ?? 0) > 0
-              ? 'bg-rose-50 border-rose-300 ring-2 ring-rose-400/20'
-              : 'bg-white border-slate-200 hover:border-emerald-500'
-          }`}
-        >
-          <div className="flex items-center justify-between">
-            <span className={`text-[10px] font-bold uppercase tracking-wider ${
-              (summary?.pendingPaymentsCount ?? 0) > 0 ? 'text-rose-700' : 'text-slate-500'
-            }`}>
-              Pending Payment
+        <ScrollReveal animation="fade-up" staggerIndex={3} staggerIntervalMs={50} className="h-full">
+          <button
+            onClick={() => setActiveTab('bookings')}
+            className={`w-full p-4 rounded-2xl border text-left transition-all space-y-1 cursor-pointer h-full ${
+              (summary?.pendingPaymentsCount ?? 0) > 0
+                ? 'bg-rose-50 border-rose-300 ring-2 ring-rose-400/20'
+                : 'bg-white border-slate-200 hover:border-emerald-500'
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <span className={`text-[10px] font-bold uppercase tracking-wider ${
+                (summary?.pendingPaymentsCount ?? 0) > 0 ? 'text-rose-700' : 'text-slate-500'
+              }`}>
+                Pending Payment
+              </span>
+              <CreditCard className={`w-4 h-4 ${(summary?.pendingPaymentsCount ?? 0) > 0 ? 'text-rose-600 animate-pulse' : 'text-slate-400'}`} />
+            </div>
+            <div className={`text-2xl font-black ${(summary?.pendingPaymentsCount ?? 0) > 0 ? 'text-rose-700' : 'text-slate-900'}`}>
+              {summary?.pendingPaymentsCount ?? 0}
+            </div>
+            <span className={`text-[10px] font-medium ${(summary?.pendingPaymentsCount ?? 0) > 0 ? 'text-rose-600 font-bold' : 'text-slate-400'}`}>
+              {(summary?.pendingPaymentsCount ?? 0) > 0 ? 'Action required now' : 'All clear'}
             </span>
-            <CreditCard className={`w-4 h-4 ${(summary?.pendingPaymentsCount ?? 0) > 0 ? 'text-rose-600 animate-pulse' : 'text-slate-400'}`} />
-          </div>
-          <div className={`text-2xl font-black ${(summary?.pendingPaymentsCount ?? 0) > 0 ? 'text-rose-700' : 'text-slate-900'}`}>
-            {summary?.pendingPaymentsCount ?? 0}
-          </div>
-          <span className={`text-[10px] font-medium ${(summary?.pendingPaymentsCount ?? 0) > 0 ? 'text-rose-600 font-bold' : 'text-slate-400'}`}>
-            {(summary?.pendingPaymentsCount ?? 0) > 0 ? 'Action required now' : 'All clear'}
-          </span>
-        </button>
+          </button>
+        </ScrollReveal>
 
-        <button
-          onClick={() => { if (onOpenConversation) onOpenConversation(''); }}
-          className="bg-white p-4 rounded-2xl border border-slate-200 hover:border-emerald-500 hover:shadow-sm text-left transition-all group space-y-1 col-span-2 sm:col-span-1"
-        >
-          <div className="flex items-center justify-between text-slate-400 group-hover:text-emerald-600">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Unread Messages</span>
-            <MessageSquare className="w-4 h-4" />
-          </div>
-          <div className={`text-2xl font-black ${(summary?.unreadMessagesCount ?? 0) > 0 ? 'text-rose-600' : 'text-slate-900'}`}>
-            {summary?.unreadMessagesCount ?? 0}
-          </div>
-          <span className="text-[10px] text-slate-400 font-medium">From hostel owners</span>
-        </button>
+        <ScrollReveal animation="fade-up" staggerIndex={4} staggerIntervalMs={50} className="h-full col-span-2 sm:col-span-1">
+          <button
+            onClick={() => { if (onOpenConversation) onOpenConversation(''); }}
+            className="w-full bg-white p-4 rounded-2xl border border-slate-200 hover:border-emerald-500 hover:shadow-sm text-left transition-all group space-y-1 cursor-pointer h-full"
+          >
+            <div className="flex items-center justify-between text-slate-400 group-hover:text-emerald-600">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Unread Messages</span>
+              <MessageSquare className="w-4 h-4" />
+            </div>
+            <div className={`text-2xl font-black ${(summary?.unreadMessagesCount ?? 0) > 0 ? 'text-rose-600' : 'text-slate-900'}`}>
+              {summary?.unreadMessagesCount ?? 0}
+            </div>
+            <span className="text-[10px] text-slate-400 font-medium">From hostel owners</span>
+          </button>
+        </ScrollReveal>
       </div>
 
       {/* 3. SMART ACTION PRIORITIZATION: "WHAT DO I NEED TO DO NEXT?" */}
@@ -1845,7 +1877,13 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
               <div className="flex items-center justify-between flex-wrap gap-3 pt-2">
                 <div className="text-xs text-slate-300 flex items-center gap-2">
                   <span>Agent: <strong>{activeBooking.provider?.name || 'Assigned Agent'}</strong></span>
-                  {activeBooking.provider?.phone && <span>• 📞 {activeBooking.provider.phone}</span>}
+                  {activeBooking.provider?.phone && (
+                    <span className="flex items-center gap-1">
+                      <span>•</span>
+                      <Phone className="w-3 h-3 text-slate-400 shrink-0" />
+                      <span>{activeBooking.provider.phone}</span>
+                    </span>
+                  )}
                 </div>
 
                 <div className="flex items-center gap-2">
@@ -1937,7 +1975,13 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                     <div className="p-4 space-y-3 flex-grow flex flex-col justify-between">
                       <div className="space-y-1">
                         <h3 className="font-bold text-sm text-slate-900 truncate">{hostel.title}</h3>
-                        <p className="text-xs text-slate-500">{hostel.area?.name || 'LAUTECH Area'} • {formatDistance(hostel.distanceFromCampusKm)}</p>
+                        <p className="text-xs text-slate-500 flex items-center gap-1">
+                          <MapPin className="w-3 h-3 text-[#FD8003] shrink-0" />
+                          <span>{hostel.area?.name || 'LAUTECH Area'}</span>
+                          <span className="mx-0.5">•</span>
+                          <Route className="w-3 h-3 text-slate-400 shrink-0" />
+                          <span>{formatDistance(hostel.distanceFromCampusKm)}</span>
+                        </p>
                         <p className="text-base font-black text-emerald-800">
                           {formatNaira(hostel.priceSummary?.rentAmount)}
                           <span className="text-[10px] text-slate-500 font-normal"> / year</span>
@@ -1948,7 +1992,8 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                       <div className="space-y-1 bg-emerald-50/70 p-2.5 rounded-xl border border-emerald-100 text-[10px] text-emerald-900">
                         {(hostel.explanationReasons || []).slice(0, 2).map((reason: any, idx: number) => (
                           <p key={idx} className="flex items-center gap-1 font-semibold truncate">
-                            ✓ {reason}
+                            <Check className="w-3 h-3 text-emerald-600 shrink-0" />
+                            <span>{reason}</span>
                           </p>
                         ))}
                       </div>
@@ -2364,7 +2409,13 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                     <img src={hostel.coverImage} alt={hostel.title} className="w-full h-36 rounded-2xl object-cover" />
                     <div>
                       <h4 className="font-bold text-sm text-slate-900 truncate">{hostel.title}</h4>
-                      <p className="text-xs text-slate-500">{hostel.area?.name || 'LAUTECH Area'} • {formatDistance(hostel.distanceFromCampusKm)}</p>
+                      <p className="text-xs text-slate-500 flex items-center gap-1">
+                        <MapPin className="w-3 h-3 text-[#FD8003] shrink-0" />
+                        <span>{hostel.area?.name || 'LAUTECH Area'}</span>
+                        <span className="mx-0.5">•</span>
+                        <Route className="w-3 h-3 text-slate-400 shrink-0" />
+                        <span>{formatDistance(hostel.distanceFromCampusKm)}</span>
+                      </p>
                       <p className="text-sm font-black text-emerald-800 mt-1">{formatNaira(hostel.priceSummary?.rentAmount)}/yr</p>
                     </div>
 
@@ -2828,13 +2879,19 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
 
             <div className="space-y-3 text-xs">
               <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200/80 space-y-1">
-                <span className="font-bold text-emerald-900 block">📞 LAUTECH Campus Student Housing Desk</span>
+                <span className="font-bold text-emerald-900 flex items-center gap-1.5">
+                  <Phone className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                  <span>LAUTECH Campus Student Housing Desk</span>
+                </span>
                 <p className="text-emerald-800">Direct hotline for urgent lodge inquiries, payment verification, and check-in support.</p>
                 <p className="font-mono font-bold text-emerald-950 pt-1">+234 803 000 4321 / +234 812 000 8765</p>
               </div>
 
               <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-1.5">
-                <span className="font-bold text-slate-900 block">🛡️ Student Safety & Escrow Protection</span>
+                <span className="font-bold text-slate-900 flex items-center gap-1.5">
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                  <span>Student Safety & Escrow Protection</span>
+                </span>
                 <p className="text-slate-600">
                   Never make cash payments outside the platform. Your caution deposit and rent remain safely escrow-protected until keys and move-in inspection are complete.
                 </p>

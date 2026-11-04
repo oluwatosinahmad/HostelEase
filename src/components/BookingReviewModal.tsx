@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { 
   X, ShieldCheck, CheckCircle2, AlertTriangle, ArrowRight, 
-  CreditCard, MapPin, Building, Calendar, Info, Sparkles 
+  CreditCard, MapPin, Building, Calendar, Info, Sparkles, Bed, GraduationCap, Route, Clock 
 } from 'lucide-react';
 import { api } from '../services/api';
 import { BookingReviewData } from '../types/hostelEase';
+import { calculateHostelTravelTime } from '../utils/formatters';
 
 interface BookingReviewModalProps {
   isOpen: boolean;
@@ -112,19 +113,26 @@ export const BookingReviewModal: React.FC<BookingReviewModalProps> = ({
                   </div>
                   <h3 className="font-bold text-gray-900 text-lg mt-1 truncate">{data.hostel.title}</h3>
                   <p className="text-gray-600 text-sm flex items-center gap-1 mt-0.5">
-                    <MapPin className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-                    {data.hostel.address} ({data.hostel.distanceFromCampusKm} km from LAUTECH Gate)
+                    <MapPin className="w-3.5 h-3.5 text-[#FD8003] shrink-0" />
+                    <span>{data.hostel.address}</span>
+                    <span className="text-gray-500 font-semibold flex items-center gap-1">
+                      • <Clock className="w-3 h-3 text-emerald-600 shrink-0" />
+                      <span>{calculateHostelTravelTime(data.hostel.distanceFromCampusKm).primaryText}</span>
+                    </span>
                   </p>
 
                   <div className="mt-3 flex flex-wrap gap-2 text-xs">
-                    <span className="px-2.5 py-1 bg-white border border-gray-200 rounded-md font-medium text-gray-700">
-                      🛏️ {data.room.name} ({data.room.bedspace})
+                    <span className="px-2.5 py-1 bg-white border border-gray-200 rounded-md font-medium text-gray-700 flex items-center gap-1.5">
+                      <Bed className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
+                      <span>{data.room.name} ({data.room.bedspace})</span>
                     </span>
-                    <span className="px-2.5 py-1 bg-white border border-gray-200 rounded-md font-medium text-gray-700">
-                      📅 Move-in: {data.moveInDate}
+                    <span className="px-2.5 py-1 bg-white border border-gray-200 rounded-md font-medium text-gray-700 flex items-center gap-1.5">
+                      <Calendar className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                      <span>Move-in: {data.moveInDate}</span>
                     </span>
-                    <span className="px-2.5 py-1 bg-white border border-gray-200 rounded-md font-medium text-gray-700">
-                      🎓 Session: {data.academicSession}
+                    <span className="px-2.5 py-1 bg-white border border-gray-200 rounded-md font-medium text-gray-700 flex items-center gap-1.5">
+                      <GraduationCap className="w-3.5 h-3.5 text-purple-600 shrink-0" />
+                      <span>Session: {data.academicSession}</span>
                     </span>
                   </div>
                 </div>

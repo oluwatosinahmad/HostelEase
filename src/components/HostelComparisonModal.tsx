@@ -20,7 +20,9 @@ import {
   Plus,
   SlidersHorizontal,
   Sparkles,
-  Award
+  Award,
+  Route,
+  Lightbulb
 } from 'lucide-react';
 import { HostelComparisonResult, HostelComparisonItem } from '../types/hostelEase';
 import { api } from '../services/api';
@@ -159,11 +161,15 @@ export const HostelComparisonModal: React.FC<HostelComparisonModalProps> = ({
                             )}
                             {h.id === data.highlights.closestDistanceId && (
                               <span className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded text-[9px] font-black bg-blue-100 text-blue-800">
-                                📍 CLOSEST TO CAMPUS
+                                <Route className="w-2.5 h-2.5" /> CLOSEST TO CAMPUS
                               </span>
                             )}
                             <h4 className="font-bold text-xs text-slate-900 line-clamp-2">{h.title}</h4>
-                            <p className="text-[10px] text-slate-500">📍 {h.area.name} ({formatDistance(h.distanceFromCampusKm)})</p>
+                            <p className="text-[10px] text-slate-500 flex items-center gap-1">
+                              <MapPin className="w-2.5 h-2.5 text-[#FD8003] shrink-0" />
+                              <span>{h.area.name}</span>
+                              <span className="text-slate-400">({formatDistance(h.distanceFromCampusKm)})</span>
+                            </p>
                           </div>
 
                           <button
@@ -266,13 +272,13 @@ export const HostelComparisonModal: React.FC<HostelComparisonModalProps> = ({
                             Dedicated Line
                           </div>
                           {h.facilitiesMap.inverter && (
-                            <span className="inline-block px-1.5 py-0.2 rounded text-[9px] font-black bg-yellow-100 text-yellow-800">
-                              ☀️ Solar Inverter
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded text-[9px] font-black bg-yellow-100 text-yellow-800">
+                              <Sun className="w-2.5 h-2.5 text-yellow-600" /> Solar Inverter
                             </span>
                           )}
                           {h.facilitiesMap.generator && (
-                            <span className="inline-block px-1.5 py-0.2 rounded text-[9px] font-black bg-indigo-100 text-indigo-800">
-                              ⚡ Standby Gen
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded text-[9px] font-black bg-indigo-100 text-indigo-800">
+                              <Zap className="w-2.5 h-2.5 text-indigo-600" /> Standby Gen
                             </span>
                           )}
                         </div>
@@ -371,8 +377,9 @@ export const HostelComparisonModal: React.FC<HostelComparisonModalProps> = ({
 
         {/* Modal Footer */}
         <div className="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between flex-wrap gap-2 text-xs">
-          <p className="text-slate-500">
-            💡 <strong>Tip:</strong> You can compare up to 4 hostels simultaneously to find the best match for your budget and study needs.
+          <p className="text-slate-500 flex items-center gap-1">
+            <Lightbulb className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+            <span><strong>Tip:</strong> You can compare up to 4 hostels simultaneously to find the best match for your budget and study needs.</span>
           </p>
           <button
             onClick={onClose}

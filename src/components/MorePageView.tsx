@@ -21,6 +21,7 @@ import {
   LogOut, 
   Settings, 
   Building2, 
+  GraduationCap,
   PlusCircle, 
   Layers, 
   DollarSign, 
@@ -278,7 +279,8 @@ export const MorePageView: React.FC<MorePageViewProps> = ({
                   <p className="text-sm font-black text-slate-900 dark:text-white truncate">{user?.fullName}</p>
                   <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{user?.email}</p>
                   <span className="inline-flex items-center gap-1 mt-1 text-[10px] font-black px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 uppercase">
-                    🎓 LAUTECH Student
+                    <GraduationCap className="w-3.5 h-3.5 text-emerald-700 dark:text-emerald-400" />
+                    <span>LAUTECH Student</span>
                   </span>
                 </div>
               </div>
@@ -520,7 +522,7 @@ export const MorePageView: React.FC<MorePageViewProps> = ({
                   <div className="flex items-center gap-3">
                     <Zap className="w-4 h-4 text-amber-500 fill-amber-400 shrink-0" />
                     <div>
-                      <span className="text-xs">⚡ UtilityRadar™ (NEPA & Water)</span>
+                      <span className="text-xs">UtilityRadar™ (NEPA & Water)</span>
                       <p className="text-[10px] font-normal text-slate-600 dark:text-slate-400">Live grid electricity and borehole water uptime</p>
                     </div>
                   </div>
@@ -538,7 +540,7 @@ export const MorePageView: React.FC<MorePageViewProps> = ({
                   <div className="flex items-center gap-3">
                     <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
                     <div>
-                      <span className="text-xs">🚨 SafeWalk™ Night-Trek Companion</span>
+                      <span className="text-xs">SafeWalk™ Night-Trek Companion</span>
                       <p className="text-[10px] font-normal text-slate-600 dark:text-slate-400">Illuminated pathways & emergency SOS dispatch</p>
                     </div>
                   </div>
@@ -556,7 +558,7 @@ export const MorePageView: React.FC<MorePageViewProps> = ({
                   <div className="flex items-center gap-3">
                     <Wrench className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
                     <div>
-                      <span className="text-xs">🔧 Maintenance & Issue Reporting</span>
+                      <span className="text-xs">Maintenance & Issue Reporting</span>
                       <p className="text-[10px] font-normal text-slate-600 dark:text-slate-400">Report plumbing, electrical, or structural repair tickets</p>
                     </div>
                   </div>
@@ -574,7 +576,7 @@ export const MorePageView: React.FC<MorePageViewProps> = ({
                   <div className="flex items-center gap-3">
                     <Users className="w-4 h-4 text-teal-600 dark:text-teal-400 shrink-0" />
                     <div>
-                      <span className="text-xs">👥 Split Rent</span>
+                      <span className="text-xs">Split Rent</span>
                       <p className="text-[10px] font-normal text-slate-600 dark:text-slate-400">50/50, 60/40, or custom ratio rent & deposit splitting</p>
                     </div>
                   </div>
@@ -664,7 +666,8 @@ export const MorePageView: React.FC<MorePageViewProps> = ({
                   <p className="text-sm font-black text-slate-900 dark:text-white truncate">{user?.fullName}</p>
                   <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{user?.email}</p>
                   <span className="inline-flex items-center gap-1 mt-1 text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 uppercase">
-                    🏡 Hostel Agent
+                    <Building2 className="w-3.5 h-3.5 text-[#FD8003]" />
+                    <span>Hostel Agent</span>
                   </span>
                 </div>
               </div>
@@ -1001,7 +1004,8 @@ export const MorePageView: React.FC<MorePageViewProps> = ({
                   <p className="text-sm font-black text-slate-900 dark:text-white truncate">{user?.fullName}</p>
                   <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{user?.email}</p>
                   <span className="inline-flex items-center gap-1 mt-1 text-[10px] font-black px-2 py-0.5 rounded-full bg-purple-200 dark:bg-purple-900 text-purple-900 dark:text-purple-200 uppercase">
-                    👑 Super Admin
+                    <ShieldCheck className="w-3.5 h-3.5 text-purple-700 dark:text-purple-400" />
+                    <span>Super Admin</span>
                   </span>
                 </div>
               </div>
@@ -1177,7 +1181,7 @@ export const MorePageView: React.FC<MorePageViewProps> = ({
                   <div className="flex items-center gap-3">
                     <Zap className="w-4 h-4 text-amber-500 fill-amber-400 shrink-0" />
                     <div>
-                      <span className="text-xs">⚡ UtilityRadar™ (NEPA & Water)</span>
+                      <span className="text-xs">UtilityRadar™ (NEPA & Water)</span>
                       <p className="text-[10px] font-normal text-slate-600 dark:text-slate-400">Track live electricity and water status</p>
                     </div>
                   </div>
@@ -1195,7 +1199,7 @@ export const MorePageView: React.FC<MorePageViewProps> = ({
                   <div className="flex items-center gap-3">
                     <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
                     <div>
-                      <span className="text-xs">🚨 SafeWalk™ Night Companion</span>
+                      <span className="text-xs">SafeWalk™ Night Companion</span>
                       <p className="text-[10px] font-normal text-slate-600 dark:text-slate-400">Night routes & emergency SOS</p>
                     </div>
                   </div>
@@ -1213,7 +1217,7 @@ export const MorePageView: React.FC<MorePageViewProps> = ({
                   <div className="flex items-center gap-3">
                     <Wrench className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
                     <div>
-                      <span className="text-xs">🔧 Maintenance & Issue Reporting</span>
+                      <span className="text-xs">Maintenance & Issue Reporting</span>
                       <p className="text-[10px] font-normal text-slate-600 dark:text-slate-400">Report plumbing, electrical, or repair tickets</p>
                     </div>
                   </div>
@@ -1231,7 +1235,7 @@ export const MorePageView: React.FC<MorePageViewProps> = ({
                   <div className="flex items-center gap-3">
                     <Users className="w-4 h-4 text-teal-600 dark:text-teal-400 shrink-0" />
                     <div>
-                      <span className="text-xs">👥 Split Rent</span>
+                      <span className="text-xs">Split Rent</span>
                       <p className="text-[10px] font-normal text-slate-600 dark:text-slate-400">50/50, 60/40, or custom ratio rent & deposit splitting</p>
                     </div>
                   </div>

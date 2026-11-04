@@ -17,9 +17,15 @@ import {
   SlidersHorizontal,
   X,
   Footprints,
+  Route,
+  Bed,
+  Coins,
+  Users,
   DollarSign,
-    CheckCircle2, Sparkles, ArrowRight
-  } from 'lucide-react';
+  CheckCircle2, 
+  Sparkles, 
+  ArrowRight
+} from 'lucide-react';
 import { Area, SearchFilterState } from '../types/hostelEase';
 import { formatNaira } from '../utils/formatters';
 
@@ -225,7 +231,7 @@ export const HostelSearchFilters: React.FC<HostelSearchFiltersProps> = ({
           <option value="all">All Areas around LAUTECH</option>
           {areas.map(a => (
             <option key={a.id} value={a.id}>
-              📍 {a.name} ({a.approxDistanceMinKm}-{a.approxDistanceMaxKm} km)
+              {a.name} ({a.approxDistanceMinKm}-{a.approxDistanceMaxKm} km)
             </option>
           ))}
         </select>
@@ -430,13 +436,14 @@ export const ActiveFilterChips: React.FC<ActiveFilterChipsProps> = ({
   onClearAll,
   totalCount
 }) => {
-  const chips: { label: string; onRemove: () => void }[] = [];
+  const chips: { label: string; icon?: React.ReactNode; onRemove: () => void }[] = [];
 
   // Area chip
   if (filters.areaId && filters.areaId !== 'all') {
     const areaObj = areas.find(a => a.id === filters.areaId);
     chips.push({
-      label: `📍 ${areaObj?.name || 'Area'}`,
+      label: areaObj?.name || 'Area',
+      icon: <MapPin className="w-3 h-3 text-[#FD8003]" />,
       onRemove: () => onRemoveFilter('areaId', 'all')
     });
   }
@@ -449,7 +456,8 @@ export const ActiveFilterChips: React.FC<ActiveFilterChipsProps> = ({
     else if (filters.minPrice) priceLabel = `≥ ${formatNaira(Number(filters.minPrice))}`;
 
     chips.push({
-      label: `💰 ${priceLabel}`,
+      label: priceLabel,
+      icon: <Coins className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />,
       onRemove: () => {
         onRemoveFilter('minPrice', '');
         onRemoveFilter('maxPrice', '');
@@ -460,7 +468,8 @@ export const ActiveFilterChips: React.FC<ActiveFilterChipsProps> = ({
   // Distance chip
   if (filters.maxDistance) {
     chips.push({
-      label: `🚶 ≤ ${filters.maxDistance}km to LAUTECH`,
+      label: `≤ ${filters.maxDistance}km to LAUTECH`,
+      icon: <Route className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />,
       onRemove: () => onRemoveFilter('maxDistance', '')
     });
   }
@@ -468,7 +477,8 @@ export const ActiveFilterChips: React.FC<ActiveFilterChipsProps> = ({
   // Room Type chip
   if (filters.roomType && filters.roomType !== 'all') {
     chips.push({
-      label: `🛏️ ${filters.roomType.replace(/_/g, ' ')}`,
+      label: filters.roomType.replace(/_/g, ' '),
+      icon: <Bed className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />,
       onRemove: () => onRemoveFilter('roomType', 'all')
     });
   }
@@ -476,7 +486,8 @@ export const ActiveFilterChips: React.FC<ActiveFilterChipsProps> = ({
   // Gender chip
   if (filters.genderPreference && filters.genderPreference !== 'ANY') {
     chips.push({
-      label: `👥 ${filters.genderPreference.replace(/_/g, ' ')}`,
+      label: filters.genderPreference.replace(/_/g, ' '),
+      icon: <Users className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />,
       onRemove: () => onRemoveFilter('genderPreference', 'ANY')
     });
   }
@@ -484,7 +495,8 @@ export const ActiveFilterChips: React.FC<ActiveFilterChipsProps> = ({
   // Verified chip
   if (filters.verifiedOnly) {
     chips.push({
-      label: '🛡️ Verified Only',
+      label: 'Verified Only',
+      icon: <ShieldCheck className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />,
       onRemove: () => onRemoveFilter('verifiedOnly', false)
     });
   }
@@ -492,7 +504,8 @@ export const ActiveFilterChips: React.FC<ActiveFilterChipsProps> = ({
   // Availability chip
   if (filters.availability && filters.availability !== 'all') {
     chips.push({
-      label: `⚡ ${filters.availability.replace(/_/g, ' ')}`,
+      label: filters.availability.replace(/_/g, ' '),
+      icon: <Zap className="w-3 h-3 text-amber-500" />,
       onRemove: () => onRemoveFilter('availability', 'all')
     });
   }
@@ -500,7 +513,8 @@ export const ActiveFilterChips: React.FC<ActiveFilterChipsProps> = ({
   // Facility chips
   filters.facilities.forEach(fac => {
     chips.push({
-      label: `✨ ${fac.charAt(0).toUpperCase() + fac.slice(1)}`,
+      label: fac.charAt(0).toUpperCase() + fac.slice(1),
+      icon: <Sparkles className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />,
       onRemove: () => onRemoveFilter('facilities', fac)
     });
   });
@@ -513,8 +527,9 @@ export const ActiveFilterChips: React.FC<ActiveFilterChipsProps> = ({
       {chips.map((chip, idx) => (
         <span
           key={idx}
-          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-900 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 text-xs font-bold shadow-xs animate-in zoom-in-95"
+          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-900 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 text-xs font-bold shadow-xs animate-in zoom-in-95"
         >
+          {chip.icon && <span className="shrink-0">{chip.icon}</span>}
           <span>{chip.label}</span>
           <button
             onClick={chip.onRemove}

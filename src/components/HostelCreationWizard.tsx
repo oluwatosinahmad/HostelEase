@@ -1,4 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 import { 
   Building2, 
   MapPin, 
@@ -28,13 +30,39 @@ import {
   Tag,
   Navigation,
   Compass,
-  Check
+  Check,
+  Clock,
+  Route,
+  Home,
+  Layers,
+  Locate
 } from 'lucide-react';
 import { Area, MediaCategory, PropertyType, GenderPreference } from '../types/hostelEase';
 import { api } from '../services/api';
-import { formatNaira, formatDistance } from '../utils/formatters';
+import { formatNaira, formatDistance, calculateHostelTravelTime, formatTravelTime, formatTravelClarification } from '../utils/formatters';
+import { findClosestCampusGate, LAUTECH_CAMPUS_GATES } from '../utils/distance';
 import { compressImageFile } from '../utils/mediaOptimizer';
 import { FourKVideoUploader, FourKVideoData } from './FourKVideoUploader';
+
+export const LAUTECH_AREAS_COORDS: Record<string, { lat: number; lng: number; name: string }> = {
+  'area-under-g': { lat: 8.1485, lng: 4.2625, name: 'Under G' },
+  'area-adenike': { lat: 8.1360, lng: 4.2750, name: 'Adenike' },
+  'area-college-road': { lat: 8.1385, lng: 4.2695, name: 'College Road' },
+  'area-stadium': { lat: 8.1510, lng: 4.2690, name: 'Stadium / Senate' },
+  'area-aroje': { lat: 8.1600, lng: 4.2550, name: 'Aroje' },
+  'area-general': { lat: 8.1390, lng: 4.2560, name: 'General / Papa' },
+};
+
+export const LAUTECH_NEIGHBORHOOD_PRESETS = [
+  { label: 'Under G (Behind Bovas)', lat: 8.1485, lng: 4.2625, areaId: 'area-under-g' },
+  { label: 'Under G (Main Junction)', lat: 8.1455, lng: 4.2635, areaId: 'area-under-g' },
+  { label: 'Adenike (Central)', lat: 8.1360, lng: 4.2750, areaId: 'area-adenike' },
+  { label: 'College Road (2nd Gate)', lat: 8.1385, lng: 4.2695, areaId: 'area-college-road' },
+  { label: 'Stadium Road', lat: 8.1510, lng: 4.2690, areaId: 'area-stadium' },
+  { label: 'Papa Gate Area', lat: 8.1410, lng: 4.2580, areaId: 'area-under-g' },
+  { label: 'Aroje Area', lat: 8.1600, lng: 4.2550, areaId: 'area-aroje' },
+  { label: 'Sekona / Olopomeji', lat: 8.1330, lng: 4.2810, areaId: 'area-adenike' },
+];
 
 export const POPULAR_LAUTECH_FACILITIES = [
   { key: 'toilet', label: 'Private Toilet & Bathroom (Ensuite)', icon: '🚽', category: 'Comfort', keywords: 'toilet bathroom ensuite bath washroom restroom' },
@@ -128,13 +156,138 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
   const [walkingMinutes, setWalkingMinutes] = useState<string>(init?.walkingMinutes?.toString() || '4');
   const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null);
 
-  const handleQuickDistanceSelect = (km: number, mins: number, gateName?: string) => {
-    setDistanceKm(km.toString());
-    setWalkingMinutes(mins.toString());
-    const gate = gateName || selectedGate;
-    const distanceMeters = Math.round(km * 1000);
-    const landmarkText = `${distanceMeters < 1000 ? `${distanceMeters}m` : `${km}km`} from ${gate}, ${mins} mins walk`;
-    setNearbyLandmark(landmarkText);
+  const [latitude, setLatitude] = useState<number>(() => {
+    if (init?.latitude && !isNaN(parseFloat(init.latitude))) return parseFloat(init.latitude);
+    return 8.1485;
+  });
+  const [longitude, setLongitude] = useState<number>(() => {
+    if (init?.longitude && !isNaN(parseFloat(init.longitude))) return parseFloat(init.longitude);
+    return 4.2625;
+  });
+
+  const travelEstimate = useMemo(() => {
+    return calculateHostelTravelTime({ lat: latitude, lng: longitude });
+  }, [latitude, longitude]);
+
+  useEffect(() => {
+    setDistanceKm(travelEstimate.distanceKm.toString());
+    setWalkingMinutes(travelEstimate.minutes.toString());
+    if (travelEstimate.nearestGateName) {
+      setSelectedGate(travelEstimate.nearestGateName);
+    }
+  }, [travelEstimate]);
+
+  const mapContainerRef = useRef<HTMLDivElement>(null);
+  const mapInstanceRef = useRef<L.Map | null>(null);
+  const markerRef = useRef<L.Marker | null>(null);
+
+  useEffect(() => {
+    if (currentStep !== 2) return;
+
+    const timer = setTimeout(() => {
+      if (!mapContainerRef.current) return;
+
+      if (!mapInstanceRef.current) {
+        const map = L.map(mapContainerRef.current, {
+          center: [latitude, longitude],
+          zoom: 15,
+          zoomControl: true,
+          scrollWheelZoom: true,
+        });
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '&copy; OpenStreetMap contributors',
+          maxZoom: 19,
+        }).addTo(map);
+
+        LAUTECH_CAMPUS_GATES.forEach(gate => {
+          const gateIcon = L.divIcon({
+            className: 'campus-gate-icon',
+            html: `<div style="background-color: #4338ca; color: white; font-size: 10px; font-weight: bold; padding: 2px 6px; border-radius: 9999px; white-space: nowrap; border: 1px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">🏛️ ${gate.name}</div>`,
+            iconSize: [120, 24],
+            iconAnchor: [60, 12],
+          });
+          L.marker([gate.lat, gate.lng], { icon: gateIcon }).addTo(map);
+        });
+
+        const hostelIcon = L.divIcon({
+          className: 'hostel-pin-icon',
+          html: `<div style="background-color: #FD8003; color: white; width: 32px; height: 32px; border-radius: 9999px; border: 2px solid white; box-shadow: 0 4px 6px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center;"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg></div>`,
+          iconSize: [32, 32],
+          iconAnchor: [16, 32],
+        });
+
+        const marker = L.marker([latitude, longitude], {
+          draggable: true,
+          icon: hostelIcon,
+        }).addTo(map);
+
+        marker.on('dragend', () => {
+          const pos = marker.getLatLng();
+          setLatitude(Number(pos.lat.toFixed(5)));
+          setLongitude(Number(pos.lng.toFixed(5)));
+        });
+
+        map.on('click', (e: L.LeafletMouseEvent) => {
+          marker.setLatLng(e.latlng);
+          setLatitude(Number(e.latlng.lat.toFixed(5)));
+          setLongitude(Number(e.latlng.lng.toFixed(5)));
+        });
+
+        markerRef.current = marker;
+        mapInstanceRef.current = map;
+      } else {
+        mapInstanceRef.current.invalidateSize();
+        mapInstanceRef.current.setView([latitude, longitude], 15);
+        if (markerRef.current) {
+          markerRef.current.setLatLng([latitude, longitude]);
+        }
+      }
+    }, 150);
+
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [currentStep]);
+
+  useEffect(() => {
+    if (markerRef.current && mapInstanceRef.current) {
+      markerRef.current.setLatLng([latitude, longitude]);
+      mapInstanceRef.current.panTo([latitude, longitude]);
+    }
+  }, [latitude, longitude]);
+
+  useEffect(() => {
+    return () => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
+      }
+    };
+  }, []);
+
+  const handleSelectArea = (selectedId: string) => {
+    setAreaId(selectedId);
+    handleCheckDuplicate();
+    const areaPreset = areas.find(a => a.id === selectedId);
+    if (areaPreset?.centerLat && areaPreset?.centerLng) {
+      setLatitude(areaPreset.centerLat);
+      setLongitude(areaPreset.centerLng);
+    } else if (LAUTECH_AREAS_COORDS[selectedId]) {
+      setLatitude(LAUTECH_AREAS_COORDS[selectedId].lat);
+      setLongitude(LAUTECH_AREAS_COORDS[selectedId].lng);
+    }
+  };
+
+  const handleSelectNeighborhoodPreset = (preset: typeof LAUTECH_NEIGHBORHOOD_PRESETS[0]) => {
+    setLatitude(preset.lat);
+    setLongitude(preset.lng);
+    if (preset.areaId && !isCustomArea) {
+      setAreaId(preset.areaId);
+    }
+    if (isCustomArea) {
+      setCustomLocationName(preset.label);
+    }
   };
 
   // Step 3: Rooms
@@ -411,9 +564,11 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
         description: description.trim(),
         address: finalAddress,
         nearbyLandmark: nearbyLandmark.trim() || undefined,
-        distanceFromCampusKm: parseFloat(distanceKm) || 1.0,
-        selectedGate,
-        walkingMinutes: parseInt(walkingMinutes, 10) || 5,
+        latitude,
+        longitude,
+        distanceFromCampusKm: travelEstimate.distanceKm,
+        selectedGate: travelEstimate.nearestGateName || selectedGate,
+        walkingMinutes: travelEstimate.minutes,
         has4KVideo: Boolean(fourKVideo?.videoUrl),
         videoTourUrl: fourKVideo?.videoUrl || undefined,
         videoVerificationStatus: fourKVideo?.status || (fourKVideo?.videoUrl ? 'PENDING_AUDIT' : 'NONE'),
@@ -726,7 +881,7 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
               <button
                 type="button"
                 onClick={() => setIsCustomArea(false)}
-                className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${
+                className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
                   !isCustomArea
                     ? 'bg-white dark:bg-slate-900 text-emerald-800 dark:text-emerald-400 shadow-sm border border-slate-200 dark:border-slate-700'
                     : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
@@ -738,7 +893,7 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
               <button
                 type="button"
                 onClick={() => setIsCustomArea(true)}
-                className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${
+                className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
                   isCustomArea
                     ? 'bg-emerald-600 text-white shadow-sm'
                     : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
@@ -751,45 +906,26 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
 
             <div className="bg-slate-50 dark:bg-slate-800/80 p-4 sm:p-5 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-4">
               {!isCustomArea ? (
-                <div className="space-y-4">
+                <div className="space-y-3">
                   <label className="block text-xs font-bold text-slate-800 dark:text-slate-200 uppercase">
                     Select Nearest LAUTECH Area *
                   </label>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <select
-                        value={areaId}
-                        onChange={(e) => {
-                          if (e.target.value === 'custom') {
-                            setIsCustomArea(true);
-                          } else {
-                            setAreaId(e.target.value);
-                            handleCheckDuplicate();
-                          }
-                        }}
-                        className="w-full text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 text-slate-900 dark:text-white font-medium focus:ring-2 focus:ring-emerald-500 focus:outline-none cursor-pointer"
-                      >
-                        {(areas || []).map(a => (
-                          <option key={a.id} value={a.id}>{a.name} ({a.approxDistanceMinKm}-{a.approxDistanceMaxKm} km from campus)</option>
-                        ))}
-                        <option value="custom">➕ + Add Custom Location / New Area...</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <input
-                        type="number"
-                        step="0.1"
-                        min="0.1"
-                        max="15"
-                        placeholder="Distance to Gate (km)"
-                        value={distanceKm}
-                        onChange={(e) => setDistanceKm(e.target.value)}
-                        className="w-full text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                        required
-                      />
-                    </div>
-                  </div>
+                  <select
+                    value={areaId}
+                    onChange={(e) => {
+                      if (e.target.value === 'custom') {
+                        setIsCustomArea(true);
+                      } else {
+                        handleSelectArea(e.target.value);
+                      }
+                    }}
+                    className="w-full text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 text-slate-900 dark:text-white font-medium focus:ring-2 focus:ring-emerald-500 focus:outline-none cursor-pointer"
+                  >
+                    {(areas || []).map(a => (
+                      <option key={a.id} value={a.id}>{a.name} ({a.approxDistanceMinKm}-{a.approxDistanceMaxKm} km to LAUTECH)</option>
+                    ))}
+                    <option value="custom">➕ + Add Custom Location / New Area...</option>
+                  </select>
                 </div>
               ) : (
                 <div className="space-y-3 bg-emerald-50/70 dark:bg-emerald-950/40 p-4 sm:p-5 rounded-2xl border border-emerald-300 dark:border-emerald-700/80">
@@ -801,7 +937,7 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
                     <button
                       type="button"
                       onClick={() => setIsCustomArea(false)}
-                      className="text-[11px] text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white underline"
+                      className="text-[11px] text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white underline cursor-pointer"
                     >
                       Use Standard Areas
                     </button>
@@ -821,146 +957,98 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
                         key={sugg}
                         type="button"
                         onClick={() => setCustomLocationName(sugg)}
-                        className="px-2.5 py-1 bg-white dark:bg-slate-800 border border-emerald-200 dark:border-emerald-700 rounded-lg text-emerald-800 dark:text-emerald-300 font-semibold hover:bg-emerald-100 dark:hover:bg-emerald-900/60 transition-colors shadow-xs"
+                        className="px-2.5 py-1 bg-white dark:bg-slate-800 border border-emerald-200 dark:border-emerald-700 rounded-lg text-emerald-800 dark:text-emerald-300 font-semibold hover:bg-emerald-100 dark:hover:bg-emerald-900/60 transition-colors shadow-xs cursor-pointer"
                       >
                         {sugg}
                       </button>
                     ))}
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-                    <div>
-                      <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">Closest Standard Area</label>
-                      <select
-                        value={areaId}
-                        onChange={(e) => setAreaId(e.target.value)}
-                        className="w-full text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-slate-900 dark:text-white cursor-pointer"
-                      >
-                        {(areas || []).map(a => (
-                          <option key={a.id} value={a.id}>{a.name}</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">Distance to LAUTECH Gate (km) *</label>
-                      <input
-                        type="number"
-                        step="0.1"
-                        min="0.1"
-                        max="15"
-                        value={distanceKm}
-                        onChange={(e) => setDistanceKm(e.target.value)}
-                        className="w-full text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-slate-900 dark:text-white"
-                        required
-                      />
-                    </div>
+                  <div className="pt-2">
+                    <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">Closest Standard Area</label>
+                    <select
+                      value={areaId}
+                      onChange={(e) => setAreaId(e.target.value)}
+                      className="w-full text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-slate-900 dark:text-white cursor-pointer"
+                    >
+                      {(areas || []).map(a => (
+                        <option key={a.id} value={a.id}>{a.name}</option>
+                      ))}
+                    </select>
                   </div>
                 </div>
               )}
             </div>
 
-            {/* Dedicated Agent Quick Distance Component */}
+            {/* Interactive Map Pinning */}
             <div className="bg-slate-50 dark:bg-slate-800/80 p-4 sm:p-5 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-3">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
                 <label className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase flex items-center gap-1.5">
-                  <Footprints className="w-4 h-4 text-emerald-600" />
-                  Quick Distance to LAUTECH Campus Gate (Set by You) *
+                  <MapPin className="w-4 h-4 text-[#FD8003]" />
+                  Pin Hostel Map Location (Drag Pin or Click on Map) *
                 </label>
-                <span className="text-[11px] font-mono font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-lg border border-emerald-200 dark:border-emerald-800">
-                  {parseFloat(distanceKm) < 1 ? `${Math.round(parseFloat(distanceKm) * 1000)}m` : `${distanceKm} km`} • {walkingMinutes} mins walk
+                <span className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
+                  GPS: {latitude.toFixed(4)}, {longitude.toFixed(4)}
                 </span>
               </div>
 
-              {/* 1-Tap Quick Distance Presets */}
-              <div className="space-y-1.5">
-                <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400">1-Tap Distance Presets:</span>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  {[
-                    { label: '150m (Gate-to-Gate)', km: 0.15, mins: 2 },
-                    { label: '300m (3 mins walk)', km: 0.3, mins: 3 },
-                    { label: '500m (5 mins walk)', km: 0.5, mins: 5 },
-                    { label: '800m (8 mins walk)', km: 0.8, mins: 8 },
-                    { label: '1.2 km (12 mins walk)', km: 1.2, mins: 12 },
-                    { label: '2.0 km (Campus Shuttle)', km: 2.0, mins: 18 }
-                  ].map(p => (
-                    <button
-                      key={p.label}
-                      type="button"
-                      onClick={() => handleQuickDistanceSelect(p.km, p.mins)}
-                      className={`p-2 rounded-xl text-left border transition-all text-xs cursor-pointer ${
-                        Math.abs(parseFloat(distanceKm) - p.km) < 0.05
-                          ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm font-bold'
-                          : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-emerald-400'
-                      }`}
-                    >
-                      <div className="font-bold">{p.label}</div>
-                      <div className={`text-[10px] ${Math.abs(parseFloat(distanceKm) - p.km) < 0.05 ? 'text-emerald-100' : 'text-slate-400'}`}>
-                        {Math.round(p.km * 1000)}m to campus
-                      </div>
-                    </button>
-                  ))}
+              {/* Leaflet map container */}
+              <div 
+                ref={mapContainerRef} 
+                className="w-full h-64 sm:h-72 rounded-xl overflow-hidden shadow-inner border border-slate-300 dark:border-slate-700 relative z-0" 
+              />
+
+              {/* Quick Landmark / Neighborhood Pins */}
+              <div className="space-y-1.5 pt-1">
+                <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400">Quick Pin Locations:</span>
+                <div className="flex flex-wrap gap-1.5">
+                  {LAUTECH_NEIGHBORHOOD_PRESETS.map((preset) => {
+                    const isSelected = Math.abs(latitude - preset.lat) < 0.002 && Math.abs(longitude - preset.lng) < 0.002;
+                    return (
+                      <button
+                        key={preset.label}
+                        type="button"
+                        onClick={() => handleSelectNeighborhoodPreset(preset)}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all border cursor-pointer ${
+                          isSelected
+                            ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                            : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-emerald-400'
+                        }`}
+                      >
+                        {preset.label}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
+            </div>
 
-              {/* Detailed Distance Customizer */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Target Campus Gate
-                  </label>
-                  <select
-                    value={selectedGate}
-                    onChange={(e) => {
-                      setSelectedGate(e.target.value);
-                      handleQuickDistanceSelect(parseFloat(distanceKm) || 0.5, parseInt(walkingMinutes, 10) || 5, e.target.value);
-                    }}
-                    className="w-full text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-slate-900 dark:text-white font-medium focus:ring-2 focus:ring-emerald-500 focus:outline-none cursor-pointer"
-                  >
-                    <option value="Under-G Gate">Under-G Gate (South)</option>
-                    <option value="Adenike Gate">Adenike Gate (East)</option>
-                    <option value="Main Campus Gate">Main Campus Gate (North)</option>
-                    <option value="Stadium Road Gate">Stadium Road Gate</option>
-                    <option value="Aroje Gate">Aroje / General Gate</option>
-                    <option value="Old Poly Road Gate">Old Poly Road Gate</option>
-                  </select>
+            {/* AUTOMATICALLY CALCULATED TRAVEL TIME BANNER (No manual typing required) */}
+            <div className="p-4 sm:p-5 rounded-2xl border-2 border-emerald-500/40 bg-emerald-50/70 dark:bg-emerald-950/30 space-y-2">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-xs shrink-0">
+                    <Clock className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <div className="text-base sm:text-lg font-black text-slate-900 dark:text-white">
+                      {travelEstimate.primaryText}
+                    </div>
+                    <div className="text-xs text-slate-600 dark:text-slate-300 font-medium">
+                      {travelEstimate.clarificationText}
+                    </div>
+                  </div>
                 </div>
 
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Distance (in Kilometers)
-                  </label>
-                  <input
-                    type="number"
-                    step="0.05"
-                    min="0.05"
-                    max="15"
-                    value={distanceKm}
-                    onChange={(e) => {
-                      setDistanceKm(e.target.value);
-                      const km = parseFloat(e.target.value) || 0.5;
-                      const estMins = Math.max(1, Math.round(km * 10));
-                      setWalkingMinutes(estMins.toString());
-                    }}
-                    placeholder="e.g. 0.3 for 300m"
-                    className="w-full text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-slate-900 dark:text-white font-bold focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                  />
-                </div>
+                <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-white dark:bg-slate-900 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 shadow-xs flex items-center gap-1.5">
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                  Auto-calculated ({travelEstimate.distanceKm} km to {travelEstimate.nearestGateName || selectedGate})
+                </span>
+              </div>
 
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Walking Time (Minutes)
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    max="60"
-                    value={walkingMinutes}
-                    onChange={(e) => setWalkingMinutes(e.target.value)}
-                    placeholder="e.g. 3 mins"
-                    className="w-full text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-slate-900 dark:text-white font-bold focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                  />
-                </div>
+              <div className="pt-2 border-t border-emerald-200/60 dark:border-emerald-800/60 flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400">
+                <Info className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                <span>Travel time and route distance are automatically calculated from your pinned map location. No manual number entry required.</span>
               </div>
             </div>
 
@@ -1587,11 +1675,13 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
                   alt="preview"
                   className="w-full h-full object-cover"
                 />
-                <span className="absolute top-3 left-3 bg-emerald-600 text-white font-bold text-[10px] px-2.5 py-1 rounded-full shadow">
-                  ✓ Hostel Ease Verified
+                <span className="absolute top-3 left-3 bg-emerald-600 text-white font-bold text-[10px] px-2.5 py-1 rounded-full shadow flex items-center gap-1">
+                  <ShieldCheck className="w-3 h-3 text-white" />
+                  Hostel Ease Verified
                 </span>
-                <span className="absolute top-3 right-3 bg-slate-900/80 text-white font-bold text-[10px] px-2.5 py-1 rounded-full">
-                  {formatDistance(parseFloat(distanceKm))} to Campus
+                <span className="absolute top-3 right-3 bg-slate-900/80 text-white font-bold text-[10px] px-2.5 py-1 rounded-full flex items-center gap-1">
+                  <Clock className="w-3 h-3 text-emerald-400" />
+                  {travelEstimate.primaryText}
                 </span>
                 {fourKVideo?.videoUrl && (
                   <span className="absolute bottom-3 left-3 bg-indigo-950/90 text-indigo-300 border border-indigo-400/40 font-black text-[10px] px-2.5 py-1 rounded-full flex items-center gap-1 shadow">
@@ -1602,12 +1692,22 @@ export const HostelCreationWizard: React.FC<HostelCreationWizardProps> = ({
               </div>
 
               <div>
-                <span className="text-[10px] font-bold text-emerald-800 dark:text-emerald-400 uppercase tracking-wider">
-                  📍 {isCustomArea && customLocationName ? customLocationName : (selectedAreaObj?.name || 'Under G')} • {propertyType.replace('_', ' ')}
+                <span className="text-[10px] font-bold text-emerald-800 dark:text-emerald-400 uppercase tracking-wider flex items-center gap-1">
+                  <MapPin className="w-3 h-3 text-[#FD8003] shrink-0" />
+                  <span>{isCustomArea && customLocationName ? customLocationName : (selectedAreaObj?.name || 'Under G')} • {propertyType.replace('_', ' ')}</span>
                 </span>
                 <h4 className="text-lg font-black text-slate-900 dark:text-white">{title || 'Your Hostel Name'}</h4>
                 <p className="text-xs text-slate-600 dark:text-slate-300 line-clamp-2 mt-1">{description || 'Hostel description'}</p>
-                {address && <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">🏠 {address}</p>}
+                {address && (
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 flex items-center gap-1">
+                    <Home className="w-3 h-3 text-slate-400 shrink-0" />
+                    <span>{address}</span>
+                  </p>
+                )}
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 flex items-center gap-1">
+                  <Route className="w-3 h-3 text-slate-400 shrink-0" />
+                  <span>{travelEstimate.clarificationText}</span>
+                </p>
 
                 {/* Facilities Preview Chips */}
                 {amenityKeys.length > 0 && (

@@ -13,7 +13,8 @@ import {
   Key,
   Home,
   Droplets,
-  Shield
+  Shield,
+  Search
 } from 'lucide-react';
 import { MoveInChecklistItem, MoveInChecklistCategory } from '../types';
 
@@ -44,23 +45,48 @@ export const MoveInChecklistModal: React.FC<MoveInChecklistModalProps> = ({
     return i.category === selectedCategory;
   });
 
-  const getCategoryLabel = (cat: MoveInChecklistCategory) => {
+  const renderCategoryLabel = (cat: MoveInChecklistCategory | 'ALL') => {
     switch (cat) {
-      case 'PRE_PAYMENT': return '🔍 1. Pre-Payment & Room Test';
-      case 'MOVE_IN_DAY': return '🔑 2. Move-in Day & Keys';
-      case 'SETTLING_IN': return '🛋️ 3. Settling In & Room Setup';
-      case 'CAMPUS_SECURITY': return '🛡️ 4. Security & Essentials';
-      default: return cat;
+      case 'PRE_PAYMENT':
+        return (
+          <span className="flex items-center gap-1.5">
+            <Search className="w-3.5 h-3.5" />
+            <span>1. Pre-Payment & Room Test</span>
+          </span>
+        );
+      case 'MOVE_IN_DAY':
+        return (
+          <span className="flex items-center gap-1.5">
+            <Key className="w-3.5 h-3.5" />
+            <span>2. Move-in Day & Keys</span>
+          </span>
+        );
+      case 'SETTLING_IN':
+        return (
+          <span className="flex items-center gap-1.5">
+            <Home className="w-3.5 h-3.5" />
+            <span>3. Settling In & Room Setup</span>
+          </span>
+        );
+      case 'CAMPUS_SECURITY':
+        return (
+          <span className="flex items-center gap-1.5">
+            <ShieldCheck className="w-3.5 h-3.5" />
+            <span>4. Security & Essentials</span>
+          </span>
+        );
+      default:
+        return <span>All Steps</span>;
     }
   };
 
   const handleExportText = () => {
-    let text = '🦅 HOSTEL EASE LAUTECH HOSTEL MOVE-IN CHECKLIST\n';
+    let text = 'HOSTEL EASE LAUTECH HOSTEL MOVE-IN CHECKLIST\n';
     text += `Progress: ${completedCount}/${items.length} Completed (${progressPercent}%)\n\n`;
     items.forEach((item, idx) => {
       text += `[${item.isCompleted ? 'X' : ' '}] ${idx + 1}. ${item.title}\n`;
       text += `   ${item.description}\n`;
-      if (item.criticalTip) text += `   💡 Pro-Tip: ${item.criticalTip}\n`;
+      if (item.criticalTip) text += `   Pro-Tip: ${item.criticalTip}\n`;
       text += '\n';
     });
 
@@ -140,7 +166,7 @@ export const MoveInChecklistModal: React.FC<MoveInChecklistModalProps> = ({
                       : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800'
                   }`}
                 >
-                  {cat === 'ALL' ? 'All Steps' : getCategoryLabel(cat as any)}
+                  {renderCategoryLabel(cat as any)}
                 </button>
               );
             })}

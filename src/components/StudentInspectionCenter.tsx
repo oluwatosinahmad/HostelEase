@@ -18,7 +18,10 @@ import {
   HelpCircle,
   FileText,
   Lock,
-  Receipt
+  Receipt,
+  Check,
+  Sparkles,
+  Lightbulb
 } from 'lucide-react';
 import { InspectionRequest, InspectionStatus } from '../types/hostelEase';
 import { api } from '../services/api';
@@ -255,7 +258,7 @@ export const StudentInspectionCenter: React.FC<StudentInspectionCenterProps> = (
               >
                 {isHighlighted && (
                   <div className="bg-emerald-50 text-emerald-800 text-xs font-black px-3 py-1 rounded-xl w-fit flex items-center gap-1.5 border border-emerald-200">
-                    <span>🎯</span> Selected Inspection Request
+                    <Sparkles className="w-3.5 h-3.5 text-emerald-600 shrink-0" /> Selected Inspection Request
                   </div>
                 )}
                 {/* Top Row: Cover, Title & Status Pill */}
@@ -271,7 +274,11 @@ export const StudentInspectionCenter: React.FC<StudentInspectionCenterProps> = (
                         <span className={`px-2 py-0.5 rounded-lg text-[10px] font-black uppercase ${
                           insp.inspectionType === 'VIRTUAL' ? 'bg-purple-100 text-purple-900' : 'bg-blue-100 text-blue-900'
                         }`}>
-                          {insp.inspectionType === 'VIRTUAL' ? '📹 Virtual Video Tour' : '🚶 Physical Visit'}
+                          {insp.inspectionType === 'VIRTUAL' ? (
+                            <span className="flex items-center gap-1"><Video className="w-3 h-3 shrink-0" /> Virtual Video Tour</span>
+                          ) : (
+                            <span className="flex items-center gap-1"><Footprints className="w-3 h-3 shrink-0" /> Physical Visit</span>
+                          )}
                         </span>
                         {insp.roomName && (
                           <span className="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-slate-100 text-slate-700">
@@ -283,8 +290,9 @@ export const StudentInspectionCenter: React.FC<StudentInspectionCenterProps> = (
                       <h3 className="font-black text-sm sm:text-base text-slate-900">
                         {insp.propertyTitle}
                       </h3>
-                      <p className="text-xs text-slate-500">
-                        📍 {insp.areaName} {insp.nearbyLandmark ? `(Near ${insp.nearbyLandmark})` : ''}
+                      <p className="text-xs text-slate-500 flex items-center gap-1">
+                        <MapPin className="w-3 h-3 text-[#FD8003] shrink-0" />
+                        <span>{insp.areaName} {insp.nearbyLandmark ? `(Near ${insp.nearbyLandmark})` : ''}</span>
                       </p>
                     </div>
                   </div>
@@ -298,7 +306,13 @@ export const StudentInspectionCenter: React.FC<StudentInspectionCenterProps> = (
                       isCompleted ? 'bg-slate-100 text-slate-800' :
                       'bg-rose-100 text-rose-900'
                     }`}>
-                      {isConfirmed ? '✓ Confirmed by Agent' : isPending ? '⏳ Awaiting Agent' : (insp.status || 'PENDING').replace(/_/g, ' ')}
+                      {isConfirmed ? (
+                        <span className="flex items-center gap-1"><Check className="w-3.5 h-3.5 shrink-0" /> Confirmed by Agent</span>
+                      ) : isPending ? (
+                        <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5 shrink-0" /> Awaiting Agent</span>
+                      ) : (
+                        (insp.status || 'PENDING').replace(/_/g, ' ')
+                      )}
                     </span>
                   </div>
                 </div>
@@ -308,7 +322,7 @@ export const StudentInspectionCenter: React.FC<StudentInspectionCenterProps> = (
                   <div className="p-3.5 bg-emerald-50 rounded-2xl border border-emerald-300 text-xs text-emerald-950 space-y-1.5 animate-in fade-in">
                     <div className="flex items-center gap-2 font-black text-emerald-900">
                       <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                      <span>🎉 Inspection Confirmed by Agent ({insp.providerName || 'Accommodation Owner'})!</span>
+                      <span>Inspection Confirmed by Agent ({insp.providerName || 'Accommodation Owner'})!</span>
                     </div>
                     <p className="text-emerald-800 text-[11px] leading-relaxed">
                       The accommodation provider has approved your appointment for <strong>{insp.preferredDate} at {insp.preferredTime}</strong>. Meeting point: <strong>{insp.nearbyLandmark ? `Near ${insp.nearbyLandmark}` : insp.areaName}</strong>. You can chat with the agent or proceed to secure your bedspace below!
@@ -331,8 +345,9 @@ export const StudentInspectionCenter: React.FC<StudentInspectionCenterProps> = (
                       <AlertCircle className="w-4 h-4 text-purple-700" />
                       <span>The agent proposed a new time slot:</span>
                     </div>
-                    <div className="p-2.5 bg-white rounded-xl border border-purple-200 font-black text-sm text-purple-950">
-                      📅 {insp.proposedAlternativeDate} at {insp.proposedAlternativeTime}
+                    <div className="p-2.5 bg-white rounded-xl border border-purple-200 font-black text-sm text-purple-950 flex items-center gap-1.5">
+                      <Calendar className="w-4 h-4 text-purple-600 shrink-0" />
+                      <span>{insp.proposedAlternativeDate} at {insp.proposedAlternativeTime}</span>
                     </div>
                     {insp.rescheduleReason && (
                       <p className="text-slate-600 text-[11px]">Note from provider: "{insp.rescheduleReason}"</p>
@@ -563,8 +578,9 @@ export const StudentInspectionCenter: React.FC<StudentInspectionCenterProps> = (
               {virtualLinkModal.url}
             </div>
 
-            <p className="text-[11px] text-slate-400">
-              💡 <strong>Tip:</strong> Ensure your camera and microphone are permitted in your browser.
+            <p className="text-[11px] text-slate-400 flex items-center justify-center gap-1">
+              <Lightbulb className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+              <span><strong>Tip:</strong> Ensure your camera and microphone are permitted in your browser.</span>
             </p>
 
             <div className="flex items-center justify-center gap-2 pt-2">

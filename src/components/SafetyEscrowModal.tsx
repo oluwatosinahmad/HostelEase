@@ -13,7 +13,10 @@ import {
   Info,
   Building2,
   Lock,
-  Sparkles
+  Sparkles,
+  Camera,
+  MapPin,
+  Coins
 } from 'lucide-react';
 
 interface SafetyEscrowModalProps {
@@ -138,15 +141,24 @@ export const SafetyEscrowModal: React.FC<SafetyEscrowModalProps> = ({ onClose })
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
               <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
-                <span className="font-bold text-slate-900 block mb-0.5">📸 Real Media</span>
+                <span className="font-bold text-slate-900 mb-0.5 flex items-center gap-1.5">
+                  <Camera className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+                  <span>Real Media</span>
+                </span>
                 <p className="text-slate-500">Unfiltered photos and continuous video walkthroughs.</p>
               </div>
               <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
-                <span className="font-bold text-slate-900 block mb-0.5">📍 Exact Address</span>
+                <span className="font-bold text-slate-900 mb-0.5 flex items-center gap-1.5">
+                  <MapPin className="w-3.5 h-3.5 text-[#FD8003] shrink-0" />
+                  <span>Exact Address</span>
+                </span>
                 <p className="text-slate-500">Accurate distance and walking time to university gates.</p>
               </div>
               <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
-                <span className="font-bold text-slate-900 block mb-0.5">💰 Zero Hidden Fees</span>
+                <span className="font-bold text-slate-900 mb-0.5 flex items-center gap-1.5">
+                  <Coins className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                  <span>Zero Hidden Fees</span>
+                </span>
                 <p className="text-slate-500">Full itemized breakdown of rent, caution, and agency.</p>
               </div>
             </div>

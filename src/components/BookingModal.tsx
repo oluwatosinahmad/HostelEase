@@ -17,12 +17,14 @@ import {
   Receipt,
   Phone,
   HelpCircle,
-  MessageCircle
+  MessageCircle,
+  MapPin,
+  Route
 } from 'lucide-react';
 import { Property, RoomAvailability, PropertyAvailabilityResponse } from '../types/hostelEase';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
-import { formatNaira, formatDistance } from '../utils/formatters';
+import { formatNaira, formatDistance, calculateHostelTravelTime } from '../utils/formatters';
 
 interface BookingModalProps {
   property: Property;
@@ -365,8 +367,13 @@ export const BookingModal: React.FC<BookingModalProps> = ({
                   />
                   <div className="min-w-0">
                     <p className="font-black text-slate-900 truncate">{property.title}</p>
-                    <p className="text-[11px] text-slate-500 truncate">
-                      📍 {property.area?.name || 'LAUTECH'} ({formatDistance(property.distanceFromCampusKm)} from Main Gate)
+                    <p className="text-[11px] text-slate-500 truncate flex items-center gap-1">
+                      <MapPin className="w-3 h-3 text-[#FD8003] shrink-0" />
+                      <span>{property.area?.name || 'LAUTECH'}</span>
+                      <span className="text-slate-500 font-semibold flex items-center gap-1">
+                        • <Clock className="w-2.5 h-2.5 text-emerald-600 shrink-0" />
+                        <span>{calculateHostelTravelTime(property.distanceFromCampusKm).primaryText}</span>
+                      </span>
                     </p>
                   </div>
                 </div>
@@ -539,7 +546,14 @@ export const BookingModal: React.FC<BookingModalProps> = ({
 
                 <div className="flex justify-between items-center pb-2 border-b border-slate-100 text-xs">
                   <span className="text-slate-500 font-bold">Location</span>
-                  <span className="font-bold text-slate-800">📍 {property.area?.name || 'LAUTECH'} ({formatDistance(property.distanceFromCampusKm)})</span>
+                  <span className="font-bold text-slate-800 flex items-center gap-1">
+                    <MapPin className="w-3 h-3 text-[#FD8003] shrink-0" />
+                    <span>{property.area?.name || 'LAUTECH'}</span>
+                    <span className="text-slate-500 font-semibold flex items-center gap-1">
+                      • <Clock className="w-2.5 h-2.5 text-emerald-600 shrink-0" />
+                      <span>{calculateHostelTravelTime(property.distanceFromCampusKm).primaryText}</span>
+                    </span>
+                  </span>
                 </div>
 
                 <div className="flex justify-between items-center pb-2 border-b border-slate-100 text-xs">

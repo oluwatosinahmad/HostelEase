@@ -55,12 +55,17 @@ const __dirname = path.dirname(__filename);
 // Ensure migrations run automatically on startup
 runMigrations();
 
-// Auto-seed initial catalog if database is fresh/empty
+// Auto-seed initial catalog if database is fresh/empty AND not deliberately cleared
 try {
-  const propCount = db.prepare('SELECT count(*) as count FROM properties').get() as { count: number };
-  if (!propCount || propCount.count === 0) {
-    console.log('🌱 Fresh database detected on startup. Auto-seeding initial LAUTECH catalog...');
-    runSeed();
+  const seedLock = db.prepare("SELECT value FROM system_settings WHERE key = 'auto_seed_disabled'").get() as { value: string } | undefined;
+  if (seedLock?.value === 'true') {
+    console.log('🔒 Auto-seed is disabled (test data clearance executed or manual lock set). Preserving cleared state on startup.');
+  } else {
+    const propCount = db.prepare('SELECT count(*) as count FROM properties').get() as { count: number };
+    if (!propCount || propCount.count === 0) {
+      console.log('🌱 Fresh database detected on startup. Auto-seeding initial LAUTECH catalog...');
+      runSeed();
+    }
   }
 } catch (e) {
   console.warn('Auto-seed check warning:', e);

@@ -4,6 +4,8 @@ import {
   Search, 
   Bookmark, 
   MapPin, 
+  Route,
+  Lock,
   ShieldCheck, 
   Calendar, 
   SlidersHorizontal, 
@@ -30,6 +32,7 @@ import {
   ShieldAlert,
   Play,
   Video,
+  Clock,
   ChevronLeft,
   ChevronRight,
   Users,
@@ -57,7 +60,7 @@ import { MobileBottomNav } from './components/MobileBottomNav';
 import { NetworkStatusBanner } from './components/NetworkStatusBanner';
 import { NotificationToastHUD } from './components/NotificationToastHUD';
 import { HostelListSkeleton, DashboardSkeleton } from './components/SkeletonLoaders';
-import { formatNaira, formatDistance } from './utils/formatters';
+import { formatNaira, formatDistance, calculateHostelTravelTime } from './utils/formatters';
 import { HostelDetailModal } from './components/HostelDetailModal';
 import { AIAccommodationAssistantModal } from './components/AIAccommodationAssistantModal';
 import { AIAgentAssistantModal } from './components/AILandlordAssistantModal';
@@ -65,6 +68,7 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { MorePageView } from './components/MorePageView';
 import { safeStorage } from './utils/safeStorage';
 import { DEFAULT_PROPERTIES } from './services/offlineFallback';
+import { ScrollReveal } from './components/ScrollReveal';
 
 // Dynamic Code Splitting for heavy portals & views (Slashes initial bundle by ~70%!)
 const AdminPortal = lazy(() => import('./components/AdminPortal').then(m => ({ default: m.AdminPortal })));
@@ -1117,7 +1121,7 @@ function MainApp() {
 
             {/* Popular LAUTECH Accommodation Areas */}
             <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-4">
-              <div className="flex items-end justify-between">
+              <ScrollReveal animation="fade-up" className="flex items-end justify-between">
                 <div>
                   <span className="text-[11px] font-extrabold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">
                     Neighborhood Guide
@@ -1128,40 +1132,53 @@ function MainApp() {
                 </div>
                 <button
                   onClick={() => setCurrentView('search')}
-                  className="text-xs font-bold text-emerald-700 dark:text-emerald-400 hover:text-emerald-800 dark:hover:text-emerald-300 flex items-center gap-1 transition-colors"
+                  className="text-xs font-bold text-emerald-700 dark:text-emerald-400 hover:text-emerald-800 dark:hover:text-emerald-300 flex items-center gap-1 transition-colors cursor-pointer"
                 >
                   View all areas <ArrowRight className="w-3.5 h-3.5" />
                 </button>
-              </div>
+              </ScrollReveal>
 
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-                {areas.map(area => (
-                  <div
+                {areas.map((area, idx) => (
+                  <ScrollReveal
                     key={area.id}
-                    onClick={() => handleSelectArea(area.id)}
-                    className="group bg-white dark:bg-slate-900 p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md hover:border-emerald-400 dark:hover:border-emerald-500 transition-all cursor-pointer space-y-1.5 flex flex-col justify-between"
+                    animation="fade-up"
+                    staggerIndex={idx}
+                    staggerIntervalMs={55}
+                    className="h-full"
                   >
-                    <div>
-                      <span className="text-lg">📍</span>
-                      <h3 className="font-bold text-xs sm:text-sm text-slate-900 dark:text-slate-100 group-hover:text-emerald-700 dark:group-hover:text-emerald-400 transition-colors">
-                        {area.name}
-                      </h3>
-                      <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">
-                        {area.approxDistanceMinKm}-{area.approxDistanceMaxKm} km to Gate
-                      </p>
+                    <div
+                      onClick={() => handleSelectArea(area.id)}
+                      className="group bg-white dark:bg-slate-900 p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md hover:border-emerald-400 dark:hover:border-emerald-500 transition-all cursor-pointer space-y-2 flex flex-col justify-between h-full"
+                    >
+                      <div>
+                        <div className="w-8 h-8 rounded-xl bg-orange-50 dark:bg-orange-950/40 text-[#FD8003] flex items-center justify-center mb-2 group-hover:scale-105 transition-transform border border-orange-200/50 dark:border-orange-900/40">
+                          <MapPin className="w-4 h-4 text-[#FD8003]" />
+                        </div>
+                        <h3 className="font-bold text-xs sm:text-sm text-slate-900 dark:text-slate-100 group-hover:text-emerald-700 dark:group-hover:text-emerald-400 transition-colors">
+                          {area.name}
+                        </h3>
+                        <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium flex items-center gap-1 mt-0.5">
+                          <Route className="w-3 h-3 text-slate-400 shrink-0" />
+                          <span>{area.approxDistanceMinKm}-{area.approxDistanceMaxKm} km to LAUTECH</span>
+                        </p>
+                      </div>
+                      <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[10px]">
+                        <span className="font-bold text-emerald-800 dark:text-emerald-400 flex items-center gap-1">
+                          <Building2 className="w-3 h-3 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                          <span>{area.propertyCount || 0} Hostels</span>
+                        </span>
+                        <ArrowRight className="w-3 h-3 text-slate-400 group-hover:text-emerald-600 transition-transform group-hover:translate-x-0.5" />
+                      </div>
                     </div>
-                    <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[10px]">
-                      <span className="font-bold text-emerald-800 dark:text-emerald-400">{area.propertyCount || 0} Hostels</span>
-                      <ArrowRight className="w-3 h-3 text-slate-400 group-hover:text-emerald-600 transition-transform group-hover:translate-x-0.5" />
-                    </div>
-                  </div>
+                  </ScrollReveal>
                 ))}
               </div>
             </section>
 
             {/* Revolutionary Campus Innovations Exclusive to Hostel Ease */}
             <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-4">
-              <div className="flex items-end justify-between">
+              <ScrollReveal animation="fade-up" className="flex items-end justify-between">
                 <div>
                   <span className="text-[11px] font-extrabold text-amber-600 dark:text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
                     <Sparkles className="w-3.5 h-3.5 text-amber-500 fill-amber-400" />
@@ -1171,115 +1188,123 @@ function MainApp() {
                     Campus Innovations & Student Safety Suite
                   </h2>
                 </div>
-              </div>
+              </ScrollReveal>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {/* Card 1: SafeWalk™ */}
-                <div 
-                  onClick={() => setSafeWalkOpen(true)}
-                  className="bg-gradient-to-br from-emerald-500/10 via-white to-emerald-500/5 dark:from-emerald-950/40 dark:via-slate-900 dark:to-slate-900 p-5 rounded-3xl border border-emerald-200/80 dark:border-emerald-900/60 shadow-sm hover:shadow-md hover:border-emerald-400 transition-all cursor-pointer flex flex-col justify-between group"
-                >
-                  <div className="space-y-2.5">
-                    <div className="w-10 h-10 rounded-2xl bg-emerald-600 text-white flex items-center justify-center font-bold shadow-md shadow-emerald-600/20 group-hover:scale-105 transition-transform">
-                      <ShieldCheck className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-1.5">
-                        <h3 className="font-black text-sm text-slate-900 dark:text-white">SafeWalk™</h3>
-                        <span className="px-1.5 py-0.2 rounded bg-emerald-200 dark:bg-emerald-900 text-emerald-900 dark:text-emerald-200 text-[9px] font-black">SOS</span>
+                <ScrollReveal animation="fade-up" staggerIndex={0} staggerIntervalMs={80} className="h-full">
+                  <div 
+                    onClick={() => setSafeWalkOpen(true)}
+                    className="bg-gradient-to-br from-emerald-500/10 via-white to-emerald-500/5 dark:from-emerald-950/40 dark:via-slate-900 dark:to-slate-900 p-5 rounded-3xl border border-emerald-200/80 dark:border-emerald-900/60 shadow-sm hover:shadow-md hover:border-emerald-400 transition-all cursor-pointer flex flex-col justify-between group h-full"
+                  >
+                    <div className="space-y-2.5">
+                      <div className="w-10 h-10 rounded-2xl bg-emerald-600 text-white flex items-center justify-center font-bold shadow-md shadow-emerald-600/20 group-hover:scale-105 transition-transform">
+                        <ShieldCheck className="w-5 h-5" />
                       </div>
-                      <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 leading-relaxed">
-                        Active student safety companion. Live journey countdown, destination tracking, trusted emergency contacts, and direct 1-tap campus emergency dispatch.
-                      </p>
+                      <div>
+                        <div className="flex items-center gap-1.5">
+                          <h3 className="font-black text-sm text-slate-900 dark:text-white">SafeWalk™</h3>
+                          <span className="px-1.5 py-0.2 rounded bg-emerald-200 dark:bg-emerald-900 text-emerald-900 dark:text-emerald-200 text-[9px] font-black">SOS</span>
+                        </div>
+                        <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 leading-relaxed">
+                          Active student safety companion. Live journey countdown, destination tracking, trusted emergency contacts, and direct 1-tap campus emergency dispatch.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="pt-3 border-t border-emerald-100 dark:border-emerald-900/40 flex items-center justify-between text-xs font-bold text-emerald-700 dark:text-emerald-400">
+                      <span>Start SafeWalk</span>
+                      <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                     </div>
                   </div>
-                  <div className="pt-3 border-t border-emerald-100 dark:border-emerald-900/40 flex items-center justify-between text-xs font-bold text-emerald-700 dark:text-emerald-400">
-                    <span>Start SafeWalk</span>
-                    <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                  </div>
-                </div>
+                </ScrollReveal>
 
                 {/* Card 2: UtilityRadar™ */}
-                <div 
-                  onClick={() => setUtilityRadarOpen(true)}
-                  className="bg-gradient-to-br from-amber-500/10 via-white to-amber-500/5 dark:from-amber-950/40 dark:via-slate-900 dark:to-slate-900 p-5 rounded-3xl border border-amber-200/80 dark:border-amber-900/60 shadow-sm hover:shadow-md hover:border-amber-400 transition-all cursor-pointer flex flex-col justify-between group"
-                >
-                  <div className="space-y-2.5">
-                    <div className="w-10 h-10 rounded-2xl bg-amber-500 text-white flex items-center justify-center font-bold shadow-md shadow-amber-500/20 group-hover:scale-105 transition-transform">
-                      <Zap className="w-5 h-5 fill-amber-200" />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-1.5">
-                        <h3 className="font-black text-sm text-slate-900 dark:text-white">UtilityRadar™</h3>
-                        <span className="px-1.5 py-0.2 rounded bg-amber-200 dark:bg-amber-900 text-amber-900 dark:text-amber-200 text-[9px] font-black">LIVE</span>
+                <ScrollReveal animation="fade-up" staggerIndex={1} staggerIntervalMs={80} className="h-full">
+                  <div 
+                    onClick={() => setUtilityRadarOpen(true)}
+                    className="bg-gradient-to-br from-amber-500/10 via-white to-amber-500/5 dark:from-amber-950/40 dark:via-slate-900 dark:to-slate-900 p-5 rounded-3xl border border-amber-200/80 dark:border-amber-900/60 shadow-sm hover:shadow-md hover:border-amber-400 transition-all cursor-pointer flex flex-col justify-between group h-full"
+                  >
+                    <div className="space-y-2.5">
+                      <div className="w-10 h-10 rounded-2xl bg-amber-500 text-white flex items-center justify-center font-bold shadow-md shadow-amber-500/20 group-hover:scale-105 transition-transform">
+                        <Zap className="w-5 h-5 fill-amber-200" />
                       </div>
-                      <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 leading-relaxed">
-                        Live community electricity (Power ON, Power OFF, Generator ON) and borehole water reporting across Under G, Adenike, Olubere, College Road & Abaa.
-                      </p>
+                      <div>
+                        <div className="flex items-center gap-1.5">
+                          <h3 className="font-black text-sm text-slate-900 dark:text-white">UtilityRadar™</h3>
+                          <span className="px-1.5 py-0.2 rounded bg-amber-200 dark:bg-amber-900 text-amber-900 dark:text-amber-200 text-[9px] font-black">LIVE</span>
+                        </div>
+                        <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 leading-relaxed">
+                          Live community electricity (Power ON, Power OFF, Generator ON) and borehole water reporting across Under G, Adenike, Olubere, College Road & Abaa.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="pt-3 border-t border-amber-100 dark:border-amber-900/40 flex items-center justify-between text-xs font-bold text-amber-700 dark:text-amber-400">
+                      <span>Open UtilityRadar</span>
+                      <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                     </div>
                   </div>
-                  <div className="pt-3 border-t border-amber-100 dark:border-amber-900/40 flex items-center justify-between text-xs font-bold text-amber-700 dark:text-amber-400">
-                    <span>Open UtilityRadar</span>
-                    <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                  </div>
-                </div>
+                </ScrollReveal>
 
                 {/* Card 3: Maintenance & Issue Reporting */}
-                <div 
-                  onClick={() => setMaintenanceOpen(true)}
-                  className="bg-gradient-to-br from-blue-500/10 via-white to-blue-500/5 dark:from-blue-950/40 dark:via-slate-900 dark:to-slate-900 p-5 rounded-3xl border border-blue-200/80 dark:border-blue-900/60 shadow-sm hover:shadow-md hover:border-blue-400 transition-all cursor-pointer flex flex-col justify-between group"
-                >
-                  <div className="space-y-2.5">
-                    <div className="w-10 h-10 rounded-2xl bg-blue-600 text-white flex items-center justify-center font-bold shadow-md shadow-blue-600/20 group-hover:scale-105 transition-transform">
-                      <Wrench className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-1.5">
-                        <h3 className="font-black text-sm text-slate-900 dark:text-white">Maintenance & Issue Reporting</h3>
-                        <span className="px-1.5 py-0.2 rounded bg-blue-200 dark:bg-blue-900 text-blue-900 dark:text-blue-200 text-[9px] font-black">SUPPORT</span>
+                <ScrollReveal animation="fade-up" staggerIndex={2} staggerIntervalMs={80} className="h-full">
+                  <div 
+                    onClick={() => setMaintenanceOpen(true)}
+                    className="bg-gradient-to-br from-blue-500/10 via-white to-blue-500/5 dark:from-blue-950/40 dark:via-slate-900 dark:to-slate-900 p-5 rounded-3xl border border-blue-200/80 dark:border-blue-900/60 shadow-sm hover:shadow-md hover:border-blue-400 transition-all cursor-pointer flex flex-col justify-between group h-full"
+                  >
+                    <div className="space-y-2.5">
+                      <div className="w-10 h-10 rounded-2xl bg-blue-600 text-white flex items-center justify-center font-bold shadow-md shadow-blue-600/20 group-hover:scale-105 transition-transform">
+                        <Wrench className="w-5 h-5" />
                       </div>
-                      <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 leading-relaxed">
-                        Report hostel repairs (electricity, water, plumbing, doors/locks, custom category) with auto-generated tracking codes and Agent progress updates.
-                      </p>
+                      <div>
+                        <div className="flex items-center gap-1.5">
+                          <h3 className="font-black text-sm text-slate-900 dark:text-white">Maintenance & Issue Reporting</h3>
+                          <span className="px-1.5 py-0.2 rounded bg-blue-200 dark:bg-blue-900 text-blue-900 dark:text-blue-200 text-[9px] font-black">SUPPORT</span>
+                        </div>
+                        <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 leading-relaxed">
+                          Report hostel repairs (electricity, water, plumbing, doors/locks, custom category) with auto-generated tracking codes and Agent progress updates.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="pt-3 border-t border-blue-100 dark:border-blue-900/40 flex items-center justify-between text-xs font-bold text-blue-700 dark:text-blue-400">
+                      <span>Report a Problem</span>
+                      <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                     </div>
                   </div>
-                  <div className="pt-3 border-t border-blue-100 dark:border-blue-900/40 flex items-center justify-between text-xs font-bold text-blue-700 dark:text-blue-400">
-                    <span>Report a Problem</span>
-                    <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                  </div>
-                </div>
+                </ScrollReveal>
 
                 {/* Card 4: Split Rent */}
-                <div 
-                  onClick={() => setSplitRentOpen(true)}
-                  className="bg-gradient-to-br from-teal-500/10 via-white to-teal-500/5 dark:from-teal-950/40 dark:via-slate-900 dark:to-slate-900 p-5 rounded-3xl border border-teal-200/80 dark:border-teal-900/60 shadow-sm hover:shadow-md hover:border-teal-400 transition-all cursor-pointer flex flex-col justify-between group"
-                >
-                  <div className="space-y-2.5">
-                    <div className="w-10 h-10 rounded-2xl bg-teal-600 text-white flex items-center justify-center font-bold shadow-md shadow-teal-600/20 group-hover:scale-105 transition-transform">
-                      <Users className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-1.5">
-                        <h3 className="font-black text-sm text-slate-900 dark:text-white">Split Rent</h3>
-                        <span className="px-1.5 py-0.2 rounded bg-teal-200 dark:bg-teal-900 text-teal-900 dark:text-teal-200 text-[9px] font-black">ROOMMATES</span>
+                <ScrollReveal animation="fade-up" staggerIndex={3} staggerIntervalMs={80} className="h-full">
+                  <div 
+                    onClick={() => setSplitRentOpen(true)}
+                    className="bg-gradient-to-br from-teal-500/10 via-white to-teal-500/5 dark:from-teal-950/40 dark:via-slate-900 dark:to-slate-900 p-5 rounded-3xl border border-teal-200/80 dark:border-teal-900/60 shadow-sm hover:shadow-md hover:border-teal-400 transition-all cursor-pointer flex flex-col justify-between group h-full"
+                  >
+                    <div className="space-y-2.5">
+                      <div className="w-10 h-10 rounded-2xl bg-teal-600 text-white flex items-center justify-center font-bold shadow-md shadow-teal-600/20 group-hover:scale-105 transition-transform">
+                        <Users className="w-5 h-5" />
                       </div>
-                      <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 leading-relaxed">
-                        Fair roommate rent & cost splitting supporting 50/50, 60/40, 70/30, and custom ratios with due dates, payment status, and automated reminders.
-                      </p>
+                      <div>
+                        <div className="flex items-center gap-1.5">
+                          <h3 className="font-black text-sm text-slate-900 dark:text-white">Split Rent</h3>
+                          <span className="px-1.5 py-0.2 rounded bg-teal-200 dark:bg-teal-900 text-teal-900 dark:text-teal-200 text-[9px] font-black">ROOMMATES</span>
+                        </div>
+                        <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 leading-relaxed">
+                          Fair roommate rent & cost splitting supporting 50/50, 60/40, 70/30, and custom ratios with due dates, payment status, and automated reminders.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="pt-3 border-t border-teal-100 dark:border-teal-900/40 flex items-center justify-between text-xs font-bold text-teal-700 dark:text-teal-400">
+                      <span>Split Rent</span>
+                      <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                     </div>
                   </div>
-                  <div className="pt-3 border-t border-teal-100 dark:border-teal-900/40 flex items-center justify-between text-xs font-bold text-teal-700 dark:text-teal-400">
-                    <span>Split Rent</span>
-                    <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                  </div>
-                </div>
+                </ScrollReveal>
               </div>
             </section>
 
             {/* Featured Verified Hostels with Smart Auto-Rolling Slider */}
             <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-4">
               <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
-                <div>
+                <ScrollReveal animation="fade-up">
                   <span className="text-[11px] font-extrabold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">
                     Audited Listings
                   </span>
@@ -1289,9 +1314,9 @@ function MainApp() {
                   <p className="text-xs text-slate-500 dark:text-slate-400">
                     Inspected by the Hostel Ease verification team around LAUTECH campus.
                   </p>
-                </div>
+                </ScrollReveal>
 
-                <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+                <ScrollReveal animation="fade-in" baseDelayMs={100} className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
                   <button
                     type="button"
                     onClick={() => setFeaturedSliderIndex(prev => (featuredRollList.length > 0 ? (prev > 0 ? prev - 1 : featuredRollList.length - 1) : 0))}
@@ -1316,7 +1341,7 @@ function MainApp() {
                   >
                     See all hostels <ArrowRight className="w-3.5 h-3.5" />
                   </button>
-                </div>
+                </ScrollReveal>
               </div>
 
               {/* Rolling Carousel Container with Hover-Pause & Mobile Touch Swipe */}
@@ -1345,18 +1370,24 @@ function MainApp() {
                       if (!property) return null;
 
                       return (
-                        <HostelCard
+                        <ScrollReveal
                           key={`featured-roll-${property.id}-${offset}`}
-                          property={property}
-                          onViewDetails={(p) => handleOpenPropertyDetails(p.id)}
-                          onToggleSave={handleToggleSave}
-                          onToggleCompare={handleToggleCompare}
-                          onOpenConversation={handleOpenConversation}
-                          onOpenBookingModal={(prop) => handleOpenBookingModal(prop)}
-                          onOpenInspectionModal={(prop) => handleOpenInspectionModal(prop)}
-                          onOpenVideoTour={(prop) => handleOpenVideoTour(prop)}
-                          isCompared={comparedPropertyIds.includes(property.id)}
-                        />
+                          animation="fade-up"
+                          staggerIndex={offset}
+                          staggerIntervalMs={90}
+                        >
+                          <HostelCard
+                            property={property}
+                            onViewDetails={(p) => handleOpenPropertyDetails(p.id)}
+                            onToggleSave={handleToggleSave}
+                            onToggleCompare={handleToggleCompare}
+                            onOpenConversation={handleOpenConversation}
+                            onOpenBookingModal={(prop) => handleOpenBookingModal(prop)}
+                            onOpenInspectionModal={(prop) => handleOpenInspectionModal(prop)}
+                            onOpenVideoTour={(prop) => handleOpenVideoTour(prop)}
+                            isCompared={comparedPropertyIds.includes(property.id)}
+                          />
+                        </ScrollReveal>
                       );
                     })
                   ) : (
@@ -1384,7 +1415,7 @@ function MainApp() {
             {/* 🎥 Verified Hostel Video Walkthroughs Spotlight Section with Smart Rolling Slider */}
             <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-4">
               <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
-                <div>
+                <ScrollReveal animation="fade-up">
                   <span className="text-[11px] font-extrabold text-teal-700 dark:text-teal-400 uppercase tracking-wider flex items-center gap-1.5">
                     <Video className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 animate-pulse" />
                     <span>Virtual Campus Inspection</span>
@@ -1395,10 +1426,10 @@ function MainApp() {
                   <p className="text-xs text-slate-500 dark:text-slate-400">
                     Recorded on-site by our inspection team around Under-G, Adenike & Stadium Road. Watch uncut room walkthroughs before booking!
                   </p>
-                </div>
+                </ScrollReveal>
 
                 {/* Slider Navigation */}
-                <div className="flex items-center gap-2">
+                <ScrollReveal animation="fade-in" baseDelayMs={100} className="flex items-center gap-2">
                   <button
                     type="button"
                     onClick={() => {
@@ -1427,7 +1458,7 @@ function MainApp() {
                   >
                     <ChevronRight className="w-4 h-4" />
                   </button>
-                </div>
+                </ScrollReveal>
               </div>
 
               {/* Rolling Carousel Container with Hover-Pause & Mobile Touch Swipe */}
@@ -1458,80 +1489,86 @@ function MainApp() {
                       const durationText = offset === 0 ? '1:45' : offset === 1 ? '2:10' : '1:30';
 
                       return (
-                        <div
+                        <ScrollReveal
                           key={`vid-roll-${property.id}-${offset}`}
-                          onClick={() => handleOpenVideoTour(property)}
-                          className="group relative bg-slate-900 rounded-3xl overflow-hidden shadow-lg border border-slate-800 hover:border-emerald-500/50 hover:shadow-2xl transition-all duration-300 cursor-pointer flex flex-col hover:-translate-y-1.5"
+                          animation="fade-up"
+                          staggerIndex={offset}
+                          staggerIntervalMs={100}
                         >
-                        {/* Video Thumbnail with Hover Zoom */}
-                        <div className="relative aspect-video overflow-hidden">
-                          <img
-                            src={property.coverImage}
-                            alt={property.title}
-                            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 ease-out brightness-90 group-hover:brightness-100"
-                          />
-                          <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-transparent" />
+                          <div
+                            onClick={() => handleOpenVideoTour(property)}
+                            className="group relative bg-slate-900 rounded-3xl overflow-hidden shadow-lg border border-slate-800 hover:border-emerald-500/50 hover:shadow-2xl transition-all duration-300 cursor-pointer flex flex-col hover:-translate-y-1.5"
+                          >
+                          {/* Video Thumbnail with Hover Zoom */}
+                          <div className="relative aspect-video overflow-hidden">
+                            <img
+                              src={property.coverImage}
+                              alt={property.title}
+                              className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 ease-out brightness-90 group-hover:brightness-100"
+                            />
+                            <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-transparent" />
 
-                          {/* Center Glowing Play Button with Ripple */}
-                          <div className="absolute inset-0 flex items-center justify-center">
-                            <div className="relative">
-                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-40"></span>
-                              <div className="w-14 h-14 rounded-full bg-emerald-600/90 group-hover:bg-emerald-500 text-white flex items-center justify-center shadow-xl backdrop-blur-sm transition-transform group-hover:scale-110">
-                                <Play className="w-6 h-6 fill-current ml-0.5" />
+                            {/* Center Glowing Play Button with Ripple */}
+                            <div className="absolute inset-0 flex items-center justify-center">
+                              <div className="relative">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-40"></span>
+                                <div className="w-14 h-14 rounded-full bg-emerald-600/90 group-hover:bg-emerald-500 text-white flex items-center justify-center shadow-xl backdrop-blur-sm transition-transform group-hover:scale-110">
+                                  <Play className="w-6 h-6 fill-current ml-0.5" />
+                                </div>
                               </div>
+                            </div>
+
+                            {/* Video Duration & Badge */}
+                            <div className="absolute top-3 left-3 flex items-center gap-1.5">
+                              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-600/90 text-white shadow flex items-center gap-1">
+                                <ShieldCheck className="w-3 h-3" />
+                                4K Verified Tour
+                              </span>
+                            </div>
+
+                            <div className="absolute top-3 right-3">
+                              <span className="px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-slate-950/80 text-white backdrop-blur shadow">
+                                {durationText} min
+                              </span>
+                            </div>
+
+                            <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between text-white">
+                              <span className="text-[11px] font-bold truncate flex items-center gap-1">
+                                <MapPin className="w-3 h-3 text-emerald-400" />
+                                {property.area?.name || (property as any).areaName || 'LAUTECH Area'}
+                              </span>
+                              <span className="text-xs font-black text-emerald-400">
+                                {formatNaira(property.priceSummary?.rentAmount)}/yr
+                              </span>
                             </div>
                           </div>
 
-                          {/* Video Duration & Badge */}
-                          <div className="absolute top-3 left-3 flex items-center gap-1.5">
-                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-600/90 text-white shadow flex items-center gap-1">
-                              <ShieldCheck className="w-3 h-3" />
-                              4K Verified Tour
-                            </span>
-                          </div>
+                          {/* Card Footer */}
+                          <div className="p-4 bg-slate-900 flex items-center justify-between gap-2 border-t border-slate-800">
+                            <div className="min-w-0">
+                              <h4 className="font-bold text-xs text-white truncate group-hover:text-emerald-400 transition-colors">
+                                {property.title}
+                              </h4>
+                              <p className="text-[10px] text-slate-400 truncate flex items-center gap-1 mt-0.5">
+                                <Clock className="w-3 h-3 text-emerald-400 flex-shrink-0" />
+                                <span>{calculateHostelTravelTime(property.distanceFromCampusKm).primaryText}</span>
+                              </p>
+                            </div>
 
-                          <div className="absolute top-3 right-3">
-                            <span className="px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-slate-950/80 text-white backdrop-blur shadow">
-                              {durationText} min
-                            </span>
-                          </div>
-
-                          <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between text-white">
-                            <span className="text-[11px] font-bold truncate flex items-center gap-1">
-                              <MapPin className="w-3 h-3 text-emerald-400" />
-                              {property.area?.name || (property as any).areaName || 'LAUTECH Area'}
-                            </span>
-                            <span className="text-xs font-black text-emerald-400">
-                              {formatNaira(property.priceSummary?.rentAmount)}/yr
-                            </span>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleOpenVideoTour(property);
+                              }}
+                              className="px-3 py-1.5 bg-emerald-600/80 group-hover:bg-emerald-600 text-white text-[11px] font-extrabold rounded-xl transition-all shadow-sm flex items-center gap-1 flex-shrink-0 cursor-pointer"
+                            >
+                              <Play className="w-3 h-3 fill-current" />
+                              <span>Play 4K</span>
+                            </button>
                           </div>
                         </div>
-
-                        {/* Card Footer */}
-                        <div className="p-4 bg-slate-900 flex items-center justify-between gap-2 border-t border-slate-800">
-                          <div className="min-w-0">
-                            <h4 className="font-bold text-xs text-white truncate group-hover:text-emerald-400 transition-colors">
-                              {property.title}
-                            </h4>
-                            <p className="text-[10px] text-slate-400 truncate flex items-center gap-1 mt-0.5">
-                              <Footprints className="w-3 h-3 text-emerald-400 flex-shrink-0" />
-                              <span>{property.nearbyLandmark || `${property.distanceFromCampusKm || 0.8}km from campus gate`}</span>
-                            </p>
-                          </div>
-
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleOpenVideoTour(property);
-                            }}
-                            className="px-3 py-1.5 bg-emerald-600/80 group-hover:bg-emerald-600 text-white text-[11px] font-extrabold rounded-xl transition-all shadow-sm flex items-center gap-1 flex-shrink-0 cursor-pointer"
-                          >
-                            <Play className="w-3 h-3 fill-current" />
-                            <span>Play 4K</span>
-                          </button>
-                        </div>
-                      </div>
+                      </ScrollReveal>
                     );
                   })) : (
                     <div className="col-span-full py-12 px-6 rounded-3xl bg-slate-900 border border-slate-800 text-center space-y-3">
@@ -1561,7 +1598,7 @@ function MainApp() {
             </section>
 
             {/* Anti-Scam Call to Action Banner */}
-            <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8">
+            <ScrollReveal animation="fade-up" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8">
               <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-emerald-950 rounded-3xl p-8 sm:p-12 text-white shadow-2xl flex flex-col md:flex-row items-center justify-between gap-6 border border-white/10">
                 <div className="space-y-2 max-w-xl text-center md:text-left">
                   <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-400 text-slate-950 uppercase tracking-wide">
@@ -1580,13 +1617,13 @@ function MainApp() {
                     setCurrentView('search');
                     window.scrollTo({ top: 0, behavior: 'smooth' });
                   }}
-                  className="px-8 py-4 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-sm rounded-2xl shadow-xl transition-all flex items-center gap-2 whitespace-nowrap"
+                  className="px-8 py-4 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-sm rounded-2xl shadow-xl transition-all flex items-center gap-2 whitespace-nowrap cursor-pointer"
                 >
                   <span>FIND YOUR HOSTEL NOW</span>
                   <ArrowRight className="w-4 h-4" />
                 </button>
               </div>
-            </section>
+            </ScrollReveal>
           </div>
         )}
 
@@ -1771,19 +1808,25 @@ function MainApp() {
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-                      {properties.map(property => (
-                        <HostelCard
+                      {properties.map((property, idx) => (
+                        <ScrollReveal
                           key={property.id}
-                          property={property}
-                          onViewDetails={(p) => handleOpenPropertyDetails(p.id)}
-                          onToggleSave={handleToggleSave}
-                          onToggleCompare={handleToggleCompare}
-                          onOpenConversation={handleOpenConversation}
-                          onOpenBookingModal={(prop) => handleOpenBookingModal(prop)}
-                          onOpenInspectionModal={(prop) => handleOpenInspectionModal(prop)}
-                          onOpenVideoTour={(prop) => handleOpenVideoTour(prop)}
-                          isCompared={comparedPropertyIds.includes(property.id)}
-                        />
+                          animation="fade-up"
+                          staggerIndex={idx % 6}
+                          staggerIntervalMs={60}
+                        >
+                          <HostelCard
+                            property={property}
+                            onViewDetails={(p) => handleOpenPropertyDetails(p.id)}
+                            onToggleSave={handleToggleSave}
+                            onToggleCompare={handleToggleCompare}
+                            onOpenConversation={handleOpenConversation}
+                            onOpenBookingModal={(prop) => handleOpenBookingModal(prop)}
+                            onOpenInspectionModal={(prop) => handleOpenInspectionModal(prop)}
+                            onOpenVideoTour={(prop) => handleOpenVideoTour(prop)}
+                            isCompared={comparedPropertyIds.includes(property.id)}
+                          />
+                        </ScrollReveal>
                       ))}
                     </div>
                   )}
@@ -2120,7 +2163,10 @@ function MainApp() {
               <div className="w-16 h-16 rounded-2xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center mx-auto border border-amber-200 dark:border-amber-800 shadow-inner">
                 <ShieldAlert className="w-8 h-8" />
               </div>
-              <h2 className="text-xl font-black text-slate-900 dark:text-white">🔒 Access Restricted</h2>
+              <h2 className="text-xl font-black text-slate-900 dark:text-white flex items-center justify-center gap-2">
+                <Lock className="w-5 h-5 text-amber-500" />
+                <span>Access Restricted</span>
+              </h2>
               <p className="text-xs text-slate-600 dark:text-slate-300">
                 This account is not authorized to access the Agent Management Center. Please log in with a verified Agent account.
               </p>

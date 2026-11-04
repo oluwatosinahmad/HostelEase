@@ -6,6 +6,7 @@ import { authenticate, requireRole, requirePermission, ROLE_DEFAULT_PERMISSIONS,
 import { userDeletionService } from '../services/userDeletionService.js';
 import { notificationService } from '../services/notificationService.js';
 import { realtimeService } from '../services/realtimeService.js';
+import { testDataClearanceService, ClearanceScope } from '../services/testDataClearanceService.js';
 
 const router = Router();
 
@@ -1655,6 +1656,62 @@ router.post(
     req.body.status = 'REJECTED';
     req.body.notes = reason;
     return verifyVideoHandler(req, res);
+  }
+);
+
+// =============================================================================
+// PERMANENT TEST DATA CLEARANCE SYSTEM (ADMIN-ONLY)
+// =============================================================================
+
+// Get Pre-Clearance Impact Estimate
+router.get(
+  '/clearance/estimate',
+  authenticate,
+  requireRole('ADMIN'),
+  (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const scope = (req.query.scope as ClearanceScope) || 'all';
+      const estimate = testDataClearanceService.getClearanceEstimate(scope);
+      return res.json({ success: true, estimate });
+    } catch (err: any) {
+      console.error('[Admin Clearance Estimate Error]:', err);
+      return res.status(500).json({ error: err.message || 'Failed to generate clearance estimate' });
+    }
+  }
+);
+
+// Execute Permanent Test Data Clearance
+router.post(
+  '/clearance/execute',
+  authenticate,
+  requireRole('ADMIN'),
+  (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { scope = 'all', confirmPhrase, reason } = req.body;
+      const validScopes: ClearanceScope[] = [
+        'hostels', 'videos', 'pending', 'users', 'providers', 
+        'bookings', 'verification', 'video_tours', 'disputes', 'all'
+      ];
+
+      if (!validScopes.includes(scope)) {
+        return res.status(400).json({ error: `Invalid clearance scope: '${scope}'. Must be one of: ${validScopes.join(', ')}` });
+      }
+
+      if (scope === 'all') {
+        const normalizedPhrase = (confirmPhrase || '').trim();
+        if (normalizedPhrase !== 'CLEAR ALL DATA') {
+          return res.status(400).json({ 
+            error: 'Confirmation phrase mismatch. You must explicitly type "CLEAR ALL DATA" to execute a platform-wide test data clearance.' 
+          });
+        }
+      }
+
+      const result = testDataClearanceService.executeClearance(scope, req.user!.id, reason);
+      return res.json({ success: true, result });
+    } catch (err: any) {
+      console.error('[Admin Clearance Execute Error]:', err);
+      return res.status(500).json({ error: err.message || 'Failed to execute test data clearance' });
+    }
   }
 );
 

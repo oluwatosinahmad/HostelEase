@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { 
   Building2, 
+  GraduationCap,
   Search, 
   Bookmark, 
   User as UserIcon, 
@@ -233,18 +234,21 @@ export const Navbar: React.FC<NavbarProps> = ({
             {isAuthenticated && (
               <div className="hidden min-[370px]:flex md:hidden items-center shrink-0">
                 {isStudent && (
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100/90 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60 whitespace-nowrap">
-                    🎓 Student
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100/90 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60 whitespace-nowrap inline-flex items-center gap-1">
+                    <GraduationCap className="w-3 h-3 text-emerald-700 dark:text-emerald-400" />
+                    <span>Student</span>
                   </span>
                 )}
                 {isProvider && (
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100/90 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60 whitespace-nowrap">
-                    🏡 Agent
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100/90 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60 whitespace-nowrap inline-flex items-center gap-1">
+                    <Building2 className="w-3 h-3 text-[#FD8003]" />
+                    <span>Agent</span>
                   </span>
                 )}
                 {isAdmin && (
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-100/90 dark:bg-purple-950/80 text-purple-800 dark:text-purple-300 border border-purple-200 dark:border-purple-800/60 whitespace-nowrap">
-                    👑 Admin
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-100/90 dark:bg-purple-950/80 text-purple-800 dark:text-purple-300 border border-purple-200 dark:border-purple-800/60 whitespace-nowrap inline-flex items-center gap-1">
+                    <ShieldCheck className="w-3 h-3 text-purple-700 dark:text-purple-400" />
+                    <span>Admin</span>
                   </span>
                 )}
               </div>
@@ -468,8 +472,23 @@ export const Navbar: React.FC<NavbarProps> = ({
                         <div className="overflow-hidden">
                           <p className="text-xs font-bold text-slate-900 dark:text-white truncate">{user?.fullName}</p>
                           <p className="text-[11px] text-slate-400 truncate">{user?.email}</p>
-                          <span className="inline-block mt-0.5 text-[9px] font-black uppercase px-2 py-0.5 rounded bg-emerald-50 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
-                            {isStudent ? '🎓 Student' : isProvider ? '🏡 Agent' : '🛡️ Admin'}
+                          <span className="inline-flex items-center gap-1 mt-0.5 text-[9px] font-black uppercase px-2 py-0.5 rounded bg-emerald-50 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                            {isStudent ? (
+                              <>
+                                <GraduationCap className="w-3 h-3 text-emerald-700 dark:text-emerald-400" />
+                                <span>Student</span>
+                              </>
+                            ) : isProvider ? (
+                              <>
+                                <Building2 className="w-3 h-3 text-[#FD8003]" />
+                                <span>Agent</span>
+                              </>
+                            ) : (
+                              <>
+                                <ShieldCheck className="w-3 h-3 text-purple-700 dark:text-purple-400" />
+                                <span>Admin</span>
+                              </>
+                            )}
                           </span>
                         </div>
                       </div>

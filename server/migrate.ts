@@ -522,6 +522,12 @@ export function runMigrations() {
     db.exec(`
       CREATE INDEX IF NOT EXISTS idx_properties_disc_comp ON properties(verification_status, availability_status, property_type, area_id);
       CREATE INDEX IF NOT EXISTS idx_properties_dist ON properties(distance_from_campus_km);
+
+      CREATE TABLE IF NOT EXISTS system_settings (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL,
+        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
     `);
 
     // Saved property price & availability tracking columns

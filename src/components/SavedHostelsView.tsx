@@ -13,7 +13,8 @@ import {
   History,
   Info,
   Clock,
-  Sparkles
+  Sparkles,
+  Route
 } from 'lucide-react';
 import { Property, RecentlyViewedItem } from '../types/hostelEase';
 import { api } from '../services/api';
@@ -347,7 +348,13 @@ export const SavedHostelsView: React.FC<SavedHostelsViewProps> = ({
                   <h4 className="font-bold text-xs text-slate-900 dark:text-white truncate group-hover:text-emerald-700 dark:group-hover:text-emerald-400 transition-colors">
                     {rv.title}
                   </h4>
-                  <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">📍 {rv.areaName} • {formatDistance(rv.distanceFromCampusKm)}</p>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate flex items-center gap-1">
+                    <MapPin className="w-2.5 h-2.5 text-[#FD8003] shrink-0" />
+                    <span>{rv.areaName}</span>
+                    <span className="mx-0.5">•</span>
+                    <Route className="w-2.5 h-2.5 text-slate-400 shrink-0" />
+                    <span>{formatDistance(rv.distanceFromCampusKm)}</span>
+                  </p>
                   <p className="text-xs font-bold text-emerald-800 dark:text-emerald-400 mt-1">{formatNaira(rv.rentAmount)}/yr</p>
                 </div>
               </div>

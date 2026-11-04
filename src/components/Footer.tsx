@@ -1,5 +1,5 @@
 import React from 'react';
-import { Building2, ShieldCheck, MapPin, Heart } from 'lucide-react';
+import { Building2, ShieldCheck, MapPin, Heart, Zap, Shield, Wrench, Users } from 'lucide-react';
 import { AppView } from '../types/hostelEase';
 
 interface FooterProps {
@@ -78,16 +78,16 @@ export const Footer: React.FC<FooterProps> = ({
               <li><button onClick={() => onNavigate('saved')} className="hover:text-emerald-400 transition-colors text-left">My Shortlisted Hostels</button></li>
               <li><button onClick={() => onNavigate('community')} className="hover:text-emerald-400 transition-colors text-left flex items-center gap-1.5"><span>RoomieMatch™ & 50/50 Rent</span><span className="text-[9px] bg-emerald-950 text-emerald-300 px-1 rounded font-bold">New</span></button></li>
               {onOpenUtilityRadar && (
-                <li><button onClick={onOpenUtilityRadar} className="hover:text-amber-400 text-amber-300/90 transition-colors text-left flex items-center gap-1"><span>⚡ UtilityRadar™ (NEPA & Water)</span></button></li>
+                <li><button onClick={onOpenUtilityRadar} className="hover:text-amber-400 text-amber-300/90 transition-colors text-left flex items-center gap-1.5"><Zap className="w-3.5 h-3.5 text-amber-400 shrink-0" /><span>UtilityRadar™ (NEPA & Water)</span></button></li>
               )}
               {onOpenSafeWalk && (
-                <li><button onClick={onOpenSafeWalk} className="hover:text-emerald-300 text-emerald-400/90 transition-colors text-left flex items-center gap-1"><span>🚨 SafeWalk™ Campus Night-Trek</span></button></li>
+                <li><button onClick={onOpenSafeWalk} className="hover:text-emerald-300 text-emerald-400/90 transition-colors text-left flex items-center gap-1.5"><Shield className="w-3.5 h-3.5 text-emerald-400 shrink-0" /><span>SafeWalk™ Campus Night-Trek</span></button></li>
               )}
               {onOpenMaintenance && (
-                <li><button onClick={onOpenMaintenance} className="hover:text-blue-400 text-blue-300/90 transition-colors text-left flex items-center gap-1"><span>🔧 Maintenance & Issue Reporting</span></button></li>
+                <li><button onClick={onOpenMaintenance} className="hover:text-blue-400 text-blue-300/90 transition-colors text-left flex items-center gap-1.5"><Wrench className="w-3.5 h-3.5 text-blue-400 shrink-0" /><span>Maintenance & Issue Reporting</span></button></li>
               )}
               {onOpenSplitRent && (
-                <li><button onClick={onOpenSplitRent} className="hover:text-teal-400 text-teal-300/90 transition-colors text-left flex items-center gap-1"><span>👥 Split Rent</span></button></li>
+                <li><button onClick={onOpenSplitRent} className="hover:text-teal-400 text-teal-300/90 transition-colors text-left flex items-center gap-1.5"><Users className="w-3.5 h-3.5 text-teal-400 shrink-0" /><span>Split Rent</span></button></li>
               )}
               <li><button onClick={() => onOpenAuth('PROVIDER')} className="hover:text-emerald-400 transition-colors text-left">List Your Property (Agents)</button></li>
               <li><button onClick={() => onOpenAuth('ADMIN')} className="hover:text-emerald-400 transition-colors text-left">Admin Moderation</button></li>
@@ -113,8 +113,9 @@ export const Footer: React.FC<FooterProps> = ({
                 <span>Read Student Escrow & Security Guide →</span>
               </button>
             )}
-            <div className="text-[10px] text-slate-500 pt-2 border-t border-white/5">
-              📍 Ogbomoso, Oyo State, Nigeria
+            <div className="text-[10px] text-slate-500 pt-2 border-t border-white/5 flex items-center gap-1.5">
+              <MapPin className="w-3 h-3 text-[#FD8003] shrink-0" />
+              <span>Ogbomoso, Oyo State, Nigeria</span>
             </div>
           </div>
         </div>

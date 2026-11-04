@@ -29,7 +29,12 @@ import {
   HelpCircle, 
   ChevronRight, 
   ExternalLink,
-  Plus
+  Plus,
+  Scale,
+  Zap,
+  Droplets,
+  Shield,
+  Star
 } from 'lucide-react';
 import { 
   OperationsDashboardData, 
@@ -474,7 +479,10 @@ export const AdminOperationsDashboard: React.FC<AdminOperationsDashboardProps> =
                 Operational assistant helps summarize tickets, cross-check LAUTECH distance claims, and generate dispute timelines.
               </p>
               <div className="p-3 bg-white/5 rounded-2xl border border-white/10 text-[11px] text-slate-300 space-y-1.5">
-                <span className="text-emerald-400 font-bold block">⚖️ Operational Safety Rule:</span>
+                <span className="text-emerald-400 font-bold flex items-center gap-1.5">
+                  <Scale className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                  <span>Operational Safety Rule:</span>
+                </span>
                 <p>AI is strictly advisory. It cannot independently disburse refunds, ban accounts, or approve financial transfers without human admin confirmation.</p>
               </div>
               <button
@@ -648,7 +656,12 @@ export const AdminOperationsDashboard: React.FC<AdminOperationsDashboardProps> =
                     </td>
                     <td className="py-3 font-medium">{formatNaira(p.grossAmount)}</td>
                     <td className="py-3 text-rose-600 font-medium">-{formatNaira(p.platformFee)}</td>
-                    <td className="py-3 text-amber-600 font-medium">🛡️ {formatNaira(p.cautionEscrow)}</td>
+                    <td className="py-3 text-amber-600 font-medium">
+                      <span className="flex items-center gap-1">
+                        <Shield className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                        <span>{formatNaira(p.cautionEscrow)}</span>
+                      </span>
+                    </td>
                     <td className="py-3 font-black text-emerald-600 text-sm">{formatNaira(p.netPayout)}</td>
                     <td className="py-3">
                       <span className="font-medium text-slate-800">{p.bankName}</span>
@@ -781,9 +794,9 @@ export const AdminOperationsDashboard: React.FC<AdminOperationsDashboardProps> =
                     <span className="text-[10px] text-slate-500">({cp.areaName})</span>
                   </div>
                   <div className="flex items-center gap-3 text-xs text-slate-600 flex-wrap">
-                    <span>⚡ Power Issues: <strong>{cp.electricityIssues}</strong></span>
-                    <span>💧 Water Issues: <strong>{cp.waterIssues}</strong></span>
-                    <span>🛡️ Security Issues: <strong>{cp.securityIssues}</strong></span>
+                    <span className="flex items-center gap-1"><Zap className="w-3.5 h-3.5 text-amber-500 shrink-0" /> Power Issues: <strong>{cp.electricityIssues}</strong></span>
+                    <span className="flex items-center gap-1"><Droplets className="w-3.5 h-3.5 text-blue-500 shrink-0" /> Water Issues: <strong>{cp.waterIssues}</strong></span>
+                    <span className="flex items-center gap-1"><Shield className="w-3.5 h-3.5 text-emerald-500 shrink-0" /> Security Issues: <strong>{cp.securityIssues}</strong></span>
                     <span>Agent: <strong className="text-slate-900">{cp.providerName}</strong></span>
                   </div>
                 </div>
@@ -842,7 +855,10 @@ export const AdminOperationsDashboard: React.FC<AdminOperationsDashboardProps> =
                   </div>
                   <div className="p-2 bg-white rounded-xl border border-slate-100">
                     <span className="text-[10px] text-slate-400 block">Student Rating</span>
-                    <strong className="text-emerald-700">★ {sc.studentSatisfactionRating} / 5.0</strong>
+                    <strong className="text-emerald-700 flex items-center gap-1">
+                      <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400 shrink-0" />
+                      <span>{sc.studentSatisfactionRating} / 5.0</span>
+                    </strong>
                   </div>
                 </div>
               </div>
@@ -1086,8 +1102,9 @@ export const AdminOperationsDashboard: React.FC<AdminOperationsDashboardProps> =
                 <div className="p-4 rounded-2xl bg-white/5 border border-white/10 text-slate-200 leading-relaxed">
                   {aiSummaryText}
                 </div>
-                <p className="text-[11px] text-amber-400">
-                  ⚠️ Reminder: This summary is generated for operational assistance only. Final decisions require human review.
+                <p className="text-[11px] text-amber-400 flex items-center gap-1.5">
+                  <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                  <span>Reminder: This summary is generated for operational assistance only. Final decisions require human review.</span>
                 </p>
                 <div className="text-right pt-2">
                   <button

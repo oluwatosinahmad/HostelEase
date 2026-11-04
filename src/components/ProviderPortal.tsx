@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   Building2, 
+  GraduationCap,
   PlusCircle, 
   Calendar as CalendarIcon, 
   CheckCircle2, 
@@ -71,7 +72,8 @@ import { ProviderOnboardingModal } from './ProviderOnboardingModal';
 import { ProviderMoveInManager } from './ProviderMoveInManager';
 import { ListingQualityCard } from './ListingQualityCard';
 import { AIAgentAssistantModal } from './AILandlordAssistantModal';
-import { formatNaira, formatDistance, getAvailabilityBadgeInfo, getPropertyTypeLabel } from '../utils/formatters';
+import { formatNaira, formatDistance, getAvailabilityBadgeInfo, getPropertyTypeLabel, calculateHostelTravelTime } from '../utils/formatters';
+import { ScrollReveal } from './ScrollReveal';
 import { formatPresence } from '../utils/presence';
 import { ChatImageModal } from './ChatImageModal';
 import { playMessageNotificationSound } from '../utils/sound';
@@ -1739,15 +1741,17 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
             <div className="grid grid-cols-2 gap-1.5 px-1">
               <button
                 onClick={() => loginDemo('STUDENT')}
-                className="p-2 text-center rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-900 text-[11px] font-black transition-colors"
+                className="p-2 text-center rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-900 text-[11px] font-black transition-colors flex items-center justify-center gap-1.5"
               >
-                🎓 Student
+                <GraduationCap className="w-3.5 h-3.5 text-emerald-700" />
+                <span>Student</span>
               </button>
               <button
                 onClick={() => loginDemo('ADMIN')}
-                className="p-2 text-center rounded-xl bg-purple-50 hover:bg-purple-100 border border-purple-200 text-purple-900 text-[11px] font-black transition-colors"
+                className="p-2 text-center rounded-xl bg-purple-50 hover:bg-purple-100 border border-purple-200 text-purple-900 text-[11px] font-black transition-colors flex items-center justify-center gap-1.5"
               >
-                🛡️ Admin
+                <ShieldCheck className="w-3.5 h-3.5 text-purple-700" />
+                <span>Admin</span>
               </button>
             </div>
           </div>
@@ -1763,69 +1767,76 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
             
             {/* KPI Metrics Cards Grid */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-4">
-              
-              <div className="bg-white dark:bg-slate-800 p-3.5 sm:p-5 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-xs">
-                <div className="flex items-center justify-between text-gray-500 dark:text-slate-400 mb-1.5 sm:mb-2">
-                  <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider truncate">Available Spaces</span>
-                  <div className="p-1.5 sm:p-2 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 rounded-xl shrink-0">
-                    <Layers className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              <ScrollReveal animation="fade-up" staggerIndex={0} staggerIntervalMs={60} className="h-full">
+                <div className="bg-white dark:bg-slate-800 p-3.5 sm:p-5 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-xs h-full">
+                  <div className="flex items-center justify-between text-gray-500 dark:text-slate-400 mb-1.5 sm:mb-2">
+                    <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider truncate">Available Spaces</span>
+                    <div className="p-1.5 sm:p-2 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 rounded-xl shrink-0">
+                      <Layers className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                    </div>
                   </div>
+                  <div className="text-xl sm:text-2xl font-black text-emerald-800 dark:text-emerald-300">
+                    {stats?.availableSpaces || 0}
+                    <span className="text-[10px] sm:text-xs font-semibold text-gray-400 dark:text-slate-500 ml-1">
+                      / {stats?.totalCapacity || 0}
+                    </span>
+                  </div>
+                  <p className="text-[10px] sm:text-[11px] text-gray-500 dark:text-slate-400 mt-1 leading-tight">
+                    {stats?.occupiedSpaces || 0} occupied • {stats?.reservedSpaces || 0} reserved
+                  </p>
                 </div>
-                <div className="text-xl sm:text-2xl font-black text-emerald-800 dark:text-emerald-300">
-                  {stats?.availableSpaces || 0}
-                  <span className="text-[10px] sm:text-xs font-semibold text-gray-400 dark:text-slate-500 ml-1">
-                    / {stats?.totalCapacity || 0}
-                  </span>
-                </div>
-                <p className="text-[10px] sm:text-[11px] text-gray-500 dark:text-slate-400 mt-1 leading-tight">
-                  {stats?.occupiedSpaces || 0} occupied • {stats?.reservedSpaces || 0} reserved
-                </p>
-              </div>
+              </ScrollReveal>
 
-              <div className="bg-white dark:bg-slate-800 p-3.5 sm:p-5 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-xs">
-                <div className="flex items-center justify-between text-gray-500 dark:text-slate-400 mb-1.5 sm:mb-2">
-                  <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider truncate">Bookings</span>
-                  <div className="p-1.5 sm:p-2 bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400 rounded-xl shrink-0">
-                    <FileText className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              <ScrollReveal animation="fade-up" staggerIndex={1} staggerIntervalMs={60} className="h-full">
+                <div className="bg-white dark:bg-slate-800 p-3.5 sm:p-5 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-xs h-full">
+                  <div className="flex items-center justify-between text-gray-500 dark:text-slate-400 mb-1.5 sm:mb-2">
+                    <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider truncate">Bookings</span>
+                    <div className="p-1.5 sm:p-2 bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400 rounded-xl shrink-0">
+                      <FileText className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                    </div>
                   </div>
+                  <div className="text-xl sm:text-2xl font-black text-amber-700 dark:text-amber-400">
+                    {stats?.pendingBookings || 0}
+                  </div>
+                  <p className="text-[10px] sm:text-[11px] text-gray-500 dark:text-slate-400 mt-1 leading-tight">
+                    {stats?.confirmedBookings || 0} confirmed
+                  </p>
                 </div>
-                <div className="text-xl sm:text-2xl font-black text-amber-700 dark:text-amber-400">
-                  {stats?.pendingBookings || 0}
-                </div>
-                <p className="text-[10px] sm:text-[11px] text-gray-500 dark:text-slate-400 mt-1 leading-tight">
-                  {stats?.confirmedBookings || 0} confirmed
-                </p>
-              </div>
+              </ScrollReveal>
 
-              <div className="bg-white dark:bg-slate-800 p-3.5 sm:p-5 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-xs">
-                <div className="flex items-center justify-between text-gray-500 dark:text-slate-400 mb-1.5 sm:mb-2">
-                  <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider truncate">Inspections</span>
-                  <div className="p-1.5 sm:p-2 bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-400 rounded-xl shrink-0">
-                    <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              <ScrollReveal animation="fade-up" staggerIndex={2} staggerIntervalMs={60} className="h-full">
+                <div className="bg-white dark:bg-slate-800 p-3.5 sm:p-5 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-xs h-full">
+                  <div className="flex items-center justify-between text-gray-500 dark:text-slate-400 mb-1.5 sm:mb-2">
+                    <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider truncate">Inspections</span>
+                    <div className="p-1.5 sm:p-2 bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-400 rounded-xl shrink-0">
+                      <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                    </div>
                   </div>
+                  <div className="text-xl sm:text-2xl font-black text-blue-800 dark:text-blue-400">
+                    {stats?.upcomingInspections || 0}
+                  </div>
+                  <p className="text-[10px] sm:text-[11px] text-gray-500 dark:text-slate-400 mt-1 leading-tight">
+                    {stats?.pendingInspections || 0} pending response
+                  </p>
                 </div>
-                <div className="text-xl sm:text-2xl font-black text-blue-800 dark:text-blue-400">
-                  {stats?.upcomingInspections || 0}
-                </div>
-                <p className="text-[10px] sm:text-[11px] text-gray-500 dark:text-slate-400 mt-1 leading-tight">
-                  {stats?.pendingInspections || 0} pending response
-                </p>
-              </div>
+              </ScrollReveal>
 
-              <div className="bg-white dark:bg-slate-800 p-3.5 sm:p-5 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-xs">
-                <div className="flex items-center justify-between text-gray-500 dark:text-slate-400 mb-1.5 sm:mb-2">
-                  <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider truncate">Revenue</span>
-                  <div className="p-1.5 sm:p-2 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 rounded-xl shrink-0">
-                    <DollarSign className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              <ScrollReveal animation="fade-up" staggerIndex={3} staggerIntervalMs={60} className="h-full">
+                <div className="bg-white dark:bg-slate-800 p-3.5 sm:p-5 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-xs h-full">
+                  <div className="flex items-center justify-between text-gray-500 dark:text-slate-400 mb-1.5 sm:mb-2">
+                    <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider truncate">Revenue</span>
+                    <div className="p-1.5 sm:p-2 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 rounded-xl shrink-0">
+                      <DollarSign className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                    </div>
                   </div>
+                  <div className="text-xl sm:text-2xl font-black text-gray-900 dark:text-white truncate">
+                    {formatNaira(stats?.totalRevenue || 0)}
+                  </div>
+                  <p className="text-[10px] sm:text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold mt-1 leading-tight">
+                    Verified payouts
+                  </p>
                 </div>
-                <div className="text-xl sm:text-2xl font-black text-gray-900 dark:text-white truncate">
-                  {formatNaira(stats?.totalRevenue || 0)}
-                </div>
-                <p className="text-[10px] sm:text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold mt-1 leading-tight">
-                  Verified payouts
-                </p>
-              </div>
+              </ScrollReveal>
 
             </div>
 
@@ -2080,15 +2091,18 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
               <span className="px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-800 text-white shadow-xs">
                 All Hostels ({publishedHostels.length})
               </span>
-              <span className="px-3 py-1.5 rounded-xl text-xs font-bold bg-white text-emerald-800 border border-emerald-200">
-                ✓ Verified ({verifiedCount})
+              <span className="px-3 py-1.5 rounded-xl text-xs font-bold bg-white text-emerald-800 border border-emerald-200 inline-flex items-center gap-1">
+                <Check className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Verified ({verifiedCount})</span>
               </span>
-              <span className="px-3 py-1.5 rounded-xl text-xs font-bold bg-white text-amber-800 border border-amber-200">
-                ⏳ Pending Verification ({pendingCount})
+              <span className="px-3 py-1.5 rounded-xl text-xs font-bold bg-white text-amber-800 border border-amber-200 inline-flex items-center gap-1">
+                <Clock className="w-3.5 h-3.5 text-amber-600" />
+                <span>Pending Verification ({pendingCount})</span>
               </span>
               {rejectedCount > 0 && (
-                <span className="px-3 py-1.5 rounded-xl text-xs font-bold bg-white text-rose-800 border border-rose-200">
-                  ❌ Needs Action ({rejectedCount})
+                <span className="px-3 py-1.5 rounded-xl text-xs font-bold bg-white text-rose-800 border border-rose-200 inline-flex items-center gap-1">
+                  <XCircle className="w-3.5 h-3.5 text-rose-600" />
+                  <span>Needs Action ({rejectedCount})</span>
                 </span>
               )}
             </div>
@@ -2168,9 +2182,7 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
                           <span>{prop?.address || 'LAUTECH Area'}</span>
                           <span>•</span>
                           <span className="font-semibold text-emerald-800 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200">
-                            {prop?.distanceFromCampusKm && prop.distanceFromCampusKm < 1 
-                              ? `${Math.round(prop.distanceFromCampusKm * 1000)}m` 
-                              : `${prop?.distanceFromCampusKm || 0.8}km`} from {(prop as any)?.selectedGate || 'Campus Gate'}
+                            {calculateHostelTravelTime(prop?.distanceFromCampusKm || 0.8).primaryText}
                           </span>
                         </p>
                       </div>
@@ -2593,7 +2605,10 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
                       : 'bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100'
                   }`}
                 >
-                  ✓ Verified & Live ({videoStats.verified})
+                  <span className="inline-flex items-center gap-1">
+                    <Check className="w-3.5 h-3.5" />
+                    <span>Verified & Live ({videoStats.verified})</span>
+                  </span>
                 </button>
                 {videoStats.rejected > 0 && (
                   <button
@@ -2604,7 +2619,10 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
                         : 'bg-rose-50 text-rose-800 border border-rose-200 hover:bg-rose-100'
                     }`}
                   >
-                    ❌ Needs Action ({videoStats.rejected})
+                    <span className="inline-flex items-center gap-1">
+                      <XCircle className="w-3.5 h-3.5" />
+                      <span>Needs Action ({videoStats.rejected})</span>
+                    </span>
                   </button>
                 )}
               </div>
@@ -2963,8 +2981,9 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
                             <h4 className="text-sm font-bold text-gray-900">{evt.title}</h4>
                             <p className="text-xs text-gray-500 mt-0.5">{evt.propertyTitle} • {evt.details}</p>
                             <div className="flex items-center gap-2 mt-2">
-                              <span className="text-[11px] font-bold px-2 py-0.5 bg-white border border-gray-200 text-gray-700 rounded-md">
-                                📅 {evt.date} {evt.time ? `at ${evt.time}` : ''}
+                              <span className="text-[11px] font-bold px-2 py-0.5 bg-white border border-gray-200 text-gray-700 rounded-md inline-flex items-center gap-1">
+                                <CalendarIcon className="w-3.5 h-3.5 text-gray-500" />
+                                <span>{evt.date} {evt.time ? `at ${evt.time}` : ''}</span>
                               </span>
                               <span className="text-[11px] font-bold text-emerald-700">
                                 {evt.badgeLabel}
@@ -4148,7 +4167,10 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
                         <div className="flex items-center gap-2">
                           <span className="text-xs font-bold text-gray-900">{rev.student_name}</span>
                           <span className="text-[10px] text-gray-500">({rev.property_title})</span>
-                          <span className="text-amber-500 text-xs font-bold">★ {rev.rating}/5</span>
+                          <span className="text-amber-500 text-xs font-bold inline-flex items-center gap-1">
+                            <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+                            <span>{rev.rating}/5</span>
+                          </span>
                         </div>
                         <p className="text-xs text-gray-700 mt-1">{rev.comment}</p>
                       </div>
@@ -5086,7 +5108,7 @@ export const ProviderPortal: React.FC<ProviderPortalProps> = ({
                   <MapPin className="w-4 h-4 text-gray-400 shrink-0" />
                   <span>{hostelToView?.address || 'LAUTECH Area, Ogbomoso'}</span>
                   <span>•</span>
-                  <span>{hostelToView?.distanceFromCampusKm || 0.8}km from Campus</span>
+                  <span>{calculateHostelTravelTime(hostelToView?.distanceFromCampusKm || 0.8).primaryText}</span>
                 </p>
               </div>
 

@@ -182,10 +182,10 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/85 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 md:p-6 animate-fadeIn">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/85 backdrop-blur-sm flex items-start sm:items-center justify-center p-0 sm:p-4 md:p-6 animate-fadeIn">
       
       {/* Modal Card */}
-      <div className="bg-white rounded-3xl max-w-4xl w-full max-h-[92vh] overflow-y-auto shadow-2xl border border-slate-200 relative flex flex-col">
+      <div className="bg-white rounded-none sm:rounded-3xl max-w-4xl w-full h-[100dvh] sm:h-auto sm:max-h-[92vh] overflow-y-auto shadow-2xl border border-slate-200 relative flex flex-col">
         
         {/* Top Header Sticky Bar */}
         <div className="sticky top-0 z-20 bg-white/95 backdrop-blur-md px-6 py-4 border-b border-slate-100 flex items-center justify-between">
@@ -314,14 +314,14 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
 
           {/* Media Carousel / Lightbox */}
           <div className="space-y-2">
-            <div className="relative aspect-[16/9] sm:aspect-[21/9] rounded-3xl overflow-hidden bg-slate-900 shadow-md">
+            <div className="relative aspect-[4/3] sm:aspect-[21/9] rounded-2xl sm:rounded-3xl overflow-hidden bg-slate-950 shadow-md flex items-center justify-center">
               {isPlayingVideo && property.videoTourUrl ? (
                 <div className="relative w-full h-full">
                   <video
                     src={getMediaUrl(property.videoTourUrl)}
                     controls
                     autoPlay
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-contain sm:object-cover"
                   />
                   <button
                     onClick={() => setIsPlayingVideo(false)}
@@ -335,12 +335,18 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
                   <img
                     src={property.images[activeImageIndex] || property.coverImage}
                     alt={property.title}
-                    className="w-full h-full object-cover"
+                    className="max-w-full max-h-full w-full h-full object-contain object-center sm:object-cover sm:object-center block"
+                    style={{ objectPosition: 'center center' }}
                   />
 
                   {/* Badges on image */}
-                  <div className="absolute top-4 left-4 flex flex-wrap gap-2">
-                    <span className="bg-black/60 backdrop-blur-md text-white text-xs font-bold px-3 py-1 rounded-xl">
+                  <div className="absolute top-3 left-3 sm:top-4 sm:left-4 flex flex-wrap gap-2 items-center">
+                    {activeImageIndex === 0 && (
+                      <span className="bg-emerald-600/95 text-white text-xs font-extrabold px-3 py-1 rounded-xl shadow-md border border-emerald-400/30 backdrop-blur-sm">
+                        Cover Image
+                      </span>
+                    )}
+                    <span className="bg-black/60 backdrop-blur-md text-white text-xs font-bold px-3 py-1 rounded-xl shadow-sm">
                       {activeImageIndex + 1} / {property.images.length} Photos
                     </span>
                     {property.hasVideoTour && (

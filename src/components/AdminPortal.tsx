@@ -47,7 +47,9 @@ import {
   UserCheck,
   Video,
   Play,
-  Trash2
+  Trash2,
+  GraduationCap,
+  Star
 } from 'lucide-react';
 import { 
   Area, 
@@ -64,15 +66,19 @@ import {
   AIAdminStats,
   RevenueOverviewResponse,
   UserDeletionSummary,
-  UserDeletionResult
+  UserDeletionResult,
+  ClearanceScope,
+  ClearanceResult
 } from '../types/hostelEase';
 import { api, getMediaUrl } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { AdminFinancialDashboard } from './AdminFinancialDashboard';
+import { ScrollReveal } from './ScrollReveal';
 import { AdminSupplyDemandDashboard } from './AdminSupplyDemandDashboard';
 import { AdminCommunityModeration } from './AdminCommunityModeration';
 import { AdminOperationsDashboard } from './AdminOperationsDashboard';
 import { AdminRevenueModule, RevenueSubTab } from './AdminRevenueModule';
+import { AdminClearanceModal } from './AdminClearanceModal';
 import { formatNaira, formatDistance } from '../utils/formatters';
 
 interface AdminPortalProps {
@@ -272,6 +278,20 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
   const [isDeletingUser, setIsDeletingUser] = useState<boolean>(false);
   const [deletionReason, setDeletionReason] = useState<string>('');
   const [confirmDeletionChecked, setConfirmDeletionChecked] = useState<boolean>(false);
+
+  // 8. Permanent Test Data Clearance System State
+  const [clearanceModalOpen, setClearanceModalOpen] = useState<boolean>(false);
+  const [clearanceScope, setClearanceScope] = useState<ClearanceScope>('all');
+
+  const openClearanceModal = (scope: ClearanceScope) => {
+    setClearanceScope(scope);
+    setClearanceModalOpen(true);
+  };
+
+  const handleClearanceSuccess = (res: ClearanceResult) => {
+    onShowToast(`✓ ${res.message}`, 'success');
+    fetchAllAdminData();
+  };
 
   // Load Main Admin Data with Progressive Multi-Phase Streaming
   const fetchAllAdminData = async () => {
@@ -761,6 +781,15 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
             <span>Broadcast</span>
           </button>
 
+          <button
+            onClick={() => openClearanceModal('all')}
+            className="flex items-center gap-1.5 bg-red-600/90 hover:bg-red-600 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors shadow-lg shadow-red-950/40 border border-red-500/50 cursor-pointer"
+            title="Authorized Administrator: Permanently Clear All Test Data"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            <span>Clear All Test Data</span>
+          </button>
+
           <div className="text-right hidden sm:block">
             <p className="text-xs font-bold text-white leading-tight">
               {dashboardData?.admin?.fullName || user?.fullName || 'Super Administrator'}
@@ -939,8 +968,9 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                   <p className="text-xs font-black text-white truncate">
                     {user?.fullName || dashboardData?.admin?.fullName || 'Hostel Ease Owner'}
                   </p>
-                  <p className="text-[10px] text-emerald-400 font-bold truncate">
-                    👑 Owner / Super Admin
+                  <p className="text-[10px] text-emerald-400 font-bold truncate flex items-center gap-1">
+                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                    <span>Owner / Super Admin</span>
                   </p>
                 </div>
               </div>
@@ -984,15 +1014,17 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
             <div className="grid grid-cols-2 gap-1.5 px-1">
               <button
                 onClick={() => loginDemo('STUDENT')}
-                className="p-2 text-center rounded-xl bg-emerald-950/60 hover:bg-emerald-900/80 border border-emerald-800 text-emerald-300 text-[11px] font-black transition-colors"
+                className="p-2 text-center rounded-xl bg-emerald-950/60 hover:bg-emerald-900/80 border border-emerald-800 text-emerald-300 text-[11px] font-black transition-colors flex items-center justify-center gap-1.5"
               >
-                🎓 Student
+                <GraduationCap className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Student</span>
               </button>
               <button
                 onClick={() => loginDemo('PROVIDER')}
-                className="p-2 text-center rounded-xl bg-blue-950/60 hover:bg-blue-900/80 border border-blue-800 text-blue-300 text-[11px] font-black transition-colors"
+                className="p-2 text-center rounded-xl bg-blue-950/60 hover:bg-blue-900/80 border border-blue-800 text-blue-300 text-[11px] font-black transition-colors flex items-center justify-center gap-1.5"
               >
-                🏡 Agent
+                <Building2 className="w-3.5 h-3.5 text-blue-400" />
+                <span>Agent</span>
               </button>
             </div>
           </div>
@@ -1135,53 +1167,69 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
 
               {/* KPI Cards Grid */}
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-1">
-                  <p className="text-[10px] font-bold text-slate-400 uppercase">Registered Students</p>
-                  <p className="text-2xl font-black text-emerald-400">{dashboardData?.stats?.totalStudents ?? 120}</p>
-                  <p className="text-[10px] text-slate-500">Verified student profiles</p>
-                </div>
+                <ScrollReveal animation="fade-up" staggerIndex={0} staggerIntervalMs={50} className="h-full">
+                  <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-1 h-full">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase">Registered Students</p>
+                    <p className="text-2xl font-black text-emerald-400">{dashboardData?.stats?.totalStudents ?? 120}</p>
+                    <p className="text-[10px] text-slate-500">Verified student profiles</p>
+                  </div>
+                </ScrollReveal>
 
-                <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-1">
-                  <p className="text-[10px] font-bold text-slate-400 uppercase">Providers / Agents</p>
-                  <p className="text-2xl font-black text-cyan-400">{dashboardData?.stats?.totalProviders ?? 8}</p>
-                  <p className="text-[10px] text-slate-500">Active hostel operators</p>
-                </div>
+                <ScrollReveal animation="fade-up" staggerIndex={1} staggerIntervalMs={50} className="h-full">
+                  <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-1 h-full">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase">Providers / Agents</p>
+                    <p className="text-2xl font-black text-cyan-400">{dashboardData?.stats?.totalProviders ?? 8}</p>
+                    <p className="text-[10px] text-slate-500">Active hostel operators</p>
+                  </div>
+                </ScrollReveal>
 
-                <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-1">
-                  <p className="text-[10px] font-bold text-slate-400 uppercase">Active Hostels</p>
-                  <p className="text-2xl font-black text-white">{dashboardData?.stats?.totalHostels ?? 14}</p>
-                  <p className="text-[10px] text-emerald-400 font-semibold">{dashboardData?.stats?.verifiedHostels ?? 10} Verified Badges</p>
-                </div>
+                <ScrollReveal animation="fade-up" staggerIndex={2} staggerIntervalMs={50} className="h-full">
+                  <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-1 h-full">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase">Active Hostels</p>
+                    <p className="text-2xl font-black text-white">{dashboardData?.stats?.totalHostels ?? 14}</p>
+                    <p className="text-[10px] text-emerald-400 font-semibold">{dashboardData?.stats?.verifiedHostels ?? 10} Verified Badges</p>
+                  </div>
+                </ScrollReveal>
 
-                <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-1">
-                  <p className="text-[10px] font-bold text-slate-400 uppercase">Pending Verification</p>
-                  <p className="text-2xl font-black text-amber-400">{dashboardData?.stats?.pendingHostels ?? 4}</p>
-                  <p className="text-[10px] text-amber-400/80">Requires admin inspection</p>
-                </div>
+                <ScrollReveal animation="fade-up" staggerIndex={3} staggerIntervalMs={50} className="h-full">
+                  <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-1 h-full">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase">Pending Verification</p>
+                    <p className="text-2xl font-black text-amber-400">{dashboardData?.stats?.pendingHostels ?? 4}</p>
+                    <p className="text-[10px] text-amber-400/80">Requires admin inspection</p>
+                  </div>
+                </ScrollReveal>
 
-                <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-1">
-                  <p className="text-[10px] font-bold text-slate-400 uppercase">Active Bookings</p>
-                  <p className="text-2xl font-black text-indigo-400">{dashboardData?.stats?.activeBookings ?? 18}</p>
-                  <p className="text-[10px] text-slate-500">{dashboardData?.stats?.pendingBookings ?? 3} awaiting 48h confirm</p>
-                </div>
+                <ScrollReveal animation="fade-up" staggerIndex={4} staggerIntervalMs={50} className="h-full">
+                  <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-1 h-full">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase">Active Bookings</p>
+                    <p className="text-2xl font-black text-indigo-400">{dashboardData?.stats?.activeBookings ?? 18}</p>
+                    <p className="text-[10px] text-slate-500">{dashboardData?.stats?.pendingBookings ?? 3} awaiting 48h confirm</p>
+                  </div>
+                </ScrollReveal>
 
-                <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-1">
-                  <p className="text-[10px] font-bold text-slate-400 uppercase">Successful Payments</p>
-                  <p className="text-2xl font-black text-emerald-400">{dashboardData?.stats?.successfulPayments ?? 18}</p>
-                  <p className="text-[10px] text-slate-500">Gross: {formatNaira(dashboardData?.stats?.totalGrossRevenue ?? 4500000)}</p>
-                </div>
+                <ScrollReveal animation="fade-up" staggerIndex={5} staggerIntervalMs={50} className="h-full">
+                  <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-1 h-full">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase">Successful Payments</p>
+                    <p className="text-2xl font-black text-emerald-400">{dashboardData?.stats?.successfulPayments ?? 18}</p>
+                    <p className="text-[10px] text-slate-500">Gross: {formatNaira(dashboardData?.stats?.totalGrossRevenue ?? 4500000)}</p>
+                  </div>
+                </ScrollReveal>
 
-                <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-1">
-                  <p className="text-[10px] font-bold text-slate-400 uppercase">Open Reports & Safety</p>
-                  <p className="text-2xl font-black text-rose-400">{dashboardData?.stats?.openReports ?? 0}</p>
-                  <p className="text-[10px] text-rose-400/80">Investigate high-priority flags</p>
-                </div>
+                <ScrollReveal animation="fade-up" staggerIndex={6} staggerIntervalMs={50} className="h-full">
+                  <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-1 h-full">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase">Open Reports & Safety</p>
+                    <p className="text-2xl font-black text-rose-400">{dashboardData?.stats?.openReports ?? 0}</p>
+                    <p className="text-[10px] text-rose-400/80">Investigate high-priority flags</p>
+                  </div>
+                </ScrollReveal>
 
-                <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-1">
-                  <p className="text-[10px] font-bold text-slate-400 uppercase">Open Support Tickets</p>
-                  <p className="text-2xl font-black text-purple-400">{dashboardData?.stats?.openSupportTickets ?? 2}</p>
-                  <p className="text-[10px] text-slate-500">Student & Provider inquiries</p>
-                </div>
+                <ScrollReveal animation="fade-up" staggerIndex={7} staggerIntervalMs={50} className="h-full">
+                  <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-1 h-full">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase">Open Support Tickets</p>
+                    <p className="text-2xl font-black text-purple-400">{dashboardData?.stats?.openSupportTickets ?? 2}</p>
+                    <p className="text-[10px] text-slate-500">Student & Provider inquiries</p>
+                  </div>
+                </ScrollReveal>
               </div>
 
               {/* 🎯 STUDENT STRESS REDUCTION IMPACT METRICS */}
@@ -1251,9 +1299,9 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                     className="bg-slate-900 border border-slate-700 text-xs text-slate-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-emerald-500 font-medium"
                   >
                     <option value="all">All Roles ({usersList.length})</option>
-                    <option value="STUDENT">🎓 Students ({usersList.filter(u => u.role === 'STUDENT').length})</option>
-                    <option value="PROVIDER">🏢 Agents ({usersList.filter(u => u.role === 'PROVIDER').length})</option>
-                    <option value="ADMIN">👑 Admins ({usersList.filter(u => u.role === 'ADMIN').length})</option>
+                    <option value="STUDENT">Students ({usersList.filter(u => u.role === 'STUDENT').length})</option>
+                    <option value="PROVIDER">Agents ({usersList.filter(u => u.role === 'PROVIDER').length})</option>
+                    <option value="ADMIN">Admins ({usersList.filter(u => u.role === 'ADMIN').length})</option>
                   </select>
 
                   <select
@@ -1266,6 +1314,15 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                     <option value="SUSPENDED">Suspended Only</option>
                     <option value="RESTRICTED">Restricted Only</option>
                   </select>
+
+                  <button
+                    onClick={() => openClearanceModal('users')}
+                    className="flex items-center gap-1.5 bg-rose-950/60 hover:bg-rose-900 border border-rose-700/60 text-rose-300 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
+                    title="Permanently Clear Test Users (Strictly Preserves Admin)"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Clear Test Users</span>
+                  </button>
                 </div>
               </div>
 
@@ -1341,7 +1398,13 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                                 u.role === 'PROVIDER' ? 'bg-cyan-950 text-cyan-300 border border-cyan-800' :
                                 'bg-emerald-950 text-emerald-300 border border-emerald-800'
                               }`}>
-                                <span>{u.role === 'PROVIDER' ? '🏢 Agent' : u.role === 'ADMIN' ? '👑 Platform Owner' : '🎓 Student'}</span>
+                                {u.role === 'PROVIDER' ? (
+                                  <span className="inline-flex items-center gap-1"><Building2 className="w-3 h-3 text-cyan-400" /> Agent</span>
+                                ) : u.role === 'ADMIN' ? (
+                                  <span className="inline-flex items-center gap-1"><ShieldCheck className="w-3 h-3 text-purple-400" /> Platform Owner</span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1"><GraduationCap className="w-3 h-3 text-emerald-400" /> Student</span>
+                                )}
                               </span>
                             </td>
 
@@ -1413,7 +1476,8 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                                     className="px-2.5 py-1 bg-purple-600 hover:bg-purple-500 text-white rounded-lg font-bold text-[11px] transition-all flex items-center gap-1 shadow-sm cursor-pointer"
                                     title={`Log in and control ${u.fullName}'s account`}
                                   >
-                                    <span>👑 Access Account</span>
+                                    <ShieldCheck className="w-3 h-3" />
+                                    <span>Access Account</span>
                                   </button>
                                 )}
 
@@ -1481,6 +1545,15 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                     <option value="VERIFIED">Verified Badged Only</option>
                     <option value="PENDING">Pending Review</option>
                   </select>
+
+                  <button
+                    onClick={() => openClearanceModal('providers')}
+                    className="flex items-center gap-1.5 bg-rose-950/60 hover:bg-rose-900 border border-rose-700/60 text-rose-300 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
+                    title="Permanently Clear Providers / Hosts"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Clear Providers</span>
+                  </button>
                 </div>
               </div>
 
@@ -1548,7 +1621,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                         className="flex-1 py-2 bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs rounded-xl transition-colors flex items-center justify-center gap-1.5 shadow-md cursor-pointer"
                       >
                         <Building2 className="w-3.5 h-3.5" />
-                        <span>👑 Access Agent Portal</span>
+                        <span>Access Agent Portal</span>
                       </button>
 
                       <button
@@ -1625,6 +1698,24 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                     <option value="PENDING_REVIEW">Pending Verification</option>
                     <option value="REJECTED">Rejected / Suspended</option>
                   </select>
+
+                  <button
+                    onClick={() => openClearanceModal('pending')}
+                    className="flex items-center gap-1.5 bg-amber-950/60 hover:bg-amber-900 border border-amber-700/60 text-amber-300 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
+                    title="Permanently Clear Pending Listings"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Clear Pending</span>
+                  </button>
+
+                  <button
+                    onClick={() => openClearanceModal('hostels')}
+                    className="flex items-center gap-1.5 bg-rose-950/60 hover:bg-rose-900 border border-rose-700/60 text-rose-300 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
+                    title="Permanently Clear All Hostel Listings"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Clear All Hostels</span>
+                  </button>
                 </div>
               </div>
 
@@ -1759,6 +1850,15 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                     <option value="APPROVED">Approved / Verified ({hostelsList.filter(h => h.verificationStatus === 'APPROVED').length})</option>
                     <option value="REJECTED">Rejected</option>
                   </select>
+
+                  <button
+                    onClick={() => openClearanceModal('verification')}
+                    className="flex items-center gap-1.5 bg-rose-950/60 hover:bg-rose-900 border border-rose-700/60 text-rose-300 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
+                    title="Permanently Clear Verification Records"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Clear Verification</span>
+                  </button>
                 </div>
               </div>
 
@@ -1852,7 +1952,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                     </p>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <button
                       onClick={async () => {
                         const vRes = await api.admin.getVideos().catch(() => ({ videos: [] }));
@@ -1864,6 +1964,24 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                     >
                       <RefreshCw className="w-4 h-4" />
                       <span className="hidden sm:inline">Refresh</span>
+                    </button>
+
+                    <button
+                      onClick={() => openClearanceModal('video_tours')}
+                      className="p-2 bg-amber-950/60 hover:bg-amber-900 border border-amber-700/60 rounded-xl text-amber-300 transition-colors cursor-pointer flex items-center gap-1.5 text-xs font-semibold"
+                      title="Permanently Clear 4K Video Tours Review Queue"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      <span className="hidden sm:inline">Clear Video Queue</span>
+                    </button>
+
+                    <button
+                      onClick={() => openClearanceModal('videos')}
+                      className="p-2 bg-rose-950/60 hover:bg-rose-900 border border-rose-700/60 rounded-xl text-rose-300 transition-colors cursor-pointer flex items-center gap-1.5 text-xs font-semibold"
+                      title="Permanently Clear All 4K Videos & Files"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      <span className="hidden sm:inline">Clear 4K Videos</span>
                     </button>
                   </div>
                 </div>
@@ -2108,17 +2226,28 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                   <p className="text-xs text-slate-400">Monitor room reservations, escrow holding periods, and 48-hour move-in confirmations</p>
                 </div>
 
-                <select
-                  value={bookingStatusFilter}
-                  onChange={(e) => setBookingStatusFilter(e.target.value)}
-                  className="bg-slate-900 border border-slate-700 text-xs text-slate-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-emerald-500 font-medium"
-                >
-                  <option value="all">All Booking States</option>
-                  <option value="CONFIRMED">Confirmed / Escrow Holding</option>
-                  <option value="PENDING">Pending Payment</option>
-                  <option value="COMPLETED">Completed Move-Ins</option>
-                  <option value="CANCELLED">Cancelled / Refunded</option>
-                </select>
+                <div className="flex items-center gap-2">
+                  <select
+                    value={bookingStatusFilter}
+                    onChange={(e) => setBookingStatusFilter(e.target.value)}
+                    className="bg-slate-900 border border-slate-700 text-xs text-slate-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-emerald-500 font-medium"
+                  >
+                    <option value="all">All Booking States</option>
+                    <option value="CONFIRMED">Confirmed / Escrow Holding</option>
+                    <option value="PENDING">Pending Payment</option>
+                    <option value="COMPLETED">Completed Move-Ins</option>
+                    <option value="CANCELLED">Cancelled / Refunded</option>
+                  </select>
+
+                  <button
+                    onClick={() => openClearanceModal('bookings')}
+                    className="flex items-center gap-1.5 bg-rose-950/60 hover:bg-rose-900 border border-rose-700/60 text-rose-300 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
+                    title="Permanently Clear All Bookings & Reservations"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Clear All Bookings</span>
+                  </button>
+                </div>
               </div>
 
               {bookingsList.length === 0 ? (
@@ -2205,6 +2334,15 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                     <option value="UNDER_REVIEW">Under Review</option>
                     <option value="RESOLVED">Resolved Cases</option>
                   </select>
+
+                  <button
+                    onClick={() => openClearanceModal('disputes')}
+                    className="flex items-center gap-1.5 bg-rose-950/60 hover:bg-rose-900 border border-rose-700/60 text-rose-300 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
+                    title="Permanently Clear Dispute Cases"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Clear Disputes</span>
+                  </button>
                 </div>
               </div>
 
@@ -2351,7 +2489,8 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                       <div className="space-y-1.5 max-w-2xl">
                         <div className="flex items-center gap-2">
                           <span className="text-amber-400 font-bold text-xs flex items-center gap-1">
-                            ⭐ {rev.rating || 5}.0
+                            <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+                            <span>{rev.rating || 5}.0</span>
                           </span>
                           <span className="text-white font-bold text-xs">{rev.propertyTitle || 'Hostel Accommodation'}</span>
                           <span className="text-[10px] text-slate-500">• Reviewed by {rev.studentName || rev.authorName || 'Student'}</span>
@@ -3297,12 +3436,27 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                 <div>
                   <div className="flex items-center gap-2">
                     <h3 className="font-bold text-white text-lg leading-tight">{selectedUserForDetails.fullName}</h3>
-                    <span className={`text-[10px] px-2.5 py-0.5 rounded-full font-bold ${
+                    <span className={`text-[10px] px-2.5 py-0.5 rounded-full font-bold inline-flex items-center gap-1 ${
                       selectedUserForDetails.role === 'ADMIN' ? 'bg-purple-950 text-purple-300 border border-purple-800' :
                       selectedUserForDetails.role === 'PROVIDER' ? 'bg-cyan-950 text-cyan-300 border border-cyan-800' :
                       'bg-emerald-950 text-emerald-300 border border-emerald-800'
                     }`}>
-                      {selectedUserForDetails.role === 'PROVIDER' ? '🏢 Agent' : selectedUserForDetails.role === 'ADMIN' ? '👑 Admin' : '🎓 Student'}
+                      {selectedUserForDetails.role === 'PROVIDER' ? (
+                        <>
+                          <Building2 className="w-3 h-3 text-cyan-400" />
+                          <span>Agent</span>
+                        </>
+                      ) : selectedUserForDetails.role === 'ADMIN' ? (
+                        <>
+                          <ShieldCheck className="w-3 h-3 text-purple-400" />
+                          <span>Admin</span>
+                        </>
+                      ) : (
+                        <>
+                          <GraduationCap className="w-3 h-3 text-emerald-400" />
+                          <span>Student</span>
+                        </>
+                      )}
                     </span>
                   </div>
                   <p className="text-xs text-slate-400 font-mono mt-0.5">{selectedUserForDetails.email}</p>
@@ -3382,7 +3536,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                   className="px-4 py-2.5 bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold rounded-xl transition-all flex items-center gap-2 shadow-lg shadow-purple-950/50 cursor-pointer"
                 >
                   <ShieldCheck className="w-4 h-4" />
-                  <span>👑 Control / Access This Account</span>
+                  <span>Control / Access This Account</span>
                 </button>
               )}
 
@@ -3666,6 +3820,14 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
           </div>
         </div>
       )}
+
+      {/* 🧹 Permanent Test Data Clearance System Modal */}
+      <AdminClearanceModal
+        isOpen={clearanceModalOpen}
+        onClose={() => setClearanceModalOpen(false)}
+        scope={clearanceScope}
+        onSuccess={handleClearanceSuccess}
+      />
     </div>
   );
 };

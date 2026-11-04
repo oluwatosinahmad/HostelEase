@@ -2263,3 +2263,48 @@ export interface RevenueSettingItem {
   description?: string;
   updated_at: string;
 }
+
+export type ClearanceScope = 
+  | 'hostels'
+  | 'videos'
+  | 'pending'
+  | 'users'
+  | 'providers'
+  | 'bookings'
+  | 'verification'
+  | 'video_tours'
+  | 'disputes'
+  | 'all';
+
+export interface ScopeEstimate {
+  scope: ClearanceScope;
+  scopeLabel: string;
+  scopeDescription: string;
+  estimatedRecords: number;
+  estimatedFiles: number;
+  breakdown: { label: string; count: number }[];
+  dependenciesNotice: string;
+  warning: string;
+  requiresPhraseConfirmation?: boolean;
+  requiredPhrase?: string;
+}
+
+export interface ClearanceResult {
+  success: boolean;
+  scope: ClearanceScope;
+  scopeLabel: string;
+  message: string;
+  timestamp: string;
+  executedBy: {
+    id: string;
+    email: string;
+    name: string;
+  };
+  deletedRecordsCount: number;
+  deletedFilesCount: number;
+  categoriesBreakdown: Record<string, number>;
+  unlinkedFilesSample: string[];
+  preservedEntities: string[];
+  auditLogId: string;
+}
+

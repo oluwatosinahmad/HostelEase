@@ -25,7 +25,10 @@ import {
   CreditCard,
   Printer,
   ChevronRight,
-  ExternalLink
+  ExternalLink,
+  Coins,
+  Check,
+  X
 } from 'lucide-react';
 import { api } from '../services/api';
 import { formatNaira, formatDate } from '../utils/formatters';
@@ -271,7 +274,7 @@ export const AdminRevenueModule: React.FC<AdminRevenueModuleProps> = ({
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    onShowToast('Financial report CSV downloaded! 📊', 'success');
+    onShowToast('Financial report CSV downloaded!', 'success');
   };
 
   const navItems = [
@@ -299,7 +302,10 @@ export const AdminRevenueModule: React.FC<AdminRevenueModuleProps> = ({
               <DollarSign className="w-4 h-4" />
               <span>Hostel Ease Financial Treasury & Monetization</span>
             </div>
-            <h1 className="text-xl sm:text-2xl font-black tracking-tight">💰 Finance & Revenue Management</h1>
+            <h1 className="text-xl sm:text-2xl font-black tracking-tight flex items-center gap-2">
+              <Coins className="w-6 h-6 text-emerald-400 shrink-0" />
+              <span>Finance & Revenue Management</span>
+            </h1>
             <p className="text-xs text-slate-400 mt-0.5">
               Live multi-stream income tracking, agent subscriptions, commissions, and automated disbursements for LAUTECH.
             </p>
@@ -1347,20 +1353,22 @@ export const AdminRevenueModule: React.FC<AdminRevenueModuleProps> = ({
                 <button
                   type="button"
                   onClick={() => setPayoutActionType('APPROVE')}
-                  className={`p-2 rounded-xl font-bold border transition-colors ${
+                  className={`p-2 rounded-xl font-bold border transition-colors flex items-center justify-center gap-1.5 ${
                     payoutActionType === 'APPROVE' ? 'bg-emerald-600 border-emerald-500 text-white' : 'bg-slate-900 border-slate-800 text-slate-400'
                   }`}
                 >
-                  ✓ Approve & Disburse
+                  <Check className="w-4 h-4" />
+                  <span>Approve & Disburse</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setPayoutActionType('REJECT')}
-                  className={`p-2 rounded-xl font-bold border transition-colors ${
+                  className={`p-2 rounded-xl font-bold border transition-colors flex items-center justify-center gap-1.5 ${
                     payoutActionType === 'REJECT' ? 'bg-rose-600 border-rose-500 text-white' : 'bg-slate-900 border-slate-800 text-slate-400'
                   }`}
                 >
-                  ✕ Reject Request
+                  <X className="w-4 h-4" />
+                  <span>Reject Request</span>
                 </button>
               </div>
             </div>

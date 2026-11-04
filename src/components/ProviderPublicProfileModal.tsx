@@ -9,7 +9,8 @@ import {
   CheckCircle2, 
   ExternalLink,
   ShieldAlert,
-  UserCheck
+  UserCheck,
+  Route
 } from 'lucide-react';
 import { PublicProviderProfile } from '../types/hostelEase';
 import { api } from '../services/api';
@@ -141,7 +142,13 @@ export const ProviderPublicProfileModal: React.FC<ProviderPublicProfileModalProp
                         <h4 className="text-xs font-bold text-slate-900 truncate group-hover:text-emerald-700 transition-colors">
                           {p.title}
                         </h4>
-                        <p className="text-[10px] text-slate-500">📍 {(p as any).areaName || p.area?.name} • {formatDistance(p.distanceFromCampusKm)}</p>
+                        <p className="text-[10px] text-slate-500 flex items-center gap-1">
+                          <MapPin className="w-2.5 h-2.5 text-[#FD8003] shrink-0" />
+                          <span>{(p as any).areaName || p.area?.name}</span>
+                          <span className="mx-0.5">•</span>
+                          <Route className="w-2.5 h-2.5 text-slate-400 shrink-0" />
+                          <span>{formatDistance(p.distanceFromCampusKm)}</span>
+                        </p>
                         <p className="text-xs font-bold text-emerald-800 mt-1">{formatNaira((p as any).rentAmount || p.priceSummary?.rentAmount || 0)}/yr</p>
                       </div>
                     </div>

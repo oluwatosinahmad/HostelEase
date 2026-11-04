@@ -215,8 +215,9 @@ export const AreaGuideDetail: React.FC = () => {
               </h4>
               <div className="flex flex-wrap gap-1.5">
                 {parseJsonArray(selectedArea.popular_landmarks_json).map((lm: string, idx: number) => (
-                  <span key={idx} className="px-2.5 py-1 bg-white border border-slate-200 rounded-xl text-slate-700 font-bold text-[11px]">
-                    📍 {lm}
+                  <span key={idx} className="px-2.5 py-1 bg-white border border-slate-200 rounded-xl text-slate-700 font-bold text-[11px] flex items-center gap-1">
+                    <MapPin className="w-3 h-3 text-[#FD8003] shrink-0" />
+                    <span>{lm}</span>
                   </span>
                 ))}
               </div>
@@ -229,8 +230,9 @@ export const AreaGuideDetail: React.FC = () => {
               </h4>
               <div className="flex flex-wrap gap-1.5">
                 {parseJsonArray(selectedArea.nearby_services_json).map((sv: string, idx: number) => (
-                  <span key={idx} className="px-2.5 py-1 bg-white border border-slate-200 rounded-xl text-slate-700 font-bold text-[11px]">
-                    🛒 {sv}
+                  <span key={idx} className="px-2.5 py-1 bg-white border border-slate-200 rounded-xl text-slate-700 font-bold text-[11px] flex items-center gap-1">
+                    <Store className="w-3 h-3 text-emerald-600 shrink-0" />
+                    <span>{sv}</span>
                   </span>
                 ))}
               </div>

@@ -52,7 +52,10 @@ import {
     DisputeItem,
     DisputeMessageItem,
     UserDeletionSummary,
-    UserDeletionResult
+    UserDeletionResult,
+    ClearanceScope,
+    ScopeEstimate,
+    ClearanceResult
   } from '../types/hostelEase';
 import { 
   DEFAULT_AREAS, 
@@ -5220,6 +5223,49 @@ export const api = {
         });
         return handleResponse(res);
       }
+    },
+
+    // 🧹 Permanent Test Data Clearance System
+    async getClearanceEstimate(scope: ClearanceScope): Promise<{ success: boolean; estimate: ScopeEstimate }> {
+      const res = await fetch(`${API_BASE}/admin/clearance/estimate?scope=${encodeURIComponent(scope)}`, {
+        headers: { ...getAuthHeader() }
+      });
+      return handleResponse(res);
+    },
+
+    async executeClearance(data: { scope: ClearanceScope; confirmPhrase?: string; adminReason?: string }): Promise<{ success: boolean; result: ClearanceResult }> {
+      const res = await fetch(`${API_BASE}/admin/clearance/execute`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+        body: JSON.stringify(data)
+      });
+      const response = await handleResponse<{ success: boolean; result: ClearanceResult }>(res);
+
+      if (response && response.success) {
+        try {
+          // Synchronize local browser storage based on scope
+          if (data.scope === 'hostels' || data.scope === 'all') {
+            localStorage.removeItem('hostel_ease_properties');
+            localStorage.removeItem('hostel_ease_saved_properties');
+            window.dispatchEvent(new CustomEvent('hostel_ease_properties_updated'));
+          }
+          if (data.scope === 'bookings' || data.scope === 'all') {
+            localStorage.removeItem('hostel_ease_bookings');
+            window.dispatchEvent(new CustomEvent('hostel_ease_bookings_updated'));
+          }
+          if (data.scope === 'users' || data.scope === 'all') {
+            const registered = getLocalRegisteredUsers();
+            // Preserve only admin account locally if present
+            const adminUsers = registered.filter(u => u.role === 'ADMIN');
+            saveLocalRegisteredUsers(adminUsers);
+          }
+          window.dispatchEvent(new CustomEvent('hostel_ease_clearance_completed', { detail: response.result }));
+        } catch (e) {
+          console.warn('[clearance] Error cleaning local cache after clearance:', e);
+        }
+      }
+
+      return response;
     }
   },
 

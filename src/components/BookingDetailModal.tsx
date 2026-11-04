@@ -17,12 +17,14 @@ import {
   Sparkles,
   Info,
   Download,
-  Printer
+  Printer,
+  Bed,
+  Route
 } from 'lucide-react';
 import { BookingDetail, BookingHistoryItem, BookingStatus } from '../types/hostelEase';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
-import { formatNaira, formatDistance } from '../utils/formatters';
+import { formatNaira, formatDistance, calculateHostelTravelTime } from '../utils/formatters';
 
 interface BookingDetailModalProps {
   bookingId: string | null;
@@ -185,11 +187,17 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({
                     <h5 className="font-black text-sm text-slate-900 truncate">
                       {detail.booking.property.title}
                     </h5>
-                    <p className="text-xs text-slate-600 truncate">
-                      📍 {detail.booking.property.areaName} ({formatDistance(detail.booking.property.distanceFromCampusKm)} from Main Gate)
+                    <p className="text-xs text-slate-600 truncate flex items-center gap-1">
+                      <MapPin className="w-3 h-3 text-[#FD8003] shrink-0" />
+                      <span>{detail.booking.property.areaName}</span>
+                      <span className="text-slate-500 font-semibold flex items-center gap-1">
+                        • <Clock className="w-2.5 h-2.5 text-emerald-600 shrink-0" />
+                        <span>{calculateHostelTravelTime(detail.booking.property.distanceFromCampusKm).primaryText}</span>
+                      </span>
                     </p>
-                    <p className="text-xs font-bold text-emerald-800 pt-0.5">
-                      🛏️ {detail.booking.room.name} {detail.booking.bedspace ? `• Bedspace ${detail.booking.bedspace.number}` : ''}
+                    <p className="text-xs font-bold text-emerald-800 pt-0.5 flex items-center gap-1">
+                      <Bed className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
+                      <span>{detail.booking.room.name} {detail.booking.bedspace ? `• Bedspace ${detail.booking.bedspace.number}` : ''}</span>
                     </p>
                   </div>
                 </div>

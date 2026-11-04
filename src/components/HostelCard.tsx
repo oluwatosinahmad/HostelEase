@@ -13,6 +13,7 @@ import {
   Check, 
   Eye,
   Footprints,
+  Route,
   Info,
   SlidersHorizontal,
   Sparkles,
@@ -23,10 +24,11 @@ import {
   ChevronLeft,
   ChevronRight,
   Video,
-  Flame
+  Flame,
+  Clock
 } from 'lucide-react';
 import { Property } from '../types/hostelEase';
-import { formatNaira, formatDistance, getAvailabilityBadgeInfo, getPropertyTypeLabel } from '../utils/formatters';
+import { formatNaira, formatDistance, getAvailabilityBadgeInfo, getPropertyTypeLabel, calculateHostelTravelTime } from '../utils/formatters';
 import { OptimizedImage } from './OptimizedImage';
 import { PremiumCarouselPagination } from './PremiumCarouselPagination';
 
@@ -89,6 +91,13 @@ export const HostelCard: React.FC<HostelCardProps> = ({
   // Deterministic viewers counter for authentic social proof
   const propIdStr = String(property?.id || 'hostel');
   const liveViewers = Math.abs(propIdStr.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0) % 5) + 2;
+
+  // Accurately calculated travel estimate to LAUTECH
+  const travelEstimate = calculateHostelTravelTime(
+    property.latitude && property.longitude
+      ? { lat: property.latitude, lng: property.longitude }
+      : property.distanceFromCampusKm
+  );
 
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
 
@@ -237,7 +246,7 @@ export const HostelCard: React.FC<HostelCardProps> = ({
               title="Watch full video walkthrough"
             >
               <Video className="w-3.5 h-3.5 fill-current text-amber-300 animate-pulse" />
-              <span>Tour 🎥</span>
+              <span>Video Tour</span>
             </button>
 
             {matchScore !== undefined && matchScore > 0 && (
@@ -349,17 +358,26 @@ export const HostelCard: React.FC<HostelCardProps> = ({
       {/* Card Content */}
       <div className="p-4 sm:p-5 flex-1 flex flex-col justify-between space-y-3 text-slate-900 dark:text-slate-100">
         <div className="space-y-2">
-          {/* Area & Distance from LAUTECH */}
+          {/* Area & Calculated Travel Time to LAUTECH */}
           <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 gap-1">
             <span className="font-bold text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 px-2.5 py-1 rounded-xl flex items-center gap-1 truncate">
-              <MapPin className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
+              <MapPin className="w-3.5 h-3.5 text-[#FD8003] dark:text-[#FD8003] flex-shrink-0" />
               <span className="truncate">{property.area?.name || (property as any).areaName || 'LAUTECH Area'}</span>
             </span>
-            <span className="flex items-center gap-1 font-bold text-slate-600 dark:text-slate-300 text-[11px] flex-shrink-0">
-              <Footprints className="w-3.5 h-3.5 text-slate-400" />
-              {formatDistance(property.distanceFromCampusKm)} to gate
+            <span 
+              className="flex items-center gap-1 font-black text-slate-800 dark:text-slate-100 bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded-xl text-[11px] flex-shrink-0 border border-slate-200/80 dark:border-slate-700/80"
+              title={travelEstimate.clarificationText}
+            >
+              <Clock className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+              <span>{travelEstimate.primaryText}</span>
             </span>
           </div>
+
+          {/* Travel Method Clarification Underneath */}
+          <p className="text-[10.5px] text-slate-500 dark:text-slate-400 flex items-center gap-1 leading-tight">
+            <Route className="w-3 h-3 text-slate-400 shrink-0" />
+            <span>{travelEstimate.clarificationText}</span>
+          </p>
 
           {/* Hostel Name */}
           <h3 className="font-black text-sm sm:text-base text-slate-900 dark:text-white group-hover:text-emerald-700 dark:group-hover:text-emerald-400 transition-colors line-clamp-1">
@@ -368,15 +386,17 @@ export const HostelCard: React.FC<HostelCardProps> = ({
 
           {/* Match Score Reason Explanation (if present) */}
           {matchExplanation && (
-            <p className="text-[11px] text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/50 px-2.5 py-1 rounded-xl border border-purple-100 dark:border-purple-800 font-medium line-clamp-1">
-              ✨ {matchExplanation}
+            <p className="text-[11px] text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/50 px-2.5 py-1 rounded-xl border border-purple-100 dark:border-purple-800 font-medium line-clamp-1 flex items-center gap-1">
+              <Sparkles className="w-3 h-3 text-purple-600 dark:text-purple-400 shrink-0" />
+              <span>{matchExplanation}</span>
             </p>
           )}
 
           {/* Landmark hint */}
           {property.nearbyLandmark && (
-            <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-1">
-              📍 Near: {property.nearbyLandmark}
+            <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-1 flex items-center gap-1">
+              <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
+              <span>Near: {property.nearbyLandmark}</span>
             </p>
           )}
 

@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Search, 
   MapPin, 
+  Route,
   ShieldCheck, 
   Eye, 
   Zap, 
@@ -11,6 +12,16 @@ import {
   DollarSign
 } from 'lucide-react';
 import { Area } from '../types/hostelEase';
+
+const HERO_PHRASES = [
+  'Stress less.',
+  'Worry less.',
+  'Stay relaxed.',
+  'Live worry-free.',
+  'Find peace of mind.',
+  'Make hostel hunting easier.',
+  'Enjoy a smoother search.'
+];
 
 interface HeroSectionProps {
   areas: Area[];
@@ -26,6 +37,52 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedArea, setSelectedArea] = useState('all');
   const [selectedRoomType, setSelectedRoomType] = useState('all');
+
+  // Animated rotating phrase state
+  const [currentPhraseIndex, setCurrentPhraseIndex] = useState(0);
+  const [transitionStatus, setTransitionStatus] = useState<'visible' | 'exiting' | 'entering'>('visible');
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
+
+  // Listen for reduced motion preference
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return;
+    const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+    setPrefersReducedMotion(mediaQuery.matches);
+
+    const handleMotionChange = (e: MediaQueryListEvent) => {
+      setPrefersReducedMotion(e.matches);
+    };
+
+    mediaQuery.addEventListener('change', handleMotionChange);
+    return () => mediaQuery.removeEventListener('change', handleMotionChange);
+  }, []);
+
+  // Continuous animation loop (~3 seconds per phrase)
+  useEffect(() => {
+    let timerId: ReturnType<typeof setTimeout>;
+
+    if (transitionStatus === 'visible') {
+      // Display current phrase for ~2550ms before starting exit transition
+      timerId = setTimeout(() => {
+        setTransitionStatus('exiting');
+      }, 2550);
+    } else if (transitionStatus === 'exiting') {
+      // Exit fade-out and slide-up transition takes 320ms
+      timerId = setTimeout(() => {
+        setCurrentPhraseIndex((prevIndex) => (prevIndex + 1) % HERO_PHRASES.length);
+        setTransitionStatus('entering');
+      }, 320);
+    } else if (transitionStatus === 'entering') {
+      // Brief position preparation tick (40ms) then animate into visible
+      timerId = setTimeout(() => {
+        setTransitionStatus('visible');
+      }, 40);
+    }
+
+    return () => {
+      if (timerId) clearTimeout(timerId);
+    };
+  }, [transitionStatus]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,9 +103,25 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
           </div>
 
           <h1 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight leading-tight">
-            Find your hostel. <br className="hidden sm:block" />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-teal-300 to-emerald-200">
-              Stress less.
+            <span>Find your hostel.</span>{' '}
+            <span className="block min-h-[2.5em] sm:min-h-[1.25em]">
+              <span
+                className={`inline-block text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-teal-300 to-emerald-200 will-change-transform ${
+                  prefersReducedMotion
+                    ? transitionStatus === 'exiting'
+                      ? 'opacity-0 transition-opacity duration-300'
+                      : transitionStatus === 'entering'
+                      ? 'opacity-0 transition-none'
+                      : 'opacity-100 transition-opacity duration-300'
+                    : transitionStatus === 'exiting'
+                    ? 'opacity-0 -translate-y-2 transition-all duration-300 ease-in'
+                    : transitionStatus === 'entering'
+                    ? 'opacity-0 translate-y-2 transition-none'
+                    : 'opacity-100 translate-y-0 transition-all duration-500 ease-out'
+                }`}
+              >
+                {HERO_PHRASES[currentPhraseIndex]}
+              </span>
             </span>
           </h1>
 
@@ -125,12 +198,14 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
             <button
               key={area.id}
               onClick={() => onSelectArea(area.id)}
-              className="px-3 py-1 bg-white/5 hover:bg-white/15 border border-white/10 rounded-full text-xs font-medium text-slate-200 hover:text-white transition-all whitespace-nowrap flex items-center gap-1"
+              className="px-3 py-1 bg-white/5 hover:bg-white/15 border border-white/10 rounded-full text-xs font-medium text-slate-200 hover:text-white transition-all whitespace-nowrap flex items-center gap-1.5"
             >
-              <span>📍 {area.name}</span>
+              <MapPin className="w-3 h-3 text-[#FD8003] shrink-0" />
+              <span>{area.name}</span>
               {area.approxDistanceMinKm && (
-                <span className="text-[10px] text-emerald-400 font-bold">
-                  ({area.approxDistanceMinKm}km)
+                <span className="text-[10px] text-emerald-400 font-bold flex items-center gap-0.5">
+                  <Route className="w-2.5 h-2.5 text-emerald-400/80 inline shrink-0" />
+                  {area.approxDistanceMinKm}km
                 </span>
               )}
             </button>

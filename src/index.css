@@ -186,4 +186,25 @@ div[style*="fixed"][style*="bottom: 20px"] {
   display: none;
 }
 
+/* ==========================================================================
+   ✨ Premium Scroll Reveal Animations
+   ========================================================================== */
+.scroll-reveal-container {
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+/* Accessibility: strictly respect prefers-reduced-motion */
+@media (prefers-reduced-motion: reduce) {
+  .scroll-reveal-container,
+  .scroll-reveal-container.is-hidden,
+  .scroll-reveal-container.is-revealed {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
+
 

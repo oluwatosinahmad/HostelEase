@@ -1,0 +1,4 @@
+# Netlify Static Routing Rules
+/api/*  https://hostelease.oluwatosinahmad.workers.dev/api/:splat  200!
+/uploads/*  https://hostelease.oluwatosinahmad.workers.dev/uploads/:splat  200
+/*  /index.html  200

@@ -14,11 +14,13 @@ import {
   SlidersHorizontal,
   X,
   Compass,
-  ArrowUpDown
+  ArrowUpDown,
+  Clock
 } from 'lucide-react';
 import { Property, Area } from '../types/hostelEase';
-import { formatNaira, formatDistance } from '../utils/formatters';
+import { formatNaira, formatDistance, calculateHostelTravelTime } from '../utils/formatters';
 import { getMediaUrl } from '../services/api';
+import { ScrollReveal } from './ScrollReveal';
 
 interface VirtualToursViewProps {
   properties: Property[];
@@ -105,7 +107,7 @@ export const VirtualToursView: React.FC<VirtualToursViewProps> = ({
           </div>
 
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-            <div className="space-y-3 max-w-2xl">
+            <ScrollReveal animation="fade-up" className="space-y-3 max-w-2xl">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-black">
                 <Video className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
                 <span>On-Site 4K Inspection Walkthroughs</span>
@@ -117,9 +119,9 @@ export const VirtualToursView: React.FC<VirtualToursViewProps> = ({
                 Watch continuous, uncut 4K video walkthroughs recorded on-site by the HostelEase physical inspection team.
                 Inspect the compounds, water, electricity meters, rooms, and bathrooms around LAUTECH before booking!
               </p>
-            </div>
+            </ScrollReveal>
 
-            <div className="flex items-center gap-3 self-start md:self-auto">
+            <ScrollReveal animation="fade-in" baseDelayMs={100} className="flex items-center gap-3 self-start md:self-auto">
               <div className="px-4 py-2.5 rounded-2xl bg-slate-900/90 border border-slate-800 text-right">
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
                   Available Tours
@@ -128,11 +130,11 @@ export const VirtualToursView: React.FC<VirtualToursViewProps> = ({
                   {videoProperties.length} Verified
                 </span>
               </div>
-            </div>
+            </ScrollReveal>
           </div>
 
           {/* Search & Area Filter Bar */}
-          <div className="mt-8 space-y-4">
+          <ScrollReveal animation="fade-in" baseDelayMs={120} className="mt-8 space-y-4">
             <div className="flex flex-col sm:flex-row gap-3">
               {/* Search input */}
               <div className="relative flex-1">
@@ -157,7 +159,7 @@ export const VirtualToursView: React.FC<VirtualToursViewProps> = ({
               {/* Sort Selector */}
               <div className="relative w-full sm:w-48 shrink-0">
                 <div className="relative">
-                  <ArrowUpDown className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <ArrowUpDown className="w-3.5 h-3.5 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                   <select
                     value={sortBy}
                     onChange={(e) => setSortBy(e.target.value as any)}
@@ -203,7 +205,7 @@ export const VirtualToursView: React.FC<VirtualToursViewProps> = ({
                 );
               })}
             </div>
-          </div>
+          </ScrollReveal>
         </div>
       </div>
 
@@ -217,105 +219,111 @@ export const VirtualToursView: React.FC<VirtualToursViewProps> = ({
               const thumbUrl = rawThumb ? getMediaUrl(rawThumb) : undefined;
 
               return (
-                <div
+                <ScrollReveal
                   key={`virtual-tour-card-${property.id}`}
-                  onClick={() => onOpenVideoTour(property)}
-                  className="group relative bg-slate-900 rounded-3xl overflow-hidden shadow-lg border border-slate-800 hover:border-emerald-500/50 hover:shadow-2xl transition-all duration-300 cursor-pointer flex flex-col hover:-translate-y-1.5"
+                  animation="fade-up"
+                  staggerIndex={index % 6}
+                  staggerIntervalMs={75}
                 >
-                  {/* Video Thumbnail with Hover Zoom */}
-                  <div className="relative aspect-video overflow-hidden bg-slate-950">
-                    {thumbUrl ? (
-                      <img
-                        src={thumbUrl}
-                        alt={property.title}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out brightness-90 group-hover:brightness-100"
-                        loading="lazy"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center bg-slate-950 text-slate-700">
-                        <Video className="w-12 h-12" />
-                      </div>
-                    )}
+                  <div
+                    onClick={() => onOpenVideoTour(property)}
+                    className="group relative bg-slate-900 rounded-3xl overflow-hidden shadow-lg border border-slate-800 hover:border-emerald-500/50 hover:shadow-2xl transition-all duration-300 cursor-pointer flex flex-col hover:-translate-y-1.5"
+                  >
+                    {/* Video Thumbnail with Hover Zoom */}
+                    <div className="relative aspect-video overflow-hidden bg-slate-950">
+                      {thumbUrl ? (
+                        <img
+                          src={thumbUrl}
+                          alt={property.title}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out brightness-90 group-hover:brightness-100"
+                          loading="lazy"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center bg-slate-950 text-slate-700">
+                          <Video className="w-12 h-12" />
+                        </div>
+                      )}
 
-                    <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-transparent" />
+                      <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-transparent" />
 
-                    {/* Center Glowing Play Button */}
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="relative">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-40"></span>
-                        <div className="w-14 h-14 rounded-full bg-emerald-600/90 group-hover:bg-emerald-500 text-white flex items-center justify-center shadow-xl backdrop-blur-sm transition-transform group-hover:scale-110">
-                          <Play className="w-6 h-6 fill-current ml-0.5" />
+                      {/* Center Glowing Play Button */}
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="relative">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-40"></span>
+                          <div className="w-14 h-14 rounded-full bg-emerald-600/90 group-hover:bg-emerald-500 text-white flex items-center justify-center shadow-xl backdrop-blur-sm transition-transform group-hover:scale-110">
+                            <Play className="w-6 h-6 fill-current ml-0.5" />
+                          </div>
                         </div>
                       </div>
+
+                      {/* Top Badges */}
+                      <div className="absolute top-3 left-3 flex items-center gap-1.5">
+                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-600/90 text-white shadow flex items-center gap-1">
+                          <ShieldCheck className="w-3 h-3" />
+                          4K Verified Tour
+                        </span>
+                      </div>
+
+                      <div className="absolute top-3 right-3">
+                        <span className="px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-slate-950/80 text-white backdrop-blur shadow">
+                          {durationText} min
+                        </span>
+                      </div>
+
+                      {/* Bottom Metadata inside thumbnail */}
+                      <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between text-white">
+                        <span className="text-[11px] font-bold truncate flex items-center gap-1">
+                          <MapPin className="w-3 h-3 text-emerald-400 shrink-0" />
+                          <span className="truncate">{property.area?.name || (property as any).areaName || 'LAUTECH Area'}</span>
+                        </span>
+                        <span className="text-xs font-black text-emerald-400 shrink-0">
+                          {formatNaira(property.priceSummary?.rentAmount)}/yr
+                        </span>
+                      </div>
                     </div>
 
-                    {/* Top Badges */}
-                    <div className="absolute top-3 left-3 flex items-center gap-1.5">
-                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-600/90 text-white shadow flex items-center gap-1">
-                        <ShieldCheck className="w-3 h-3" />
-                        4K Verified Tour
-                      </span>
-                    </div>
+                    {/* Card Content & Details */}
+                    <div className="p-4 bg-slate-900 flex-1 flex flex-col justify-between gap-3 border-t border-slate-800">
+                      <div>
+                        <h3 className="font-bold text-sm text-white truncate group-hover:text-emerald-400 transition-colors">
+                          {property.title}
+                        </h3>
+                        <p className="text-[11px] text-slate-400 truncate flex items-center gap-1 mt-1">
+                          <Clock className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                          <span>{calculateHostelTravelTime(property.distanceFromCampusKm).primaryText}</span>
+                        </p>
+                      </div>
 
-                    <div className="absolute top-3 right-3">
-                      <span className="px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-slate-950/80 text-white backdrop-blur shadow">
-                        {durationText} min
-                      </span>
-                    </div>
+                      {/* Card Actions */}
+                      <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-800/80">
+                        {onViewDetails && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onViewDetails(property);
+                            }}
+                            className="text-[11px] font-bold text-slate-400 hover:text-slate-200 transition-colors cursor-pointer"
+                          >
+                            View Details
+                          </button>
+                        )}
 
-                    {/* Bottom Metadata inside thumbnail */}
-                    <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between text-white">
-                      <span className="text-[11px] font-bold truncate flex items-center gap-1">
-                        <MapPin className="w-3 h-3 text-emerald-400 shrink-0" />
-                        <span className="truncate">{property.area?.name || (property as any).areaName || 'LAUTECH Area'}</span>
-                      </span>
-                      <span className="text-xs font-black text-emerald-400 shrink-0">
-                        {formatNaira(property.priceSummary?.rentAmount)}/yr
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Card Content & Details */}
-                  <div className="p-4 bg-slate-900 flex-1 flex flex-col justify-between gap-3 border-t border-slate-800">
-                    <div>
-                      <h3 className="font-bold text-sm text-white truncate group-hover:text-emerald-400 transition-colors">
-                        {property.title}
-                      </h3>
-                      <p className="text-[11px] text-slate-400 truncate flex items-center gap-1 mt-1">
-                        <Footprints className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                        <span>{property.nearbyLandmark || `${property.distanceFromCampusKm || 0.8}km to campus gate`}</span>
-                      </p>
-                    </div>
-
-                    {/* Card Actions */}
-                    <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-800/80">
-                      {onViewDetails && (
                         <button
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
-                            onViewDetails(property);
+                            onOpenVideoTour(property);
                           }}
-                          className="text-[11px] font-bold text-slate-400 hover:text-slate-200 transition-colors cursor-pointer"
+                          className="px-3.5 py-1.5 bg-emerald-600/90 group-hover:bg-emerald-600 text-white text-xs font-extrabold rounded-xl transition-all shadow-sm flex items-center gap-1.5 ml-auto cursor-pointer"
                         >
-                          View Details
+                          <Play className="w-3.5 h-3.5 fill-current" />
+                          <span>Play 4K</span>
                         </button>
-                      )}
-
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onOpenVideoTour(property);
-                        }}
-                        className="px-3.5 py-1.5 bg-emerald-600/90 group-hover:bg-emerald-600 text-white text-xs font-extrabold rounded-xl transition-all shadow-sm flex items-center gap-1.5 ml-auto cursor-pointer"
-                      >
-                        <Play className="w-3.5 h-3.5 fill-current" />
-                        <span>Play 4K</span>
-                      </button>
+                      </div>
                     </div>
                   </div>
-                </div>
+                </ScrollReveal>
               );
             })}
           </div>

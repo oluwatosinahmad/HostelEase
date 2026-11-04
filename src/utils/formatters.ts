@@ -1,3 +1,10 @@
+export { 
+  calculateHostelTravelTime, 
+  formatTravelTime, 
+  formatTravelClarification, 
+  type HostelTravelEstimate 
+} from './distance';
+
 export function formatNaira(amount: number | string | null | undefined): string {
   if (amount === null || amount === undefined || amount === '') {
     return '₦0';
@@ -15,9 +22,9 @@ export function formatDistance(distanceKm: number | string | null | undefined): 
   const num = typeof distanceKm === 'number' ? distanceKm : Number(distanceKm);
   if (isNaN(num)) return '';
   if (num < 1) {
-    return `${Math.round(num * 1000)}m from LAUTECH Gate`;
+    return `${Math.round(num * 1000)}m to LAUTECH`;
   }
-  return `${num.toFixed(1)} km from LAUTECH`;
+  return `${num.toFixed(1)} km to LAUTECH`;
 }
 
 export function getAvailabilityBadgeInfo(status: string) {

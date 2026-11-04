@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { 
   Building2, 
+  GraduationCap,
+  ShieldCheck,
   Mail, 
   Lock, 
   User as UserIcon, 
@@ -376,7 +378,8 @@ export const AuthPageView: React.FC<AuthPageViewProps> = ({
                   role === 'STUDENT' ? 'bg-emerald-600 text-white shadow' : 'text-slate-300 hover:text-white'
                 }`}
               >
-                👨‍🎓 Student
+                <GraduationCap className="w-4 h-4" />
+                <span>Student</span>
               </button>
               <button
                 type="button"
@@ -385,7 +388,8 @@ export const AuthPageView: React.FC<AuthPageViewProps> = ({
                   role === 'PROVIDER' ? 'bg-emerald-600 text-white shadow' : 'text-slate-300 hover:text-white'
                 }`}
               >
-                🏢 Agent
+                <Building2 className="w-4 h-4" />
+                <span>Agent</span>
               </button>
               <button
                 type="button"
@@ -394,7 +398,8 @@ export const AuthPageView: React.FC<AuthPageViewProps> = ({
                   role === 'ADMIN' ? 'bg-purple-600 text-white shadow' : 'text-slate-300 hover:text-white'
                 }`}
               >
-                👑 Admin
+                <ShieldCheck className="w-4 h-4" />
+                <span>Admin</span>
               </button>
             </div>
           )}
@@ -474,8 +479,23 @@ export const AuthPageView: React.FC<AuthPageViewProps> = ({
               {mode === 'login' && (
                 <div className="space-y-4">
                   <div className="border-b border-slate-100 dark:border-slate-800 pb-2">
-                    <h3 className="text-base font-black text-slate-900 dark:text-white">
-                      {role === 'ADMIN' ? '👑 Admin Login' : role === 'PROVIDER' ? '🏢 Agent Login' : '👨‍🎓 Student Login'}
+                    <h3 className="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
+                      {role === 'ADMIN' ? (
+                        <>
+                          <ShieldCheck className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                          <span>Admin Login</span>
+                        </>
+                      ) : role === 'PROVIDER' ? (
+                        <>
+                          <Building2 className="w-5 h-5 text-[#FD8003]" />
+                          <span>Agent Login</span>
+                        </>
+                      ) : (
+                        <>
+                          <GraduationCap className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                          <span>Student Login</span>
+                        </>
+                      )}
                     </h3>
                     <p className="text-xs text-slate-500 dark:text-slate-400">
                       Sign in to your existing account. Cross-device access enabled.
@@ -577,8 +597,18 @@ export const AuthPageView: React.FC<AuthPageViewProps> = ({
               {mode === 'signup' && (
                 <div className="space-y-4">
                   <div className="border-b border-slate-100 dark:border-slate-800 pb-2">
-                    <h3 className="text-base font-black text-slate-900 dark:text-white">
-                      {role === 'PROVIDER' ? '🏢 Create Agent Account' : '👨‍🎓 Create Student Account'}
+                    <h3 className="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
+                      {role === 'PROVIDER' ? (
+                        <>
+                          <Building2 className="w-5 h-5 text-[#FD8003]" />
+                          <span>Create Agent Account</span>
+                        </>
+                      ) : (
+                        <>
+                          <GraduationCap className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                          <span>Create Student Account</span>
+                        </>
+                      )}
                     </h3>
                     <p className="text-xs text-slate-500 dark:text-slate-400">
                       Join Hostel Ease. Instant registration with direct access to your dashboard.

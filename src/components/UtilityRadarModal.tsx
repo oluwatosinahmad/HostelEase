@@ -18,7 +18,8 @@ import {
   Flame,
   BatteryCharging,
   Flag,
-  Building
+  Building,
+  MapPin
 } from 'lucide-react';
 import { getAuthToken } from '../services/api';
 
@@ -366,13 +367,14 @@ export const UtilityRadarModal: React.FC<UtilityRadarModalProps> = ({
               <button
                 key={a.areaId}
                 onClick={() => setSelectedAreaId(a.areaId)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer flex items-center gap-1.5 ${
                   selectedAreaId === a.areaId
                     ? 'bg-amber-600 text-white shadow-sm'
                     : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
                 }`}
               >
-                📍 {a.areaName.split(' ')[0]}
+                <MapPin className="w-3 h-3 text-[#FD8003] shrink-0" />
+                <span>{a.areaName.split(' ')[0]}</span>
               </button>
             ))}
           </div>
@@ -396,8 +398,9 @@ export const UtilityRadarModal: React.FC<UtilityRadarModalProps> = ({
                       <h4 className="font-black text-base text-slate-900 dark:text-white">
                         {area.areaName}
                       </h4>
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                        📍 {area.landmark || 'LAUTECH Axis'}
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 flex items-center gap-1">
+                        <MapPin className="w-3 h-3 text-[#FD8003] shrink-0" />
+                        <span>{area.landmark || 'LAUTECH Axis'}</span>
                       </p>
                     </div>
 
@@ -549,8 +552,9 @@ export const UtilityRadarModal: React.FC<UtilityRadarModalProps> = ({
                       </div>
                     )}
                     {submittedReportData.isOutage && submittedReportData.propertyTitle && (
-                      <div className="p-2 rounded-lg bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 text-[11px] text-rose-800 dark:text-rose-200 font-bold">
-                        ⚡ Agent Alert Sent: The assigned Agent for <strong>{submittedReportData.propertyTitle}</strong> has been notified of this outage.
+                      <div className="p-2 rounded-lg bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 text-[11px] text-rose-800 dark:text-rose-200 font-bold flex items-center gap-1.5">
+                        <Zap className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                        <span>Agent Alert Sent: The assigned Agent for <strong>{submittedReportData.propertyTitle}</strong> has been notified of this outage.</span>
                       </div>
                     )}
                   </div>
@@ -586,8 +590,9 @@ export const UtilityRadarModal: React.FC<UtilityRadarModalProps> = ({
                       <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                         Area:
                       </label>
-                      <div className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-xs font-bold text-slate-800 dark:text-slate-200">
-                        📍 {areasData.find(a => a.areaId === reportingAreaId)?.areaName}
+                      <div className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                        <MapPin className="w-3 h-3 text-[#FD8003] shrink-0" />
+                        <span>{areasData.find(a => a.areaId === reportingAreaId)?.areaName}</span>
                       </div>
                     </div>
 
