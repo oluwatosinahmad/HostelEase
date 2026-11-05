@@ -1160,13 +1160,28 @@ function MainApp() {
                         </h3>
                         <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium flex items-center gap-1 mt-0.5">
                           <Route className="w-3 h-3 text-slate-400 shrink-0" />
-                          <span>{area.approxDistanceMinKm}-{area.approxDistanceMaxKm} km to LAUTECH</span>
+                          <span>
+                            {(() => {
+                              const min = area.approxDistanceMinKm ?? area.approx_distance_min_km;
+                              const max = area.approxDistanceMaxKm ?? area.approx_distance_max_km;
+                              if (min != null && max != null) {
+                                return min === max ? `${min} km to LAUTECH` : `${min}–${max} km to LAUTECH`;
+                              }
+                              if (min != null) return `${min} km to LAUTECH`;
+                              return 'Campus vicinity';
+                            })()}
+                          </span>
                         </p>
                       </div>
                       <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[10px]">
                         <span className="font-bold text-emerald-800 dark:text-emerald-400 flex items-center gap-1">
                           <Building2 className="w-3 h-3 shrink-0 text-emerald-600 dark:text-emerald-400" />
-                          <span>{area.propertyCount || 0} Hostels</span>
+                          <span>
+                            {(() => {
+                              const count = area.propertyCount ?? area.property_count ?? 0;
+                              return `${count} ${count === 1 ? 'Hostel' : 'Hostels'}`;
+                            })()}
+                          </span>
                         </span>
                         <ArrowRight className="w-3 h-3 text-slate-400 group-hover:text-emerald-600 transition-transform group-hover:translate-x-0.5" />
                       </div>

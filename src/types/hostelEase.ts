@@ -96,17 +96,23 @@ export interface Bedspace {
 export interface Area {
   id: string;
   universityId: string;
+  university_id?: string;
   name: string;
   slug: string;
   description?: string;
   landmark?: string;
   approxDistanceMinKm: number;
   approxDistanceMaxKm: number;
+  approx_distance_min_km?: number;
+  approx_distance_max_km?: number;
   centerLat?: number;
   centerLng?: number;
   propertyCount?: number;
+  property_count?: number;
   minRent?: number;
   maxRent?: number;
+  min_rent?: number;
+  max_rent?: number;
 }
 
 export interface Amenity {

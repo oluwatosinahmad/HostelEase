@@ -2188,19 +2188,66 @@ export const api = {
         } catch {}
       }
 
+      let rawAreas: any[] = [];
       try {
         const res = await fetch(`${API_BASE}/areas`);
         if (res.ok) {
           const data = await res.json();
           if (Array.isArray(data.areas) && data.areas.length > 0) {
-            return { areas: data.areas };
+            rawAreas = data.areas;
           }
         }
       } catch (err) {
         console.warn('Backend /api/areas unreachable, using verified LAUTECH area fallback catalog.');
       }
 
-      return { areas: DEFAULT_AREAS };
+      if (rawAreas.length === 0) {
+        rawAreas = DEFAULT_AREAS;
+      }
+
+      // Robust normalization of areas: guarantee camelCase, snake_case, accurate distances, and real property counts
+      const normalizedAreas: Area[] = rawAreas.map((a: any) => {
+        const def = DEFAULT_AREAS.find(d => d.id === a.id || d.name?.toLowerCase() === a.name?.toLowerCase() || d.slug === a.slug);
+
+        const rawMin = a.approxDistanceMinKm != null ? a.approxDistanceMinKm : (a.approx_distance_min_km != null ? a.approx_distance_min_km : def?.approxDistanceMinKm);
+        const rawMax = a.approxDistanceMaxKm != null ? a.approxDistanceMaxKm : (a.approx_distance_max_km != null ? a.approx_distance_max_km : def?.approxDistanceMaxKm);
+
+        const minKm = rawMin != null ? Number(Number(rawMin).toFixed(1)) : 0.5;
+        const maxKm = rawMax != null ? Number(Number(rawMax).toFixed(1)) : minKm;
+
+        const count = (a.propertyCount != null && a.propertyCount > 0)
+          ? Number(a.propertyCount)
+          : ((a.property_count != null && a.property_count > 0)
+            ? Number(a.property_count)
+            : (def?.propertyCount || 0));
+
+        const minRent = a.minRent ?? a.min_rent ?? def?.minRent;
+        const maxRent = a.maxRent ?? a.max_rent ?? def?.maxRent;
+
+        return {
+          id: a.id || def?.id || `area-${a.name?.toLowerCase().replace(/\s+/g, '-')}`,
+          universityId: a.universityId || a.university_id || def?.universityId || 'uni-lautech-ogbomoso',
+          university_id: a.university_id || a.universityId || def?.universityId || 'uni-lautech-ogbomoso',
+          name: a.name || def?.name || 'Area',
+          slug: a.slug || def?.slug || (a.name || '').toLowerCase().replace(/\s+/g, '-'),
+          description: a.description || def?.description || '',
+          landmark: a.landmark || def?.landmark || '',
+          approxDistanceMinKm: minKm,
+          approxDistanceMaxKm: maxKm,
+          approx_distance_min_km: minKm,
+          approx_distance_max_km: maxKm,
+          centerLat: a.centerLat ?? a.center_lat ?? def?.centerLat,
+          centerLng: a.centerLng ?? a.center_lng ?? def?.centerLng,
+          propertyCount: count,
+          property_count: count,
+          minRent,
+          min_rent: minRent,
+          maxRent,
+          max_rent: maxRent
+        };
+      }).sort((a, b) => a.approxDistanceMinKm - b.approxDistanceMinKm);
+
+      return { areas: normalizedAreas };
     },
 
     async create(areaData: { name: string; slug?: string; description?: string; landmark?: string; approxDistanceMinKm?: number; approxDistanceMaxKm?: number }): Promise<{ message: string; areaId: string }> {

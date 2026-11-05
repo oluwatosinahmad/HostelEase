@@ -202,10 +202,10 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
             >
               <MapPin className="w-3 h-3 text-[#FD8003] shrink-0" />
               <span>{area.name}</span>
-              {area.approxDistanceMinKm && (
+              {(area.approxDistanceMinKm != null || area.approx_distance_min_km != null) && (
                 <span className="text-[10px] text-emerald-400 font-bold flex items-center gap-0.5">
                   <Route className="w-2.5 h-2.5 text-emerald-400/80 inline shrink-0" />
-                  {area.approxDistanceMinKm}km
+                  {area.approxDistanceMinKm ?? area.approx_distance_min_km}km
                 </span>
               )}
             </button>

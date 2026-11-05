@@ -147,7 +147,47 @@ function exportData() {
     };
   }) : [];
 
-  const areas = tables.includes('areas') ? db.prepare('SELECT * FROM areas').all() : [];
+  const areas = tables.includes('areas') ? db.prepare(`
+    SELECT a.*, 
+           COUNT(p.id) as property_count,
+           MIN(pr.rent_amount) as min_rent,
+           MAX(pr.rent_amount) as max_rent
+    FROM areas a
+    LEFT JOIN properties p ON a.id = p.area_id AND p.verification_status = 'APPROVED'
+    LEFT JOIN prices pr ON p.id = pr.property_id
+    WHERE a.is_active = 1
+    GROUP BY a.id
+    ORDER BY a.approx_distance_min_km ASC
+  `).all().map((a: any) => {
+    const minKm = a.approx_distance_min_km != null ? Number(Number(a.approx_distance_min_km).toFixed(1)) : 0;
+    const maxKm = a.approx_distance_max_km != null ? Number(Number(a.approx_distance_max_km).toFixed(1)) : 0;
+    const count = Number(a.property_count) || 0;
+    return {
+      id: a.id,
+      university_id: a.university_id,
+      universityId: a.university_id,
+      name: a.name,
+      slug: a.slug,
+      description: a.description,
+      landmark: a.landmark,
+      approx_distance_min_km: minKm,
+      approx_distance_max_km: maxKm,
+      approxDistanceMinKm: minKm,
+      approxDistanceMaxKm: maxKm,
+      center_lat: a.center_lat,
+      center_lng: a.center_lng,
+      centerLat: a.center_lat,
+      centerLng: a.center_lng,
+      property_count: count,
+      propertyCount: count,
+      min_rent: a.min_rent,
+      minRent: a.min_rent,
+      max_rent: a.max_rent,
+      maxRent: a.max_rent,
+      is_active: a.is_active,
+      created_at: a.created_at
+    };
+  }) : [];
   const bookings = tables.includes('bookings') ? db.prepare('SELECT * FROM bookings').all() : [];
   const fourKVideos = tables.includes('four_k_videos') ? db.prepare(`
     SELECT v.*, p.title as propertyTitle, p.address as propertyAddress, p.cover_image as propertyCover,

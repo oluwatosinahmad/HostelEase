@@ -814,7 +814,50 @@ export default {
     }
 
     if (pathname === '/api/areas' && request.method === 'GET') {
-      return jsonResponse({ areas: edgeAreas });
+      const approvedProperties = edgeProperties.filter(p => {
+        const status = p.verificationStatus || p.verification_status;
+        return status === 'APPROVED';
+      });
+
+      const enrichedAreas = edgeAreas.map(a => {
+        const areaProps = approvedProperties.filter(p => 
+          p.area_id === a.id || 
+          p.area?.id === a.id || 
+          (p.area?.slug && a.slug && p.area.slug.toLowerCase() === a.slug.toLowerCase()) ||
+          (p.area?.name && a.name && p.area.name.toLowerCase() === a.name.toLowerCase())
+        );
+
+        const minKm = a.approxDistanceMinKm != null 
+          ? Number(Number(a.approxDistanceMinKm).toFixed(1))
+          : (a.approx_distance_min_km != null ? Number(Number(a.approx_distance_min_km).toFixed(1)) : 0);
+
+        const maxKm = a.approxDistanceMaxKm != null 
+          ? Number(Number(a.approxDistanceMaxKm).toFixed(1))
+          : (a.approx_distance_max_km != null ? Number(Number(a.approx_distance_max_km).toFixed(1)) : minKm);
+
+        const rents = areaProps.map(p => Number(p.priceSummary?.rentAmount || p.rent_amount || p.rentAmount || 0)).filter(r => r > 0);
+        const minRent = rents.length > 0 ? Math.min(...rents) : (a.minRent || a.min_rent || 0);
+        const maxRent = rents.length > 0 ? Math.max(...rents) : (a.maxRent || a.max_rent || 0);
+        const count = areaProps.length > 0 ? areaProps.length : (a.propertyCount ?? a.property_count ?? 0);
+
+        return {
+          ...a,
+          universityId: a.universityId || a.university_id || 'uni-lautech-ogbomoso',
+          university_id: a.university_id || a.universityId || 'uni-lautech-ogbomoso',
+          approxDistanceMinKm: minKm,
+          approxDistanceMaxKm: maxKm,
+          approx_distance_min_km: minKm,
+          approx_distance_max_km: maxKm,
+          propertyCount: count,
+          property_count: count,
+          minRent,
+          min_rent: minRent,
+          maxRent,
+          max_rent: maxRent
+        };
+      }).sort((a, b) => a.approxDistanceMinKm - b.approxDistanceMinKm);
+
+      return jsonResponse({ areas: enrichedAreas });
     }
 
     // 9. BOOKINGS & INSPECTIONS

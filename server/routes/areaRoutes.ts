@@ -21,21 +21,32 @@ router.get('/', (req, res: Response) => {
     `).all();
 
     return res.json({
-      areas: areas.map((a: any) => ({
-        id: a.id,
-        universityId: a.university_id,
-        name: a.name,
-        slug: a.slug,
-        description: a.description,
-        landmark: a.landmark,
-        approxDistanceMinKm: a.approx_distance_min_km,
-        approxDistanceMaxKm: a.approx_distance_max_km,
-        centerLat: a.center_lat,
-        centerLng: a.center_lng,
-        propertyCount: a.property_count || 0,
-        minRent: a.min_rent,
-        maxRent: a.max_rent
-      }))
+      areas: areas.map((a: any) => {
+        const minKm = a.approx_distance_min_km != null ? Number(Number(a.approx_distance_min_km).toFixed(1)) : 0;
+        const maxKm = a.approx_distance_max_km != null ? Number(Number(a.approx_distance_max_km).toFixed(1)) : minKm;
+        const count = a.property_count || 0;
+        return {
+          id: a.id,
+          universityId: a.university_id,
+          university_id: a.university_id,
+          name: a.name,
+          slug: a.slug,
+          description: a.description,
+          landmark: a.landmark,
+          approxDistanceMinKm: minKm,
+          approxDistanceMaxKm: maxKm,
+          approx_distance_min_km: minKm,
+          approx_distance_max_km: maxKm,
+          centerLat: a.center_lat,
+          centerLng: a.center_lng,
+          propertyCount: count,
+          property_count: count,
+          minRent: a.min_rent,
+          min_rent: a.min_rent,
+          maxRent: a.max_rent,
+          max_rent: a.max_rent
+        };
+      })
     });
   } catch (err) {
     console.error('Fetch areas error:', err);
