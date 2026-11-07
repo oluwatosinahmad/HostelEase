@@ -1162,8 +1162,10 @@ function MainApp() {
                           <Route className="w-3 h-3 text-slate-400 shrink-0" />
                           <span>
                             {(() => {
-                              const min = area.approxDistanceMinKm ?? area.approx_distance_min_km;
-                              const max = area.approxDistanceMaxKm ?? area.approx_distance_max_km;
+                              const rawMin = area.approxDistanceMinKm ?? area.approx_distance_min_km;
+                              const rawMax = area.approxDistanceMaxKm ?? area.approx_distance_max_km;
+                              const min = rawMin != null ? Number(Number(rawMin).toFixed(1)) : undefined;
+                              const max = rawMax != null ? Number(Number(rawMax).toFixed(1)) : undefined;
                               if (min != null && max != null) {
                                 return min === max ? `${min} km to LAUTECH` : `${min}–${max} km to LAUTECH`;
                               }

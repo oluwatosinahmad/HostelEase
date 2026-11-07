@@ -231,7 +231,7 @@ export const HostelSearchFilters: React.FC<HostelSearchFiltersProps> = ({
           <option value="all">All Areas around LAUTECH</option>
           {areas.map(a => (
             <option key={a.id} value={a.id}>
-              {a.name} ({a.approxDistanceMinKm ?? a.approx_distance_min_km ?? 0.5}-{a.approxDistanceMaxKm ?? a.approx_distance_max_km ?? 2.0} km)
+              {a.name} ({Number(Number(a.approxDistanceMinKm ?? a.approx_distance_min_km ?? 0.5).toFixed(1))}-{Number(Number(a.approxDistanceMaxKm ?? a.approx_distance_max_km ?? 2.0).toFixed(1))} km)
             </option>
           ))}
         </select>
