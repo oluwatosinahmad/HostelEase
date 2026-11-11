@@ -137,7 +137,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
       }
 
-      const res = await api.auth.login({ username: usernameOrEmail, email: usernameOrEmail, password, role });
+      const isExplicitAdmin = cleanEmail === 'admin' || role === 'ADMIN';
+      const normalizedIdentifier = cleanEmail === 'admin' ? 'admin@hostelease.ng' : usernameOrEmail;
+      const res = await api.auth.login({
+        username: isExplicitAdmin && cleanEmail === 'admin' ? 'admin' : usernameOrEmail,
+        email: normalizedIdentifier,
+        password,
+        role: role || (isExplicitAdmin ? 'ADMIN' : undefined),
+        requestedRole: role || (isExplicitAdmin ? 'ADMIN' : undefined)
+      });
       safeStorage.setItem('hostel_ease_token', res.token, true);
       safeStorage.setJSON('hostel_ease_user', res.user, true);
       setActiveAuthToken(res.token);

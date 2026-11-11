@@ -1653,20 +1653,27 @@ function handleClientSideFallbackLogin(payload: { email?: string; username?: str
   }
 
   // Strict Single Admin Account Validation
-  if (requested === 'ADMIN' || rawIdentifier === 'admin' || rawIdentifier === 'admin@hostelease.ng') {
-    if (rawIdentifier !== 'admin' && rawIdentifier !== 'admin@hostelease.ng') {
+  const validAdminEmails = new Set([
+    'admin',
+    'admin@hostelease.ng',
+    'master.admin@hostelease.ng',
+    'hostelease.admin@gmail.com',
+    'oluwatosinahmad@gmail.com'
+  ]);
+  if (requested === 'ADMIN' || validAdminEmails.has(rawIdentifier)) {
+    if (!validAdminEmails.has(rawIdentifier)) {
       const err: any = new Error('Invalid administrator credentials.');
       err.code = 'UNAUTHORIZED_ADMIN_ACCESS';
       err.status = 403;
       throw err;
     }
     const adminUser = {
-      id: 'usr-admin-master',
+      id: rawIdentifier.includes('gmail') ? 'user-admin-gmail-1' : 'user-admin-1',
       username: 'admin',
-      fullName: 'Platform Administrator',
-      email: 'admin@hostelease.ng',
+      fullName: 'Oluwatosin Ahmad',
+      email: rawIdentifier === 'admin' ? 'admin@hostelease.ng' : rawIdentifier,
       role: 'ADMIN',
-      phone: '08000000000',
+      phone: '+2348004678353',
       isActive: 1,
       accountStatus: 'ACTIVE'
     };
@@ -2042,6 +2049,14 @@ export const api = {
             password: emailOrData.password,
             requestedRole: emailOrData.requestedRole || emailOrData.role || selectedRole
           };
+
+      const rawId = (payload.username || payload.email || '').trim().toLowerCase();
+      // Normalize 'admin' username to primary admin email for backend compatibility
+      if (rawId === 'admin') {
+        payload.username = 'admin';
+        payload.email = 'admin@hostelease.ng';
+        if (!payload.requestedRole) payload.requestedRole = 'ADMIN';
+      }
 
       const identifier = payload.username || payload.email || 'user';
       console.log(`[LOGIN_START] Initiating authentication for: ${identifier} (requested role: ${payload.requestedRole || 'default'})`);
