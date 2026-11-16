@@ -88,6 +88,36 @@ import { safeStorage } from '../utils/safeStorage';
 
 const RAW_API_URL = (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_API_URL || '').replace(/\/+$/, '');
 export const API_BASE = RAW_API_URL ? `${RAW_API_URL}/api` : '/api';
+export const DIRECT_CLOUD_API = 'https://hostelease.oluwatosinahmad.workers.dev/api';
+
+/**
+ * Intelligent fetch wrapper with automatic failover to the direct Cloudflare Edge API.
+ * If the primary relative endpoint (Netlify reverse proxy) fails due to connection reset,
+ * network error, or 502/504 gateway timeout, it seamlessly queries the direct Cloudflare Worker.
+ */
+export async function fetchWithCloudFailover(endpointPath: string, options: RequestInit = {}): Promise<Response> {
+  const cleanPath = endpointPath.startsWith('/') ? endpointPath : `/${endpointPath}`;
+  const primaryUrl = `${API_BASE}${cleanPath}`;
+  
+  try {
+    const res = await fetch(primaryUrl, options);
+    // If Netlify proxy returns 502, 503, 504 or an unexpected HTML error page on an API route
+    if (res.status === 502 || res.status === 503 || res.status === 504 || (res.status === 404 && typeof window !== 'undefined' && window.location.hostname.includes('netlify.app'))) {
+      if (typeof window !== 'undefined') {
+        console.warn(`[API Failover] Primary endpoint ${primaryUrl} returned HTTP ${res.status}. Failing over directly to Cloudflare Edge API.`);
+        return await fetch(`${DIRECT_CLOUD_API}${cleanPath}`, options);
+      }
+    }
+    return res;
+  } catch (err: any) {
+    // If network error (Failed to fetch, NetworkError, ECONNRESET, timeout)
+    if (typeof window !== 'undefined') {
+      console.warn(`[API Failover] Primary endpoint ${primaryUrl} failed (${err.message}). Failing over directly to Cloudflare Edge API.`);
+      return await fetch(`${DIRECT_CLOUD_API}${cleanPath}`, options);
+    }
+    throw err;
+  }
+}
 
 export function getMediaUrl(url?: string | null): string {
   if (!url) return '';
@@ -1930,7 +1960,7 @@ export const api = {
   auth: {
     async register(data: any): Promise<{ message: string; token: string; user: any; welcomeNotification?: any }> {
       try {
-        const res = await fetch(`${API_BASE}/auth/register`, {
+        const res = await fetchWithCloudFailover('/auth/register', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(data)
@@ -1961,8 +1991,7 @@ export const api = {
           throw err;
         }
 
-        if (err.message && (err.message.includes('Failed to fetch') || err.message.includes('NetworkError') || err.message.includes('fetch') || err.message.includes('404') || err.message.includes('Unexpected token'))) {
-          // If offline/network error, still do not fabricate or bypass email uniqueness
+        if (err.message && (err.message.includes('Failed to fetch') || err.message.includes('NetworkError') || err.message.includes('network') || err.message.includes('ECONNRESET'))) {
           throw new Error('Unable to connect to the authentication server. Please check your internet connection.');
         }
 
@@ -1971,7 +2000,7 @@ export const api = {
     },
 
     async verifyEmail(data: { email: string; code: string }): Promise<{ success: boolean; message: string; token?: string; user?: any }> {
-      const res = await fetch(`${API_BASE}/auth/verify-email`, {
+      const res = await fetchWithCloudFailover('/auth/verify-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data)
@@ -1992,7 +2021,7 @@ export const api = {
     },
 
     async resendVerification(data: { email: string }): Promise<{ success: boolean; message: string }> {
-      const res = await fetch(`${API_BASE}/auth/resend-verification`, {
+      const res = await fetchWithCloudFailover('/auth/resend-verification', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data)
@@ -2009,7 +2038,7 @@ export const api = {
     },
 
     async forgotPassword(data: { email: string }): Promise<{ success: boolean; message: string; email?: string }> {
-      const res = await fetch(`${API_BASE}/auth/forgot-password`, {
+      const res = await fetchWithCloudFailover('/auth/forgot-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data)
@@ -2025,7 +2054,7 @@ export const api = {
     },
 
     async resetPassword(data: { email: string; code?: string; token?: string; newPassword: string }): Promise<{ success: boolean; message: string }> {
-      const res = await fetch(`${API_BASE}/auth/reset-password`, {
+      const res = await fetchWithCloudFailover('/auth/reset-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data)
@@ -2063,7 +2092,7 @@ export const api = {
       console.log(`[AUTH_REQUEST_SENT] POST ${API_BASE}/auth/login (identifier: ${identifier})`);
 
       try {
-        const res = await fetch(`${API_BASE}/auth/login`, {
+        const res = await fetchWithCloudFailover('/auth/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)

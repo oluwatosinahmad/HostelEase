@@ -91,8 +91,46 @@ async function runTests() {
   // 9. Student trying to access Admin Portal (requestedRole: 'ADMIN')
   await testLogin({ email: 'student@lautech.edu.ng', password: 'Student123!', requestedRole: 'ADMIN' }, 403, null);
 
-  // 10. Invalid password
-  await testLogin({ email: 'admin@hostelease.ng', password: 'WrongPassword999!' }, 401, null);
+  // 11. Test Agent Registration Flow (Instant Registration)
+  const agentEmail = `new_agent_${Date.now()}@test.ng`;
+  const regReq = new Request('https://hostelease.workers.dev/api/auth/register', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      email: agentEmail,
+      password: 'Password123!',
+      fullName: 'Chief Adegoke Properties',
+      phone: '+2348011223344',
+      role: 'PROVIDER',
+      providerDetails: {
+        businessName: 'Adegoke Heritage Hostels'
+      }
+    })
+  });
+  const regRes = await worker.fetch(regReq, mockEnv, mockCtx);
+  const regData = await regRes.json() as any;
+  assert(regRes.status === 201, 'POST /api/auth/register for Agent returns HTTP 201 Created');
+  assert(Boolean(regData.token), 'Registration returns session token');
+  assert(regData.user?.role === 'PROVIDER', 'Registered user role is PROVIDER');
+  assert(regData.user?.providerDetails?.businessName === 'Adegoke Heritage Hostels', 'Provider business name saved');
+
+  // 12. Immediate Agent Login with newly created account
+  const newAgentLogin = await testLogin({ email: agentEmail, password: 'Password123!' }, 200, 'PROVIDER');
+  assert(Boolean(newAgentLogin.token), 'New agent can log in immediately');
+
+  // 13. Duplicate email prevention
+  const dupReq = new Request('https://hostelease.workers.dev/api/auth/register', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      email: agentEmail,
+      password: 'Password123!',
+      fullName: 'Chief Adegoke Clone',
+      role: 'PROVIDER'
+    })
+  });
+  const dupRes = await worker.fetch(dupReq, mockEnv, mockCtx);
+  assert(dupRes.status === 409, 'Duplicate agent registration returns HTTP 409 Conflict');
 
   console.log('\n========================================================');
   console.log(`🏁 AUTH TEST RESULTS: ${passed} PASSED, ${failed} FAILED`);

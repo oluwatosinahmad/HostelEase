@@ -2665,7 +2665,7 @@ function MainApp() {
           const targetRole = authedUser?.role || (safeStorage.getJSON<any | null>('hostel_ease_user', null)?.role || 'STUDENT');
           if (targetRole === 'ADMIN') {
             setCurrentView('admin-portal');
-          } else if (targetRole === 'PROVIDER') {
+          } else if (targetRole === 'PROVIDER' || targetRole === 'AGENT' || targetRole === 'LANDLORD') {
             setCurrentView('provider-portal');
           } else {
             setCurrentView('student-dashboard');

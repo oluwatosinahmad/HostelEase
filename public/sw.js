@@ -9,7 +9,7 @@
  * 5. Offline fallback only for essential static app shell.
  */
 
-const CACHE_NAME = 'hostel-ease-pwa-v10-live';
+const CACHE_NAME = 'hostel-ease-pwa-v11-live';
 const PRECACHE_ASSETS = [
   '/',
   '/index.html',

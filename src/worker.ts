@@ -325,7 +325,11 @@ export default {
           }, 409);
         }
 
-        const role = (body.role || 'STUDENT').toUpperCase();
+        let role = (body.role || 'STUDENT').toUpperCase();
+        if (role === 'AGENT' || role === 'LANDLORD') {
+          role = 'PROVIDER';
+        }
+
         const passwordHash = body.password ? bcrypt.hashSync(body.password, 8) : 'registered_session_active';
         const newUser = {
           id: `usr-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
@@ -342,7 +346,9 @@ export default {
           emailVerified: 1,
           createdAt: new Date().toISOString(),
           updated_at: new Date().toISOString(),
-          providerDetails: body.providerDetails || null
+          providerDetails: body.providerDetails || (role === 'PROVIDER' ? {
+            businessName: `${fullName} Accommodations`
+          } : null)
         };
 
         edgeUsers.unshift(newUser);

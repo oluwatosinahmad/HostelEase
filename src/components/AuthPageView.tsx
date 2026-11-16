@@ -258,7 +258,7 @@ export const AuthPageView: React.FC<AuthPageViewProps> = ({
 
       if (res.user) {
         if (onSuccess) onSuccess(res.user);
-        if (res.user.role === 'PROVIDER') {
+        if (res.user.role === 'PROVIDER' || res.user.role === 'AGENT' || res.user.role === 'LANDLORD') {
           onNavigate('provider-portal');
         } else if (res.user.role === 'ADMIN') {
           onNavigate('admin-portal');
