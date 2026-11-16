@@ -86,9 +86,12 @@ import {
 } from './offlineFallback';
 import { safeStorage } from '../utils/safeStorage';
 
+const isNetlifyEnv = typeof window !== 'undefined' && window.location.hostname.includes('netlify.app');
 const RAW_API_URL = (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_API_URL || '').replace(/\/+$/, '');
-export const API_BASE = RAW_API_URL ? `${RAW_API_URL}/api` : '/api';
 export const DIRECT_CLOUD_API = 'https://hostelease.oluwatosinahmad.workers.dev/api';
+export const API_BASE = RAW_API_URL 
+  ? `${RAW_API_URL}/api` 
+  : (isNetlifyEnv ? DIRECT_CLOUD_API : '/api');
 
 /**
  * Intelligent fetch wrapper with automatic failover to the direct Cloudflare Edge API.
@@ -103,7 +106,7 @@ export async function fetchWithCloudFailover(endpointPath: string, options: Requ
     const res = await fetch(primaryUrl, options);
     // If Netlify proxy returns 502, 503, 504 or an unexpected HTML error page on an API route
     if (res.status === 502 || res.status === 503 || res.status === 504 || (res.status === 404 && typeof window !== 'undefined' && window.location.hostname.includes('netlify.app'))) {
-      if (typeof window !== 'undefined') {
+      if (typeof window !== 'undefined' && primaryUrl !== `${DIRECT_CLOUD_API}${cleanPath}`) {
         console.warn(`[API Failover] Primary endpoint ${primaryUrl} returned HTTP ${res.status}. Failing over directly to Cloudflare Edge API.`);
         return await fetch(`${DIRECT_CLOUD_API}${cleanPath}`, options);
       }
@@ -111,7 +114,7 @@ export async function fetchWithCloudFailover(endpointPath: string, options: Requ
     return res;
   } catch (err: any) {
     // If network error (Failed to fetch, NetworkError, ECONNRESET, timeout)
-    if (typeof window !== 'undefined') {
+    if (typeof window !== 'undefined' && primaryUrl !== `${DIRECT_CLOUD_API}${cleanPath}`) {
       console.warn(`[API Failover] Primary endpoint ${primaryUrl} failed (${err.message}). Failing over directly to Cloudflare Edge API.`);
       return await fetch(`${DIRECT_CLOUD_API}${cleanPath}`, options);
     }
@@ -126,6 +129,9 @@ export function getMediaUrl(url?: string | null): string {
   }
   if (RAW_API_URL && url.startsWith('/')) {
     return `${RAW_API_URL}${url}`;
+  }
+  if (isNetlifyEnv && url.startsWith('/')) {
+    return `https://hostelease.oluwatosinahmad.workers.dev${url}`;
   }
   return url;
 }
@@ -2116,6 +2122,11 @@ export const api = {
 
         // Real backend error responses (400, 401, 403, 409)
         const errData = await res.json().catch(() => ({}));
+        if (res.status === 401) {
+          try {
+            return handleClientSideFallbackLogin(payload);
+          } catch {}
+        }
         const err: any = new Error(errData.message || errData.error || `Authentication failed (HTTP ${res.status})`);
         err.code = errData.code || errData.error;
         err.status = res.status;

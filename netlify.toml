@@ -3,6 +3,9 @@
   command = "npm run build"
   publish = "dist"
 
+[build.environment]
+  VITE_API_URL = "https://hostelease.oluwatosinahmad.workers.dev"
+
 # Proxy all /api/* requests to the production cloud engine
 [[redirects]]
   from = "/api/*"
